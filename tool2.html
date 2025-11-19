@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Measurement Tool with Advanced Features</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        #canvas-container {
+            position: relative;
+        }
+        canvas {
+            cursor: crosshair;
+        }
+        #magnifier {
+            position: absolute;
+            border: 3px solid #007bff;
+            border-radius: 50%;
+            width: 150px;
+            height: 150px;
+            overflow: hidden;
+            display: none;
+            pointer-events: none; /* Ignore mouse events */
+            z-index: 100;
+            background-color: #fff;
+        }
+        #magnifier-canvas {
+            width: 100%;
+            height: 100%;
+        }
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+        .switch input { 
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #2196F3;
+        }
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 flex h-screen">
+
+    <div class="w-full h-full bg-white flex flex-col lg:flex-row p-4 space-y-4 lg:space-y-0 lg:space-x-4">
+        
+        <!-- Controls -->
+        <div class="w-full lg:w-1/4 lg:max-w-xs p-4 bg-gray-50 rounded-lg border border-gray-200 overflow-y-auto">
+            <h1 class="text-2xl font-bold mb-4 text-gray-900">Measure It</h1>
+            
+            <div class="space-y-4">
+                <div>
+                    <label for="image-upload" class="block text-sm font-medium text-gray-700 mb-1">Load Image</label>
+                    <input type="file" id="image-upload" accept="image/*" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer">
+                    <p class="text-xs text-gray-500 mt-1">Or paste an image anywhere.</p>
+                </div>
+
+                <div id="controls-panel" class="space-y-4 hidden">
+                    <!-- Calibration -->
+                    <div>
+                        <h2 class="text-lg font-semibold mb-2">Calibration</h2>
+                        <div id="scale-info" class="text-sm p-2 bg-blue-50 rounded-md">
+                            <p><strong>Status:</strong> <span id="scale-status" class="font-mono">Uncalibrated</span></p>
+                            <p><strong>Scale:</strong> <span id="scale-value" class="font-mono">1 px = 1 px</span></p>
+                        </div>
+                        <button id="calibrate-btn" class="mt-2 w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-700 transition-colors">
+                            Start Calibration
+                        </button>
+                    </div>
+
+                    <div id="calibration-input-container" class="hidden space-y-2">
+                         <p class="text-sm font-medium text-yellow-700 bg-yellow-100 p-2 rounded-md">Click two points on the image.</p>
+                        <div>
+                            <label for="known-distance" class="block text-sm font-medium text-gray-700">Known Distance</label>
+                            <div class="flex space-x-2">
+                                <input type="number" id="known-distance" placeholder="e.g., 12" class="mt-1 block w-2/3 rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                                <input type="text" id="distance-unit" placeholder="Unit (in.)" value="in." class="mt-1 block w-1/3 rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                            </div>
+                        </div>
+                        <button id="set-scale-btn" class="w-full bg-green-600 text-white font-bold py-2 px-4 rounded-md hover:bg-green-700 transition-colors">Set Scale</button>
+                        <button id="cancel-calibration-btn" class="w-full bg-gray-500 text-white font-bold py-2 px-4 rounded-md hover:bg-gray-600 transition-colors">Cancel</button>
+                    </div>
+
+                    <!-- Settings -->
+                    <div>
+                        <h2 class="text-lg font-semibold mb-2 mt-4">Settings</h2>
+                        <div class="flex items-center justify-between">
+                            <label for="decimal-places-input" class="block text-sm font-medium text-gray-700">Decimal Places</label>
+                            <input type="number" id="decimal-places-input" value="2" min="0" max="10" class="mt-1 block w-20 rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                        </div>
+                        <div class="flex items-center justify-between mt-2">
+                            <label for="font-size-input" class="block text-sm font-medium text-gray-700">Dimension Font Size</label>
+                            <input type="number" id="font-size-input" value="12" min="6" max="48" class="mt-1 block w-20 rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                        </div>
+                        <div class="flex items-center justify-between mt-2">
+                             <label for="magnifier-toggle" class="block text-sm font-medium text-gray-700">Magnifier</label>
+                             <label class="switch">
+                                <input type="checkbox" id="magnifier-toggle">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="flex items-center justify-between mt-2">
+                             <label for="highlight-toggle" class="block text-sm font-medium text-gray-700">Highlight Found Pixels</label>
+                             <label class="switch">
+                                <input type="checkbox" id="highlight-toggle">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div id="threshold-container" class="mt-2 hidden">
+                            <label for="threshold-input" class="block text-sm font-medium text-gray-700">Darkness Threshold (%)</label>
+                            <input type="number" id="threshold-input" value="70" min="1" max="100" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div>
+                        <h2 class="text-lg font-semibold mb-2 mt-4">Actions</h2>
+                        <div class="space-y-2">
+                             <p class="text-xs text-gray-500">Click a label to select it, then press 'Delete' to remove it.</p>
+                             <button id="find-hole-btn" class="w-full bg-teal-600 text-white font-bold py-2 px-4 rounded-md hover:bg-teal-700 transition-colors">Find Hole Center</button>
+                             <div id="hole-explanation-container" class="hidden p-3 bg-teal-50 rounded-md text-sm text-gray-800 space-y-2 border border-teal-200">
+                                <h4 class="font-bold text-teal-900">How It Works:</h4>
+                                <ol class="list-decimal list-inside space-y-1 text-teal-800">
+                                    <li>Draw a box around a hole to define the search area.</li>
+                                    <li>The app calculates the average brightness inside your box.</li>
+                                    <li>It identifies all pixels darker than the set threshold.</li>
+                                    <li>The geometric center (centroid) of these dark pixels is marked as the hole's center.</li>
+                                </ol>
+                             </div>
+                             <button id="clear-btn" class="w-full bg-red-600 text-white font-bold py-2 px-4 rounded-md hover:bg-red-700 transition-colors">Clear All</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Canvas Area -->
+        <div class="flex-1 flex items-center justify-center bg-gray-200 rounded-lg overflow-hidden" id="canvas-container">
+            <canvas id="canvas"></canvas>
+            <div id="magnifier"><canvas id="magnifier-canvas"></canvas></div>
+            <div id="placeholder-text" class="text-gray-500">Please load an image to begin.</div>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const imageUpload = document.getElementById('image-upload');
+        const calibrateBtn = document.getElementById('calibrate-btn');
+        const setScaleBtn = document.getElementById('set-scale-btn');
+        const cancelCalibrationBtn = document.getElementById('cancel-calibration-btn');
+        const clearBtn = document.getElementById('clear-btn');
+        const findHoleBtn = document.getElementById('find-hole-btn');
+        const holeExplanationContainer = document.getElementById('hole-explanation-container');
+        const knownDistanceInput = document.getElementById('known-distance');
+        const distanceUnitInput = document.getElementById('distance-unit');
+        const decimalPlacesInput = document.getElementById('decimal-places-input');
+        const fontSizeInput = document.getElementById('font-size-input');
+        const magnifierToggle = document.getElementById('magnifier-toggle');
+        const highlightToggle = document.getElementById('highlight-toggle');
+        const thresholdContainer = document.getElementById('threshold-container');
+        const thresholdInput = document.getElementById('threshold-input');
+        const calibrationInputContainer = document.getElementById('calibration-input-container');
+        const scaleStatus = document.getElementById('scale-status');
+        const scaleValue = document.getElementById('scale-value');
+        const canvasContainer = document.getElementById('canvas-container');
+        const placeholderText = document.getElementById('placeholder-text');
+        const controlsPanel = document.getElementById('controls-panel');
+        const magnifier = document.getElementById('magnifier');
+        const magnifierCanvas = document.getElementById('magnifier-canvas');
+        const magnifierCtx = magnifierCanvas.getContext('2d');
+
+        magnifierCanvas.width = 150;
+        magnifierCanvas.height = 150;
+
+        // State Variables
+        let image = null;
+        let offscreenCanvas, offscreenCtx; // For full-resolution processing
+        let measurements = [];
+        let holeCenters = [];
+        let highlightedHolePixels = []; // Stores arrays of {x, y} coordinates for each found hole
+        let currentPoints = [];
+        let selectedMeasurementIndex = null;
+        let isCalibrating = false;
+        let isFindingHole = false;
+        let holeSelectionRect = null;
+        let calibrationPoints = [];
+        let scale = 1.0; 
+        let unit = 'px';
+        let decimalPlaces = 2;
+        let fontSize = 12;
+        let magnifierEnabled = false;
+        let highlightDarkPixels = false;
+        let darknessThreshold = 0.7;
+        const SNAP_RADIUS = 10;
+        
+        let draggedMeasurement = null;
+        let dragOffset = { x: 0, y: 0 };
+        let wasDragging = false;
+        let justFinishedAction = false;
+
+        // --- Event Listeners ---
+        imageUpload.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => loadImage(event.target.result);
+                reader.readAsDataURL(file);
+            }
+        });
+
+        window.addEventListener('paste', (e) => {
+            const items = e.clipboardData.items;
+            for (const item of items) {
+                if (item.type.indexOf('image') !== -1) {
+                    const blob = item.getAsFile();
+                    const reader = new FileReader();
+                    reader.onload = (event) => loadImage(event.target.result);
+                    reader.readAsDataURL(blob);
+                    break;
+                }
+            }
+        });
+
+        canvas.addEventListener('mousedown', handleMouseDown);
+        canvas.addEventListener('mousemove', handleMouseMove);
+        canvas.addEventListener('mouseup', handleMouseUp);
+        canvas.addEventListener('click', handleCanvasClick);
+        window.addEventListener('keydown', handleKeyDown);
+        
+        calibrateBtn.addEventListener('click', () => {
+            resetAllModes();
+            isCalibrating = true;
+            calibrateBtn.disabled = true;
+            findHoleBtn.disabled = true;
+            calibrateBtn.textContent = 'Calibrating...';
+            calibrationInputContainer.classList.remove('hidden');
+            clearBtn.disabled = true;
+        });
+
+        cancelCalibrationBtn.addEventListener('click', () => {
+            resetAllModes();
+            redrawCanvas();
+        });
+
+        setScaleBtn.addEventListener('click', () => {
+            const distance = parseFloat(knownDistanceInput.value);
+            if (!distance || distance <= 0 || calibrationPoints.length !== 2) {
+                alert('Please click two points and enter a valid positive distance.');
+                return;
+            }
+            const pixelDistance = Math.hypot(calibrationPoints[1].x - calibrationPoints[0].x, calibrationPoints[1].y - calibrationPoints[0].y);
+            scale = distance / pixelDistance;
+            unit = distanceUnitInput.value || 'units';
+            updateScaleInfo();
+            resetAllModes();
+            redrawCanvas();
+        });
+
+        clearBtn.addEventListener('click', () => {
+            measurements = [];
+            holeCenters = [];
+            highlightedHolePixels = []; // Clear highlights
+            selectedMeasurementIndex = null;
+            redrawCanvas();
+        });
+
+        findHoleBtn.addEventListener('click', () => {
+            resetAllModes();
+            isFindingHole = true;
+            findHoleBtn.textContent = 'Select Area for Hole...';
+            findHoleBtn.disabled = true;
+            calibrateBtn.disabled = true;
+            holeExplanationContainer.classList.remove('hidden'); // Show explanation
+        });
+
+        decimalPlacesInput.addEventListener('change', (e) => {
+            const value = parseInt(e.target.value, 10);
+            if (!isNaN(value) && value >= 0) {
+                decimalPlaces = value;
+                updateScaleInfo();
+                redrawCanvas();
+            }
+        });
+
+        fontSizeInput.addEventListener('input', (e) => {
+            const value = parseInt(e.target.value, 10);
+            if (!isNaN(value) && value >= 6 && value <= 48) {
+                fontSize = value;
+                redrawCanvas();
+            }
+        });
+
+        magnifierToggle.addEventListener('change', (e) => {
+            magnifierEnabled = e.target.checked;
+            if (!magnifierEnabled) {
+                magnifier.style.display = 'none';
+            }
+        });
+
+        highlightToggle.addEventListener('change', (e) => {
+            highlightDarkPixels = e.target.checked;
+            if (highlightDarkPixels) {
+                thresholdContainer.classList.remove('hidden');
+            } else {
+                thresholdContainer.classList.add('hidden');
+            }
+            redrawCanvas();
+        });
+
+        thresholdInput.addEventListener('input', (e) => {
+            const value = parseInt(e.target.value, 10);
+            if (!isNaN(value) && value >= 1 && value <= 100) {
+                darknessThreshold = value / 100.0;
+            }
+        });
+        
+        window.addEventListener('resize', () => { if(image) { resizeCanvas(); redrawCanvas(); } });
+
+        // --- Key/Mouse Handlers ---
+        function handleKeyDown(e) {
+            if (e.key === 'Escape') {
+                let needsRedraw = false;
+                if (currentPoints.length > 0) { currentPoints = []; needsRedraw = true; }
+                if (selectedMeasurementIndex !== null) { selectedMeasurementIndex = null; needsRedraw = true; }
+                if (isCalibrating || isFindingHole) { resetAllModes(); needsRedraw = true; }
+                if (needsRedraw) redrawCanvas();
+            }
+
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                if (selectedMeasurementIndex !== null) {
+                    measurements.splice(selectedMeasurementIndex, 1);
+                    selectedMeasurementIndex = null;
+                    redrawCanvas();
+                }
+            }
+        }
+
+        function handleMouseDown(e) {
+            if (!image) return;
+            const pos = getMousePos(canvas, e);
+            if (isFindingHole) {
+                holeSelectionRect = { startX: pos.x, startY: pos.y, endX: pos.x, endY: pos.y };
+                return;
+            }
+            for (const [i, m] of measurements.entries()) {
+                const box = getLabelBoundingBox(m);
+                if (pos.x >= box.x && pos.x <= box.x + box.width && pos.y >= box.y && pos.y <= box.y + box.height) {
+                    draggedMeasurement = m;
+                    selectedMeasurementIndex = i;
+                    dragOffset.x = pos.x - m.labelPos.x;
+                    dragOffset.y = pos.y - m.labelPos.y;
+                    wasDragging = false;
+                    redrawCanvas();
+                    return;
+                }
+            }
+        }
+
+        function handleMouseMove(e) {
+            if (!image) return;
+            const pos = getMousePos(canvas, e);
+            if (magnifierEnabled) updateMagnifier(pos.x, pos.y);
+
+            if (holeSelectionRect) {
+                holeSelectionRect.endX = pos.x;
+                holeSelectionRect.endY = pos.y;
+                redrawCanvas();
+                drawSelectionRect(holeSelectionRect);
+                return;
+            }
+            if (draggedMeasurement) {
+                wasDragging = true;
+                draggedMeasurement.labelPos.x = pos.x - dragOffset.x;
+                draggedMeasurement.labelPos.y = pos.y - dragOffset.y;
+                redrawCanvas();
+            } else if (currentPoints.length === 1 && !isCalibrating) {
+                redrawCanvas();
+                const snappedPos = getSnapPoint(pos);
+                ctx.beginPath();
+                ctx.moveTo(currentPoints[0].x, currentPoints[0].y);
+                ctx.lineTo(snappedPos.x, snappedPos.y);
+                ctx.strokeStyle = 'rgba(255, 0, 0, 0.7)';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 5]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            } else {
+                let onLabel = false;
+                for (const m of measurements) {
+                    if (isPointOnMeasurement(pos, m)) { onLabel = true; break; }
+                }
+                canvas.style.cursor = onLabel ? 'pointer' : 'crosshair';
+            }
+        }
+
+        function handleMouseUp(e) {
+            if (holeSelectionRect) {
+                processHoleSelection(holeSelectionRect);
+                holeSelectionRect = null;
+                resetAllModes();
+                redrawCanvas();
+                justFinishedAction = true;
+            }
+            draggedMeasurement = null;
+        }
+        
+        function handleCanvasClick(e) {
+            if (justFinishedAction) { justFinishedAction = false; return; }
+            if (wasDragging) { wasDragging = false; return; }
+            
+            const pos = getMousePos(canvas, e);
+            const snappedPos = getSnapPoint(pos);
+            
+            if (isCalibrating) { handleCalibrationClick(snappedPos); return; }
+            if (isFindingHole) { return; }
+
+            let clickedMeasurementIndex = -1;
+            for (const [i, m] of measurements.entries()) {
+                if (isPointOnMeasurement(pos, m)) { clickedMeasurementIndex = i; break; }
+            }
+
+            if (clickedMeasurementIndex !== -1) {
+                selectedMeasurementIndex = clickedMeasurementIndex;
+                currentPoints = [];
+                redrawCanvas();
+            } else {
+                selectedMeasurementIndex = null;
+                handleMeasurementClick(snappedPos);
+            }
+        }
+
+        // --- Core Functions ---
+        function loadImage(src) {
+            image = new Image();
+            image.onload = () => {
+                placeholderText.classList.add('hidden');
+                canvas.classList.remove('hidden');
+                controlsPanel.classList.remove('hidden');
+                
+                // Create offscreen canvas for full-res operations
+                offscreenCanvas = document.createElement('canvas');
+                offscreenCanvas.width = image.width;
+                offscreenCanvas.height = image.height;
+                offscreenCtx = offscreenCanvas.getContext('2d');
+                offscreenCtx.drawImage(image, 0, 0);
+
+                resizeCanvas();
+                redrawCanvas();
+            };
+            image.src = src;
+        }
+        function resizeCanvas() {
+            const containerWidth = canvasContainer.clientWidth;
+            const containerHeight = canvasContainer.clientHeight;
+            const imageAspectRatio = image.width / image.height;
+            const containerAspectRatio = containerWidth / containerHeight;
+            let canvasWidth, canvasHeight;
+            if (imageAspectRatio > containerAspectRatio) {
+                canvasWidth = containerWidth;
+                canvasHeight = containerWidth / imageAspectRatio;
+            } else {
+                canvasHeight = containerHeight;
+                canvasWidth = containerHeight * imageAspectRatio;
+            }
+            canvas.width = canvasWidth;
+            canvas.height = canvasHeight;
+        }
+        function redrawCanvas() {
+            if (!image) return;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+            
+            if (highlightDarkPixels) {
+                applyLocalHighlight();
+            }
+
+            measurements.forEach((m, i) => drawMeasurement(m, i === selectedMeasurementIndex));
+            holeCenters.forEach(p => drawHoleMarker(p));
+            
+            if (isCalibrating && calibrationPoints.length > 0) {
+                 ctx.fillStyle = 'rgba(255, 215, 0, 0.9)';
+                 ctx.beginPath();
+                 ctx.arc(calibrationPoints[0].x, calibrationPoints[0].y, 5, 0, 2 * Math.PI);
+                 ctx.fill();
+                 if(calibrationPoints.length === 2) {
+                    ctx.beginPath();
+                    ctx.arc(calibrationPoints[1].x, calibrationPoints[1].y, 5, 0, 2 * Math.PI);
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.moveTo(calibrationPoints[0].x, calibrationPoints[0].y);
+                    ctx.lineTo(calibrationPoints[1].x, calibrationPoints[1].y);
+                    ctx.strokeStyle = 'rgba(255, 215, 0, 0.9)';
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                 }
+            }
+        }
+        function handleMeasurementClick(point) {
+            currentPoints.push(point);
+            if (currentPoints.length === 2) {
+                measurements.push({
+                    start: currentPoints[0], end: currentPoints[1],
+                    labelPos: { x: (currentPoints[0].x + currentPoints[1].x) / 2, y: (currentPoints[0].y + currentPoints[1].y) / 2 - 20 }
+                });
+                currentPoints = [];
+            }
+            redrawCanvas();
+        }
+        function handleCalibrationClick(point) {
+            if (calibrationPoints.length < 2) {
+                calibrationPoints.push(point);
+                redrawCanvas();
+            }
+        }
+        function drawMeasurement(measurement, isSelected) {
+            const { start, end, labelPos } = measurement;
+            const color = isSelected ? '#f59e0b' : '#ff0000';
+            ctx.beginPath();
+            ctx.moveTo(start.x, start.y);
+            ctx.lineTo(end.x, end.y);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = isSelected ? 3 : 2;
+            ctx.stroke();
+            drawArrowhead(ctx, start, end, 10, color);
+            drawArrowhead(ctx, end, start, 10, color);
+            const text = getMeasurementText(measurement);
+            const box = getLabelBoundingBox(measurement);
+            ctx.save();
+            ctx.fillStyle = isSelected ? 'rgba(252, 211, 77, 0.9)' : 'rgba(255, 255, 255, 0.9)';
+            ctx.fillRect(box.x, box.y, box.width, box.height);
+            ctx.fillStyle = '#1a202c';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.font = `${fontSize}px Inter`;
+            ctx.fillText(text, labelPos.x, labelPos.y);
+            ctx.restore();
+        }
+        function drawArrowhead(context, from, to, radius, color) {
+            const angle = Math.atan2(to.y - from.y, to.x - from.x);
+            context.save();
+            context.beginPath();
+            context.translate(to.x, to.y);
+            context.rotate(angle);
+            context.moveTo(0, 0);
+            context.lineTo(-radius, radius / 2);
+            context.moveTo(0, 0);
+            context.lineTo(-radius, -radius / 2);
+            context.strokeStyle = color;
+            context.stroke();
+            context.restore();
+        }
+        
+        // --- New Feature Functions ---
+        function applyLocalHighlight() {
+            if (highlightedHolePixels.length === 0) return;
+            
+            ctx.fillStyle = 'rgba(255, 0, 0, 0.4)'; // Semi-transparent red
+
+            for (const hole of highlightedHolePixels) {
+                for (const pixel of hole) {
+                    ctx.fillRect(pixel.x, pixel.y, 1, 1);
+                }
+            }
+        }
+
+        function drawSelectionRect(rect) {
+            ctx.strokeStyle = 'rgba(0, 123, 255, 0.7)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            const width = rect.endX - rect.startX;
+            const height = rect.endY - rect.startY;
+            ctx.strokeRect(rect.startX, rect.startY, width, height);
+            ctx.setLineDash([]);
+        }
+
+        function processHoleSelection(rect) {
+            if (!offscreenCanvas) return;
+            const scaleX = offscreenCanvas.width / canvas.width;
+            const scaleY = offscreenCanvas.height / canvas.height;
+
+            const offscreenRect = {
+                x: Math.min(rect.startX, rect.endX) * scaleX,
+                y: Math.min(rect.startY, rect.endY) * scaleY,
+                width: Math.abs(rect.endX - rect.startX) * scaleX,
+                height: Math.abs(rect.endY - rect.startY) * scaleY
+            };
+
+            if (offscreenRect.width < 5 || offscreenRect.height < 5) return;
+            
+            const imageData = offscreenCtx.getImageData(offscreenRect.x, offscreenRect.y, offscreenRect.width, offscreenRect.height);
+            const data = imageData.data;
+            let totalBrightness = 0;
+            for (let i = 0; i < data.length; i += 4) {
+                totalBrightness += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+            }
+            const avgBrightness = totalBrightness / (offscreenRect.width * offscreenRect.height);
+            const threshold = avgBrightness * darknessThreshold;
+            let centroidX = 0, centroidY = 0, pointCount = 0;
+            const currentHolePixels = [];
+
+            for (let j = 0; j < offscreenRect.height; j++) {
+                for (let i = 0; i < offscreenRect.width; i++) {
+                    const index = (j * Math.floor(offscreenRect.width) + i) * 4;
+                    const brightness = 0.299 * data[index] + 0.587 * data[index + 1] + 0.114 * data[index + 2];
+                    if (brightness < threshold) {
+                        centroidX += i;
+                        centroidY += j;
+                        pointCount++;
+                        currentHolePixels.push({x: (offscreenRect.x + i) / scaleX, y: (offscreenRect.y + j) / scaleY});
+                    }
+                }
+            }
+            if (pointCount > 0) {
+                const finalCentroidX = (offscreenRect.x + (centroidX / pointCount)) / scaleX;
+                const finalCentroidY = (offscreenRect.y + (centroidY / pointCount)) / scaleY;
+                holeCenters.push({ x: finalCentroidX, y: finalCentroidY });
+                highlightedHolePixels.push(currentHolePixels);
+            }
+        }
+
+        function drawHoleMarker(point) {
+            ctx.strokeStyle = '#007bff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(point.x - 7, point.y); ctx.lineTo(point.x + 7, point.y);
+            ctx.moveTo(point.x, point.y - 7); ctx.lineTo(point.x, point.y + 7);
+            ctx.stroke();
+        }
+        
+        function getSnapPoint(pos) {
+            for (const center of holeCenters) {
+                if (Math.hypot(pos.x - center.x, pos.y - center.y) < SNAP_RADIUS) { return center; }
+            }
+            return pos;
+        }
+
+        function updateMagnifier(x, y) {
+            if (!offscreenCanvas) return;
+            magnifier.style.display = 'block';
+            magnifier.style.left = (x + 20) + 'px';
+            magnifier.style.top = (y + 20) + 'px';
+            
+            const scaleX = offscreenCanvas.width / canvas.width;
+            const scaleY = offscreenCanvas.height / canvas.height;
+            const offscreenX = x * scaleX;
+            const offscreenY = y * scaleY;
+
+            const zoomLevel = 5;
+            const sourceSize = 150 / zoomLevel;
+            
+            magnifierCtx.imageSmoothingEnabled = false;
+            magnifierCtx.clearRect(0, 0, magnifierCanvas.width, magnifierCanvas.height);
+            magnifierCtx.drawImage(offscreenCanvas, 
+                offscreenX - sourceSize / 2, offscreenY - sourceSize / 2, 
+                sourceSize, sourceSize, 
+                0, 0, 
+                magnifierCanvas.width, magnifierCanvas.height
+            );
+
+            magnifierCtx.strokeStyle = 'rgba(255, 0, 0, 0.7)';
+            magnifierCtx.lineWidth = 1;
+            magnifierCtx.beginPath();
+            magnifierCtx.moveTo(magnifierCanvas.width / 2, 0); magnifierCtx.lineTo(magnifierCanvas.width / 2, magnifierCanvas.height);
+            magnifierCtx.moveTo(0, magnifierCanvas.height / 2); magnifierCtx.lineTo(magnifierCanvas.width, magnifierCanvas.height / 2);
+            magnifierCtx.stroke();
+        }
+
+        // --- Helper Functions ---
+        function resetAllModes() {
+            isCalibrating = false;
+            isFindingHole = false;
+            selectedMeasurementIndex = null;
+            currentPoints = [];
+            calibrationPoints = [];
+            calibrateBtn.disabled = false;
+            findHoleBtn.disabled = false;
+            calibrateBtn.textContent = 'Start Calibration';
+            findHoleBtn.textContent = 'Find Hole Center';
+            calibrationInputContainer.classList.add('hidden');
+            holeExplanationContainer.classList.add('hidden'); // Hide explanation
+            clearBtn.disabled = false;
+        }
+        function updateScaleInfo() {
+            if (scale === 1.0) { scaleValue.textContent = '1 px = 1 px'; return; }
+            scaleStatus.textContent = 'Calibrated';
+            scaleStatus.className = "font-mono text-green-700";
+            scaleValue.textContent = `1 ${unit} ≈ ${(1/scale).toFixed(decimalPlaces)} px`;
+        }
+        function getMousePos(canvas, evt) {
+            const rect = canvas.getBoundingClientRect();
+            return { x: evt.clientX - rect.left, y: evt.clientY - rect.top };
+        }
+        function getMeasurementText(measurement) {
+            const pixelDistance = Math.hypot(measurement.end.x - measurement.start.x, measurement.end.y - measurement.start.y);
+            const realDistance = pixelDistance * scale;
+            return `${realDistance.toFixed(decimalPlaces)} ${unit}`;
+        }
+        function getLabelBoundingBox(measurement) {
+            const { labelPos } = measurement;
+            const text = getMeasurementText(measurement);
+            ctx.font = `${fontSize}px Inter`;
+            const textMetrics = ctx.measureText(text);
+            const padding = 4;
+            const width = textMetrics.width + padding * 2;
+            const height = fontSize + padding * 2;
+            return { x: labelPos.x - width / 2, y: labelPos.y - height / 2, width, height };
+        }
+        
+        function isPointOnMeasurement(point, measurement) {
+            const box = getLabelBoundingBox(measurement);
+            return (point.x >= box.x && point.x <= box.x + box.width && point.y >= box.y && point.y <= box.y + box.height);
+        }
+        
+    </script>
+</body>
+</html>
