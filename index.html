@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,15 +9,19 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/style.css">
     <style>
         /* Apply Inter font */
         body {
             font-family: 'Inter', sans-serif;
         }
+
         /* Add a subtle background */
         body {
-            background-color: #f9fafb; /* Tailwind gray-50 */
+            background-color: #f9fafb;
+            /* Tailwind gray-50 */
         }
+
         /* Optional: Add a subtle hover effect to the linked image */
         a img:hover {
             opacity: 0.85;
@@ -24,6 +29,7 @@
         }
     </style>
 </head>
+
 <body class="text-gray-800">
 
     <header class="py-8 md:py-12">
@@ -38,30 +44,34 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
 
             <div class="bg-white p-6 rounded-lg shadow-md text-center flex flex-col items-center justify-between">
-                <a href="tool1.html">
-                    <img src="tool1.png" alt="Image for Rigid Body Analysis" class="w-full h-32 object-cover rounded-md mb-4">
+                <a href="tools/tool1/index.html">
+                    <img src="assets/images/tool1.png" alt="Image for Rigid Body Analysis"
+                        class="w-full h-32 object-cover rounded-md mb-4">
                 </a>
                 <div>
                     <h2 class="text-xl font-semibold mb-2 text-gray-900">Rigid Body Analysis</h2>
                     <p class="text-gray-600 text-sm mb-4">3D rigid body with spring point supports and point loads.</p>
                 </div>
-                </div>
+            </div>
 
-            
+
             <div class="bg-white p-6 rounded-lg shadow-md text-center flex flex-col items-center justify-between">
-                 <a href="tool2.html">
-                    <img src="tool2.png" alt="Image Measurement" class="w-full h-32 object-cover rounded-md mb-4">
-                 </a>
+                <a href="tools/tool2/index.html">
+                    <img src="assets/images/tool2.png" alt="Image Measurement"
+                        class="w-full h-32 object-cover rounded-md mb-4">
+                </a>
                 <div>
                     <h2 class="text-xl font-semibold mb-2 text-gray-900">Image Measurement</h2>
-                    <p class="text-gray-600 text-sm mb-4">Upload or paste in an image and make measurements. Includes a feature to detect and mark the centre of a hole, to facilate hole centre-to-centre measurements.</p>
+                    <p class="text-gray-600 text-sm mb-4">Upload or paste in an image and make measurements. Includes a
+                        feature to detect and mark the centre of a hole, to facilate hole centre-to-centre measurements.
+                    </p>
                 </div>
-                 </div>
+            </div>
 
             <!-- COMMENTING OUT THESE TOOLS FOR NOW
             <div class="bg-white p-6 rounded-lg shadow-md text-center flex flex-col items-center justify-between">
-                 <a href="tool3.html">
-                    <img src="tool3.png" alt="Image for Fastened 2D Membranes" class="w-full h-32 object-cover rounded-md mb-4">
+                 <a href="tools/tool3/index.html">
+                    <img src="assets/images/tool3.png" alt="Image for Fastened 2D Membranes" class="w-full h-32 object-cover rounded-md mb-4">
                  </a>
                 <div>
                     <h2 class="text-xl font-semibold mb-2 text-gray-900">Fastened Membrane FEM</h2>
@@ -71,31 +81,34 @@
             -->
 
             <div class="bg-white p-6 rounded-lg shadow-md text-center flex flex-col items-center justify-between">
-                 <a href="tool5.html">
-                    <img src="tool5.png" alt="Image for Section Property Tool" class="w-full h-32 object-cover rounded-md mb-4">
-                 </a>
+                <a href="tools/tool5/index.html">
+                    <img src="assets/images/tool5.png" alt="Image for Section Property Tool"
+                        class="w-full h-32 object-cover rounded-md mb-4">
+                </a>
                 <div>
                     <h2 class="text-xl font-semibold mb-2 text-gray-900">Section Property Tool</h2>
-                    <p class="text-gray-600 text-sm mb-4">Calculate section properties for a section made from rectangular segments.</p>
+                    <p class="text-gray-600 text-sm mb-4">Calculate section properties for a section made from
+                        rectangular segments.</p>
                 </div>
-                 </div>
+            </div>
 
             <div class="bg-white p-6 rounded-lg shadow-md text-center flex flex-col items-center justify-between">
-                 <a href="tool4.html">
-                    <img src="tool4.png" alt="Image for Interpolation" class="w-full h-32 object-cover rounded-md mb-4">
-                 </a>
+                <a href="tools/tool4/index.html">
+                    <img src="assets/images/tool4.png" alt="Image for Interpolation"
+                        class="w-full h-32 object-cover rounded-md mb-4">
+                </a>
                 <div>
                     <h2 class="text-xl font-semibold mb-2 text-gray-900">Interpolator</h2>
                     <p class="text-gray-600 text-sm mb-4">Linear and Log Interpolation in 1D and 2D data.</p>
                 </div>
-                 </div>
+            </div>
 
-            
+
 
             <!-- COMMENTING OUT THIS TOOL FOR NOW
             <div class="bg-white p-6 rounded-lg shadow-md text-center flex flex-col items-center justify-between">
-                 <a href="tool6.html">
-                    <img src="tool6.png" alt="Image for Tool Six" class="w-full h-32 object-cover rounded-md mb-4">
+                 <a href="tools/tool6/index.html">
+                    <img src="assets/images/tool6.png" alt="Image for Tool Six" class="w-full h-32 object-cover rounded-md mb-4">
                  </a>
                 <div>
                     <h2 class="text-xl font-semibold mb-2 text-gray-900">Load Transfer Analysis</h2>
@@ -105,38 +118,45 @@
             -->
 
             <div class="bg-white p-6 rounded-lg shadow-md text-center flex flex-col items-center justify-between">
-                 <a href="tool7.html">
-                    <img src="tool7.png" alt="Image for Tool Seven" class="w-full h-32 object-cover rounded-md mb-4">
-                 </a>
+                <a href="tools/tool7/index.html">
+                    <img src="assets/images/tool7.png" alt="Image for Tool Seven"
+                        class="w-full h-32 object-cover rounded-md mb-4">
+                </a>
                 <div>
                     <h2 class="text-xl font-semibold mb-2 text-gray-900">Plot Digitizer</h2>
-                    <p class="text-gray-600 text-sm mb-4">Extract values from a 2D plot image, where each axis may be either linear or log scale, e.g. DTR form.</p>
+                    <p class="text-gray-600 text-sm mb-4">Extract values from a 2D plot image, where each axis may be
+                        either linear or log scale, e.g. DTR form.</p>
                 </div>
-                 </div>
+            </div>
 
             <div class="bg-white p-6 rounded-lg shadow-md text-center flex flex-col items-center justify-between">
-                 <a href="tool8.html">
-                    <img src="tool8.png" alt="Image for Tool Eight" class="w-full h-32 object-cover rounded-md mb-4">
-                 </a>
+                <a href="tools/tool8/index.html">
+                    <img src="assets/images/tool8.png" alt="Image for Tool Eight"
+                        class="w-full h-32 object-cover rounded-md mb-4">
+                </a>
                 <div>
                     <h2 class="text-xl font-semibold mb-2 text-gray-900">Secondary Bending Analysis</h2>
-                    <p class="text-gray-600 text-sm mb-4">Calculate secondary bending effects using a nonlinear beam analysis. This currently doesn't have explanatory documentation (in progress).</p>
+                    <p class="text-gray-600 text-sm mb-4">Calculate secondary bending effects using a nonlinear beam
+                        analysis. This currently doesn't have explanatory documentation (in progress).</p>
                 </div>
-                 </div>
+            </div>
 
             <div class="bg-white p-6 rounded-lg shadow-md text-center flex flex-col items-center justify-between">
-                 <a href="tool9.html">
-                    <img src="tool9.png" alt="Freeze Plug Stress Calcs" class="w-full h-32 object-cover rounded-md mb-4">
-                 </a>
+                <a href="tools/tool9/index.html">
+                    <img src="assets/images/tool9.png" alt="Freeze Plug Stress Calcs"
+                        class="w-full h-32 object-cover rounded-md mb-4">
+                </a>
                 <div>
                     <h2 class="text-xl font-semibold mb-2 text-gray-900">Freeze Plug Stresses</h2>
-                    <p class="text-gray-600 text-sm mb-4">Calculate freeze plug interference stress and combine it with stress severity due to hole bearing and bypass tension</p>
+                    <p class="text-gray-600 text-sm mb-4">Calculate freeze plug interference stress and combine it with
+                        stress severity due to hole bearing and bypass tension</p>
                 </div>
-                 </div>
-             
-
             </div>
+
+
+        </div>
     </main>
 
 </body>
+
 </html>
