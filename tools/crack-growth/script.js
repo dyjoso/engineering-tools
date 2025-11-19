@@ -1,12 +1,12 @@
 // Nasgro Constants for 2024-T3 Sheet (Approximate Imperial)
 const MATERIAL = {
-    C: 1.1e-8, // in/cycle for K in ksi-sqrt(in)
-    n: 3.5,
+    C: 8e-9, // in/cycle for K in ksi-sqrt(in)
+    n: 3.2,
     p: 0.25,
     q: 1.0,
     dKth: 1.2, // ksi-sqrt(in)
-    K1c: 33.0, // Plane Strain Fracture Toughness (ksi-sqrt(in))
-    Yield: 47.0, // Yield Strength (ksi)
+    K1c: 30.0, // Plane Strain Fracture Toughness (ksi-sqrt(in))
+    Yield: 53.0, // Yield Strength (ksi)
     Ak: 1.0, // Nasgro fit parameter
     Bk: 1.5, // Nasgro fit parameter
     alpha: 2.0, // Constraint factor for Newman closure (approx for sheet)
