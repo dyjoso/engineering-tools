@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crack Growth Analysis - Nasgro</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Using Chart.js for plotting -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>Crack Growth Analysis (Nasgro)</h1>
+            <p style="color: #64748b; font-size: 0.9rem; margin-top: 4px;">Central Crack in Finite Width Plate [M(T)] -
+                2024-T3 Sheet</p>
+        </header>
+
+        <aside class="controls">
+            <div class="card">
+                <h3>Parameters</h3>
+
+                <div class="input-group">
+                    <label for="width">Plate Width, W (in)</label>
+                    <input type="number" id="width" value="10.0" step="0.1">
+                </div>
+
+                <div class="input-group">
+                    <label for="thickness">Thickness, t (in)</label>
+                    <input type="number" id="thickness" value="0.063" step="0.01">
+                </div>
+
+                <div class="input-group">
+                    <label for="crack-length">Initial Crack Length, 2a (in)</label>
+                    <input type="number" id="crack-length" value="0.5" step="0.01">
+                </div>
+
+                <div class="input-group">
+                    <label for="max-stress">Max Stress, &sigma;<sub>max</sub> (ksi)</label>
+                    <input type="number" id="max-stress" value="15" step="1">
+                </div>
+
+                <div class="input-group">
+                    <label for="r-ratio">Stress Ratio, R</label>
+                    <input type="number" id="r-ratio" value="0" step="0.1" max="0.99">
+                </div>
+
+                <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;">
+
+                <h4 style="margin: 0 0 12px 0; font-size: 0.9rem;">Material (2024-T3)</h4>
+                <div class="input-group">
+                    <label>C (Nasgro)</label>
+                    <input type="number" id="mat-c" value="1.1e-8" readonly style="background: #f1f5f9;">
+                </div>
+                <div class="input-group">
+                    <label>n</label>
+                    <input type="number" id="mat-n" value="3.5" readonly style="background: #f1f5f9;">
+                </div>
+                <div class="input-group">
+                    <label>K<sub>crit</sub> (ksi&radic;in)</label>
+                    <input type="number" id="mat-kc" value="64" readonly style="background: #f1f5f9;">
+                </div>
+
+                <button id="run-btn" onclick="runAnalysis()">Run Analysis</button>
+                <div id="error-msg" class="error-msg"></div>
+            </div>
+        </aside>
+
+        <main class="results-area">
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-label">Final Crack Size (2a)</div>
+                    <div class="stat-value" id="res-final-a">-</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Total Cycles</div>
+                    <div class="stat-value" id="res-cycles">-</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Failure Mode</div>
+                    <div class="stat-value" id="res-mode">-</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="chart-container">
+                    <canvas id="growthChart"></canvas>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
