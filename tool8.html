@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Non-Linear Beam Solver (Fixed)</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <script>
+      tailwind.config = {
+        theme: { fontFamily: { sans: ['Inter', 'sans-serif'], }, }
+      }
+    </script>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+      body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="h-full bg-slate-900">
+    <div id="root" class="h-full"></div>
+
+    <script type="text/babel">
+    // === FIX: Global Destructuring ===
+    const { useState, useCallback, useRef, useEffect } = React;
+
+    // --- Helper Functions ---
+    const findStepValue = (x_target, x_arr, y_arr) => {
+        if (!x_arr || !y_arr || x_arr.length === 0) return 0;
+        let index = 0;
+        for (let i = 0; i < x_arr.length; i++) {
+            if (x_arr[i] <= x_target) index = i;
+            else break;
+        }
+        return y_arr[index];
+    };
+
+    // --- Pure Solver Functions ---
+    const parseFasteners = (fastenersStr) => {
+      const fasteners = [];
+      if (!fastenersStr) return fasteners;
+      return fastenersStr
+        .split('\n')
+        .map(line => {
+          if (line.trim() === '') return null;
+          const parts = line.split(',');
+          if (parts.length !== 2) return null;
+          const s = parseFloat(parts[0].trim());
+          const p = parseFloat(parts[1].trim());
+          if (!isNaN(s) && !isNaN(p)) return { s, pFraction: p };
+          return null;
+        })
+        .filter((f) => f !== null)
+        .sort((a, b) => a.s - b.s);
+    };
+
+    const calculateResidual = (theta_vec, P_array, m_array, M_end, EI, N, ds, fixRotation) => {
+        const F = math.zeros(N);
+        const theta = [0, ...theta_vec._data]; 
+        
+        // Internal Nodes
+        for (let i = 1; i <= N - 1; i++) {
+            const P_i = P_array._data[i - 1];
+            const m_i = m_array._data[i - 1];
+            // EI * theta'' - P * sin(theta) - m = 0
+            const f_i = (EI / (ds * ds)) * (theta[i - 1] - 2 * theta[i] + theta[i + 1]) - P_i * Math.sin(theta[i]) - m_i;
+            F._data[i - 1] = f_i;
+        }
+
+        // Boundary Node (i = N)
+        if (fixRotation) {
+            F._data[N - 1] = theta[N];
+        } else {
+            // === FIX: Account for Moment at Tip ===
+            // If a fastener is at the very end, m_array[N-1] contains that moment density.
+            // We must include it in the boundary balance.
+            const d_theta_L = (3 * theta[N] - 4 * theta[N - 1] + theta[N - 2]) / (2 * ds);
+            
+            // M_internal = EI * d_theta_L
+            // M_external = M_end (user input) + Moment from fastener at tip
+            // m_array stores (Moment / ds), so we multiply by ds to get Moment back
+            const M_fastener_at_tip = (m_array._data[N - 1] || 0) * ds;
+            
+            F._data[N - 1] = EI * d_theta_L - (M_end + M_fastener_at_tip);
+        }
+        return F;
+    };
+
+    const calculateJacobian = (theta_vec, P_array, EI, N, ds, fixRotation) => {
+        const J = math.zeros(N, N);
+        const theta = [0, ...theta_vec._data];
+
+        for (let i = 1; i <= N - 1; i++) {
+            const row = i - 1;
+            const P_i = P_array._data[i - 1];
+            if (i - 1 > 0) J.set([row, i - 2], EI / (ds * ds));
+            J.set([row, i - 1], -2 * EI / (ds * ds) - P_i * Math.cos(theta[i]));
+            J.set([row, i], EI / (ds * ds));
+        }
+
+        const row_N = N - 1;
+        if (fixRotation) {
+            if (N - 1 >= 0) J.set([row_N, N - 1], 1);
+        } else {
+            if (N - 1 >= 0) J.set([row_N, N - 1], EI * 3 / (2 * ds));
+            if (N - 2 >= 0) J.set([row_N, N - 2], EI * -4 / (2 * ds));
+            if (N - 3 >= 0) J.set([row_N, N - 3], EI * 1 / (2 * ds));
+        }
+        return J;
+    };
+
+    const calculate_yL = (theta_vec, ds) => {
+        const theta = [0, ...theta_vec._data];
+        let y_L = 0;
+        for (let i = 0; i < theta.length - 1; i++) {
+            y_L += (Math.sin(theta[i]) + Math.sin(theta[i + 1])) / 2;
+        }
+        return y_L * ds;
+    };
+
+    const calculateDeflectedShape = (theta_vec, ds) => {
+        const theta = [0, ...theta_vec._data];
+        const x_coords = [0];
+        const y_coords = [0];
+        let current_x = 0;
+        let current_y = 0;
+        for (let i = 0; i < theta.length - 1; i++) {
+            const avg_theta = (theta[i] + theta[i + 1]) / 2;
+            current_x += Math.cos(avg_theta) * ds;
+            current_y += Math.sin(avg_theta) * ds;
+            x_coords.push(current_x);
+            y_coords.push(current_y);
+        }
+        return { x: x_coords, y: y_coords };
+    };
+
+    const calculateInternalMoment = (theta_vec, EI, ds) => {
+        const theta = [0, ...theta_vec._data];
+        const N = theta_vec._data.length;
+        const s_coords = [];
+        const moments = [];
+        
+        s_coords.push(0);
+        moments.push(EI * (-3 * theta[0] + 4 * theta[1] - theta[2]) / (2 * ds));
+        
+        for (let i = 1; i < N; i++) {
+            s_coords.push(i * ds);
+            moments.push(EI * (theta[i + 1] - theta[i - 1]) / (2 * ds));
+        }
+        
+        s_coords.push(N * ds);
+        moments.push(EI * (3 * theta[N] - 4 * theta[N - 1] + theta[N - 2]) / (2 * ds));
+
+        return { s: s_coords, m: moments };
+    };
+
+    const calculateAxialLoad = (parsedFasteners, P_max, N, ds) => {
+        const s_coords = [0];
+        const p_values = [P_max];
+        for (let i = 0; i < N; i++) {
+            const s_node = (i + 1) * ds;
+            let P_at_node = P_max;
+            for (const fastener of parsedFasteners) {
+                if (s_node > fastener.s) {
+                    P_at_node -= fastener.pFraction * P_max;
+                }
+            }
+            s_coords.push(s_node);
+            p_values.push(P_at_node);
+        }
+        return { s: s_coords, p: p_values };
+    };
+
+    // --- Charting Utilities ---
+    const createChartOptions = (title, xLabel, yLabel, aspectRatio = null) => ({
+      responsive: true,
+      maintainAspectRatio: aspectRatio !== null, // Only maintain if specifically asked
+      aspectRatio: aspectRatio || 2,
+      plugins: {
+        title: { display: true, text: title, color: '#94a3b8', font: { size: 14 } },
+        legend: { labels: { color: '#94a3b8' } }
+      },
+      scales: {
+        x: { display: true, type: 'linear', title: { display: true, text: xLabel, color: '#94a3b8' }, ticks: { color: '#64748b' }, grid: { color: 'rgba(100, 116, 139, 0.2)' } },
+        y: { type: 'linear', display: true, title: { display: true, text: yLabel, color: '#94a3b8' }, ticks: { color: '#64748b' }, grid: { color: 'rgba(100, 116, 139, 0.2)' } },
+      },
+      interaction: { mode: 'index', intersect: false },
+    });
+
+    const getInitialResults = () => ({
+        loadVsDeformation: {
+          data: { labels: [0], datasets: [] },
+          options: createChartOptions('Rotation vs. X-Coordinate', 'X-Coordinate', 'Rotation (rad)'),
+        },
+        internalMoment: {
+          data: { labels: [0], datasets: [] },
+          options: createChartOptions('Internal Bending Moment', 'Beam Length (s)', 'Bending Moment'),
+        },
+        deflectedShape: {
+          data: { labels: [0], datasets: [] },
+          // === FIX: Removed 'aspectRatio: 1' which was squashing the chart ===
+          options: createChartOptions('Deflected Shape', 'X Coordinate', 'Y Coordinate', null),
+        },
+        axialLoad: {
+          data: { labels: [0], datasets: [] },
+          options: createChartOptions('Axial Load P(s)', 'Beam Length (s)', 'Axial Load (P)'),
+        },
+    });
+
+    // --- Main Hook ---
+    const useBeamSolver = () => {
+      // Restored original inputs
+      const [inputs, setInputs] = useState({
+        eModulus: '10.5e6',
+        l: '6',
+        pMax: '700',
+        tLower: '0.063',
+        tUpper: '0.063', // Restored
+        fasteners: '3, 0.35\n4, 0.30\n5, 0.35',
+        nNodes: '100',
+        numSteps: '1',
+        stressCalcOffset: '0.05',
+        fixRotation: false,
+        logToConsole: false,
+      });
+
+      const [results, setResults] = useState(getInitialResults());
+      const [logs, setLogs] = useState(['Welcome to the Non-Linear Beam Solver.']);
+      const [isLoading, setIsLoading] = useState(false);
+      const [stressRatio, setStressRatio] = useState(null);
+
+      const logStatus = (message) => {
+        if(inputs.logToConsole) console.log(message);
+        setLogs(prev => [...prev, message]);
+      };
+
+      const runSimulation = useCallback(async () => {
+        setIsLoading(true);
+        setStressRatio(null);
+        setLogs(['Starting simulation...']);
+
+        try {
+          const E = parseFloat(inputs.eModulus);
+          const L = parseFloat(inputs.l);
+          const P_max = parseFloat(inputs.pMax);
+          const N = parseInt(inputs.nNodes, 10);
+          const num_steps = parseInt(inputs.numSteps, 10);
+          const t_lower = parseFloat(inputs.tLower);
+          const t_upper = parseFloat(inputs.tUpper); // Restored
+          const stress_calc_offset = parseFloat(inputs.stressCalcOffset);
+          
+          if ([E, L, P_max, N, num_steps, t_lower, t_upper, stress_calc_offset].some(isNaN) || N <= 2 || num_steps <= 0) {
+              throw new Error("Invalid input. Please check all numerical fields.");
+          }
+
+          const I_lower = Math.pow(t_lower, 3) / 12;
+          const I_upper = Math.pow(t_upper, 3) / 12;
+          const EI = E * I_lower;
+          const ei_upper = E * I_upper; // Used for stiffness fraction
+
+          const ds = L / N;
+          const max_nr_iter = 20;
+          const tolerance = 1e-6;
+          const dP = P_max / num_steps;
+
+          const parsedFasteners = parseFasteners(inputs.fasteners);
+          logStatus(`Parsed ${parsedFasteners.length} fasteners.`);
+          
+          let theta = math.zeros(N);
+          
+          // --- Main Simulation Loop ---
+          for (let step = 1; step <= num_steps; step++) {
+            const P_current = step * dP;
+
+            const P_array = math.zeros(N);
+            const m_array = math.zeros(N);
+
+            // Build P_array
+            for (let i = 0; i < N; i++) {
+                const s_node = (i + 1) * ds;
+                let P_at_node = P_current;
+                for (const fastener of parsedFasteners) {
+                    if (s_node > fastener.s) P_at_node -= fastener.pFraction * P_current;
+                }
+                P_array._data[i] = P_at_node;
+            }
+
+            // Build m_array (Restored Eccentricity Logic)
+            for (const fastener of parsedFasteners) {
+                const P_f = fastener.pFraction * P_current;
+                const M_total_arm = (t_lower + t_upper) / 2;
+                const totalStiffness = EI + ei_upper;
+                const stiffness_fraction = totalStiffness > 0 ? (EI / totalStiffness) : 0;
+                const M_fastener = P_f * M_total_arm * stiffness_fraction;
+                
+                const node_index = Math.round(fastener.s / ds) - 1;
+                if (node_index >= 0 && node_index < N) {
+                    // We add to m_array as a density (M / ds)
+                    m_array._data[node_index] += M_fastener / ds;
+                }
+            }
+            
+            let theta_guess = math.clone(theta);
+            let converged = false;
+            
+            for (let k = 0; k < max_nr_iter; k++) {
+                const F = calculateResidual(theta_guess, P_array, m_array, 0, EI, N, ds, inputs.fixRotation);
+                const norm_val = math.number(math.abs(math.norm(F)));
+
+                if (isNaN(norm_val)) throw new Error("Norm is NaN. Divergence.");
+                if (norm_val < tolerance) {
+                    converged = true;
+                    theta = math.clone(theta_guess);
+                    break;
+                }
+
+                const J = calculateJacobian(theta_guess, P_array, EI, N, ds, inputs.fixRotation);
+                const d_theta = math.lusolve(J, math.multiply(F, -1));
+                theta_guess = math.add(theta_guess, math.squeeze(d_theta));
+            }
+
+            if (!converged) throw new Error(`Convergence failed at P = ${P_current.toFixed(2)}`);
+            await new Promise(resolve => setTimeout(resolve, 0));
+          }
+
+          logStatus('Simulation complete.');
+
+          // --- Final Calculations ---
+          const deflectedShape = calculateDeflectedShape(theta, ds);
+          const internalMomentData = calculateInternalMoment(theta, EI, ds);
+          const axialLoadData = calculateAxialLoad(parsedFasteners, P_max, N, ds);
+          const final_theta_full = [0, ...theta._data];
+          
+          setResults({
+            loadVsDeformation: {
+              data: {
+                labels: deflectedShape.x,
+                datasets: [{ label: 'Rotation θ(x)', data: final_theta_full, borderColor: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.1)', fill: false }],
+              },
+              options: createChartOptions('Rotation vs. X-Coordinate', 'X-Coordinate', 'Rotation (rad)'),
+            },
+            internalMoment: {
+              data: {
+                labels: internalMomentData.s,
+                datasets: [{ label: 'Internal Moment M(s)', data: internalMomentData.m, borderColor: '#34d399', backgroundColor: 'rgba(52, 211, 153, 0.1)', fill: false }],
+              },
+              options: createChartOptions('Internal Bending Moment', 'Beam Length (s)', 'Bending Moment'),
+            },
+            deflectedShape: {
+              data: {
+                labels: deflectedShape.x,
+                datasets: [{ label: 'Deflected Shape', data: deflectedShape.y, borderColor: '#f97316', backgroundColor: 'rgba(249, 115, 22, 0.1)', fill: false }],
+              },
+              // === FIX: Allow auto aspect ratio ===
+              options: createChartOptions('Deflected Shape', 'X Coordinate', 'Y Coordinate', null),
+            },
+            axialLoad: {
+              data: {
+                labels: axialLoadData.s,
+                datasets: [{ label: 'Axial Load P(s)', data: axialLoadData.p, borderColor: '#8b5cf6', backgroundColor: 'rgba(139, 92, 246, 0.1)', fill: false, stepped: true }],
+              },
+              options: createChartOptions('Axial Load P(s)', 'Beam Length (s)', 'Axial Load (P)'),
+            },
+          });
+          
+          // --- Stress Ratio Logic (Restored) ---
+          if (parsedFasteners.length > 0) {
+            const firstFastener = parsedFasteners[0];
+            const s_critical_target = firstFastener.s - stress_calc_offset;
+            const critical_node_index = Math.round(s_critical_target / ds);
+            const s_critical = critical_node_index * ds;
+
+            if (critical_node_index >= 0 && critical_node_index < internalMomentData.m.length) {
+                const M_critical = internalMomentData.m[critical_node_index];
+                const P_critical = findStepValue(s_critical, axialLoadData.s, axialLoadData.p);
+                
+                if (!isNaN(M_critical) && !isNaN(P_critical) && t_lower > 0) {
+                    const bending_stress = (6 * Math.abs(M_critical)) / Math.pow(t_lower, 2);
+                    const direct_stress = P_critical / t_lower;
+                    logStatus(`Critical Check @ s=${s_critical.toFixed(3)} (Offset ${stress_calc_offset}")`);
+                    logStatus(`M: ${M_critical.toFixed(3)}, P: ${P_critical.toFixed(3)}`);
+                    
+                    if (direct_stress !== 0) {
+                        setStressRatio(bending_stress / direct_stress);
+                    } else {
+                        setStressRatio(Infinity);
+                    }
+                }
+            }
+          }
+
+        } catch (err) {
+          logStatus(`Error: ${(err).message}`);
+        } finally {
+          setIsLoading(false);
+        }
+      }, [inputs]);
+
+      return { inputs, setInputs, results, logs, isLoading, runSimulation, stressRatio };
+    };
+
+
+    // ===================================================================================
+    // === components/ChartCard.tsx ===
+    // ===================================================================================
+    const ChartCard = ({ title, chartData }) => {
+      const canvasRef = useRef(null);
+      const chartInstanceRef = useRef(null);
+
+      useEffect(() => {
+        if (!canvasRef.current) return;
+        const ctx = canvasRef.current.getContext('2d');
+        if (!ctx) return;
+        
+        if (chartInstanceRef.current) chartInstanceRef.current.destroy();
+        
+        chartInstanceRef.current = new Chart(ctx, {
+          type: 'line',
+          data: chartData.data,
+          options: chartData.options,
+        });
+        
+        return () => {
+          if (chartInstanceRef.current) chartInstanceRef.current.destroy();
+        };
+      }, [chartData]);
+
+      return (
+        <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-xl p-4 flex flex-col shadow-lg">
+          <h3 className="text-sm font-medium text-slate-400 mb-2">{title}</h3>
+          <div className="relative flex-grow min-h-[250px]">
+            <canvas ref={canvasRef}></canvas>
+          </div>
+        </div>
+      );
+    };
+  
+    // ===================================================================================
+    // === App.tsx ===
+    // ===================================================================================
+
+    const PlayIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path fillRule="evenodd" d="M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.647c1.295.742 1.295 2.545 0 3.286L7.279 20.99c-1.25.717-2.779-.217-2.779-1.643V5.653z" clipRule="evenodd" /></svg>
+    );
+
+    const Loader = () => (
+        <div className="w-5 h-5 border-2 border-slate-400 border-t-white rounded-full animate-spin"></div>
+    );
+
+    const InputField = ({ label, id, value, onChange, type = "number" }) => (
+        <div>
+            <label htmlFor={id} className="block text-sm font-medium text-slate-300 mb-1">{label}</label>
+            <input type={type} id={id} name={id} value={value} onChange={onChange} className="mt-1 block w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 text-slate-200" />
+        </div>
+    );
+
+    const CheckboxField = ({ label, id, checked, onChange }) => (
+        <div className="relative flex items-center">
+            <div className="flex h-5 items-center">
+                <input id={id} name={id} type="checkbox" checked={checked} onChange={onChange} className="h-4 w-4 rounded border-slate-500 bg-slate-700 text-sky-500 focus:ring-sky-600" />
+            </div>
+            <div className="ml-3 text-sm">
+                <label htmlFor={id} className="font-medium text-slate-300">{label}</label>
+            </div>
+        </div>
+    );
+
+    const MetricDisplay = ({ label, value, unit }) => (
+      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-xl p-4 shadow-lg h-full flex flex-col justify-center">
+        <h3 className="text-sm font-medium text-slate-400 mb-1 truncate">{label}</h3>
+        <p className="text-2xl lg:text-3xl font-bold text-white">
+          {value ?? 'N/A'}
+          {value && unit && <span className="text-lg text-slate-400 ml-1">{unit}</span>}
+        </p>
+      </div>
+    );
+
+    const App = () => {
+        const { inputs, setInputs, results, logs, isLoading, runSimulation, stressRatio } = useBeamSolver();
+        const logContainerRef = useRef(null);
+
+        useEffect(() => {
+            if (logContainerRef.current) {
+                logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
+            }
+        }, [logs]);
+
+        const handleInputChange = (e) => {
+            const { name, value, type } = e.target;
+            const isCheckbox = type === 'checkbox';
+            setInputs(prev => ({
+                ...prev,
+                [name]: isCheckbox ? e.target.checked : value,
+            }));
+        };
+
+        return (
+            <div className="min-h-full bg-slate-900 text-slate-200 font-sans p-4 lg:p-6 flex flex-col">
+                <header className="mb-6">
+                    <h1 className="text-2xl md:text-3xl font-bold text-white">Non-Linear Beam Solver</h1>
+                    <p className="text-slate-400 mt-1">Calculating secondary bending for a fastened lap or hardpoint joint detail with non-linear 2D analysis.</p>
+                </header>
+
+                <main className="flex-grow grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Input Panel */}
+                    <div className="lg:col-span-1 bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-xl p-6 flex flex-col space-y-4 shadow-lg h-fit">
+                        <h2 className="text-lg font-semibold text-white border-b border-slate-700 pb-2">Parameters</h2>
+                        <InputField label="Young's Modulus (E)" id="eModulus" value={inputs.eModulus} onChange={handleInputChange} />
+                        <InputField label="Beam Length (L)" id="l" value={inputs.l} onChange={handleInputChange} />
+                        <InputField label="Max Initial Load (P_max)" id="pMax" value={inputs.pMax} onChange={handleInputChange} />
+                        <div className="grid grid-cols-2 gap-2">
+                             <InputField label="t_lower" id="tLower" value={inputs.tLower} onChange={handleInputChange} />
+                             <InputField label="t_upper" id="tUpper" value={inputs.tUpper} onChange={handleInputChange} />
+                        </div>
+                        <div>
+                            <label htmlFor="fasteners" className="block text-sm font-medium text-slate-300 mb-1">Fastener Loads (s, P_fraction)</label>
+                            <textarea id="fasteners" name="fasteners" value={inputs.fasteners} onChange={handleInputChange} rows={4} className="mt-1 block w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 font-mono text-sm text-slate-200" placeholder="s, P_fraction (one per line)"></textarea>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                            <InputField label="Nodes (N)" id="nNodes" value={inputs.nNodes} onChange={handleInputChange} />
+                            <InputField label="Steps" id="numSteps" value={inputs.numSteps} onChange={handleInputChange} />
+                        </div>
+                        <InputField label="Stress Offset" id="stressCalcOffset" value={inputs.stressCalcOffset} onChange={handleInputChange} />
+
+                        <div className="pt-2 space-y-3">
+                            <CheckboxField label="Fix Rotation at s=L (Symmetry)" id="fixRotation" checked={inputs.fixRotation} onChange={handleInputChange} />
+                            <CheckboxField label="Log debug info" id="logToConsole" checked={inputs.logToConsole} onChange={handleInputChange} />
+                        </div>
+
+                        <button
+                            onClick={runSimulation}
+                            disabled={isLoading}
+                            className="w-full mt-4 bg-sky-600 text-white font-bold py-2.5 px-4 rounded-md shadow-md hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500 transition-colors disabled:bg-slate-600 disabled:cursor-not-allowed flex justify-center gap-2"
+                        >
+                            {isLoading ? <Loader /> : <PlayIcon />}
+                            <span>{isLoading ? 'Simulating...' : 'Run Simulation'}</span>
+                        </button>
+                    </div>
+
+                    {/* Output Panel */}
+                    <div className="lg:col-span-2 flex flex-col gap-6">
+                        <div>
+                            <h2 className="text-lg font-semibold text-white mb-3">Key Metrics</h2>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                                <div className="sm:col-span-2">
+                                    <MetricDisplay 
+                                        label="Bending / Direct Stress Ratio" 
+                                        value={stressRatio !== null ? stressRatio.toFixed(3) : null} 
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h2 className="text-lg font-semibold text-white mb-3">Visualizations</h2>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <ChartCard title="Load vs. Deformation" chartData={results.loadVsDeformation} />
+                                <ChartCard title="Deflected Shape" chartData={results.deflectedShape} />
+                                <ChartCard title="Internal Moment" chartData={results.internalMoment} />
+                                <ChartCard title="Axial Load" chartData={results.axialLoad} />
+                            </div>
+                        </div>
+
+                        <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-xl p-4 flex flex-col shadow-lg flex-grow min-h-[200px]">
+                            <label htmlFor="statusLog" className="text-sm font-medium text-slate-400 mb-2">Solver Log</label>
+                            <textarea
+                                id="statusLog"
+                                ref={logContainerRef}
+                                readOnly
+                                value={logs.join('\n')}
+                                className="flex-grow w-full p-2 bg-slate-900 border border-slate-700 rounded-md shadow-inner font-mono text-xs text-slate-400 focus:outline-none"
+                            />
+                        </div>
+                    </div>
+                </main>
+            </div>
+        );
+    };
+
+    const rootElement = document.getElementById('root');
+    const root = ReactDOM.createRoot(rootElement);
+    root.render(<React.StrictMode><App /></React.StrictMode>);
+
+    </script>
+</body>
+</html>

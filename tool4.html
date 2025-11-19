@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interpolation Tool</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles */
+        body { font-family: 'Inter', sans-serif; }
+        /* Style inputs consistently */
+        input[type=number] {
+            -moz-appearance: textfield; text-align: right; padding-right: 0.5rem; width: 100%;
+            border: 1px solid #d1d5db; /* gray-300 */
+            border-radius: 0.375rem; /* rounded-md */
+            padding: 0.25rem 0.5rem;
+            background-color: transparent; /* Make input background transparent to show cell color */
+            outline: none; /* Remove default outline */
+            transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+         input[type=number]:focus {
+             border-color: #4f46e5; /* indigo-600 */
+             box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.3); /* Indigo focus ring */
+             background-color: #fff; /* White background on focus */
+         }
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+        /* Grid Cell Styles */
+        .grid-cell { border: 1px solid #d1d5db; padding: 0.5rem; min-height: 2.75rem; display: flex; align-items: center; justify-content: center; }
+        .grid-label { background-color: #f3f4f6; font-weight: 500; color: #4b5563; justify-content: center; text-align: center; }
+        /* Input Cell Colors */
+        .input-cell-value { background-color: #eff6ff; padding: 0.25rem; } /* bg-blue-50 */
+        .input-cell-coord { background-color: #fefce8; padding: 0.25rem; } /* bg-yellow-50 */
+        /* Inputs inside cells are borderless and transparent */
+        .input-cell-value input, .input-cell-coord input {
+            width: 100%; height: 100%; border: none; background: transparent; outline: none; padding: 0 0.25rem; text-align: right;
+        }
+        .result-cell { background-color: #fed7aa; font-weight: 600; color: #9a3412; justify-content: flex-end; padding-right: 0.5rem; text-align: right; }
+        .header-cell { background-color: #e5e7eb; font-weight: 600; color: #374151; }
+        .empty-cell { background-color: #ffffff; border: 1px solid #d1d5db; } /* bg-white, ensure border */
+
+        /* SVG Styles */
+        .data-point { fill: #3b82f6; stroke: none; } .target-point-marker { stroke: #ef4444; fill: #fecaca; } .interpolation-line { stroke: #a5b4fc; }
+        .boundary-rect-2d { stroke: #6b7280; fill: none; stroke-dasharray: 2 2; }
+        .label-text { font-size: 4px; fill: #374151; font-family: monospace; } .axis-label { font-size: 5px; fill: #6b7280; }
+        #visualization { border: 1px solid #e5e7eb; border-radius: 0.375rem; background-color: #f9fafb; }
+        .error-message { color: #dc2626; font-size: 0.875rem; margin-top: 0.5rem; min-height: 1.25rem; }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body class="bg-gray-100 p-4 md:p-6">
+
+    <div class="max-w-4xl mx-auto bg-white p-4 md:p-6 rounded-lg shadow">
+        <h1 class="text-xl md:text-2xl font-semibold text-gray-800 mb-4">Interpolation Tool</h1>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+            <div id="inputSectionContainer">
+                <h2 class="text-lg font-medium text-gray-700 mb-3">Inputs & Result</h2>
+
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Mode:</label>
+                    <div class="flex items-center space-x-4">
+                        <label class="inline-flex items-center">
+                            <input type="radio" name="interpolationMode" value="1d" checked class="form-radio h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500">
+                            <span class="ml-2 text-sm text-gray-700">1D (X -> V)</span>
+                        </label>
+                        <label class="inline-flex items-center">
+                            <input type="radio" name="interpolationMode" value="2d" class="form-radio h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500">
+                            <span class="ml-2 text-sm text-gray-700">2D (X, Y -> V)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div id="grid1D" class="grid grid-cols-3 gap-0 border border-gray-300 rounded mb-4">
+                    <div class="grid-cell header-cell col-span-1">Point</div>
+                    <div class="grid-cell header-cell col-span-1">X</div>
+                    <div class="grid-cell header-cell col-span-1">Value (V)</div>
+
+                    <div class="grid-cell grid-label">P1</div>
+                    <div class="grid-cell input-cell-coord"><input type="number" id="p1x_1d" value="1"></div>  <div class="grid-cell input-cell-value"><input type="number" id="p1v_1d" value="10"></div>
+
+                    <div class="grid-cell grid-label">Target</div>
+                    <div class="grid-cell input-cell-coord"><input type="number" id="targetX_1d" value="5"></div>
+                    <div id="resultV_1d" class="grid-cell result-cell">--</div>
+
+                    <div class="grid-cell grid-label">P2</div>
+                    <div class="grid-cell input-cell-coord"><input type="number" id="p2x_1d" value="10"></div>
+                    <div class="grid-cell input-cell-value"><input type="number" id="p2v_1d" value="100"></div> </div>
+
+                <div id="section2D" class="hidden space-y-4">
+                     <div class="grid grid-cols-4 gap-0 border border-gray-300 rounded mb-4 text-sm">
+                         <div class="grid-cell empty-cell"></div>
+                         <div class="grid-cell input-cell-coord"><input type="number" id="x1_2d" value="1" title="X1 Coordinate"></div> <div class="grid-cell input-cell-coord"><input type="number" id="targetX_2d" value="5" title="Target X Coordinate"></div>
+                         <div class="grid-cell input-cell-coord"><input type="number" id="x2_2d" value="10" title="X2 Coordinate"></div>
+
+                         <div class="grid-cell input-cell-coord"><input type="number" id="y1_2d" value="1" title="Y1 Coordinate"></div> <div class="grid-cell input-cell-value"><input type="number" id="v11_2d" value="10" title="Value at X1, Y1"></div>
+                         <div class="grid-cell empty-cell"></div>
+                         <div class="grid-cell input-cell-value"><input type="number" id="v21_2d" value="100" title="Value at X2, Y1"></div> <div class="grid-cell input-cell-coord"><input type="number" id="targetY_2d" value="5" title="Target Y Coordinate"></div> <div class="grid-cell empty-cell"></div>
+                         <div id="resultV_2d" class="grid-cell result-cell" title="Calculated Value at Target X, Y">--</div>
+                         <div class="grid-cell empty-cell"></div>
+
+                         <div class="grid-cell input-cell-coord"><input type="number" id="y2_2d" value="10" title="Y2 Coordinate"></div> <div class="grid-cell input-cell-value"><input type="number" id="v12_2d" value="20" title="Value at X1, Y2"></div> <div class="grid-cell empty-cell"></div>
+                         <div class="grid-cell input-cell-value"><input type="number" id="v22_2d" value="200" title="Value at X2, Y2"></div> </div>
+                </div>
+
+                 <div class="space-y-4 mt-4">
+                     <div>
+                         <label class="block text-sm font-medium text-gray-700 mb-1">Interpolation Method</label>
+                         <div class="flex items-center space-x-4">
+                             <label class="inline-flex items-center"><input type="radio" name="interpolationMethod" value="linear" checked class="form-radio h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"><span class="ml-2 text-sm text-gray-700">Linear</span></label>
+                             <label class="inline-flex items-center"><input type="radio" name="interpolationMethod" value="geometric" class="form-radio h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"><span class="ml-2 text-sm text-gray-700">Geometric (Log-Linear)</span></label>
+                             <label class="inline-flex items-center"><input type="radio" name="interpolationMethod" value="log-log" class="form-radio h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"><span class="ml-2 text-sm text-gray-700">Log-Log</span></label>
+                         </div>
+                          <p class="text-xs text-gray-500 mt-1">
+                              Linear: Interpolates V linearly w.r.t X (and Y).<br>
+                              Geometric (Log-Linear): Interpolates log(V) linearly w.r.t X (and Y). Requires positive V.<br>
+                              Log-Log: Interpolates log(V) linearly w.r.t log(X) (and log(Y)). Requires positive X, Y, and V. Assumes power-law relationship.
+                          </p>
+                     </div>
+                     <p id="errorDisplay" class="error-message"></p>
+                 </div>
+            </div>
+
+            <div id="visualizationContainer">
+                <h2 id="visualizationTitle" class="text-lg font-medium text-gray-700 mb-3">Visualization</h2>
+                <div class="aspect-w-1 aspect-h-1">
+                    <svg id="visualization" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" class="w-full h-full"></svg>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // --- DOM Elements ---
+    const grid1D = document.getElementById('grid1D');
+    const section2D = document.getElementById('section2D');
+    const visualizationContainer = document.getElementById('visualizationContainer');
+    const visualizationTitle = document.getElementById('visualizationTitle');
+    const resultV1d = document.getElementById('resultV_1d');
+    const resultV2d = document.getElementById('resultV_2d');
+    const errorDisplay = document.getElementById('errorDisplay');
+    const visualizationSVG = document.getElementById('visualization');
+    const inputs1D = { p1x: document.getElementById('p1x_1d'), p1v: document.getElementById('p1v_1d'), p2x: document.getElementById('p2x_1d'), p2v: document.getElementById('p2v_1d'), targetX: document.getElementById('targetX_1d'), };
+    const inputs2D = { v11: document.getElementById('v11_2d'), v21: document.getElementById('v21_2d'), v12: document.getElementById('v12_2d'), v22: document.getElementById('v22_2d'), x1: document.getElementById('x1_2d'), x2: document.getElementById('x2_2d'), y1: document.getElementById('y1_2d'), y2: document.getElementById('y2_2d'), targetX: document.getElementById('targetX_2d'), targetY: document.getElementById('targetY_2d'), };
+    const modeRadios = document.querySelectorAll('input[name="interpolationMode"]');
+    const methodRadios = document.querySelectorAll('input[name="interpolationMethod"]');
+
+    // --- Event Listeners ---
+    [...Object.values(inputs1D), ...Object.values(inputs2D), ...methodRadios].forEach(input => { input.addEventListener('input', handleCalculation); });
+    modeRadios.forEach(radio => radio.addEventListener('change', handleModeChange));
+
+    // --- Initial Setup ---
+    document.addEventListener('DOMContentLoaded', () => { handleModeChange(); });
+
+    // --- UI Update Functions ---
+    function handleModeChange() {
+        const selectedMode = document.querySelector('input[name="interpolationMode"]:checked').value;
+        if (selectedMode === '1d') {
+            grid1D.classList.remove('hidden'); section2D.classList.add('hidden'); visualizationContainer.classList.remove('hidden');
+            visualizationTitle.textContent = "Visualization (Value vs. X)";
+        } else { // 2d mode
+            grid1D.classList.add('hidden'); section2D.classList.remove('hidden'); visualizationContainer.classList.remove('hidden');
+             visualizationTitle.textContent = "Visualization (Y vs. X Domain)"; // Updated title for clarity
+        }
+        handleCalculation();
+    }
+
+    // --- Calculation Logic ---
+    function handleCalculation() {
+        clearError();
+        const mode = document.querySelector('input[name="interpolationMode"]:checked').value;
+        const method = document.querySelector('input[name="interpolationMethod"]:checked').value;
+        let result = NaN;
+        const POS_VALUE_TOLERANCE = 1e-9; // Use a small tolerance instead of strict > 0
+
+        try {
+            if (mode === '1d') {
+                const p1 = { x: parseFloat(inputs1D.p1x.value), v: parseFloat(inputs1D.p1v.value) };
+                const p2 = { x: parseFloat(inputs1D.p2x.value), v: parseFloat(inputs1D.p2v.value) };
+                const targetX = parseFloat(inputs1D.targetX.value);
+                if ([p1.x, p1.v, p2.x, p2.v, targetX].some(isNaN)) { throw new Error("Invalid numeric input in 1D fields."); }
+
+                // *** UPDATED: Input Validation for Geometric and Log-Log ***
+                if (method === 'geometric') {
+                    if (p1.v <= POS_VALUE_TOLERANCE || p2.v <= POS_VALUE_TOLERANCE) {
+                         throw new Error("Geometric (Log-Linear) interpolation requires positive values (V > 0).");
+                    }
+                } else if (method === 'log-log') {
+                    if (p1.x <= POS_VALUE_TOLERANCE || p2.x <= POS_VALUE_TOLERANCE || targetX <= POS_VALUE_TOLERANCE ||
+                        p1.v <= POS_VALUE_TOLERANCE || p2.v <= POS_VALUE_TOLERANCE) {
+                        throw new Error("Log-Log interpolation requires all coordinates (X) and values (V) to be positive (> 0).");
+                    }
+                    if (Math.abs(p1.x - p2.x) < 1e-9) {
+                        // If X values are identical, log(x1) == log(x2), causing division by zero in t_log
+                         throw new Error("Log-Log interpolation failed: Points 1 and 2 have the same X-coordinate.");
+                    }
+                }
+
+                // Standard check for linear (moved here to avoid conflict with log-log check)
+                 if (method === 'linear' && Math.abs(p1.x - p2.x) < 1e-9) {
+                     throw new Error("Points 1 and 2 have the same X-coordinate.");
+                 }
+
+
+                result = interpolate1D(p1.v, p2.v, p1.x, p2.x, targetX, method);
+                if (isNaN(result)) {
+                     // Provide more specific error if possible based on method checks already done
+                     throw new Error(`1D interpolation (${method}) failed. Check inputs.`);
+                }
+                resultV1d.textContent = result.toExponential(4); // Use exponential for potentially large/small log results
+                updateVisualization(mode, [p1, p2], { x: targetX, v: result }, method);
+            } else { // 2d mode
+                const v11 = parseFloat(inputs2D.v11.value); const v21 = parseFloat(inputs2D.v21.value);
+                const v12 = parseFloat(inputs2D.v12.value); const v22 = parseFloat(inputs2D.v22.value);
+                const x1 = parseFloat(inputs2D.x1.value); const x2 = parseFloat(inputs2D.x2.value);
+                const y1 = parseFloat(inputs2D.y1.value); const y2 = parseFloat(inputs2D.y2.value);
+                const targetX = parseFloat(inputs2D.targetX.value); const targetY = parseFloat(inputs2D.targetY.value);
+                if ([v11, v21, v12, v22, x1, x2, y1, y2, targetX, targetY].some(isNaN)) { throw new Error("Invalid numeric input in 2D fields."); }
+
+
+                 // *** UPDATED: Input Validation for Geometric and Log-Log ***
+                 if (method === 'geometric') {
+                     if (v11 <= POS_VALUE_TOLERANCE || v21 <= POS_VALUE_TOLERANCE || v12 <= POS_VALUE_TOLERANCE || v22 <= POS_VALUE_TOLERANCE) {
+                          throw new Error("Geometric (Log-Linear) interpolation requires positive values (V > 0).");
+                     }
+                 } else if (method === 'log-log') {
+                     if (x1 <= POS_VALUE_TOLERANCE || x2 <= POS_VALUE_TOLERANCE || targetX <= POS_VALUE_TOLERANCE ||
+                         y1 <= POS_VALUE_TOLERANCE || y2 <= POS_VALUE_TOLERANCE || targetY <= POS_VALUE_TOLERANCE ||
+                         v11 <= POS_VALUE_TOLERANCE || v21 <= POS_VALUE_TOLERANCE || v12 <= POS_VALUE_TOLERANCE || v22 <= POS_VALUE_TOLERANCE) {
+                         throw new Error("Log-Log interpolation requires all coordinates (X, Y) and values (V) to be positive (> 0).");
+                     }
+                      if (Math.abs(x1 - x2) < 1e-9 || Math.abs(y1 - y2) < 1e-9) {
+                          throw new Error("Log-Log interpolation failed: Degenerate rectangle (X1=X2 or Y1=Y2).");
+                      }
+                 }
+
+                 // Standard check for linear (moved here)
+                 if (method === 'linear' && (Math.abs(x1 - x2) < 1e-9 || Math.abs(y1 - y2) < 1e-9)) {
+                      throw new Error("Degenerate rectangle: X1=X2 or Y1=Y2.");
+                 }
+
+
+                const p1 = { x: x1, y: y1, v: v11 }; const p2 = { x: x2, y: y1, v: v21 };
+                const p3 = { x: x1, y: y2, v: v12 }; const p4 = { x: x2, y: y2, v: v22 };
+                const target = { x: targetX, y: targetY };
+
+                result = bilinearInterpolation(p1, p2, p3, p4, target, method);
+                if (isNaN(result)) {
+                    throw new Error(`2D interpolation (${method}) failed. Check inputs.`);
+                }
+                resultV2d.textContent = result.toExponential(4); // Use exponential
+                updateVisualization(mode, [p1, p2, p3, p4], { x: targetX, y: targetY, v: result }, method);
+            }
+        } catch (error) {
+            console.error("Calculation Error:", error.message || 'No message', error.stack || 'No stack trace');
+            showError(error.message || "An unspecified error occurred.");
+            resultV1d.textContent = '--'; resultV2d.textContent = '--';
+            clearVisualization("Error calculating data.");
+        }
+    }
+
+    /** Performs 1D interpolation */
+    function interpolate1D(v1, v2, c1, c2, ct, method) {
+        // Use a small tolerance for floating point comparisons
+        const COORD_TOLERANCE = 1e-9;
+        const VALUE_TOLERANCE = 1e-9;
+        const POS_TOLERANCE = 1e-9; // For log checks
+
+        if (Math.abs(c1 - c2) < COORD_TOLERANCE) {
+             // If coordinates are the same, return the average value (or v1/v2 if they are also same)
+             // For log-log, this case is typically caught earlier due to log(c1)-log(c2) denominator.
+            return (v1 + v2) / 2;
+        }
+        // If values are the same, interpolation is trivial
+        if (Math.abs(v1 - v2) < VALUE_TOLERANCE) {
+            return v1;
+        }
+
+        if (method === 'linear') {
+            const t = (ct - c1) / (c2 - c1);
+            return v1 + (v2 - v1) * t;
+        }
+        else if (method === 'geometric') {
+            // Check positivity (should be guaranteed by handleCalculation, but good practice)
+            if (v1 <= POS_TOLERANCE || v2 <= POS_TOLERANCE) return NaN;
+
+            const t = (ct - c1) / (c2 - c1);
+            try {
+                 // Use log interpolation formulation to avoid potential issues with Math.pow(negative_base, fractional_exponent)
+                 // log(v) = log(v1) + t * (log(v2) - log(v1))
+                 const logV = Math.log(v1) + t * (Math.log(v2) - Math.log(v1));
+                 const result = Math.exp(logV);
+                 return isFinite(result) ? result : NaN;
+             } catch (e) {
+                 console.error("Geometric interpolation error:", e);
+                 return NaN;
+             }
+        }
+        // *** NEW: Log-Log Implementation ***
+        else if (method === 'log-log') {
+            // Check positivity (guaranteed by handleCalculation, but for safety)
+             if (v1 <= POS_TOLERANCE || v2 <= POS_TOLERANCE || c1 <= POS_TOLERANCE || c2 <= POS_TOLERANCE || ct <= POS_TOLERANCE) {
+                return NaN;
+             }
+             // Denominator check (guaranteed by handleCalculation)
+             if (Math.abs(c1 - c2) < COORD_TOLERANCE) return NaN; // Avoid log issues
+
+             try {
+                 // Calculate interpolation factor in log-space for coordinate 'c'
+                 const logC1 = Math.log(c1);
+                 const logC2 = Math.log(c2);
+                 const logCt = Math.log(ct);
+
+                 // Handle case where logC1 is very close to logC2
+                 if (Math.abs(logC1 - logC2) < COORD_TOLERANCE) {
+                    // This implies c1 is very close to c2, should have been caught earlier,
+                    // but defensively return average of logs -> geometric mean
+                    // Or, more simply, if c1~c2, then ct must also be ~c1, return v1?
+                    // Let's return v1 as it implies t_log is effectively 0 or undefined.
+                    return v1;
+                 }
+
+                 const t_log = (logCt - logC1) / (logC2 - logC1);
+
+                 // Interpolate logarithms of values 'v'
+                 const logV1 = Math.log(v1);
+                 const logV2 = Math.log(v2);
+                 const logV = logV1 + (logV2 - logV1) * t_log;
+
+                 // Convert back from log space
+                 const result = Math.exp(logV);
+                 return isFinite(result) ? result : NaN; // Check for potential Infinity or NaN
+             } catch (e) {
+                 console.error("Log-Log interpolation error:", e);
+                 return NaN;
+             }
+        }
+        else return NaN; // Unknown method
+    }
+
+    /** Performs 2D bilinear interpolation */
+    function bilinearInterpolation(p1, p2, p3, p4, target, method) {
+        // p1=(x1, y1, v11), p2=(x2, y1, v21), p3=(x1, y2, v12), p4=(x2, y2, v22)
+        // target = (targetX, targetY)
+
+        // Interpolate along X at Y1
+        const v_at_targetX_y1 = interpolate1D(p1.v, p2.v, p1.x, p2.x, target.x, method);
+        if (isNaN(v_at_targetX_y1)) return NaN;
+
+        // Interpolate along X at Y2
+        const v_at_targetX_y2 = interpolate1D(p3.v, p4.v, p3.x, p4.x, target.x, method);
+        if (isNaN(v_at_targetX_y2)) return NaN;
+
+        // Interpolate along Y using the intermediate values calculated above
+        // Note: The coordinate for this interpolation is Y (p1.y and p3.y define the Y range)
+        return interpolate1D(v_at_targetX_y1, v_at_targetX_y2, p1.y, p3.y, target.y, method);
+    }
+
+    // --- Visualization Logic ---
+    // No changes needed in visualization logic itself, it will plot the calculated result
+    // on linear axes, showing the curve shape corresponding to the chosen method.
+    function updateVisualization(mode, points, target, method) {
+        visualizationSVG.innerHTML = '';
+        visualizationSVG.setAttribute('viewBox', '0 0 100 100');
+
+        const requiredTargetProps = (mode === '1d') ? ['x', 'v'] : ['x', 'y', 'v'];
+        if (!target || requiredTargetProps.some(prop => isNaN(target[prop]) || !isFinite(target[prop]) )) { // Added isFinite check
+             clearVisualization("Cannot calculate valid target."); return;
+         }
+        const requiredPoints = (mode === '1d' ? 2 : 4);
+        if (!points || points.length < requiredPoints) { clearVisualization("Insufficient points."); return; }
+        const requiredPointProps = (mode === '1d') ? ['x', 'v'] : ['x', 'y', 'v'];
+         if (points.some(p => requiredPointProps.some(prop => isNaN(p[prop]) || !isFinite(p[prop]) ))) { // Added isFinite check
+            clearVisualization("Invalid point data."); return;
+        }
+
+        let xData, yData, xLabel, yLabel;
+        let allPointsForBounds;
+
+        if (mode === '1d') {
+            xData = p => p.x;
+            yData = p => p.v; // Use Value (V) for Y-axis in 1D
+            xLabel = 'X-coordinate';
+            yLabel = 'Value (V)';
+            allPointsForBounds = [...points, target];
+        } else { // 2d
+            xData = p => p.x;
+            yData = p => p.y; // Use Y-coordinate for Y-axis in 2D
+            xLabel = 'X-coordinate';
+            yLabel = 'Y-coordinate';
+            allPointsForBounds = [...points, target];
+        }
+
+        // Filter out any non-finite points before calculating bounds
+        allPointsForBounds = allPointsForBounds.filter(p =>
+            requiredTargetProps.every(prop => p.hasOwnProperty(prop) && isFinite(p[prop]))
+        );
+
+        if (allPointsForBounds.length === 0) {
+            clearVisualization("No valid points to visualize."); return;
+        }
+
+        const allX = allPointsForBounds.map(xData);
+        const allY = allPointsForBounds.map(yData);
+
+        let minX = Math.min(...allX); let maxX = Math.max(...allX);
+        let minY = Math.min(...allY); let maxY = Math.max(...allY);
+
+         // Add padding to bounds if min/max are the same or too close
+         const rangePaddingFactor = 0.1; // Add 10% padding
+         if (Math.abs(maxX - minX) < 1e-9) {
+             const padding = Math.max(1, Math.abs(minX * rangePaddingFactor));
+             minX -= padding;
+             maxX += padding;
+         }
+          if (Math.abs(maxY - minY) < 1e-9) {
+             const padding = Math.max(1, Math.abs(minY * rangePaddingFactor));
+             minY -= padding;
+             maxY += padding;
+         }
+
+
+        const rangeX = maxX - minX;
+        const rangeY = maxY - minY;
+        const padding = 12;
+        const plotWidth = 100 - 2 * padding;
+        const plotHeight = 100 - 2 * padding;
+
+        const effRangeX = rangeX < 1e-9 ? 1 : rangeX;
+        const effRangeY = rangeY < 1e-9 ? 1 : rangeY; // Use effective range to avoid division by zero
+
+        const scaleX = plotWidth / effRangeX;
+        const scaleY = plotHeight / effRangeY;
+
+        // Map X to SVG X coordinate (always increases to the right)
+        const svgMapX = (dataX) => {
+             if (effRangeX < 1e-9) return 50; // Center if range is zero
+             return padding + (dataX - minX) * scaleX;
+        };
+
+         // Map Y-axis data (V in 1D, Y in 2D) to SVG Y coordinate
+         // SVG Y is 0 at top, increases downwards. Plotting Y needs inversion.
+         const svgMapY = (dataCoord, currentMode) => {
+             if (effRangeY < 1e-9) return 50; // Center if range is zero
+             // Regardless of 1D/2D data meaning, map data min/max to plot bottom/top
+             // Y_svg = bottom - (dataY - dataMinY) * scaleY
+             // Y_svg = (padding + plotHeight) - (dataCoord - minY) * scaleY
+             return (100 - padding) - (dataCoord - minY) * scaleY;
+         };
+
+
+        const pointRadius = 2;
+        const labelGap = 1.5; // Vertical gap below point for label
+        const targetMarkerRadius = 2;
+        const targetStrokeWidth = 0.6;
+        const lineStrokeWidth = 0.4;
+        const axisLabelOffset = 4;
+        const valueDisplayFormat = (v) => (Math.abs(v) > 1e4 || Math.abs(v) < 1e-2) && v !== 0 ? v.toExponential(1) : v.toFixed(2);
+
+
+        // Draw elements
+        if (mode === '1d') {
+            const [p1, p2] = points;
+            // Draw interpolation line only if points are valid and finite
+            if (isFinite(p1.x) && isFinite(p1.v) && isFinite(p2.x) && isFinite(p2.v)) {
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', svgMapX(p1.x));
+                line.setAttribute('y1', svgMapY(p1.v, mode));
+                line.setAttribute('x2', svgMapX(p2.x));
+                line.setAttribute('y2', svgMapY(p2.v, mode));
+                line.setAttribute('class', 'interpolation-line');
+                // Optional: Style line differently based on method
+                if (method === 'geometric') line.style.strokeDasharray = '3 1';
+                else if (method === 'log-log') line.style.strokeDasharray = '1 1';
+                line.setAttribute('stroke-width', lineStrokeWidth);
+                line.setAttribute('vector-effect', 'non-scaling-stroke');
+                visualizationSVG.appendChild(line);
+            }
+
+            // Draw data points and labels if finite
+            points.forEach((p, i) => {
+                if (!isFinite(p.x) || !isFinite(p.v)) return;
+                const cx = svgMapX(p.x);
+                const cy = svgMapY(p.v, mode);
+
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', cx); circle.setAttribute('cy', cy); circle.setAttribute('r', pointRadius);
+                circle.setAttribute('class', 'data-point');
+                visualizationSVG.appendChild(circle);
+
+                const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                label.setAttribute('x', cx); label.setAttribute('y', cy + pointRadius + labelGap);
+                label.setAttribute('text-anchor', 'middle'); label.setAttribute('dominant-baseline', 'hanging');
+                label.setAttribute('class', 'label-text'); label.textContent = valueDisplayFormat(p.v);
+                visualizationSVG.appendChild(label);
+            });
+
+            // Draw target point and label if finite
+             if (isFinite(target.x) && isFinite(target.v)) {
+                const tx = svgMapX(target.x); const ty = svgMapY(target.v, mode);
+                const targetCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                targetCircle.setAttribute('cx', tx); targetCircle.setAttribute('cy', ty); targetCircle.setAttribute('r', targetMarkerRadius);
+                targetCircle.setAttribute('class', 'target-point-marker'); targetCircle.setAttribute('stroke-width', targetStrokeWidth);
+                targetCircle.setAttribute('vector-effect', 'non-scaling-stroke');
+                visualizationSVG.appendChild(targetCircle);
+
+                const targetLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                targetLabel.setAttribute('x', tx); targetLabel.setAttribute('y', ty + targetMarkerRadius + labelGap);
+                targetLabel.setAttribute('text-anchor', 'middle'); targetLabel.setAttribute('dominant-baseline', 'hanging');
+                targetLabel.setAttribute('class', 'label-text'); targetLabel.textContent = valueDisplayFormat(target.v);
+                visualizationSVG.appendChild(targetLabel);
+             }
+
+        } else { // 2d mode (Y vs X domain)
+            const [p1, p2, p3, p4] = points;
+            // Draw boundary rectangle if points are finite
+             const allFinite2D = points.every(p => isFinite(p.x) && isFinite(p.y));
+            if (allFinite2D) {
+                 const rect = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                 rect.setAttribute('points', `${svgMapX(p1.x)},${svgMapY(p1.y, mode)} ${svgMapX(p2.x)},${svgMapY(p2.y, mode)} ${svgMapX(p4.x)},${svgMapY(p4.y, mode)} ${svgMapX(p3.x)},${svgMapY(p3.y, mode)}`);
+                 rect.setAttribute('class', 'boundary-rect-2d');
+                 rect.setAttribute('stroke-width', lineStrokeWidth);
+                 rect.setAttribute('vector-effect', 'non-scaling-stroke');
+                 visualizationSVG.appendChild(rect);
+            }
+
+            // Draw data points and labels if finite
+            points.forEach((p) => {
+                if (!isFinite(p.x) || !isFinite(p.y) || !isFinite(p.v)) return;
+                const cx = svgMapX(p.x); const cy = svgMapY(p.y, mode);
+
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', cx); circle.setAttribute('cy', cy); circle.setAttribute('r', pointRadius);
+                circle.setAttribute('class', 'data-point');
+                visualizationSVG.appendChild(circle);
+
+                const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                label.setAttribute('x', cx); label.setAttribute('y', cy + pointRadius + labelGap);
+                label.setAttribute('text-anchor', 'middle'); label.setAttribute('dominant-baseline', 'hanging');
+                label.setAttribute('class', 'label-text'); label.textContent = valueDisplayFormat(p.v); // Label shows Value (V)
+                visualizationSVG.appendChild(label);
+            });
+
+            // Draw target point and label if finite
+             if (isFinite(target.x) && isFinite(target.y) && isFinite(target.v)) {
+                const tx = svgMapX(target.x); const ty = svgMapY(target.y, mode);
+
+                const targetCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                targetCircle.setAttribute('cx', tx); targetCircle.setAttribute('cy', ty); targetCircle.setAttribute('r', targetMarkerRadius);
+                targetCircle.setAttribute('class', 'target-point-marker'); targetCircle.setAttribute('stroke-width', targetStrokeWidth);
+                targetCircle.setAttribute('vector-effect', 'non-scaling-stroke');
+                visualizationSVG.appendChild(targetCircle);
+
+                const targetLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                targetLabel.setAttribute('x', tx); targetLabel.setAttribute('y', ty + targetMarkerRadius + labelGap);
+                targetLabel.setAttribute('text-anchor', 'middle'); targetLabel.setAttribute('dominant-baseline', 'hanging');
+                targetLabel.setAttribute('class', 'label-text'); targetLabel.textContent = valueDisplayFormat(target.v); // Label shows Value (V)
+                visualizationSVG.appendChild(targetLabel);
+             }
+        }
+
+        // Axis Labels
+        const xAxisLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        xAxisLabel.setAttribute('x', 50); xAxisLabel.setAttribute('y', 100 - padding + axisLabelOffset);
+        xAxisLabel.setAttribute('text-anchor', 'middle'); xAxisLabel.setAttribute('dominant-baseline', 'hanging');
+        xAxisLabel.setAttribute('class', 'axis-label'); xAxisLabel.textContent = xLabel;
+        visualizationSVG.appendChild(xAxisLabel);
+
+        const yAxisLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        yAxisLabel.setAttribute('transform', `translate(${padding - axisLabelOffset}, 50) rotate(-90)`);
+        yAxisLabel.setAttribute('x', 0); yAxisLabel.setAttribute('y', 0);
+        yAxisLabel.setAttribute('text-anchor', 'middle'); yAxisLabel.setAttribute('dominant-baseline', 'text-before-edge'); // Adjusted baseline for vertical text
+        yAxisLabel.setAttribute('class', 'axis-label'); yAxisLabel.textContent = yLabel;
+        visualizationSVG.appendChild(yAxisLabel);
+    }
+
+
+    /** Clears the visualization area */
+    function clearVisualization(message = "Enter valid data") {
+        visualizationSVG.innerHTML = `<text x="50" y="50" dominant-baseline="middle" text-anchor="middle" class="label-text">${message}</text>`;
+    }
+
+    /** Displays an error message */
+    function showError(message) { errorDisplay.textContent = message; }
+    /** Clears the error message */
+    function clearError() { errorDisplay.textContent = ''; }
+
+</script>
+
+</body>
+</html>

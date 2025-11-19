@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SCT-005 Section Property and Beam Stress Calculator</title>
+    <!-- Include Chart.js library for plotting -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary-color: #0068c9;
+            --bg-color: #f0f0f0;
+            --card-bg-color: #ffffff;
+            --text-color: #333;
+            --border-color: #ccc;
+            --box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            --orange-btn: #fa9e61;
+            --green-btn: #B4CEA1;
+            --result-bg: #d5e2ca;
+            --danger-btn: #f44336;
+        }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0.5rem;
+            display: flex;
+            justify-content: center;
+            font-size: 14px;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 950px;
+            background-color: var(--card-bg-color);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: var(--box-shadow);
+            border: 1px solid var(--border-color);
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 1.4em;
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: var(--primary-color);
+        }
+
+        h2 {
+            font-size: 1.0em;
+            margin-top: 0;
+            margin-bottom: 8px;
+        }
+
+        .card {
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+        
+        .main-layout-grid {
+            display: grid;
+            grid-template-columns: 420px 1fr;
+            gap: 20px;
+        }
+
+        .block-input-header {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1fr 1.5fr 0.5fr;
+            gap: 5px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 5px;
+        }
+        .block-definition {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1fr 1.5fr 0.5fr;
+            gap: 5px;
+            margin-bottom: 4px;
+            align-items: center;
+        }
+
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+          -webkit-appearance: none;
+          margin: 0;
+        }
+        input[type=number] {
+          -moz-appearance: textfield;
+        }
+        
+        input[type="number"], input[type="text"] {
+            width: 100%;
+            padding: 4px;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            box-sizing: border-box;
+            text-align: center;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .button {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #999;
+            border-radius: 4px;
+            font-size: 0.9em;
+            cursor: pointer;
+            background-color: #e7e7e7;
+            transition: background-color 0.2s, color 0.2s;
+        }
+        .button:hover {
+            background-color: #dcdcdc;
+        }
+        .button.orange { background-color: var(--orange-btn); border-color: #e08e51; color: white;}
+        .button.orange:hover { background-color: #e08e51; }
+        .button.green { background-color: var(--green-btn); border-color: #a0b991; }
+        .button.green:hover { background-color: #a0b991; }
+        .button.snapping-active { background-color: var(--primary-color); color: white; border-color: #0056b3;}
+        
+        .remove-block-btn {
+            background-color: var(--danger-btn);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            padding: 4px 0;
+            line-height: 1;
+            height: 100%;
+        }
+        .remove-block-btn:hover {
+            background-color: #d32f2f;
+        }
+
+
+        .side-by-side-cards {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .results-column .card {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5px 8px;
+            align-items: center;
+        }
+        .results-column h2 {
+            grid-column: 1 / -1;
+        }
+        .results-column label {
+            font-weight: bold;
+            text-align: right;
+        }
+        .results-column .result-value, .results-column input {
+            background-color: var(--result-bg);
+            padding: 4px;
+            border-radius: 4px;
+            text-align: center;
+            font-family: monospace;
+            border: 1px solid #c0d0b8;
+        }
+
+        .plot-container {
+            height: 100%;
+            min-height: 450px;
+        }
+        .plot-container canvas {
+            cursor: crosshair;
+        }
+        #snap-status {
+            text-align: center;
+            font-weight: bold;
+            color: var(--primary-color);
+            height: 1.2em;
+            margin-top: 5px;
+        }
+        
+        .modal-overlay {
+            display: none; position: fixed; z-index: 1000; left: 0; top: 0;
+            width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);
+            justify-content: center; align-items: center;
+        }
+        .modal-content {
+            background-color: #fff; padding: 20px; border-radius: 8px;
+            width: 90%; max-width: 400px; box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            position: relative;
+        }
+        .modal-close-btn {
+            position: absolute; top: 10px; right: 15px; color: #aaa;
+            font-size: 28px; font-weight: bold; cursor: pointer;
+        }
+        #modal-body {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: center;
+        }
+        #modal-body label { font-weight: bold; text-align: right; }
+        #modal-body span { font-family: monospace; }
+        
+        @media (max-width: 880px) {
+            .main-layout-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <h1>SCT-005 Section Property and Beam Stress Calculator</h1>
+
+        <div class="main-layout-grid">
+            <div class="left-column">
+                <div class="card">
+                    <h2>Enter block element dimensions</h2>
+                    <div class="button-group">
+                        <button id="save-btn" class="button">Save</button>
+                        <input type="file" id="file-uploader" style="display:none;">
+                        <button id="open-btn" class="button">Open</button>
+                    </div>
+                    <div class="block-input-header">
+                        <span>y0</span>
+                        <span>z0</span>
+                        <span>Ly</span>
+                        <span>Lz</span>
+                        <span>Element Label</span>
+                        <span></span>
+                    </div>
+                    <div id="blocks-container">
+                        <!-- JS will populate this -->
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button id="add-block-btn" class="button orange">Add Block</button>
+                    <button id="add-snap-btn" class="button orange">Add by Snapping</button>
+                </div>
+                 <div id="snap-status"></div>
+
+                <div class="results-column">
+                    <div class="side-by-side-cards">
+                        <div class="card">
+                            <h2>Properties about Neutral Axis:</h2>
+                            <label>Izz =</label><span id="res-izz" class="result-value">n/a</span>
+                            <label>Iyy =</label><span id="res-iyy" class="result-value">n/a</span>
+                            <label>Iyz =</label><span id="res-iyz" class="result-value">n/a</span>
+                            <label>A =</label><span id="res-area" class="result-value">n/a</span>
+                            <label>y_min =</label><span id="res-ymin" class="result-value">n/a</span>
+                            <label>y_max =</label><span id="res-ymax" class="result-value">n/a</span>
+                            <label>z_min =</label><span id="res-zmin" class="result-value">n/a</span>
+                            <label>z_max =</label><span id="res-zmax" class="result-value">n/a</span>
+                        </div>
+                        <div class="card">
+                            <h2>Applied bending and axial:</h2>
+                            <label>Myy:</label><input type="number" id="myy" value="0">
+                            <label>Mzz:</label><input type="number" id="mzz" value="0">
+                            <label>Fxx:</label><input type="number" id="fxx" value="0">
+                            <label>Max σxx =</label><span id="res-sxx-max" class="result-value">n/a</span>
+                            <label>Min σxx =</label><span id="res-sxx-min" class="result-value">n/a</span>
+                            <h2 style="margin-top: 10px;">Stress at a point:</h2>
+                            <label>y-coord:</label><input type="number" id="py" value="0">
+                            <label>z-coord:</label><input type="number" id="pz" value="0">
+                            <label>σxx =</label><span id="res-sxx-point" class="result-value">n/a</span>
+                        </div>
+                    </div>
+                     <div class="button-group">
+                        <button id="principal-btn" class="button green">Properties about Principal Axes</button>
+                        <button id="plastic-btn" class="button green">Plastic Shape Factors</button>
+                    </div>
+                </div>
+            </div>
+            <div class="right-column">
+                <div class="plot-container card">
+                     <canvas id="section-plot"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Structure -->
+    <div id="modal" class="modal-overlay">
+        <div class="modal-content">
+            <span class="modal-close-btn">&times;</span>
+            <h2 id="modal-title"></h2>
+            <div id="modal-body"></div>
+        </div>
+    </div>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- ELEMENT REFERENCES ---
+            const appContainer = document.querySelector('.app-container');
+            const blocksContainer = document.getElementById('blocks-container');
+            const addBlockBtn = document.getElementById('add-block-btn');
+            const addSnapBtn = document.getElementById('add-snap-btn');
+            const snapStatus = document.getElementById('snap-status');
+            const uploader = document.getElementById('file-uploader');
+            const openBtn = document.getElementById('open-btn');
+            const saveBtn = document.getElementById('save-btn');
+            const principalBtn = document.getElementById('principal-btn');
+            const plasticBtn = document.getElementById('plastic-btn');
+            const modal = document.getElementById('modal');
+            const modalTitle = document.getElementById('modal-title');
+            const modalBody = document.getElementById('modal-body');
+            const modalCloseBtn = document.querySelector('.modal-close-btn');
+            const canvas = document.getElementById('section-plot');
+
+            let chartInstance = null;
+            let lastResults = null;
+            let isSnapping = false;
+            let snapPoints = [];
+            let hoveredSnapPoint = null;
+
+            // --- CORE FUNCTIONS ---
+            
+            const debounce = (func, delay) => {
+                let timeout;
+                return function(...args) {
+                    const context = this;
+                    clearTimeout(timeout);
+                    timeout = setTimeout(() => func.apply(context, args), delay);
+                };
+            };
+            
+            const toggleSnappingMode = (forceOff = false) => {
+                isSnapping = forceOff ? false : !isSnapping;
+                if (isSnapping) {
+                    addSnapBtn.classList.add('snapping-active');
+                    snapStatus.textContent = 'Click a corner on the plot to start a new block.';
+                } else {
+                    addSnapBtn.classList.remove('snapping-active');
+                    snapStatus.textContent = '';
+                    hoveredSnapPoint = null;
+                }
+                runFullCalculation(); // Redraw chart with/without snap points
+            };
+
+            const addBlock = (data = {}) => {
+                const blockId = blocksContainer.children.length + 1;
+                const blockDiv = document.createElement('div');
+                blockDiv.className = 'block-definition';
+                blockDiv.innerHTML = `
+                    <input type="number" class="block-y0" value="${data.y0 !== undefined ? data.y0 : 0}">
+                    <input type="number" class="block-z0" value="${data.z0 !== undefined ? data.z0 : 0}">
+                    <input type="number" class="block-ly" value="${data.ly !== undefined ? data.ly : 0}">
+                    <input type="number" class="block-lz" value="${data.lz !== undefined ? data.lz : 0}">
+                    <input type="text" class="block-label" value="${data.label || `Block ${blockId}`}">
+                    <button class="remove-block-btn">X</button>
+                `;
+                blocksContainer.appendChild(blockDiv);
+            };
+
+            const collectInputs = () => {
+                const blocks = Array.from(document.querySelectorAll('.block-definition')).map(div => ({
+                    y0: parseFloat(div.querySelector('.block-y0').value) || 0,
+                    z0: parseFloat(div.querySelector('.block-z0').value) || 0,
+                    ly: parseFloat(div.querySelector('.block-ly').value) || 0,
+                    lz: parseFloat(div.querySelector('.block-lz').value) || 0,
+                    label: div.querySelector('.block-label').value,
+                }));
+
+                const loads = {
+                    Myy: parseFloat(document.getElementById('myy').value) || 0,
+                    Mzz: parseFloat(document.getElementById('mzz').value) || 0,
+                    Fxx: parseFloat(document.getElementById('fxx').value) || 0,
+                    py: parseFloat(document.getElementById('py').value) || 0,
+                    pz: parseFloat(document.getElementById('pz').value) || 0
+                };
+                return { blocks, loads };
+            };
+            
+            const calculateProperties = (blocks, loads) => {
+                let ybar_list = [], zbar_list = [], A = [], yA = [], y2A = [], Iyy = [], zA = [], z2A = [], Izz = [];
+                let Iyz_na = 0, Zpy = 0, Zpz = 0;
+                
+                snapPoints = [];
+                blocks.forEach(b => {
+                    snapPoints.push({x: b.y0, y: b.z0});
+                    snapPoints.push({x: b.y0 + b.ly, y: b.z0});
+                    snapPoints.push({x: b.y0, y: b.z0 + b.lz});
+                    snapPoints.push({x: b.y0 + b.ly, y: b.z0 + b.lz});
+                    const current_ybar = b.y0 + b.ly / 2;
+                    const current_zbar = b.z0 + b.lz / 2;
+                    const current_A = Math.abs(b.ly) * Math.abs(b.lz);
+                    ybar_list.push(current_ybar); zbar_list.push(current_zbar); A.push(current_A);
+                    yA.push(current_A * current_ybar); y2A.push(current_A * current_ybar * current_ybar);
+                    Iyy.push(Math.pow(Math.abs(b.lz), 3) * Math.abs(b.ly) / 12);
+                    zA.push(current_A * current_zbar); z2A.push(current_A * current_zbar * current_zbar);
+                    Izz.push(Math.pow(Math.abs(b.ly), 3) * Math.abs(b.lz) / 12);
+                });
+
+                const sum = arr => arr.reduce((acc, val) => acc + val, 0);
+                const total_A = sum(A);
+                if (total_A === 0) { return null; }
+
+                const ybar_o = sum(yA) / total_A;
+                const zbar_o = sum(zA) / total_A;
+                const Izz_o = sum(Izz) + sum(y2A);
+                const Iyy_o = sum(Iyy) + sum(z2A);
+                const Izz_na = Izz_o - total_A * ybar_o**2;
+                const Iyy_na = Iyy_o - total_A * zbar_o**2;
+                A.forEach((_, n) => { Iyz_na += A[n] * (ybar_list[n] - ybar_o) * (zbar_list[n] - zbar_o); });
+                const I1 = 0.5 * (Izz_na + Iyy_na) + Math.sqrt(0.25 * (Izz_na - Iyy_na)**2 + Iyz_na**2);
+                const I2 = 0.5 * (Izz_na + Iyy_na) - Math.sqrt(0.25 * (Izz_na - Iyy_na)**2 + Iyz_na**2);
+                const theta = (Iyy_na === Izz_na) ? 0 : 0.5 * Math.atan(2 * Iyz_na / (Iyy_na - Izz_na));
+
+                let pxy = [];
+                blocks.forEach(b => {
+                    pxy.push({y: b.y0 - ybar_o, z: b.z0 - zbar_o});
+                    pxy.push({y: b.y0 - ybar_o, z: b.z0 + b.lz - zbar_o});
+                    pxy.push({y: b.y0 + b.ly - ybar_o, z: b.z0 + b.lz - zbar_o});
+                    pxy.push({y: b.y0 + b.ly - ybar_o, z: b.z0 - zbar_o});
+                    if (Math.sign(b.y0 + b.ly - ybar_o) === Math.sign(b.y0 - ybar_o)) Zpz += (b.ly*b.lz)*Math.abs(b.y0+b.ly/2 - ybar_o);
+                    else { const w1=Math.abs(ybar_o-b.y0), w2=Math.abs(b.y0+b.ly-ybar_o); Zpz += (w1*b.lz)*w1/2 + (w2*b.lz)*w2/2; }
+                    if (Math.sign(b.z0 + b.lz - zbar_o) === Math.sign(b.z0 - zbar_o)) Zpy += (b.ly*b.lz)*Math.abs(b.z0+b.lz/2 - zbar_o);
+                    else { const h1=Math.abs(zbar_o-b.z0), h2=Math.abs(b.z0+b.lz-zbar_o); Zpy += (b.ly*h1)*h1/2 + (b.ly*h2)*h2/2; }
+                });
+                
+                const y_coords = pxy.map(p => p.y), z_coords = pxy.map(p => p.z);
+                const y_min = y_coords.length>0 ? Math.min(...y_coords) : 0, y_max = y_coords.length>0?Math.max(...y_coords):0;
+                const z_min = z_coords.length>0?Math.min(...z_coords):0, z_max = z_coords.length>0?Math.max(...z_coords):0;
+
+                const denominator = (Iyy_na * Izz_na - Iyz_na**2);
+                if (denominator === 0) { return { ...lastResults, Sxx_at_point: NaN }; }
+
+                const Sxx = pxy.map(p => (-(loads.Mzz*Iyy_na + loads.Myy*Iyz_na)*p.y + (loads.Myy*Izz_na + loads.Mzz*Iyz_na)*p.z)/denominator + loads.Fxx/total_A);
+                const Sxx_at_point = (-(loads.Mzz*Iyy_na + loads.Myy*Iyz_na)*(loads.py-ybar_o) + (loads.Myy*Izz_na + loads.Mzz*Iyz_na)*(loads.pz-zbar_o))/denominator + loads.Fxx/total_A;
+                
+                const fy = Zpy / (Iyy_na/Math.max(Math.abs(z_max), Math.abs(z_min))), fz = Zpz / (Izz_na/Math.max(Math.abs(y_max), Math.abs(y_min)));
+                
+                return { area: total_A, ybar_o, zbar_o, Izz_na, Iyy_na, Iyz_na, I1, I2, theta, ymin: y_min, ymax: y_max, zmin: z_min, zmax: z_max,
+                    Sxx_max: Sxx.length>0?Math.max(...Sxx):0, Sxx_min:Sxx.length>0?Math.min(...Sxx):0, Sxx_at_point, fy, fz };
+            };
+
+            const updateResults = (results) => {
+                if (!results) return;
+                lastResults = results;
+                document.getElementById('res-area').textContent = results.area.toExponential(3);
+                document.getElementById('res-izz').textContent = results.Izz_na.toExponential(3);
+                document.getElementById('res-iyy').textContent = results.Iyy_na.toExponential(3);
+                document.getElementById('res-iyz').textContent = results.Iyz_na.toExponential(3);
+                document.getElementById('res-ymin').textContent = results.ymin.toFixed(3);
+                document.getElementById('res-ymax').textContent = results.ymax.toFixed(3);
+                document.getElementById('res-zmin').textContent = results.zmin.toFixed(3);
+                document.getElementById('res-zmax').textContent = results.zmax.toFixed(3);
+                document.getElementById('res-sxx-max').textContent = results.Sxx_max.toFixed(3);
+                document.getElementById('res-sxx-min').textContent = results.Sxx_min.toFixed(3);
+                document.getElementById('res-sxx-point').textContent = isNaN(results.Sxx_at_point) ? "Error" : results.Sxx_at_point.toFixed(3);
+            };
+
+            const createPlot = (blocks, loads, results) => {
+                const ctx = canvas.getContext('2d');
+                if (chartInstance) chartInstance.destroy();
+
+                let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+                if(blocks.length>0&&blocks.some(b=>b.ly!==0||b.lz!==0)){blocks.forEach(b=>{minX=Math.min(minX,b.y0,b.y0+b.ly);maxX=Math.max(maxX,b.y0,b.y0+b.ly);minY=Math.min(minY,b.z0,b.z0+b.lz);maxY=Math.max(maxY,b.z0,b.z0+b.lz);});}else{minX=-1,maxX=1,minY=-1,maxY=1;}
+                minX = Math.min(minX, loads.py, results.ybar_o); maxX = Math.max(maxX, loads.py, results.ybar_o);
+                minY = Math.min(minY, loads.pz, results.zbar_o); maxY = Math.max(maxY, loads.pz, results.zbar_o);
+                const rangeX = maxX - minX, rangeY = maxY - minY, maxRange = Math.max(rangeX, rangeY);
+                const padding = maxRange * 0.1 || 1, centerX = (minX + maxX) / 2, centerY = (minY + maxY) / 2;
+                const finalScale = {
+                    x: { min: centerX - (maxRange / 2) - padding, max: centerX + (maxRange / 2) + padding },
+                    y: { min: centerY - (maxRange / 2) - padding, max: centerY + (maxRange / 2) + padding }
+                };
+
+                const plotData = {
+                    datasets: [
+                        {
+                            label: 'Centroid',
+                            data: [{ x: results.ybar_o, y: results.zbar_o }],
+                            backgroundColor: 'red',
+                            pointRadius: 6,
+                        },
+                        {
+                            label: 'Stress Point',
+                            data: [{ x: loads.py, y: loads.pz }],
+                            backgroundColor: 'green',
+                            pointRadius: 6,
+                        }
+                    ]
+                };
+
+                const shapePlugin = { id: 'drawShapes', beforeDraw: (chart) => {
+                    const { ctx, scales: { x: xAxis, y: yAxis } } = chart;
+                    ctx.save();
+                    ctx.fillStyle = 'rgba(0,104,201,0.2)';ctx.strokeStyle = 'rgba(0,48,93,0.8)';ctx.lineWidth = 1.5;
+                    blocks.forEach(b=>{const x_pixel=xAxis.getPixelForValue(b.y0),y_pixel=yAxis.getPixelForValue(b.z0),width=xAxis.getPixelForValue(b.y0+b.ly)-x_pixel,height=yAxis.getPixelForValue(b.z0+b.lz)-y_pixel;ctx.fillRect(x_pixel,y_pixel,width,height);ctx.strokeRect(x_pixel,y_pixel,width,height);});
+                    if(loads.Myy!==0||loads.Mzz!==0){const{Iyy_na,Izz_na,Iyz_na}=results;const num=(loads.Mzz*Iyy_na+loads.Myy*Iyz_na),den=(loads.Myy*Izz_na+loads.Mzz*Iyz_na);if(den!==0){const na_theta=Math.atan(num/den),{min:xMin,max:xMax}=xAxis;const z1=Math.tan(na_theta)*(xMin-results.ybar_o)+results.zbar_o,z2=Math.tan(na_theta)*(xMax-results.ybar_o)+results.zbar_o;ctx.beginPath();ctx.moveTo(xAxis.getPixelForValue(xMin),yAxis.getPixelForValue(z1));ctx.lineTo(xAxis.getPixelForValue(xMax),yAxis.getPixelForValue(z2));ctx.strokeStyle='red';ctx.lineWidth=2;ctx.setLineDash([6,6]);ctx.stroke();ctx.setLineDash([]);}}
+                    if (isSnapping) {
+                        snapPoints.forEach(p => {
+                            const isHovered = hoveredSnapPoint && hoveredSnapPoint.x === p.x && hoveredSnapPoint.y === p.y;
+                            ctx.beginPath();
+                            ctx.arc(xAxis.getPixelForValue(p.x), yAxis.getPixelForValue(p.y), isHovered ? 8 : 4, 0, 2 * Math.PI, false);
+                            ctx.fillStyle = isHovered ? 'rgba(0, 255, 0, 0.7)' : 'rgba(0, 100, 0, 0.5)';
+                            ctx.fill();
+                        });
+                    }
+                    ctx.restore();
+                }};
+
+                chartInstance = new Chart(ctx, { type: 'scatter', data: plotData, options: { responsive:true,maintainAspectRatio:true,aspectRatio:1,scales:{x:{...finalScale.x,type:'linear',position:'bottom',title:{display:true,text:'Y-axis'}},y:{...finalScale.y,title:{display:true,text:'Z-axis'}}},plugins:{legend:{display:false}}}, plugins:[shapePlugin] });
+            };
+            
+            const runFullCalculation = () => {
+                const { blocks, loads } = collectInputs();
+                const results = calculateProperties(blocks, loads);
+                updateResults(results);
+                if (results) createPlot(blocks, loads, results);
+            };
+            
+            const handleFileRead=(c)=>{try{const l=c.trim().split('\n'),n=parseInt(l[0],10);if(isNaN(n)||n<1)throw new Error("Invalid format.");blocksContainer.innerHTML='';for(let i=1;i<=n&&i<l.length;i++){const p=l[i].split(',');if(p.length<5)continue;addBlock({y0:parseFloat(p[0]),z0:parseFloat(p[1]),ly:parseFloat(p[2]),lz:parseFloat(p[3]),label:p[4]});}runFullCalculation();}catch(e){alert("Error reading file.");console.error(e);}};
+
+            const openModal=()=>modal.style.display='flex';const closeModal=()=>modal.style.display='none';
+
+            // --- EVENT LISTENERS ---
+            addBlockBtn.addEventListener('click', ()=>{addBlock();runFullCalculation();});
+            addSnapBtn.addEventListener('click', () => toggleSnappingMode());
+            
+            blocksContainer.addEventListener('click', (event) => {
+                if (event.target.classList.contains('remove-block-btn')) {
+                    event.target.closest('.block-definition').remove();
+                    runFullCalculation();
+                }
+            });
+            
+            appContainer.addEventListener('input',debounce((e)=>{if(e.target.matches('input[type="number"],input[type="text"]')){runFullCalculation();}},250));
+
+            canvas.addEventListener('mousemove', (event) => {
+                if (!isSnapping || !chartInstance) return;
+                const rect = canvas.getBoundingClientRect();
+                const x = event.clientX - rect.left; const y = event.clientY - rect.top;
+                const snapRadiusPixels = 10;
+                let foundPoint = null;
+                for (const point of snapPoints) {
+                    const pixelX = chartInstance.scales.x.getPixelForValue(point.x);
+                    const pixelY = chartInstance.scales.y.getPixelForValue(point.y);
+                    const distance = Math.sqrt((x - pixelX)**2 + (y - pixelY)**2);
+                    if (distance < snapRadiusPixels) { foundPoint = point; break; }
+                }
+                if (hoveredSnapPoint !== foundPoint) {
+                    hoveredSnapPoint = foundPoint;
+                    chartInstance.update('none');
+                }
+            });
+
+            canvas.addEventListener('click', (event) => {
+                if (isSnapping && hoveredSnapPoint) {
+                    addBlock({ y0: hoveredSnapPoint.x.toFixed(3), z0: hoveredSnapPoint.y.toFixed(3) });
+                    toggleSnappingMode(true);
+                    runFullCalculation();
+                    return;
+                }
+                if (!isSnapping && chartInstance) {
+                    const rect = canvas.getBoundingClientRect();
+                    const x = event.clientX-rect.left, y = event.clientY-rect.top;
+                    const yC = chartInstance.scales.x.getValueForPixel(x), zC = chartInstance.scales.y.getValueForPixel(y);
+                    document.getElementById('py').value = yC.toFixed(3);
+                    document.getElementById('pz').value = zC.toFixed(3);
+                    runFullCalculation();
+                }
+            });
+            
+            openBtn.addEventListener('click',()=>uploader.click());
+            uploader.addEventListener('change',(e)=>e.target.files[0]&&e.target.files[0].text().then(handleFileRead));
+            saveBtn.addEventListener('click',()=>{const{blocks}=collectInputs();let c=`${blocks.length}\n`;c+=blocks.map(b=>`${b.y0},${b.z0},${b.ly},${b.lz},${b.label}`).join('\n');const blob=new Blob([c],{type:'text/csv;charset=utf-8,'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='section_data.csv';a.click();URL.revokeObjectURL(url);});
+            principalBtn.addEventListener('click',()=>{if(!lastResults){return;}modalTitle.textContent='Properties about Principal Axes';modalBody.innerHTML=`<label>I1 =</label><span>${lastResults.I1.toExponential(3)}</span><label>I2 =</label><span>${lastResults.I2.toExponential(3)}</span><label>θ (deg) =</label><span>${(lastResults.theta*180/Math.PI).toFixed(2)}</span>`;openModal();});
+            plasticBtn.addEventListener('click',()=>{if(!lastResults){return;}modalTitle.textContent='Plastic Shape Factors';modalBody.innerHTML=`<label>fy =</label><span>${lastResults.fy.toFixed(3)}</span><label>fz =</label><span>${lastResults.fz.toFixed(3)}</span><p style="grid-column:1/-1;font-size:0.8em;margin-top:10px;">Note: Assumes plastic neutral axis coincides with elastic neutral axis.</p>`;openModal();});
+            modalCloseBtn.addEventListener('click',closeModal);
+            window.addEventListener('click',(e)=>e.target===modal&&closeModal());
+            window.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && isSnapping) toggleSnappingMode(true);
+            });
+
+            for(let i=0;i<2;i++)addBlock();
+            runFullCalculation();
+        });
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Freeze Plug Stress for Fatigue Analysis</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Basic Reset and Font */
+        body, html {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+        body {
+            background-image: linear-gradient(to bottom right, #f8fafc, #e0f2fe); /* slate-50 to sky-100 */
+            padding: 0.75rem; /* p-3 */
+        }
+
+        /* Container - Width adjusted for two columns */
+        .container {
+            max-width: 48rem; /* max-w-4xl, for two columns */
+            margin-left: auto;
+            margin-right: auto;
+            background-color: #ffffff; /* bg-white */
+            box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.2); 
+            border-radius: 0.5rem; /* rounded-lg */
+            padding: 1.25rem; /* p-5 */
+        }
+
+        /* Header */
+        header {
+            margin-bottom: 1.5rem; 
+            text-align: center;
+        }
+        header h1 {
+            font-size: 2.1875rem; /* Increased from 1.75rem */
+            line-height: 2.65625rem; /* Increased from 2.125rem */
+            font-weight: 700; 
+            color: #1e293b; 
+        }
+        header p {
+            font-size: 1.171875rem; /* Increased from 0.9375rem */
+            color: #475569; 
+            margin-top: 0.375rem; 
+        }
+
+        /* Main content grid for two-column layout */
+        .main-content-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr)); /* Two equal columns */
+            gap: 1.5rem; /* gap-6 */
+            margin-bottom: 1.25rem;
+        }
+        
+        /* General column styling */
+        .content-column {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        /* Section Titles (H2) for Inputs */
+        .section-title {
+            font-size: 1.40625rem; /* Increased from 1.125rem */
+            line-height: 2.03125rem; /* Increased from 1.625rem */
+            font-weight: 600; 
+            color: #1e293b; 
+            margin-bottom: 0.75rem; 
+            margin-top: 0; 
+            border-bottom: 1px solid #cbd5e1; 
+            padding-bottom: 0.375rem; 
+        }
+        
+        /* Input grid layout */
+        .input-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 1.015625rem; /* Increased from 0.8125rem */
+            line-height: 1.40625rem; /* Increased from 1.125rem */
+            font-weight: 500; 
+            color: #334155; 
+            margin-bottom: 0.125rem; 
+        }
+        .input-group input[type="number"] {
+            margin-top: 0.125rem; 
+            display: block;
+            width: 95%;
+            padding: 0.375rem 0.625rem; 
+            border: 1px solid #cbd5e1; /* Lighter border */
+            background-color: #e2e8f0; /* Darker background color added */
+            border-radius: 0.25rem; 
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.06);
+            font-size: 1.015625rem; /* Increased from 0.8125rem */
+            line-height: 1.40625rem; /* Increased from 1.125rem */
+            transition: box-shadow 0.15s ease-in-out, background-color 0.15s ease-in-out, border-color 0.15s ease-in-out;
+        }
+        .input-group input[type="number"]:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px #0ea5e9; 
+            border-color: #0ea5e9; 
+            background-color: #ffffff; /* Return to white on focus */
+        }
+        input[type=number]::-webkit-outer-spin-button,
+        input[type=number]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type=number] {
+            -moz-appearance: textfield; /* Firefox */
+        }
+        .info-icon {
+            cursor: help;
+            margin-left: 3px;
+            color: #64748b; 
+        }
+
+        /* Button */
+        .calculate-button-container {
+            text-align: center;
+            margin-top: 1.5rem; 
+            margin-bottom: 1.5rem;
+        }
+        .calculate-button {
+            background-image: linear-gradient(to right, #0ea5e9, #4f46e5); 
+            color: #ffffff; 
+            font-weight: 600; 
+            padding: 0.625rem 1.75rem; 
+            border-radius: 0.375rem; 
+            box-shadow: 0 3px 5px -1px rgba(0,0,0,0.08), 0 2px 3px -1px rgba(0,0,0,0.04); 
+            transition: all 0.2s ease-in-out;
+            border: none;
+            cursor: pointer;
+            font-size: 1.25rem; /* Added font-size for button */
+        }
+        .calculate-button:hover {
+            background-image: linear-gradient(to right, #0284c7, #4338ca); 
+            box-shadow: 0 8px 12px -3px rgba(0,0,0,0.08), 0 3px 5px -2px rgba(0,0,0,0.03); 
+            transform: scale(1.03); 
+        }
+        .calculate-button:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.4); 
+        }
+        
+        /* Horizontal Rule */
+        hr {
+            margin-top: 1.5rem; 
+            margin-bottom: 1.5rem;
+            border-color: #e2e8f0; 
+            border-top-width: 1px;
+        }
+
+        /* Results Area */
+        .result-section-item {
+            border: 1px solid #93c5fd; /* blue-300, for the main border */
+            border-radius: 0.375rem; /* rounded-md */
+            box-shadow: 0 1px 1px 0 rgba(0, 0, 0, 0.03);
+            background-color: #ffffff; /* Content background */
+        }
+        .result-group-title-bar {
+            background-color: #dbeafe; /* bg-blue-100 */
+            color: #1e40af; /* text-blue-800, for text in header */
+            padding: 0.5rem 0.75rem;
+            border-top-left-radius: calc(0.375rem - 1px); /* Adjust for parent border */
+            border-top-right-radius: calc(0.375rem - 1px);
+        }
+        .result-group-title-bar h3 {
+            font-size: 1.171875rem; /* Increased from 0.9375rem */
+            line-height: 1.71875rem; /* Increased from 1.375rem */
+            font-weight: 500; 
+            margin: 0; /* Removed default margin */
+        }
+        .result-group-data {
+            padding: 0.5rem; /* p-2 */
+            border-top: 1px solid #93c5fd; /* blue-300, to separate from title bar */
+        }
+        
+        .results-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem; /* space-y-1 */
+        }
+        
+        /* Revised result item styling */
+        .result-item {
+            font-size: 1.015625rem; /* Increased from 0.8125rem */
+            line-height: 1.5625rem; /* Increased from 1.25rem */
+            color: #334155; 
+            padding: 0.25rem 0.375rem; 
+            border-radius: 0.25rem; 
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 0; /* Removed default margin from <p> tag */
+        }
+        .result-item .label {
+            margin-right: auto; 
+        }
+        .result-item .value-unit-group {
+            display: flex;
+            align-items: baseline; 
+            margin-left: 0.5rem; 
+        }
+        .result-item .value {
+            font-weight: 600; 
+            color: #4338ca; 
+            text-align: right;
+        }
+        .result-item .unit {
+            font-size: 0.9375rem; /* Increased from 0.75rem */
+            color: #64748b; 
+            margin-left: 0.25rem; 
+        }
+
+        /* Styles for highlighted key results */
+        .key-highlight {
+            padding: 0.5rem; 
+            border-radius: 0.375rem; 
+            border-width: 1px;
+            box-shadow: 0 2px 4px -1px rgba(0,0,0,0.08), 0 1px 2px -1px rgba(0,0,0,0.04); 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+            margin-top: 0.25rem; 
+            margin-bottom: 0.25rem;
+            font-size: 1.015625rem; /* Increased from 0.8125rem */
+            line-height: 1.5625rem; /* Increased from 1.25rem */
+        }
+         .key-highlight .label { 
+            display: flex;
+            align-items: center;
+            margin-right: auto;
+        }
+        .key-highlight .fas { 
+            margin-right: 0.375rem; 
+            width: 1em; 
+            text-align: center;
+        }
+        .key-highlight .value { 
+            font-weight: 700; 
+        }
+        .key-highlight.tension {
+            background-color: #dbeafe; border-color: #93c5fd; color: #1e40af;
+        }
+        .key-highlight.tension .fas { color: #2563eb; }
+        .key-highlight.tension .value { color: #1d4ed8; }
+
+        .key-highlight.r-ratio {
+            background-color: #f3e8ff; border-color: #d8b4fe; color: #6b21a8;
+        }
+        .key-highlight.r-ratio .fas { color: #9333ea; }
+        .key-highlight.r-ratio .value { color: #7e22ce; }
+
+        .key-highlight.severity {
+            background-color: #dcfce7; border-color: #86efac; color: #166534;
+        }
+        .key-highlight.severity .fas { color: #16a34a; }
+        .key-highlight.severity .value { color: #15803d; }
+
+        /* Footer */
+        footer {
+            margin-top: 2.5rem; 
+            padding-top: 1.5rem; 
+            border-top: 1px solid #e2e8f0; 
+        }
+        footer h3 {
+            font-size: 1.25rem; /* Increased from 1rem */
+            line-height: 1.875rem; /* Increased from 1.5rem */
+            font-weight: 600; 
+            color: #334155; 
+            margin-bottom: 0.625rem; 
+        }
+        footer ul {
+            list-style-type: disc;
+            padding-left: 1.25rem; 
+            font-size: 1.015625rem; /* Increased from 0.8125rem */
+            line-height: 1.5625rem; /* Increased from 1.25rem */
+            color: #475569; 
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        footer code {
+            font-family: monospace;
+            background-color: #f1f5f9; 
+            padding: 0.1rem 0.2rem;
+            border-radius: 0.125rem;
+            color: #c026d3;
+        }
+         footer .equation-derivation {
+            margin-left: 1rem; /* Indent derivation details */
+            font-size: 0.9375rem; /* Increased from 0.75rem */
+            color: #4b5563; /* Slightly lighter text */
+        }
+        footer .equation-derivation strong {
+            color: #374151; /* Darker for emphasis */
+        }
+
+
+        /* Error Message Box */
+        .error-message-box {
+            background-color: #fee2e2; 
+            border-left: 3px solid #ef4444; 
+            color: #b91c1c; 
+            padding: 0.75rem; 
+            border-radius: 0.25rem; 
+            margin-bottom: 1.25rem; 
+        }
+        .error-message-box strong {
+            font-weight: 600; 
+            display: block;
+            font-size: 1.09375rem; /* Increased from 0.875rem */
+        }
+        .error-message-box span {
+            font-size: 1.015625rem; /* Increased from 0.8125rem */
+        }
+        .error-message-box ul {
+            margin-top: 0.375rem; 
+            list-style-type: disc;
+            padding-left: 1rem; 
+            font-size: 1.015625rem; /* Increased from 0.8125rem */
+            line-height: 1.40625rem; /* Increased from 1.125rem */
+        }
+
+        /* Responsive Design */
+        @media (max-width: 767px) { /* Below md screens */
+            .main-content-grid {
+                grid-template-columns: 1fr; /* Stack into a single column */
+            }
+        }
+
+    </style>
+</head>
+<body> 
+    <div class="container">
+        <header>
+            <h1>Freeze Plug Stress for Fatigue Analysis</h1>
+        </header>
+
+        <div class="main-content-grid">
+            <!-- COLUMN 1: INPUTS -->
+            <div class="content-column" id="inputs-column">
+                <div>
+                    <h2 class="section-title">Freeze Plug Geometry & Material</h2>
+                    <div class="input-grid">
+                        <div class="input-group">
+                            <label for="parentRadiusC">Parent Material Radius (c) [in]</label>
+                            <input type="number" id="parentRadiusC" value="1">
+                        </div>
+                        <div class="input-group">
+                            <label for="plugOuterRadiusB">Freeze Plug Outer Radius (b) [in]</label>
+                            <input type="number" id="plugOuterRadiusB" value="0.193">
+                        </div>
+                        <div class="input-group">
+                            <label for="plugInnerRadiusA">Freeze Plug Inner Radius (a) [in]</label>
+                            <input type="number" id="plugInnerRadiusA" value="0">
+                        </div>
+                        <div class="input-group">
+                            <label for="modulusE">Modulus of Elasticity (E) [psi]</label>
+                            <input type="number" id="modulusE" value="10500000">
+                        </div>
+                        <div class="input-group">
+                            <label for="interferenceFraction">
+                                Interference Fraction (δ<sub>radial</sub> / b)
+                                <span class="info-icon" title="Radial interference (plug actual radius - hole nominal radius) divided by the nominal hole radius (b). E.g., 0.004 means 0.4% radial interference.">ⓘ</span>
+                            </label>
+                            <input type="number" id="interferenceFraction" value="0.004" step="0.0001">
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h2 class="section-title">Far-Field Loading Conditions</h2>
+                    <div class="input-grid">
+                        <div class="input-group">
+                            <label for="farFieldStressNominal">Far Field Stress [ksi]</label>
+                            <input type="number" id="farFieldStressNominal" value="15">
+                        </div>
+                        <div class="input-group">
+                            <label for="farFieldRRatio">Far Field R-Ratio (S<sub>min</sub>/S<sub>max</sub>)</label>
+                            <input type="number" id="farFieldRRatio" value="0.0" step="0.1">
+                        </div>
+                        <div class="input-group">
+                            <label for="kt">Stress Concentration Factor (K<sub>t</sub>)
+                                 <span class="info-icon" title="Stress concentration at freeze plug perimeter due to far field stresses. This could be calculated by treating the freeze plug as a rivet (loaded or unloaded), for example.">ⓘ</span>
+                            </label>
+                            <input type="number" id="kt" value="1.937" step="0.001">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- COLUMN 2: ALL RESULTS -->
+            <div class="content-column" id="results-column">
+                 <div class="result-section-item">
+                    <div class="result-group-title-bar">
+                        <h3>Interference-Induced Stresses</h3>
+                    </div>
+                    <div class="result-group-data">
+                         <p class="result-item">
+                            <span class="label">Freeze plug interference stress:</span>
+                            <span class="value-unit-group"><span class="value" id="parentCircTension">---</span><span class="unit">ksi</span></span>
+                        </p>
+                    </div>
+                </div>
+
+                <div class="result-section-item">
+                    <div class="result-group-title-bar">
+                        <h3>Far-field Peak Stresses</h3>
+                    </div>
+                    <div class="result-group-data">
+                        <div class="results-group">
+                            <p class="result-item">
+                                <span class="label">Max peak stress:</span>
+                                <span class="value-unit-group"><span class="value" id="localizedSMax">---</span><span class="unit">ksi</span></span>
+                            </p>
+                            <p class="result-item">
+                                <span class="label">Min peak stress:</span>
+                                <span class="value-unit-group"><span class="value" id="localizedSMin">---</span><span class="unit">ksi</span></span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="result-section-item">
+                    <div class="result-group-title-bar">
+                        <h3>Effective Combined Stresses</h3>
+                    </div>
+                    <div class="result-group-data">
+                        <div class="results-group">
+                            <p class="result-item">
+                                <span class="label">Combined Peak Stress (Max):</span>
+                                <span class="value-unit-group"><span class="value" id="combinedMaxStress">---</span><span class="unit">ksi</span></span>
+                            </p>
+                            <p class="result-item">
+                                <span class="label">Combined Peak Stress (Min):</span>
+                                <span class="value-unit-group"><span class="value" id="combinedMinStress">---</span><span class="unit">ksi</span></span>
+                            </p>
+                             <p class="key-highlight tension result-item">
+                                <span class="label">Reference Stress:</span>
+                                <span class="value-unit-group"><span class="value" id="referenceStress">---</span><span class="unit">ksi</span></span>
+                            </p>
+                            <p class="key-highlight r-ratio result-item">
+                                <span class="label">Effective R-Ratio:</span>
+                                <span class="value-unit-group"><span class="value" id="effectiveRRatio">---</span></span>
+                            </p>
+                            <p class="key-highlight severity result-item">
+                                <span class="label">Effective SF:</span>
+                                <span class="value-unit-group"><span class="value" id="effectiveSF">---</span></span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="calculate-button-container">
+            <button onclick="calculateStresses()" class="calculate-button">
+                Calculate Stresses
+            </button>
+        </div>
+
+        <hr>
+
+        <footer>
+            <h3>Notes & Assumptions:</h3>
+            <ul>
+                <li>Based on 'Stresses Produced by Shrink Fits' from Timoshenko, Strength of Materials, 2nd Edition</li>
+                <li>Calculations assume linear elastic material behavior and the same Modulus of Elasticity (E) for the plug and parent material.</li>
+                <li>
+                    <strong>Parent Circumferential Tension at Interface (σ<sub>interference</sub>):</strong>
+                    <br><code>σ<sub>interference</sub> = p * (c² + b²) / (c² - b²)</code>, where <code>p</code> is contact pressure.
+                     <div class="equation-derivation">This is Lamé's equation for hoop stress in a thick-walled cylinder under internal pressure p.</div>
+                </li>
+                <li>
+                    <strong>Localized Far-Field Stresses (σ<sub>cyc,local</sub>):</strong>
+                    <br><code>σ<sub>cyc,max,local</sub> = Far_Field_SMax * K<sub>t</sub></code>
+                    <br><code>σ<sub>cyc,min,local</sub> = Far_Field_SMin * K<sub>t</sub></code>
+                </li>
+                <li>
+                    <strong>Combined Peak Stresses:</strong>
+                    <br><code>Combined_Peak_Stress_Max = σ<sub>interference</sub> + σ<sub>cyc,max,local</sub></code>
+                    <br><code>Combined_Peak_Stress_Min = σ<sub>interference</sub> + σ<sub>cyc,min,local</sub></code>
+                </li>
+                <li>
+                    <strong>Reference Stress:</strong>
+                    <br>A baseline stress combining static interference and nominal far-field effects.
+                    <br><code>Reference_Stress = σ<sub>interference</sub> + Far_Field_SMax</code>
+                </li>
+                <li>
+                    <strong>Effective R-Ratio:</strong>
+                    <br>The R-Ratio of the combined stress cycle.
+                    <br><code>Effective_R_Ratio = Combined_Peak_Stress_Min / Combined_Peak_Stress_Max</code>
+                </li>
+                <li>
+                    <strong>Effective SF (Severity Factor):</strong>
+                    <br>A measure of the peak stress relative to the combined reference stress.
+                    <br><code>Effective_SF = Combined_Peak_Stress_Max / Reference_Stress</code>
+                </li>
+            </ul>
+        </footer>
+    </div>
+
+    <script>
+        function getFloatValue(id, defaultValue = 0) {
+            const value = parseFloat(document.getElementById(id).value);
+            return isNaN(value) ? defaultValue : value;
+        }
+
+        function displayResult(id, value, precision = 0) { 
+            const element = document.getElementById(id);
+            if (element) { 
+                if (value === null || isNaN(value) || !isFinite(value)) {
+                    element.textContent = '---';
+                } else {
+                    // Use toLocaleString to add commas for thousands
+                    element.textContent = value.toLocaleString(undefined, {
+                        minimumFractionDigits: precision,
+                        maximumFractionDigits: precision
+                    });
+                }
+            }
+        }
+        
+        function calculateStresses() {
+            // --- Get Inputs ---
+            const c = getFloatValue('parentRadiusC');
+            const b = getFloatValue('plugOuterRadiusB');
+            const a = getFloatValue('plugInnerRadiusA');
+            const E = getFloatValue('modulusE');
+            const intFrac = getFloatValue('interferenceFraction');
+            const farFieldSMaxNominal_ksi = getFloatValue('farFieldStressNominal');
+            const farFieldRRatio = getFloatValue('farFieldRRatio');
+            const kt = getFloatValue('kt');
+
+            // --- Validate Inputs ---
+            let errors = [];
+            if (c <= 0) errors.push("Parent Radius (c) must be positive.");
+            if (b <= 0) errors.push("Plug Outer Radius (b) must be positive.");
+            if (a < 0) errors.push("Plug Inner Radius (a) cannot be negative.");
+            if (b >= c && (b !==0 || c !==0)) errors.push("Plug Outer Radius (b) must be less than Parent Radius (c).");
+            if (a >= b && b !== 0) errors.push("Plug Inner Radius (a) must be less than Plug Outer Radius (b) (unless b=0).");
+            if (E <= 0 && (b > 0 || c > 0 || intFrac > 0)) errors.push("Modulus (E) must be positive if geometry/interference is defined.");
+            if (intFrac <= 0 && (b > 0 || c > 0)) errors.push("Interference Fraction must be positive for a press fit.");
+            if (kt <= 0 && farFieldSMaxNominal_ksi !== 0) errors.push("Stress Concentration Factor (Kt) must be positive if far-field stress is applied.");
+
+            const existingError = document.querySelector('.error-message-box');
+            if (existingError) {
+                existingError.remove();
+            }
+
+            if (errors.length > 0) {
+                let errorHtml = '<div class="error-message-box">'; 
+                errorHtml += '<strong>Input Error!</strong>';
+                errorHtml += '<span> Please correct the following:</span><ul>';
+                errors.forEach(err => { errorHtml += `<li>${err}</li>`; });
+                errorHtml += '</ul></div>';
+                
+                const inputsColumn = document.getElementById('inputs-column');
+                inputsColumn.insertAdjacentHTML('afterbegin', errorHtml);
+
+                const resultIds = ['parentCircTension', 'localizedSMax', 'localizedSMin', 'combinedMaxStress', 'combinedMinStress', 'referenceStress', 'effectiveRRatio', 'effectiveSF'];
+                resultIds.forEach(id => displayResult(id, NaN));
+                return;
+            }
+
+            // --- Calculations (all in psi) ---
+
+            const farFieldSMax_psi = farFieldSMaxNominal_ksi * 1000;
+
+            // 1. Interference Stresses
+            let contactPressureP;
+            const b2 = b * b;
+            const a2 = a * a;
+            const c2 = c * c;
+
+            if (b === 0 || (c2 - a2) === 0 || E === 0 || intFrac === 0) { 
+                contactPressureP = 0;
+            } else {
+                contactPressureP = (E * intFrac * (b2 - a2) * (c2 - b2)) / (2 * b2 * (c2 - a2));
+            }
+            
+            let parentCircTension_psi; // This is sigma_interference
+            if (isNaN(contactPressureP) || (c2 - b2) === 0 || contactPressureP === 0) {
+                parentCircTension_psi = 0;
+            } else {
+                parentCircTension_psi = contactPressureP * (c2 + b2) / (c2 - b2);
+            }
+            if (isNaN(parentCircTension_psi)) parentCircTension_psi = 0;
+
+            // 2. Localized Far-Field Stresses
+            const farFieldSMin_psi = farFieldSMax_psi * farFieldRRatio;
+            const localizedSMax_psi = farFieldSMax_psi * kt;
+            const localizedSMin_psi = farFieldSMin_psi * kt;
+
+            // 3. Combined Stresses & Fatigue Parameters
+            const combinedMaxStress_psi = parentCircTension_psi + localizedSMax_psi;
+            const combinedMinStress_psi = parentCircTension_psi + localizedSMin_psi;
+
+            // 4. Reference Stress and Effective SF
+            const referenceStress_psi = parentCircTension_psi + farFieldSMax_psi;
+
+            let effectiveRRatio;
+            if (combinedMaxStress_psi === 0 && combinedMinStress_psi === 0) {
+                effectiveRRatio = 1; 
+            } else if (combinedMaxStress_psi === 0) { 
+                 effectiveRRatio = (combinedMinStress_psi === 0) ? 1 : NaN;
+            } else {
+                effectiveRRatio = combinedMinStress_psi / combinedMaxStress_psi;
+            }
+            
+            let effectiveSF = NaN;
+            if (referenceStress_psi !== 0) {
+                effectiveSF = combinedMaxStress_psi / referenceStress_psi;
+            } else if (combinedMaxStress_psi === 0 && referenceStress_psi === 0) {
+                effectiveSF = NaN; 
+            } else if (referenceStress_psi === 0 && combinedMaxStress_psi !== 0) {
+                effectiveSF = Infinity; 
+            }
+
+            // --- Display Results (convert to ksi for display) ---
+            displayResult('parentCircTension', parentCircTension_psi / 1000, 2);
+            displayResult('localizedSMax', localizedSMax_psi / 1000, 2);
+            displayResult('localizedSMin', localizedSMin_psi / 1000, 2);
+            displayResult('combinedMaxStress', combinedMaxStress_psi / 1000, 2);
+            displayResult('combinedMinStress', combinedMinStress_psi / 1000, 2);
+            displayResult('referenceStress', referenceStress_psi / 1000, 2);
+            displayResult('effectiveRRatio', effectiveRRatio, 3);
+            displayResult('effectiveSF', effectiveSF, 3);
+        }
+
+        // Auto-calculate on page load with default values
+        window.onload = function() {
+            calculateStresses();
+        };
+    </script>
+</body>
+</html>

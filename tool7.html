@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plot Digitizer (Log/Linear)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        #canvasContainer {
+            position: relative;
+            overflow: hidden; /* Keep overflow hidden */
+            border: 1px solid #ccc;
+            border-radius: 0.375rem; /* rounded-md */
+            background-color: #f0f0f0;
+            max-height: 80vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        canvas {
+            display: block;
+            cursor: crosshair;
+            background-color: #ffffff;
+            max-width: 100%;
+            height: auto;
+            object-fit: contain;
+        }
+        /* Instruction Highlighting */
+        .highlight-step {
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5); /* blue-500 ring/shadow */
+            border-color: #3b82f6; /* blue-500 border */
+            background-color: #eff6ff; /* blue-50 */
+        }
+        .instruction-active {
+            font-weight: bold;
+            color: #1d4ed8; /* blue-700 */
+        }
+
+        /* Input Styles */
+        input[type="number"], input[type="file"] {
+            border: 1px solid #d1d5db; /* gray-300 */
+            padding: 0.5rem;
+            border-radius: 0.375rem; /* rounded-md */
+            margin-top: 0.25rem;
+            margin-bottom: 0.5rem;
+            width: 100px;
+        }
+        input[type="file"] { width: auto; }
+
+        /* Button Styles */
+        button {
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem; /* rounded-md */
+            border: 1px solid transparent;
+            background-color: #3b82f6; /* blue-500 */
+            color: white;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s, border-color 0.2s;
+            margin: 0.25rem;
+        }
+        button:hover { background-color: #2563eb; /* blue-600 */ }
+        button:disabled {
+            background-color: #9ca3af; /* gray-400 */
+            color: #e5e7eb; /* gray-200 */
+            border-color: #d1d5db; /* gray-300 */
+            cursor: not-allowed;
+        }
+         #resetViewBtn {
+            background-color: #6b7280; /* gray-500 */
+            border-color: #4b5563; /* gray-600 */
+         }
+          #resetViewBtn:hover { background-color: #4b5563; /* gray-600 */ }
+          #resetViewBtn:disabled {
+            background-color: #d1d5db; /* gray-300 */
+            color: #9ca3af; /* gray-400 */
+            border-color: #e5e7eb; /* gray-200 */
+         }
+
+        /* Toggle Button Styles */
+        .toggle-group {
+            display: inline-flex;
+            border-radius: 0.375rem;
+            overflow: hidden;
+            border: 1px solid #d1d5db; /* gray-300 */
+        }
+        .toggle-btn {
+            background-color: #ffffff; /* white */
+            color: #374151; /* gray-700 */
+            padding: 0.25rem 0.75rem;
+            margin: 0;
+            border: none;
+            border-radius: 0;
+            border-right: 1px solid #d1d5db; /* gray-300 */
+            font-size: 0.875rem; /* text-sm */
+            font-weight: 500; /* medium */
+            transition: background-color 0.2s, color 0.2s;
+        }
+        .toggle-btn:last-child {
+            border-right: none;
+        }
+        .toggle-btn:hover {
+            background-color: #f3f4f6; /* gray-100 */
+        }
+        .toggle-btn.toggle-active {
+            background-color: #3b82f6; /* blue-500 */
+            color: white;
+            z-index: 10;
+        }
+        .toggle-btn:disabled {
+            background-color: #f3f4f6; /* gray-100 */
+            color: #9ca3af; /* gray-400 */
+            cursor: not-allowed;
+        }
+
+
+        /* Container and Layout */
+        .container { max-width: 1200px; margin: 1rem auto; padding: 1rem; }
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1rem; align-items: start;
+        }
+        .control-section {
+            background-color: #f9fafb; /* gray-50 */
+            padding: 1rem; border-radius: 0.5rem; /* rounded-lg */
+            border: 1px solid #e5e7eb; /* gray-200 */
+            display: flex; flex-direction: column; height: 100%;
+            transition: box-shadow 0.3s ease-in-out, background-color 0.3s ease-in-out;
+        }
+        .result-box {
+            background-color: #eef2ff; /* indigo-50 */
+            padding: 1rem; border-radius: 0.5rem; /* rounded-lg */
+            border: 1px solid #c7d2fe; /* indigo-200 */
+            margin-top: 1rem; min-height: 60px; flex-grow: 1; word-wrap: break-word;
+        }
+        #zoomPanInfo {
+            position: absolute; top: 5px; left: 5px;
+            background-color: rgba(0, 0, 0, 0.5); color: white;
+            padding: 2px 5px; font-size: 0.75rem; border-radius: 3px;
+            pointer-events: none; display: none;
+        }
+    </style>
+    <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
+</head>
+<body class="bg-gray-100">
+
+    <div class="container mx-auto p-4">
+        <h1 class="text-2xl font-bold mb-4 text-center text-gray-800">Plot Digitizer (Log/Linear Axes)</h1>
+
+        <div class="controls-grid mb-4">
+            <div id="section1" class="control-section">
+                <h2 class="text-lg font-semibold mb-2 text-gray-700">1. Load Plot Image</h2>
+                <p class="text-sm text-gray-600 mb-2">Load an image file or paste directly (Ctrl+V or Cmd+V).</p>
+                <input type="file" id="imageLoader" accept="image/*" class="mb-2 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"/>
+                <p class="text-xs text-gray-500">Or, click the area below and paste an image from your clipboard.</p>
+                <div id="pasteTarget" class="mt-2 p-4 border-2 border-dashed border-gray-300 rounded-md text-center text-gray-500 cursor-pointer hover:border-blue-400" tabindex="0">
+                    Click here and press Ctrl+V / Cmd+V to paste image
+                </div>
+                <div class="mt-auto pt-2">
+                    <button id="resetViewBtn" disabled>Fit Image to View</button>
+                    <p class="text-xs text-gray-500 mt-1">Use mouse wheel to zoom.</p>
+                </div>
+            </div>
+
+            <div id="section2" class="control-section">
+                <h2 class="text-lg font-semibold mb-2 text-gray-700">2. Define Boundaries</h2>
+                <p id="instructionText" class="text-sm text-gray-600 mb-3">Load an image first. Select axis types, adjust coordinates if needed, then select points on the canvas.</p>
+                
+                <div class="flex justify-around mb-4">
+                    <div>
+                        <span class="block text-sm font-medium text-gray-700 mb-1">X-Axis Scale:</span>
+                        <div class="toggle-group">
+                            <button id="xLogBtn" class="toggle-btn toggle-active" disabled>Log</button>
+                            <button id="xLinBtn" class="toggle-btn" disabled>Linear</button>
+                        </div>
+                    </div>
+                    <div>
+                        <span class="block text-sm font-medium text-gray-700 mb-1">Y-Axis Scale:</span>
+                        <div class="toggle-group">
+                            <button id="yLogBtn" class="toggle-btn toggle-active" disabled>Log</button>
+                            <button id="yLinBtn" class="toggle-btn" disabled>Linear</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 mb-3">
+                    <div>
+                        <button id="setTopLeftBtn" class="w-full" disabled>Set Top-Left</button>
+                        <div class="mt-2">
+                            <label class="block text-sm font-medium text-gray-700">X1:</label>
+                            <input type="number" id="x1" placeholder="e.g., 0.03" step="any" disabled>
+                            <label class="block text-sm font-medium text-gray-700">Y1:</label>
+                            <input type="number" id="y1" placeholder="e.g., 20" step="any" disabled>
+                        </div>
+                        <p id="topLeftCoords" class="text-xs text-gray-500 mt-1">Pixel: (Not set)</p>
+                    </div>
+                    <div>
+                        <button id="setBottomRightBtn" class="w-full" disabled>Set Bottom-Right</button>
+                         <div class="mt-2">
+                            <label class="block text-sm font-medium text-gray-700">X2:</label>
+                            <input type="number" id="x2" placeholder="e.g., 100" step="any" disabled>
+                            <label class="block text-sm font-medium text-gray-700">Y2:</label>
+                            <input type="number" id="y2" placeholder="e.g., 0.1" step="any" disabled>
+                        </div>
+                        <p id="bottomRightCoords" class="text-xs text-gray-500 mt-1">Pixel: (Not set)</p>
+                    </div>
+                </div>
+                 <p class="text-xs text-gray-500 mt-auto pt-2">Enter the *actual* values from your plot axes. Values for Log axes must be positive.</p>
+            </div>
+
+             <div id="section3" class="control-section">
+                <h2 class="text-lg font-semibold mb-2 text-gray-700">3. Get Coordinates</h2>
+                <p id="getCoordsInstruction" class="text-sm text-gray-600 mb-3">Define both boundary points and enter their coordinates first. Then click anywhere on the plot image.</p>
+                <div id="result" class="result-box text-gray-800">
+                    Click on the plot...
+                </div>
+            </div>
+        </div>
+
+        <div id="canvasContainer" class="bg-white p-0 rounded-lg shadow border border-gray-200">
+             <canvas id="plotCanvas"></canvas>
+             <div id="zoomPanInfo">Zoom: 100%</div>
+        </div>
+
+    </div>
+
+    <script>
+        // Get DOM elements
+        const imageLoader = document.getElementById('imageLoader');
+        const pasteTarget = document.getElementById('pasteTarget');
+        const canvasContainer = document.getElementById('canvasContainer');
+        const canvas = document.getElementById('plotCanvas');
+        const ctx = canvas.getContext('2d');
+        const instructionText = document.getElementById('instructionText');
+        const getCoordsInstruction = document.getElementById('getCoordsInstruction');
+        const resultDiv = document.getElementById('result');
+        const zoomPanInfo = document.getElementById('zoomPanInfo');
+        const section1 = document.getElementById('section1');
+        const section2 = document.getElementById('section2');
+        const section3 = document.getElementById('section3');
+        const setTopLeftBtn = document.getElementById('setTopLeftBtn');
+        const setBottomRightBtn = document.getElementById('setBottomRightBtn');
+        const resetViewBtn = document.getElementById('resetViewBtn');
+        const x1Input = document.getElementById('x1');
+        const y1Input = document.getElementById('y1');
+        const x2Input = document.getElementById('x2');
+        const y2Input = document.getElementById('y2');
+        const topLeftCoordsP = document.getElementById('topLeftCoords');
+        const bottomRightCoordsP = document.getElementById('bottomRightCoords');
+
+        // NEW: Toggle Buttons
+        const xLogBtn = document.getElementById('xLogBtn');
+        const xLinBtn = document.getElementById('xLinBtn');
+        const yLogBtn = document.getElementById('yLogBtn');
+        const yLinBtn = document.getElementById('yLinBtn');
+
+        // State variables
+        let img = new Image();
+        let imageLoaded = false;
+        let currentAction = null;
+        const defaultCoords = { x1: 0.03, y1: 20, x2: 100, y2: 0.1 };
+        let boundaries = {
+            topLeft: { imgPx: null, imgPy: null, x: defaultCoords.x1, y: defaultCoords.y1 },
+            bottomRight: { imgPx: null, imgPy: null, x: defaultCoords.x2, y: defaultCoords.y2 }
+        };
+        let lastClickedCoords = { imgPx: null, imgPy: null };
+
+        // NEW: Axis Type State
+        let xAxisType = 'log'; // 'log' or 'linear'
+        let yAxisType = 'log'; // 'log' or 'linear'
+
+        // Zoom/Pan State
+        let scale = 1.0;
+        let offsetX = 0;
+        let offsetY = 0;
+        const minScale = 0.1;
+        const maxScale = 15.0;
+        const zoomSensitivity = 0.001;
+
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            x1Input.value = defaultCoords.x1;
+            y1Input.value = defaultCoords.y1;
+            x2Input.value = defaultCoords.x2;
+            y2Input.value = defaultCoords.y2;
+            updateHighlighting();
+            updateToggleButtons(); // Set initial state
+        });
+
+        // --- Image Loading ---
+        imageLoader.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => loadImageOntoCanvas(e.target.result);
+                reader.readAsDataURL(file);
+            }
+        });
+        pasteTarget.addEventListener('click', () => pasteTarget.focus());
+        pasteTarget.addEventListener('paste', (event) => {
+            const items = (event.clipboardData || window.clipboardData).items;
+            for (let i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf('image') !== -1) {
+                    const blob = items[i].getAsFile();
+                    const reader = new FileReader();
+                    reader.onload = (e) => loadImageOntoCanvas(e.target.result);
+                    reader.readAsDataURL(blob);
+                    event.preventDefault();
+                    break;
+                }
+            }
+        });
+
+        function loadImageOntoCanvas(src) {
+            img = new Image();
+            img.onload = () => {
+                const containerWidth = canvasContainer.clientWidth;
+                const desiredHeight = window.innerHeight * 0.6;
+                const imgAspectRatio = img.width / img.height;
+                let canvasWidth = desiredHeight * imgAspectRatio;
+                let canvasHeight = desiredHeight;
+                if (canvasWidth > containerWidth) {
+                    canvasWidth = containerWidth;
+                    canvasHeight = canvasWidth / imgAspectRatio;
+                }
+                canvas.width = canvasWidth;
+                canvas.height = canvasHeight;
+
+                imageLoaded = true;
+                setInitialView100Percent();
+                resetBoundaries();
+                enableBoundaryButtons();
+                resetViewBtn.disabled = false;
+                zoomPanInfo.style.display = 'block';
+                resultDiv.textContent = 'Click on the plot...';
+                pasteTarget.textContent = 'Paste another image? Click here and Ctrl+V / Cmd+V.';
+
+                // --- Streamlined Workflow ---
+                currentAction = 'setTopLeft'; // Prime the tool for the first click
+                updateInstructionText(); // Update text to guide user for top-left click
+                updateHighlighting();
+
+                // Auto-zoom trigger for visual feedback
+                requestAnimationFrame(() => {
+                    redrawCanvas();
+                    setTimeout(() => {
+                        if (!imageLoaded) return;
+                        const targetScale = 1.1;
+                        const centerX = canvas.width / 2;
+                        const centerY = canvas.height / 2;
+                        const centerImgX = (centerX - offsetX) / 1.0;
+                        const centerImgY = (centerY - offsetY) / 1.0;
+                        scale = targetScale;
+                        offsetX = centerX - centerImgX * scale;
+                        offsetY = centerY - centerImgY * scale;
+                        updateZoomPanInfo();
+                        redrawCanvas();
+                    }, 100);
+                });
+            };
+            img.onerror = () => {
+                resultDiv.textContent = "Error loading image.";
+                imageLoaded = false;
+                disableBoundaryButtons();
+                resetViewBtn.disabled = true;
+                zoomPanInfo.style.display = 'none';
+                updateHighlighting();
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            };
+            img.src = src;
+        }
+
+        // --- Boundary Setting ---
+        function enableBoundaryButtons() {
+            setTopLeftBtn.disabled = false;
+            setBottomRightBtn.disabled = false;
+            x1Input.disabled = false;
+            y1Input.disabled = false;
+            x2Input.disabled = false;
+            y2Input.disabled = false;
+            xLogBtn.disabled = false;
+            xLinBtn.disabled = false;
+            yLogBtn.disabled = false;
+            yLinBtn.disabled = false;
+        }
+        function disableBoundaryButtons() {
+             setTopLeftBtn.disabled = true;
+            setBottomRightBtn.disabled = true;
+            x1Input.disabled = true;
+            y1Input.disabled = true;
+            x2Input.disabled = true;
+            y2Input.disabled = true;
+            xLogBtn.disabled = true;
+            xLinBtn.disabled = true;
+            yLogBtn.disabled = true;
+            yLinBtn.disabled = true;
+        }
+        function resetBoundaries() {
+             boundaries = {
+                topLeft: { imgPx: null, imgPy: null, x: defaultCoords.x1, y: defaultCoords.y1 },
+                bottomRight: { imgPx: null, imgPy: null, x: defaultCoords.x2, y: defaultCoords.y2 }
+            };
+            lastClickedCoords = { imgPx: null, imgPy: null };
+            x1Input.value = defaultCoords.x1;
+            y1Input.value = defaultCoords.y1;
+            x2Input.value = defaultCoords.x2;
+            y2Input.value = defaultCoords.y2;
+            // Reset to default log-log
+            xAxisType = 'log';
+            yAxisType = 'log';
+            updateToggleButtons();
+            topLeftCoordsP.textContent = 'Pixel: (Not set)';
+            bottomRightCoordsP.textContent = 'Pixel: (Not set)';
+            currentAction = null;
+             if (imageLoaded) {
+                 checkReadyToCalculate();
+                 updateInstructionText();
+             } else {
+                 updateHighlighting();
+             }
+        }
+        setTopLeftBtn.addEventListener('click', () => {
+             currentAction = 'setTopLeft';
+            updateInstructionText();
+        });
+        setBottomRightBtn.addEventListener('click', () => {
+             currentAction = 'setBottomRight';
+            updateInstructionText();
+        });
+        x1Input.addEventListener('input', () => { boundaries.topLeft.x = parseFloat(x1Input.value); checkReadyToCalculate(); });
+        y1Input.addEventListener('input', () => { boundaries.topLeft.y = parseFloat(y1Input.value); checkReadyToCalculate(); });
+        x2Input.addEventListener('input', () => { boundaries.bottomRight.x = parseFloat(x2Input.value); checkReadyToCalculate(); });
+        y2Input.addEventListener('input', () => { boundaries.bottomRight.y = parseFloat(y2Input.value); checkReadyToCalculate(); });
+
+        // --- NEW: Axis Toggle Listeners ---
+        function setAxisType(axis, type) {
+            if (axis === 'x') {
+                xAxisType = type;
+            } else if (axis === 'y') {
+                yAxisType = type;
+            }
+            updateToggleButtons();
+            checkReadyToCalculate(); // Re-validate boundaries
+            // If a point is already clicked, re-calculate
+            if (lastClickedCoords.imgPx !== null && areBoundariesFullyDefined()) {
+                calculateAndDisplayCoords(lastClickedCoords.imgPx, lastClickedCoords.imgPy);
+            }
+        }
+        xLogBtn.addEventListener('click', () => setAxisType('x', 'log'));
+        xLinBtn.addEventListener('click', () => setAxisType('x', 'linear'));
+        yLogBtn.addEventListener('click', () => setAxisType('y', 'log'));
+        yLinBtn.addEventListener('click', () => setAxisType('y', 'linear'));
+
+        function updateToggleButtons() {
+            xLogBtn.classList.toggle('toggle-active', xAxisType === 'log');
+            xLinBtn.classList.toggle('toggle-active', xAxisType === 'linear');
+            yLogBtn.classList.toggle('toggle-active', yAxisType === 'log');
+            yLinBtn.classList.toggle('toggle-active', yAxisType === 'linear');
+        }
+
+        // --- Coordinate Calculation ---
+        function areBoundariesFullyDefined() {
+             const { topLeft, bottomRight } = boundaries;
+             // Check if pixel points are set
+             const pixelsSet = topLeft.imgPx !== null && topLeft.imgPy !== null &&
+                               bottomRight.imgPx !== null && bottomRight.imgPy !== null;
+             
+             // Check if values are valid numbers
+             const x1Valid = !isNaN(topLeft.x) && (xAxisType === 'linear' || (xAxisType === 'log' && topLeft.x > 0));
+             const y1Valid = !isNaN(topLeft.y) && (yAxisType === 'linear' || (yAxisType === 'log' && topLeft.y > 0));
+             const x2Valid = !isNaN(bottomRight.x) && (xAxisType === 'linear' || (xAxisType === 'log' && bottomRight.x > 0));
+             const y2Valid = !isNaN(bottomRight.y) && (yAxisType === 'linear' || (yAxisType === 'log' && bottomRight.y > 0));
+
+             return pixelsSet && x1Valid && y1Valid && x2Valid && y2Valid;
+        }
+
+        function checkReadyToCalculate() {
+            const ready = areBoundariesFullyDefined();
+            if (ready) {
+                if (currentAction !== 'setTopLeft' && currentAction !== 'setBottomRight') {
+                     currentAction = 'getCoords';
+                }
+                getCoordsInstruction.textContent = 'Boundaries set. Click anywhere on the plot image to get coordinates.';
+                getCoordsInstruction.classList.add('instruction-active');
+                instructionText.textContent = 'Boundaries defined. Now click on the plot.';
+                instructionText.classList.remove('instruction-active');
+            } else {
+                if (currentAction === 'getCoords') currentAction = null;
+                getCoordsInstruction.textContent = 'Define both boundary points (by clicking) and ensure coordinates are valid (positive for log axes).';
+                getCoordsInstruction.classList.remove('instruction-active');
+            }
+            updateHighlighting();
+            if (imageLoaded) updateInstructionText();
+        }
+
+        // --- MODIFIED: calculateAndDisplayCoords ---
+        function calculateAndDisplayCoords(imgPx, imgPy) {
+             if (!areBoundariesFullyDefined()) {
+                 resultDiv.textContent = 'Error: Boundaries not fully defined or coordinates invalid (Log axes require positive values).';
+                 return;
+             }
+             const { topLeft, bottomRight } = boundaries;
+
+             // 1. Get (potentially log) values for boundaries
+             const valX1 = (xAxisType === 'log') ? Math.log10(topLeft.x) : topLeft.x;
+             const valY1 = (yAxisType === 'log') ? Math.log10(topLeft.y) : topLeft.y;
+             const valX2 = (xAxisType === 'log') ? Math.log10(bottomRight.x) : bottomRight.x;
+             const valY2 = (yAxisType === 'log') ? Math.log10(bottomRight.y) : bottomRight.y;
+
+             // 2. Get pixel ranges
+             const imgPxRange = bottomRight.imgPx - topLeft.imgPx;
+             const imgPyRange = bottomRight.imgPy - topLeft.imgPy;
+             const valXRange = valX2 - valX1;
+             const valYRange = valY2 - valY1;
+
+             if (imgPxRange === 0 || imgPyRange === 0) {
+                  resultDiv.textContent = 'Error: Boundary points have identical image pixel coordinates. Redefine points.';
+                  return;
+             }
+
+             // 3. Calculate pixel fractions
+             const imgPxFraction = (imgPx - topLeft.imgPx) / imgPxRange;
+             const imgPyFraction = (imgPy - topLeft.imgPy) / imgPyRange;
+
+             // 4. Interpolate to find the (potentially log) value
+             const interpX = valX1 + imgPxFraction * valXRange;
+             const interpY = valY1 + imgPyFraction * valYRange;
+
+             // 5. Convert back from log if necessary
+             const finalX = (xAxisType === 'log') ? Math.pow(10, interpX) : interpX;
+             const finalY = (yAxisType === 'log') ? Math.pow(10, interpY) : interpY;
+
+             resultDiv.innerHTML = `
+                 <strong>Calculated Coordinates:</strong><br>
+                 X-Value: ${finalX.toPrecision(4)}<br>
+                 Y-Value: ${finalY.toPrecision(4)}<br>
+                 <span class="text-xs text-gray-600">Img Pixel: (${imgPx.toFixed(1)}, ${imgPy.toFixed(1)})</span>
+             `;
+        }
+
+        // --- Canvas Interaction (Click & Zoom ONLY) ---
+        function getCoordsOnImage(canvasX, canvasY) {
+             return { x: (canvasX - offsetX) / scale, y: (canvasY - offsetY) / scale };
+        }
+        function getCoordsOnCanvas(imageX, imageY) {
+             return { x: imageX * scale + offsetX, y: imageY * scale + offsetY };
+        }
+
+        // --- CLICK LOGIC FIXED ---
+        canvas.addEventListener('click', handleCanvasClick);
+
+        function handleCanvasClick(event) {
+             if (!imageLoaded) return;
+             const rect = canvas.getBoundingClientRect();
+             const canvasX = event.clientX - rect.left;
+             const canvasY = event.clientY - rect.top;
+             const imgCoords = getCoordsOnImage(canvasX, canvasY);
+             const imgPx = imgCoords.x;
+             const imgPy = imgCoords.y;
+             if (imgPx < 0 || imgPy < 0 || imgPx > img.width || imgPy > img.height) return;
+
+             if (currentAction === 'setTopLeft') {
+                 boundaries.topLeft.imgPx = imgPx;
+                 boundaries.topLeft.imgPy = imgPy;
+                 topLeftCoordsP.textContent = `Img Pixel: (${imgPx.toFixed(0)}, ${imgPy.toFixed(0)})`;
+                 currentAction = 'setBottomRight'; // Automatically move to next step
+             } else if (currentAction === 'setBottomRight') {
+                 boundaries.bottomRight.imgPx = imgPx;
+                 boundaries.bottomRight.imgPy = imgPy;
+                 bottomRightCoordsP.textContent = `Img Pixel: (${imgPx.toFixed(0)}, ${imgPy.toFixed(0)})`;
+                 currentAction = null; // Done with calibration, ready for getCoords
+             } else {
+                 if (areBoundariesFullyDefined()) {
+                     currentAction = 'getCoords';
+                     lastClickedCoords = { imgPx, imgPy };
+                     // Check if click is within the pixel bounding box
+                     if (boundaries.topLeft.imgPx !== null && boundaries.bottomRight.imgPx !== null &&
+                         imgPx >= Math.min(boundaries.topLeft.imgPx, boundaries.bottomRight.imgPx) &&
+                         imgPx <= Math.max(boundaries.topLeft.imgPx, boundaries.bottomRight.imgPx) &&
+                         imgPy >= Math.min(boundaries.topLeft.imgPy, boundaries.bottomRight.imgPy) &&
+                         imgPy <= Math.max(boundaries.topLeft.imgPy, boundaries.bottomRight.imgPy))
+                     {
+                         calculateAndDisplayCoords(imgPx, imgPy);
+                     } else {
+                         resultDiv.textContent = 'Clicked outside defined plot boundaries.';
+                         lastClickedCoords = { imgPx: null, imgPy: null };
+                     }
+                 } else {
+                    updateInstructionText();
+                    updateHighlighting();
+                    return;
+                 }
+             }
+             checkReadyToCalculate();
+             redrawCanvas();
+        }
+
+        // Zoom listener remains
+        canvas.addEventListener('wheel', (event) => {
+             if (!imageLoaded) return;
+             event.preventDefault();
+             const rect = canvas.getBoundingClientRect();
+             const mouseX = event.clientX - rect.left;
+             const mouseY = event.clientY - rect.top;
+             const mouseImgX_before = (mouseX - offsetX) / scale;
+             const mouseImgY_before = (mouseY - offsetY) / scale;
+             const delta = event.deltaY * zoomSensitivity;
+             let newScale = Math.max(minScale, Math.min(maxScale, scale - delta));
+             offsetX = mouseX - mouseImgX_before * newScale;
+             offsetY = mouseY - mouseImgY_before * newScale;
+             scale = newScale;
+             updateZoomPanInfo();
+             requestAnimationFrame(redrawCanvas);
+        });
+
+        function calculateFitScaleAndOffset() {
+            if (!imageLoaded || !img.width || !img.height || !canvas.width || !canvas.height) {
+                 return { fitScale: 1.0, fitOffsetX: 0, fitOffsetY: 0 };
+            }
+            const canvasWidth = canvas.width;
+            const canvasHeight = canvas.height;
+            const imgWidth = img.width;
+            const imgHeight = img.height;
+            const scaleX = canvasWidth / imgWidth;
+            const scaleY = canvasHeight / imgHeight;
+            const fitScale = Math.max(minScale, Math.min(scaleX, scaleY));
+            const fitOffsetX = (canvasWidth - imgWidth * fitScale) / 2;
+            const fitOffsetY = (canvasHeight - imgHeight * fitScale) / 2;
+            return { fitScale, fitOffsetX, fitOffsetY };
+        }
+
+        resetViewBtn.addEventListener('click', () => {
+            if (!imageLoaded) return;
+            const { fitScale, fitOffsetX, fitOffsetY } = calculateFitScaleAndOffset();
+            scale = fitScale;
+            offsetX = fitOffsetX;
+            offsetY = fitOffsetY;
+            updateZoomPanInfo();
+            redrawCanvas();
+        });
+
+        function setInitialView100Percent() {
+            scale = 1.0;
+            if (imageLoaded && img.width && img.height && canvas.width && canvas.height) {
+                 offsetX = (canvas.width - img.width * scale) / 2;
+                 offsetY = (canvas.height - img.height * scale) / 2;
+            } else {
+                 offsetX = 0;
+                 offsetY = 0;
+            }
+            updateZoomPanInfo();
+        }
+
+        // --- UI Updates ---
+        function updateInstructionText() {
+             setTopLeftBtn.classList.remove('ring-2', 'ring-offset-2', 'ring-blue-500');
+             setBottomRightBtn.classList.remove('ring-2', 'ring-offset-2', 'ring-blue-500');
+             instructionText.classList.remove('instruction-active');
+             if (!imageLoaded) {
+                  instructionText.textContent = 'Load an image first.';
+                  return;
+             }
+             if (areBoundariesFullyDefined()) {
+                  instructionText.textContent = 'Boundaries defined. Go to Step 3.';
+                  return;
+             }
+             if (currentAction === 'setTopLeft') {
+                 instructionText.textContent = 'Click the TOP-LEFT corner of the plot area on the image.';
+                 instructionText.classList.add('instruction-active');
+                 setTopLeftBtn.classList.add('ring-2', 'ring-offset-2', 'ring-blue-500');
+             } else if (currentAction === 'setBottomRight') {
+                 instructionText.textContent = 'Click the BOTTOM-RIGHT corner of the plot area on the image.';
+                 instructionText.classList.add('instruction-active');
+                  setBottomRightBtn.classList.add('ring-2', 'ring-offset-2', 'ring-blue-500');
+             } else {
+                  if(boundaries.topLeft.imgPx === null) {
+                      instructionText.textContent = 'Click "Set Top-Left" and select the top-left corner.';
+                  } else if (boundaries.bottomRight.imgPx === null) {
+                      instructionText.textContent = 'Now click "Set Bottom-Right" and select the bottom-right corner.';
+                  } else {
+                       instructionText.textContent = 'Click boundary points on the image, or adjust coordinates if needed.';
+                  }
+                  
+                  // Validation messages
+                  const { topLeft, bottomRight } = boundaries;
+                  const x1Valid = !isNaN(topLeft.x) && (xAxisType === 'linear' || (xAxisType === 'log' && topLeft.x > 0));
+                  const y1Valid = !isNaN(topLeft.y) && (yAxisType === 'linear' || (yAxisType === 'log' && topLeft.y > 0));
+                  const x2Valid = !isNaN(bottomRight.x) && (xAxisType === 'linear' || (xAxisType === 'log' && bottomRight.x > 0));
+                  const y2Valid = !isNaN(bottomRight.y) && (yAxisType === 'linear' || (yAxisType === 'log' && bottomRight.y > 0));
+
+                  if (boundaries.topLeft.imgPx !== null && (!x1Valid || !y1Valid)) {
+                      instructionText.textContent = 'Enter valid X1/Y1 coordinates (must be > 0 for log scale).';
+                      instructionText.classList.add('instruction-active');
+                  } else if (boundaries.bottomRight.imgPx !== null && (!x2Valid || !y2Valid)) {
+                      instructionText.textContent = 'Enter valid X2/Y2 coordinates (must be > 0 for log scale).';
+                      instructionText.classList.add('instruction-active');
+                  }
+             }
+        }
+        function updateHighlighting() {
+             section1.classList.remove('highlight-step');
+             section2.classList.remove('highlight-step');
+             section3.classList.remove('highlight-step');
+             if (!imageLoaded) {
+                 section1.classList.add('highlight-step');
+             } else if (!areBoundariesFullyDefined()) {
+                 section2.classList.add('highlight-step');
+             } else {
+                 section3.classList.add('highlight-step');
+             }
+        }
+        function updateZoomPanInfo() {
+             if(imageLoaded) {
+                  zoomPanInfo.textContent = `Zoom: ${(scale * 100).toFixed(0)}%`;
+             } else {
+                   zoomPanInfo.textContent = `Zoom: 100%`;
+             }
+        }
+
+        // --- Drawing ---
+        function redrawCanvas() {
+             if (!imageLoaded) {
+                  ctx.clearRect(0, 0, canvas.width, canvas.height);
+                  return;
+             }
+             if (canvas.width <= 0 || canvas.height <= 0) return;
+             ctx.clearRect(0, 0, canvas.width, canvas.height);
+             ctx.save();
+             ctx.translate(offsetX, offsetY);
+             ctx.scale(scale, scale);
+             if (img.width > 0 && img.height > 0) {
+                 ctx.drawImage(img, 0, 0);
+             }
+             ctx.restore();
+             drawMarker(boundaries.topLeft.imgPx, boundaries.topLeft.imgPy, 'blue');
+             drawMarker(boundaries.bottomRight.imgPx, boundaries.bottomRight.imgPy, 'red');
+             if (lastClickedCoords.imgPx !== null && lastClickedCoords.imgPy !== null && currentAction === 'getCoords') {
+                 drawMarker(lastClickedCoords.imgPx, lastClickedCoords.imgPy, 'green', 8);
+             }
+        }
+        function drawMarker(imgPx, imgPy, color, size = 5) {
+             if (imgPx === null || imgPy === null) return;
+             const canvasCoords = getCoordsOnCanvas(imgPx, imgPy);
+             const canvasPx = canvasCoords.x;
+             const canvasPy = canvasCoords.y;
+             const markerRadius = (size / Math.sqrt(scale)) + 2;
+              if (canvasPx + markerRadius >= 0 && canvasPx - markerRadius < canvas.width &&
+                   canvasPy + markerRadius >= 0 && canvasPy - markerRadius < canvas.height)
+              {
+                 ctx.fillStyle = color;
+                 ctx.strokeStyle = 'white';
+                 ctx.lineWidth = 1;
+                 ctx.beginPath();
+                 ctx.arc(canvasPx, canvasPy, markerRadius, 0, Math.PI * 2);
+                 ctx.fill();
+                 ctx.stroke();
+              }
+        }
+
+        // Initial setup
+        disableBoundaryButtons();
+        resetViewBtn.disabled = true;
+        // updateHighlighting() called by DOMContentLoaded
+
+    </script>
+
+</body>
+</html>
