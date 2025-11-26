@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generic Beam Analysis Tool</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --bg: #0f172a;
+            --panel: #1e293b;
+            --border: #334155;
+            --text: #f1f5f9;
+            --input-bg: #020617;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            padding: 20px;
+            color: var(--text);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 20px;
+        }
+
+        /* Sidebar Styles */
+        .controls {
+            background: var(--panel);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+            height: fit-content;
+        }
+
+        h2,
+        h3 {
+            margin-top: 0;
+            color: var(--text);
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.9em;
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #94a3b8;
+        }
+
+        input,
+        select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            box-sizing: border-box;
+            background: var(--input-bg);
+            color: var(--text);
+        }
+
+        .load-item {
+            background: #334155;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+        }
+
+        .load-item .form-group {
+            margin-bottom: 0;
+            flex: 1;
+        }
+
+        .btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            width: 100%;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+        }
+
+        .btn-red {
+            background: #ef4444;
+            width: auto;
+            height: 34px;
+            margin-top: 0;
+        }
+
+        /* Main Display Styles */
+        .results {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .canvas-container {
+            background: var(--panel);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+
+        #beamViz {
+            width: 100%;
+            height: 150px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 15px;
+        }
+
+        .reaction-box {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+            font-family: monospace;
+            background: #0f172a;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid var(--border);
+        }
+
+        @media (max-width: 800px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <div class="controls">
+            <h2>Beam Config</h2>
+            <div class="form-group">
+                <label>Length (m)</label>
+                <input type="number" id="beamLength" value="10" min="1" step="0.1" onchange="updateAnalysis()">
+            </div>
+
+            <div class="form-group">
+                <label>Left Support</label>
+                <select id="leftSupport" onchange="updateAnalysis()">
+                    <option value="pinned">Pinned</option>
+                    <option value="fixed">Fixed</option>
+                    <option value="free">Free</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Right Support</label>
+                <select id="rightSupport" onchange="updateAnalysis()">
+                    <option value="pinned">Pinned</option>
+                    <option value="fixed">Fixed</option>
+                    <option value="free">Free</option>
+                </select>
+            </div>
+
+            <hr style="border-color: var(--border);">
+            <h3>Loads</h3>
+            <div id="loadsContainer"></div>
+            <button class="btn" onclick="addLoad()">+ Add Load</button>
+
+            <div style="margin-top: 20px; font-size: 0.8em; color: #94a3b8;">
+                Note: Solves determinate and indeterminate systems (Fixed/Pinned).
+            </div>
+        </div>
+
+        <div class="results">
+            <div class="canvas-container">
+                <h3>System Visualization & Reactions</h3>
+                <canvas id="beamViz"></canvas>
+                <div id="reactionOutput" class="reaction-box"></div>
+            </div>
+
+            <div class="canvas-container">
+                <h3>Shear Force Diagram (kN)</h3>
+                <canvas id="shearChart"></canvas>
+            </div>
+
+            <div class="canvas-container">
+                <h3>Bending Moment Diagram (kNm)</h3>
+                <canvas id="momentChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- State Management ---
+        let loads = [
+            { type: 'point', magnitude: 10, location: 5 } // Default load
+        ];
+
+        let charts = {};
+
+        // --- Initialization ---
+        window.onload = function () {
+            renderLoadInputs();
+            updateAnalysis();
+        };
+
+        // --- Input Handling ---
+        function addLoad() {
+            loads.push({ type: 'point', magnitude: 10, location: 0, endLocation: 0 });
+            renderLoadInputs();
+            updateAnalysis();
+        }
+
+        function removeLoad(index) {
+            loads.splice(index, 1);
+            renderLoadInputs();
+            updateAnalysis();
+        }
+
+        function updateLoad(index, field, value) {
+            loads[index][field] = parseFloat(value);
+            updateAnalysis();
+        }
+
+        function updateLoadType(index, value) {
+            loads[index].type = value;
+            renderLoadInputs(); // Re-render to show/hide endLocation
+            updateAnalysis();
+        }
+
+        function renderLoadInputs() {
+            const container = document.getElementById('loadsContainer');
+            container.innerHTML = '';
+
+            loads.forEach((load, index) => {
+                let html = `
+                <div class="load-item">
+                    <div class="form-group">
+                        <label>Type</label>
+                        <select onchange="updateLoadType(${index}, this.value)">
+                            <option value="point" ${load.type === 'point' ? 'selected' : ''}>Point Load (kN)</option>
+                            <option value="moment" ${load.type === 'moment' ? 'selected' : ''}>Moment (kNm)</option>
+                            <option value="distributed" ${load.type === 'distributed' ? 'selected' : ''}>Distributed (kN/m)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Magnitude</label>
+                        <input type="number" value="${load.magnitude}" step="0.1" onchange="updateLoad(${index}, 'magnitude', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label>Start (m)</label>
+                        <input type="number" value="${load.location}" step="0.1" onchange="updateLoad(${index}, 'location', this.value)">
+                    </div>
+            `;
+
+                if (load.type === 'distributed') {
+                    html += `
+                    <div class="form-group">
+                        <label>End (m)</label>
+                        <input type="number" value="${load.endLocation || load.location + 1}" step="0.1" onchange="updateLoad(${index}, 'endLocation', this.value)">
+                    </div>
+                `;
+                }
+
+                html += `<button class="btn btn-red" onclick="removeLoad(${index})">X</button></div>`;
+                container.innerHTML += html;
+            });
+        }
+
+        // --- Physics Engine (Slope Deflection Method) ---
+        function solveBeam(L, leftType, rightType, loadList) {
+            // Initialize Reactions and End Moments
+            let RA = 0, MA = 0; // Left Support (Force Up, Moment CW)
+            let RB = 0, MB = 0; // Right Support (Force Up, Moment CW)
+
+            // Check for Cantilever/Statics cases (Free ends)
+            // If either end is Free, we use statics (Determinate)
+            if (leftType === 'free' || rightType === 'free') {
+                return solveDeterminate(L, leftType, rightType, loadList);
+            }
+
+            // --- Indeterminate / Determinate Supported Beam (Pin/Fixed ends) ---
+            // Step 1: Calculate Fixed-End Moments (FEM)
+            // Sign Convention: Clockwise Moments on the beam ends are POSITIVE.
+            // FEM_AB is moment at A, FEM_BA is moment at B.
+            let FEM_AB = 0;
+            let FEM_BA = 0;
+
+            loadList.forEach(l => {
+                let a = l.location;
+                let b = L - a;
+
+                if (l.type === 'point') {
+                    let P = l.magnitude;
+                    // Standard Formulas:
+                    // FEM_AB = -Pab^2 / L^2
+                    // FEM_BA = +Pa^2b / L^2
+                    FEM_AB += -P * a * (b * b) / (L * L);
+                    FEM_BA += +P * (a * a) * b / (L * L);
+                }
+                else if (l.type === 'moment') {
+                    let M = l.magnitude; // CW is positive
+                    // Formula for Moment M at a:
+                    // FEM_AB = + M * b * (2a - b) / L^2
+                    // FEM_BA = + M * a * (2b - a) / L^2
+                    FEM_AB += M * b * (2 * a - b) / (L * L);
+                    FEM_BA += M * a * (2 * b - a) / (L * L);
+                }
+                else if (l.type === 'distributed') {
+                    let w = l.magnitude;
+                    let start = l.location;
+                    let end = l.endLocation;
+
+                    // Integrate point load formula from start to end
+                    // FEM_AB = Integral( - (w dx) * x * (L-x)^2 / L^2 )
+                    // FEM_BA = Integral( + (w dx) * x^2 * (L-x) / L^2 )
+
+                    // Helper to integrate x(L-x)^2 = x(L^2 - 2Lx + x^2) = L^2x - 2Lx^2 + x^3
+                    // Int = L^2 x^2/2 - 2L x^3/3 + x^4/4
+                    const intFuncAB = (x) => (L * L * x * x / 2 - 2 * L * x * x * x / 3 + x * x * x * x / 4);
+
+                    // Helper to integrate x^2(L-x) = L x^2 - x^3
+                    // Int = L x^3/3 - x^4/4
+                    const intFuncBA = (x) => (L * x * x * x / 3 - x * x * x * x / 4);
+
+                    let termAB = (intFuncAB(end) - intFuncAB(start)) / (L * L);
+                    let termBA = (intFuncBA(end) - intFuncBA(start)) / (L * L);
+
+                    FEM_AB += -w * termAB;
+                    FEM_BA += +w * termBA;
+                }
+            });
+
+            // Step 2: Slope Deflection Equations
+            // M_AB = 2k (2theta_A + theta_B) + FEM_AB
+            // M_BA = 2k (2theta_B + theta_A) + FEM_BA
+            // We set 2k = 1 for solving (relative stiffness EI/L constant).
+            // M_AB = 2theta_A + theta_B + FEM_AB
+            // M_BA = theta_A + 2theta_B + FEM_BA
+
+            let theta_A = 0;
+            let theta_B = 0;
+
+            // Apply Boundary Conditions to solve for theta_A, theta_B
+            if (leftType === 'fixed' && rightType === 'fixed') {
+                // theta_A = 0, theta_B = 0
+            }
+            else if (leftType === 'pinned' && rightType === 'pinned') {
+                // M_AB = 0, M_BA = 0
+                // 2tA + tB = -FEM_AB
+                // tA + 2tB = -FEM_BA
+                // Solve linear system:
+                // Multiply eq2 by 2: 2tA + 4tB = -2*FEM_BA
+                // Subtract eq1: 3tB = -2*FEM_BA - (-FEM_AB) = FEM_AB - 2FEM_BA
+                theta_B = (FEM_AB - 2 * FEM_BA) / 3;
+                theta_A = -FEM_BA - 2 * theta_B;
+            }
+            else if (leftType === 'fixed' && rightType === 'pinned') {
+                // theta_A = 0, M_BA = 0
+                // M_BA = 0 + 2tB + FEM_BA = 0 => tB = -FEM_BA / 2
+                theta_B = -FEM_BA / 2;
+            }
+            else if (leftType === 'pinned' && rightType === 'fixed') {
+                // M_AB = 0, theta_B = 0
+                // M_AB = 2tA + 0 + FEM_AB = 0 => tA = -FEM_AB / 2
+                theta_A = -FEM_AB / 2;
+            }
+
+            // Calculate Final End Moments
+            let M_AB = 2 * theta_A + theta_B + FEM_AB;
+            let M_BA = theta_A + 2 * theta_B + FEM_BA;
+
+            // Step 3: Calculate Reactions from Equilibrium
+            // Sum Moments about B = 0:
+            // RA * L + M_AB + M_BA - Sum(Moment of Loads about B) = 0
+            // RA = (Sum(M_loads_B) - M_AB - M_BA) / L
+
+            let sumM_loads_B = 0; // Clockwise positive
+            loadList.forEach(l => {
+                if (l.type === 'point') {
+                    sumM_loads_B += l.magnitude * (L - l.location);
+                } else if (l.type === 'moment') {
+                    sumM_loads_B += l.magnitude; // Moment is constant
+                } else if (l.type === 'distributed') {
+                    let w = l.magnitude;
+                    let len = l.endLocation - l.location;
+                    let total = w * len;
+                    let distFromB = L - (l.location + len / 2);
+                    sumM_loads_B += total * distFromB;
+                }
+            });
+
+            RA = (sumM_loads_B - M_AB - M_BA) / L;
+
+            // Sum Forces Y = 0: RA + RB - TotalLoad = 0
+            let totalLoad = 0;
+            loadList.forEach(l => {
+                if (l.type === 'point') totalLoad += l.magnitude;
+                else if (l.type === 'distributed') totalLoad += l.magnitude * (l.endLocation - l.location);
+            });
+
+            RB = totalLoad - RA;
+
+            // Map internal M_AB, M_BA to reaction outputs
+            // M_AB is moment ON beam at A. Reaction MA is same.
+            // M_BA is moment ON beam at B. Reaction MB is same.
+            MA = M_AB;
+            MB = M_BA;
+
+            return calculateInternalForces(L, RA, MA, loadList, RB, MB);
+        }
+
+        function solveDeterminate(L, leftType, rightType, loadList) {
+            // Fallback for Cantilevers (Fixed-Free, Free-Fixed)
+            let RA = 0, MA = 0, RB = 0, MB = 0;
+            let sumF = 0;
+            let sumM_at_0 = 0;
+
+            loadList.forEach(l => {
+                if (l.type === 'point') {
+                    sumF += l.magnitude;
+                    sumM_at_0 += l.magnitude * l.location;
+                } else if (l.type === 'moment') {
+                    sumM_at_0 += l.magnitude;
+                } else if (l.type === 'distributed') {
+                    let w = l.magnitude;
+                    let len = l.endLocation - l.location;
+                    let total = w * len;
+                    let cent = l.location + len / 2;
+                    sumF += total;
+                    sumM_at_0 += total * cent;
+                }
+            });
+
+            if (leftType === 'fixed' && rightType === 'free') {
+                RA = sumF;
+                MA = -sumM_at_0;
+            } else if (leftType === 'free' && rightType === 'fixed') {
+                RB = sumF;
+                // Moment at B
+                let sumM_at_L = 0;
+                loadList.forEach(l => {
+                    if (l.type === 'point') sumM_at_L += l.magnitude * (l.location - L);
+                    else if (l.type === 'moment') sumM_at_L += l.magnitude;
+                    else if (l.type === 'distributed') {
+                        let w = l.magnitude;
+                        let len = l.endLocation - l.location;
+                        let total = w * len;
+                        let cent = l.location + len / 2;
+                        sumM_at_L += total * (cent - L);
+                    }
+                });
+                MB = -sumM_at_L;
+            }
+
+            return calculateInternalForces(L, RA, MA, loadList, RB, MB);
+        }
+
+        function calculateInternalForces(L, RA, MA, loadList, RB, MB) {
+            const segments = 200;
+            const dx = L / segments;
+            const xVals = [];
+            const shearVals = [];
+            const momentVals = [];
+
+            // RB and MB are passed in, so we use them directly for the return object.
+
+            for (let i = 0; i <= segments; i++) {
+                let x = i * dx;
+                xVals.push(x.toFixed(2));
+
+                let V = 0;
+                let M = 0;
+
+                // Reactions
+                if (x >= 0) {
+                    V += RA;
+                    M += MA; // Reaction Moment (CW positive)
+                    M += RA * x; // Moment from Reaction Force
+                }
+
+                // Loads
+                loadList.forEach(l => {
+                    if (l.type === 'point') {
+                        if (x > l.location) {
+                            V -= l.magnitude;
+                            M -= l.magnitude * (x - l.location);
+                        }
+                    } else if (l.type === 'moment') {
+                        if (x > l.location) {
+                            M += l.magnitude;
+                        }
+                    } else if (l.type === 'distributed') {
+                        if (x > l.location) {
+                            let start = l.location;
+                            let end = Math.min(x, l.endLocation);
+                            let distLen = end - start;
+                            if (distLen > 0) {
+                                let loadPart = l.magnitude * distLen;
+                                V -= loadPart;
+                                let cent = start + distLen / 2;
+                                M -= loadPart * (x - cent);
+                            }
+                        }
+                    }
+                });
+
+                shearVals.push(V);
+                momentVals.push(M);
+            }
+
+            return { x: xVals, V: shearVals, M: momentVals, reactions: { RA, MA, RB, MB } };
+        }
+
+        // --- Main Update Function ---
+        function updateAnalysis() {
+            const L = parseFloat(document.getElementById('beamLength').value);
+            const leftType = document.getElementById('leftSupport').value;
+            const rightType = document.getElementById('rightSupport').value;
+
+            const res = solveBeam(L, leftType, rightType, loads);
+
+            // Update Text
+            const rEl = document.getElementById('reactionOutput');
+            rEl.innerHTML = `
+            <div><strong>R_Left (Up):</strong> ${res.reactions.RA.toFixed(2)} kN</div>
+            <div><strong>R_Right (Up):</strong> ${res.reactions.RB.toFixed(2)} kN</div>
+            ${res.reactions.MA !== 0 ? `<div><strong>M_Left:</strong> ${res.reactions.MA.toFixed(2)} kNm</div>` : ''}
+            ${res.reactions.MB !== 0 ? `<div><strong>M_Right:</strong> ${res.reactions.MB.toFixed(2)} kNm</div>` : ''}
+        `;
+
+            drawVisualizer(L, leftType, rightType, loads);
+            drawCharts(res.x, res.V, res.M);
+        }
+
+        // --- Visualization (Canvas) ---
+        function drawVisualizer(L, left, right, loadList) {
+            const canvas = document.getElementById('beamViz');
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width = canvas.parentElement.offsetWidth;
+            const h = canvas.height = 150;
+
+            ctx.clearRect(0, 0, w, h);
+
+            const margin = 50;
+            const beamY = h / 2 + 20;
+            const beamLenPx = w - 2 * margin;
+            const scale = beamLenPx / L;
+
+            // Draw Beam
+            ctx.beginPath();
+            ctx.lineWidth = 6;
+            ctx.strokeStyle = '#334155';
+            ctx.moveTo(margin, beamY);
+            ctx.lineTo(margin + beamLenPx, beamY);
+            ctx.stroke();
+
+            // Helper: Draw Triangle (Pin)
+            function drawPin(x) {
+                ctx.beginPath();
+                ctx.fillStyle = '#64748b';
+                ctx.moveTo(x, beamY + 4);
+                ctx.lineTo(x - 10, beamY + 20);
+                ctx.lineTo(x + 10, beamY + 20);
+                ctx.fill();
+            }
+
+            // Helper: Draw Block (Fixed)
+            function drawFixed(x, isLeft) {
+                ctx.beginPath();
+                ctx.lineWidth = 4;
+                ctx.strokeStyle = '#94a3b8'; // Lighter for dark mode visibility
+                ctx.moveTo(x, beamY - 20);
+                ctx.lineTo(x, beamY + 20);
+                ctx.stroke();
+                // Hatches
+                for (let i = -20; i < 20; i += 5) {
+                    ctx.beginPath();
+                    ctx.lineWidth = 1;
+                    ctx.moveTo(x, beamY + i);
+                    ctx.lineTo(x + (isLeft ? -10 : 10), beamY + i + 5);
+                    ctx.stroke();
+                }
+            }
+
+            // Draw Supports
+            if (left === 'pinned') drawPin(margin);
+            if (left === 'fixed') drawFixed(margin, true);
+            if (right === 'pinned') drawPin(margin + beamLenPx);
+            if (right === 'fixed') drawFixed(margin + beamLenPx, false);
+
+            // Draw Loads
+            loadList.forEach(l => {
+                ctx.fillStyle = '#ef4444';
+                ctx.strokeStyle = '#ef4444';
+                let startX = margin + l.location * scale;
+
+                if (l.type === 'point') {
+                    // Arrow down
+                    ctx.beginPath();
+                    ctx.moveTo(startX, beamY - 50);
+                    ctx.lineTo(startX, beamY - 5);
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    // Arrowhead
+                    ctx.beginPath();
+                    ctx.moveTo(startX - 5, beamY - 15);
+                    ctx.lineTo(startX, beamY - 5);
+                    ctx.lineTo(startX + 5, beamY - 15);
+                    ctx.fill();
+                    // Text
+                    ctx.fillText(l.magnitude + "kN", startX - 10, beamY - 55);
+                } else if (l.type === 'distributed') {
+                    let endX = margin + (l.endLocation || l.location) * scale;
+                    ctx.globalAlpha = 0.3;
+                    ctx.fillRect(startX, beamY - 30, endX - startX, 28);
+                    ctx.globalAlpha = 1.0;
+                    ctx.fillText(l.magnitude + "kN/m", startX, beamY - 35);
+                }
+            });
+        }
+
+        // --- Charting ---
+        function drawCharts(labels, shearData, momentData) {
+            // Destroy old charts if exist
+            if (charts.shear) charts.shear.destroy();
+            if (charts.moment) charts.moment.destroy();
+
+            const commonOptions = {
+                responsive: true,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    x: {
+                        title: { display: true, text: 'Length (m)', color: '#94a3b8' },
+                        ticks: { maxTicksLimit: 10, color: '#94a3b8' },
+                        grid: { color: '#334155' }
+                    },
+                    y: {
+                        title: { display: true, text: 'Magnitude', color: '#94a3b8' },
+                        ticks: { color: '#94a3b8' },
+                        grid: { color: '#334155' }
+                    }
+                },
+                elements: { point: { radius: 0 } } // Hide points for smooth line
+            };
+
+            // Shear Chart
+            const ctxS = document.getElementById('shearChart').getContext('2d');
+            charts.shear = new Chart(ctxS, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Shear Force (kN)',
+                        data: shearData,
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        fill: true,
+                        borderWidth: 2
+                    }]
+                },
+                options: commonOptions
+            });
+
+            // Moment Chart
+            const ctxM = document.getElementById('momentChart').getContext('2d');
+            charts.moment = new Chart(ctxM, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Bending Moment (kNm)',
+                        data: momentData,
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        fill: true,
+                        borderWidth: 2
+                    }]
+                },
+                options: commonOptions
+            });
+        }
+    </script>
+
+</body>
+
+</html>
