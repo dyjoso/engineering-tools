@@ -1,5 +1,6 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -17,64 +18,92 @@
     <style>
         /* Custom styles for better input appearance */
         input[type="number"] {
-            -moz-appearance: textfield; /* Firefox */
+            -moz-appearance: textfield;
+            /* Firefox */
         }
+
         input[type="number"]::-webkit-outer-spin-button,
         input[type="number"]::-webkit-inner-spin-button {
             -webkit-appearance: none;
             margin: 0;
         }
+
         /* Ensure body takes full height */
-        html, body {
+        html,
+        body {
             height: 100%;
-            font-family: 'Inter', sans-serif; /* Use Inter font */
-            overflow-x: hidden; /* Prevent horizontal scroll */
+            font-family: 'Inter', sans-serif;
+            /* Use Inter font */
+            overflow-x: hidden;
+            /* Prevent horizontal scroll */
         }
+
         body {
             display: flex;
             flex-direction: column;
         }
+
         .content-wrapper {
             flex-grow: 1;
         }
+
         /* Style for remove buttons */
         .remove-btn {
             transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
         }
+
         .remove-btn:hover {
-            background-color: #ef4444; /* Red-500 */
+            background-color: #ef4444;
+            /* Red-500 */
             color: white;
         }
+
         /* Style for add buttons */
         .add-btn {
             transition: background-color 0.2s ease-in-out;
         }
+
         .add-btn:hover {
-            background-color: #16a34a; /* Green-600 */
+            background-color: #16a34a;
+            /* Green-600 */
         }
-         /* Style for calculate button */
+
+        /* Style for calculate button */
         .calc-btn {
             transition: background-color 0.2s ease-in-out;
         }
+
         .calc-btn:hover {
-            background-color: #0284c7; /* Sky-600 */
+            background-color: #0284c7;
+            /* Sky-600 */
         }
-         /* Style for view buttons */
+
+        /* Style for view buttons */
         .view-btn {
             transition: background-color 0.2s ease-in-out;
         }
+
         .view-btn:hover {
-             background-color: #d1d5db; /* gray-300 */
+            background-color: #d1d5db;
+            /* gray-300 */
         }
+
         /* Style for toggle switch */
         .toggle-label {
             display: flex;
             align-items: center;
             cursor: pointer;
-            font-size: 0.75rem; /* text-xs */
-            color: #374151; /* gray-700 */
+            font-size: 0.75rem;
+            /* text-xs */
+            color: #374151;
+            /* gray-700 */
         }
-        .toggle-label input { display: none; } /* Hide default checkbox */
+
+        .toggle-label input {
+            display: none;
+        }
+
+        /* Hide default checkbox */
         .toggle-switch {
             position: relative;
             display: inline-block;
@@ -83,9 +112,12 @@
             background-color: #ccc;
             border-radius: 10px;
             transition: background-color 0.2s;
-            margin-left: 0.5rem; /* space between text and switch */
+            margin-left: 0.5rem;
+            /* space between text and switch */
         }
-        .toggle-switch::after { /* The slider */
+
+        .toggle-switch::after {
+            /* The slider */
             content: '';
             position: absolute;
             width: 16px;
@@ -96,249 +128,390 @@
             left: 2px;
             transition: transform 0.2s;
         }
-        .toggle-label input:checked + .toggle-switch {
-            background-color: #2563eb; /* blue-600 */
+
+        .toggle-label input:checked+.toggle-switch {
+            background-color: #2563eb;
+            /* blue-600 */
         }
-        .toggle-label input:checked + .toggle-switch::after {
+
+        .toggle-label input:checked+.toggle-switch::after {
             transform: translateX(14px);
         }
 
 
         /* Style for the 3D visualization container */
         #visualization-container {
-            min-height: 300px; /* Ensure it has some height */
-            height: 45vh; /* Adjusted height */
-            width: 100%;   /* Full width of its column */
-            background-color: #f0f0f0; /* Light background for the canvas */
-            border-radius: 0.375rem; /* rounded-md */
-            border: 1px solid #e5e7eb; /* border-gray-200 */
-            position: relative; /* Needed for potential overlays */
-            overflow: hidden; /* Clip contents */
-            cursor: grab; /* Indicate interactivity */
+            min-height: 300px;
+            /* Ensure it has some height */
+            height: 45vh;
+            /* Adjusted height */
+            width: 100%;
+            /* Full width of its column */
+            background-color: #f0f0f0;
+            /* Light background for the canvas */
+            border-radius: 0.375rem;
+            /* rounded-md */
+            border: 1px solid #e5e7eb;
+            /* border-gray-200 */
+            position: relative;
+            /* Needed for potential overlays */
+            overflow: hidden;
+            /* Clip contents */
+            cursor: grab;
+            /* Indicate interactivity */
         }
+
         #visualization-container:active {
             cursor: grabbing;
         }
+
         #visualization-container canvas {
-            display: block; /* Prevent extra space below canvas */
+            display: block;
+            /* Prevent extra space below canvas */
         }
+
         /* Ensure results section takes available space */
         .results-section {
-             display: flex;
-             flex-direction: column;
-             height: 100%; /* Make results section fill its grid space */
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            /* Make results section fill its grid space */
         }
-         #results-content {
-            flex-grow: 1; /* Allow results content to grow */
-            overflow-y: auto; /* Add scroll if content overflows */
-         }
+
+        #results-content {
+            flex-grow: 1;
+            /* Allow results content to grow */
+            overflow-y: auto;
+            /* Add scroll if content overflows */
+        }
+
         /* Compact input row styling */
         .input-row {
             display: flex;
-            flex-wrap: wrap; /* Allow wrapping on smaller screens */
+            flex-wrap: wrap;
+            /* Allow wrapping on smaller screens */
             align-items: center;
-            gap: 0.5rem; /* space between elements */
+            gap: 0.5rem;
+            /* space between elements */
             padding: 0.5rem;
             border: 1px solid #e5e7eb;
             border-radius: 0.375rem;
-            background-color: #f9fafb; /* bg-gray-50 */
-            position: relative; /* For remove button positioning */
+            background-color: #f9fafb;
+            /* bg-gray-50 */
+            position: relative;
+            /* For remove button positioning */
         }
+
         .input-row .input-group {
-             display: flex;
-             flex-direction: column;
-             align-items: center; /* Center label and input */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            /* Center label and input */
         }
-         .input-row .input-group label {
-            font-size: 0.65rem; /* Smaller label */
-            color: #6b7280; /* gray-500 */
+
+        .input-row .input-group label {
+            font-size: 0.65rem;
+            /* Smaller label */
+            color: #6b7280;
+            /* gray-500 */
             margin-bottom: 0.1rem;
             text-align: center;
-         }
-         .input-row .input-group input[type="number"] {
-             width: 4.5rem; /* w-18 approx */
-             padding: 0.25rem 0.5rem; /* p-1 px-2 */
-             font-size: 0.875rem; /* text-sm */
-             border-radius: 0.25rem; /* rounded-sm */
-             border: 1px solid #d1d5db; /* border-gray-300 */
-         }
-         .input-row select {
-             font-size: 0.75rem; /* text-xs */
-             padding: 0.25rem 0.5rem;
-             border-radius: 0.25rem;
-         }
-         .input-row .point-index {
-             font-size: 0.875rem;
-             font-weight: 500;
-             color: #4b5563; /* gray-600 */
-             min-width: 2rem; /* Ensure number doesn't wrap too easily */
-             text-align: right;
-             margin-right: 0.5rem;
-         }
-         .input-row .remove-btn-compact {
-             position: absolute;
-             top: 0.25rem;
-             right: 0.25rem;
-             padding: 0.1rem 0.25rem;
-             font-size: 0.75rem;
-             line-height: 1;
-         }
+        }
+
+        .input-row .input-group input[type="number"] {
+            width: 4.5rem;
+            /* w-18 approx */
+            padding: 0.25rem 0.5rem;
+            /* p-1 px-2 */
+            font-size: 0.875rem;
+            /* text-sm */
+            border-radius: 0.25rem;
+            /* rounded-sm */
+            border: 1px solid #d1d5db;
+            /* border-gray-300 */
+        }
+
+        .input-row select {
+            font-size: 0.75rem;
+            /* text-xs */
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+        }
+
+        .input-row .point-index {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #4b5563;
+            /* gray-600 */
+            min-width: 2rem;
+            /* Ensure number doesn't wrap too easily */
+            text-align: right;
+            margin-right: 0.5rem;
+        }
+
+        .input-row .remove-btn-compact {
+            position: absolute;
+            top: 0.25rem;
+            right: 0.25rem;
+            padding: 0.1rem 0.25rem;
+            font-size: 0.75rem;
+            line-height: 1;
+        }
 
         /* Hide/show elements based on support type */
-        .general-stiffness-fields-compact { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-        .tie-rod-fields-compact { display: none; flex-wrap: wrap; gap: 0.5rem; }
+        .general-stiffness-fields-compact {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
 
-
+        .tie-rod-fields-compact {
+            display: none;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
     </style>
-     <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400&display=swap" rel="stylesheet"> </head>
+    <link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400&display=swap" rel="stylesheet">
+</head>
+
 <body class="bg-gray-100 text-gray-800">
 
     <div class="content-wrapper container mx-auto p-4 md:p-8">
-        <h1 class="text-2xl md:text-3xl font-bold mb-6 text-center text-gray-700">Rigid Body Reaction Force Calculator</h1>
+        <h1 class="text-2xl md:text-3xl font-bold mb-6 text-center text-gray-700">Rigid Body Reaction Force Calculator
+        </h1>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
 
             <div class="bg-white p-6 rounded-lg shadow-md">
-                <h2 class="text-xl font-semibold mb-4 border-b pb-2 text-gray-600">Inputs</h2>
+                <div class="flex justify-between items-center mb-4 border-b pb-2">
+                    <h2 class="text-xl font-semibold text-gray-600">Inputs</h2>
+                    <div class="space-x-2">
+                        <button type="button" id="save-config-btn"
+                            class="text-xs bg-gray-200 hover:bg-gray-300 text-gray-700 py-1 px-2 rounded shadow-sm"
+                            title="Save Configuration to File">Save Config</button>
+                        <button type="button" id="load-config-btn"
+                            class="text-xs bg-gray-200 hover:bg-gray-300 text-gray-700 py-1 px-2 rounded shadow-sm"
+                            title="Load Configuration from File">Load Config</button>
+                        <input type="file" id="file-input" class="hidden" accept=".txt,.json">
+                    </div>
+                </div>
 
                 <div class="mb-6">
                     <h3 class="text-lg font-medium mb-3 text-indigo-600">Support Points</h3>
-                    <div id="supports-container" class="space-y-2"> <div class="support-point input-row" style="display: none;" id="support-template">
+                    <div id="supports-container" class="space-y-2">
+                        <div class="support-point input-row" style="display: none;" id="support-template">
                             <span class="point-index">#<span class="support-index">1</span>:</span>
                             <select class="support-type border" onchange="toggleSupportFields(this)">
-                                <option value="general" selected>General</option> <option value="tie-rod">Tie Rod</option>
+                                <option value="general" selected>General</option>
+                                <option value="tie-rod">Tie Rod</option>
                             </select>
 
                             <div class="general-stiffness-fields-compact">
-                                <div class="input-group"><label>X</label><input type="number" step="any" placeholder="X" class="coord-x" required></div>
-                                <div class="input-group"><label>Y</label><input type="number" step="any" placeholder="Y" class="coord-y" required></div>
-                                <div class="input-group"><label>Z</label><input type="number" step="any" placeholder="Z" class="coord-z" required></div>
-                                <div class="input-group"><label>Kx</label><input type="number" step="any" placeholder="Kx" class="stiff-kx" required min="0"></div>
-                                <div class="input-group"><label>Ky</label><input type="number" step="any" placeholder="Ky" class="stiff-ky" required min="0"></div>
-                                <div class="input-group"><label>Kz</label><input type="number" step="any" placeholder="Kz" class="stiff-kz" required min="0"></div>
+                                <div class="input-group"><label>X</label><input type="number" step="any" placeholder="X"
+                                        class="coord-x" required></div>
+                                <div class="input-group"><label>Y</label><input type="number" step="any" placeholder="Y"
+                                        class="coord-y" required></div>
+                                <div class="input-group"><label>Z</label><input type="number" step="any" placeholder="Z"
+                                        class="coord-z" required></div>
+                                <div class="input-group"><label>Kx</label><input type="number" step="any"
+                                        placeholder="Kx" class="stiff-kx" required min="0"></div>
+                                <div class="input-group"><label>Ky</label><input type="number" step="any"
+                                        placeholder="Ky" class="stiff-ky" required min="0"></div>
+                                <div class="input-group"><label>Kz</label><input type="number" step="any"
+                                        placeholder="Kz" class="stiff-kz" required min="0"></div>
                             </div>
 
                             <div class="tie-rod-fields-compact">
-                                <div class="input-group"><label>Att X</label><input type="number" step="any" placeholder="Att X" class="attach-x" required></div>
-                                <div class="input-group"><label>Att Y</label><input type="number" step="any" placeholder="Att Y" class="attach-y" required></div>
-                                <div class="input-group"><label>Att Z</label><input type="number" step="any" placeholder="Att Z" class="attach-z" required></div>
-                                <div class="input-group"><label>Anc X</label><input type="number" step="any" placeholder="Anc X" class="anchor-x" required></div>
-                                <div class="input-group"><label>Anc Y</label><input type="number" step="any" placeholder="Anc Y" class="anchor-y" required></div>
-                                <div class="input-group"><label>Anc Z</label><input type="number" step="any" placeholder="Anc Z" class="anchor-z" required></div>
-                                <div class="input-group"><label>K Axial</label><input type="number" step="any" placeholder="Kax" class="stiff-kaxial" required min="0"></div>
+                                <div class="input-group"><label>Att X</label><input type="number" step="any"
+                                        placeholder="Att X" class="attach-x" required></div>
+                                <div class="input-group"><label>Att Y</label><input type="number" step="any"
+                                        placeholder="Att Y" class="attach-y" required></div>
+                                <div class="input-group"><label>Att Z</label><input type="number" step="any"
+                                        placeholder="Att Z" class="attach-z" required></div>
+                                <div class="input-group"><label>Anc X</label><input type="number" step="any"
+                                        placeholder="Anc X" class="anchor-x" required></div>
+                                <div class="input-group"><label>Anc Y</label><input type="number" step="any"
+                                        placeholder="Anc Y" class="anchor-y" required></div>
+                                <div class="input-group"><label>Anc Z</label><input type="number" step="any"
+                                        placeholder="Anc Z" class="anchor-z" required></div>
+                                <div class="input-group"><label>K Axial</label><input type="number" step="any"
+                                        placeholder="Kax" class="stiff-kaxial" required min="0"></div>
                             </div>
-                            <button type="button" onclick="removeElement(this.parentNode)" class="remove-btn remove-btn-compact" title="Remove Support">&times;</button>
+                            <button type="button" onclick="removeElement(this.parentNode)"
+                                class="remove-btn remove-btn-compact" title="Remove Support">&times;</button>
                         </div>
 
                         <div class="support-point input-row">
-                             <span class="point-index">#<span class="support-index">1</span>:</span>
-                             <select class="support-type border" onchange="toggleSupportFields(this)"> <option value="general" selected>General</option> <option value="tie-rod">Tie Rod</option> </select>
-                             <div class="general-stiffness-fields-compact">
-                                 <div class="input-group"><label>X</label><input type="number" step="any" placeholder="X" class="coord-x" required value="0"></div>
-                                 <div class="input-group"><label>Y</label><input type="number" step="any" placeholder="Y" class="coord-y" required value="0"></div>
-                                 <div class="input-group"><label>Z</label><input type="number" step="any" placeholder="Z" class="coord-z" required value="0"></div>
-                                 <div class="input-group"><label>Kx</label><input type="number" step="any" placeholder="Kx" class="stiff-kx" required min="0" value="1000"></div>
-                                 <div class="input-group"><label>Ky</label><input type="number" step="any" placeholder="Ky" class="stiff-ky" required min="0" value="1000"></div>
-                                 <div class="input-group"><label>Kz</label><input type="number" step="any" placeholder="Kz" class="stiff-kz" required min="0" value="1000"></div>
-                             </div>
-                             <div class="tie-rod-fields-compact">
-                                 <div class="input-group"><label>Att X</label><input type="number" step="any" placeholder="Att X" class="attach-x" required></div>
-                                 <div class="input-group"><label>Att Y</label><input type="number" step="any" placeholder="Att Y" class="attach-y" required></div>
-                                 <div class="input-group"><label>Att Z</label><input type="number" step="any" placeholder="Att Z" class="attach-z" required></div>
-                                 <div class="input-group"><label>Anc X</label><input type="number" step="any" placeholder="Anc X" class="anchor-x" required></div>
-                                 <div class="input-group"><label>Anc Y</label><input type="number" step="any" placeholder="Anc Y" class="anchor-y" required></div>
-                                 <div class="input-group"><label>Anc Z</label><input type="number" step="any" placeholder="Anc Z" class="anchor-z" required></div>
-                                 <div class="input-group"><label>K Axial</label><input type="number" step="any" placeholder="Kax" class="stiff-kaxial" required min="0"></div>
-                             </div>
-                             <button type="button" onclick="removeElement(this.parentNode)" class="remove-btn remove-btn-compact" title="Remove Support">&times;</button>
+                            <span class="point-index">#<span class="support-index">1</span>:</span>
+                            <select class="support-type border" onchange="toggleSupportFields(this)">
+                                <option value="general" selected>General</option>
+                                <option value="tie-rod">Tie Rod</option>
+                            </select>
+                            <div class="general-stiffness-fields-compact">
+                                <div class="input-group"><label>X</label><input type="number" step="any" placeholder="X"
+                                        class="coord-x" required value="0"></div>
+                                <div class="input-group"><label>Y</label><input type="number" step="any" placeholder="Y"
+                                        class="coord-y" required value="0"></div>
+                                <div class="input-group"><label>Z</label><input type="number" step="any" placeholder="Z"
+                                        class="coord-z" required value="0"></div>
+                                <div class="input-group"><label>Kx</label><input type="number" step="any"
+                                        placeholder="Kx" class="stiff-kx" required min="0" value="1000"></div>
+                                <div class="input-group"><label>Ky</label><input type="number" step="any"
+                                        placeholder="Ky" class="stiff-ky" required min="0" value="1000"></div>
+                                <div class="input-group"><label>Kz</label><input type="number" step="any"
+                                        placeholder="Kz" class="stiff-kz" required min="0" value="1000"></div>
+                            </div>
+                            <div class="tie-rod-fields-compact">
+                                <div class="input-group"><label>Att X</label><input type="number" step="any"
+                                        placeholder="Att X" class="attach-x" required></div>
+                                <div class="input-group"><label>Att Y</label><input type="number" step="any"
+                                        placeholder="Att Y" class="attach-y" required></div>
+                                <div class="input-group"><label>Att Z</label><input type="number" step="any"
+                                        placeholder="Att Z" class="attach-z" required></div>
+                                <div class="input-group"><label>Anc X</label><input type="number" step="any"
+                                        placeholder="Anc X" class="anchor-x" required></div>
+                                <div class="input-group"><label>Anc Y</label><input type="number" step="any"
+                                        placeholder="Anc Y" class="anchor-y" required></div>
+                                <div class="input-group"><label>Anc Z</label><input type="number" step="any"
+                                        placeholder="Anc Z" class="anchor-z" required></div>
+                                <div class="input-group"><label>K Axial</label><input type="number" step="any"
+                                        placeholder="Kax" class="stiff-kaxial" required min="0"></div>
+                            </div>
+                            <button type="button" onclick="removeElement(this.parentNode)"
+                                class="remove-btn remove-btn-compact" title="Remove Support">&times;</button>
                         </div>
                         <div class="support-point input-row">
-                             <span class="point-index">#<span class="support-index">2</span>:</span>
-                             <select class="support-type border" onchange="toggleSupportFields(this)"> <option value="general" selected>General</option> <option value="tie-rod">Tie Rod</option> </select>
-                             <div class="general-stiffness-fields-compact">
-                                 <div class="input-group"><label>X</label><input type="number" step="any" placeholder="X" class="coord-x" required value="2"></div>
-                                 <div class="input-group"><label>Y</label><input type="number" step="any" placeholder="Y" class="coord-y" required value="0"></div>
-                                 <div class="input-group"><label>Z</label><input type="number" step="any" placeholder="Z" class="coord-z" required value="0"></div>
-                                 <div class="input-group"><label>Kx</label><input type="number" step="any" placeholder="Kx" class="stiff-kx" required min="0" value="1000"></div>
-                                 <div class="input-group"><label>Ky</label><input type="number" step="any" placeholder="Ky" class="stiff-ky" required min="0" value="1000"></div>
-                                 <div class="input-group"><label>Kz</label><input type="number" step="any" placeholder="Kz" class="stiff-kz" required min="0" value="1000"></div>
-                             </div>
-                             <div class="tie-rod-fields-compact">
-                                 <div class="input-group"><label>Att X</label><input type="number" step="any" placeholder="Att X" class="attach-x" required></div>
-                                 <div class="input-group"><label>Att Y</label><input type="number" step="any" placeholder="Att Y" class="attach-y" required></div>
-                                 <div class="input-group"><label>Att Z</label><input type="number" step="any" placeholder="Att Z" class="attach-z" required></div>
-                                 <div class="input-group"><label>Anc X</label><input type="number" step="any" placeholder="Anc X" class="anchor-x" required></div>
-                                 <div class="input-group"><label>Anc Y</label><input type="number" step="any" placeholder="Anc Y" class="anchor-y" required></div>
-                                 <div class="input-group"><label>Anc Z</label><input type="number" step="any" placeholder="Anc Z" class="anchor-z" required></div>
-                                 <div class="input-group"><label>K Axial</label><input type="number" step="any" placeholder="Kax" class="stiff-kaxial" required min="0"></div>
-                             </div>
-                             <button type="button" onclick="removeElement(this.parentNode)" class="remove-btn remove-btn-compact" title="Remove Support">&times;</button>
+                            <span class="point-index">#<span class="support-index">2</span>:</span>
+                            <select class="support-type border" onchange="toggleSupportFields(this)">
+                                <option value="general" selected>General</option>
+                                <option value="tie-rod">Tie Rod</option>
+                            </select>
+                            <div class="general-stiffness-fields-compact">
+                                <div class="input-group"><label>X</label><input type="number" step="any" placeholder="X"
+                                        class="coord-x" required value="2"></div>
+                                <div class="input-group"><label>Y</label><input type="number" step="any" placeholder="Y"
+                                        class="coord-y" required value="0"></div>
+                                <div class="input-group"><label>Z</label><input type="number" step="any" placeholder="Z"
+                                        class="coord-z" required value="0"></div>
+                                <div class="input-group"><label>Kx</label><input type="number" step="any"
+                                        placeholder="Kx" class="stiff-kx" required min="0" value="1000"></div>
+                                <div class="input-group"><label>Ky</label><input type="number" step="any"
+                                        placeholder="Ky" class="stiff-ky" required min="0" value="1000"></div>
+                                <div class="input-group"><label>Kz</label><input type="number" step="any"
+                                        placeholder="Kz" class="stiff-kz" required min="0" value="1000"></div>
+                            </div>
+                            <div class="tie-rod-fields-compact">
+                                <div class="input-group"><label>Att X</label><input type="number" step="any"
+                                        placeholder="Att X" class="attach-x" required></div>
+                                <div class="input-group"><label>Att Y</label><input type="number" step="any"
+                                        placeholder="Att Y" class="attach-y" required></div>
+                                <div class="input-group"><label>Att Z</label><input type="number" step="any"
+                                        placeholder="Att Z" class="attach-z" required></div>
+                                <div class="input-group"><label>Anc X</label><input type="number" step="any"
+                                        placeholder="Anc X" class="anchor-x" required></div>
+                                <div class="input-group"><label>Anc Y</label><input type="number" step="any"
+                                        placeholder="Anc Y" class="anchor-y" required></div>
+                                <div class="input-group"><label>Anc Z</label><input type="number" step="any"
+                                        placeholder="Anc Z" class="anchor-z" required></div>
+                                <div class="input-group"><label>K Axial</label><input type="number" step="any"
+                                        placeholder="Kax" class="stiff-kaxial" required min="0"></div>
+                            </div>
+                            <button type="button" onclick="removeElement(this.parentNode)"
+                                class="remove-btn remove-btn-compact" title="Remove Support">&times;</button>
                         </div>
                     </div>
-                    <button type="button" id="add-support-btn" class="add-btn mt-3 text-sm bg-green-500 text-white py-1 px-3 rounded-md shadow hover:bg-green-600">+ Add Support</button>
+                    <button type="button" id="add-support-btn"
+                        class="add-btn mt-3 text-sm bg-green-500 text-white py-1 px-3 rounded-md shadow hover:bg-green-600">+
+                        Add Support</button>
                 </div>
 
                 <div>
                     <h3 class="text-lg font-medium mb-3 text-teal-600">Load Points</h3>
-                    <div id="loads-container" class="space-y-2"> <div class="load-point input-row" style="display: none;" id="load-template">
-                             <span class="point-index">#<span class="load-index">1</span>:</span>
-                             <div class="input-group"><label>X</label><input type="number" step="any" placeholder="X" class="coord-x" required></div>
-                             <div class="input-group"><label>Y</label><input type="number" step="any" placeholder="Y" class="coord-y" required></div>
-                             <div class="input-group"><label>Z</label><input type="number" step="any" placeholder="Z" class="coord-z" required></div>
-                             <div class="input-group"><label>Px</label><input type="number" step="any" placeholder="Px" class="force-px" required></div>
-                             <div class="input-group"><label>Py</label><input type="number" step="any" placeholder="Py" class="force-py" required></div>
-                             <div class="input-group"><label>Pz</label><input type="number" step="any" placeholder="Pz" class="force-pz" required></div>
-                             <button type="button" onclick="removeElement(this.parentNode)" class="remove-btn remove-btn-compact" title="Remove Load">&times;</button>
+                    <div id="loads-container" class="space-y-2">
+                        <div class="load-point input-row" style="display: none;" id="load-template">
+                            <span class="point-index">#<span class="load-index">1</span>:</span>
+                            <div class="input-group"><label>X</label><input type="number" step="any" placeholder="X"
+                                    class="coord-x" required></div>
+                            <div class="input-group"><label>Y</label><input type="number" step="any" placeholder="Y"
+                                    class="coord-y" required></div>
+                            <div class="input-group"><label>Z</label><input type="number" step="any" placeholder="Z"
+                                    class="coord-z" required></div>
+                            <div class="input-group"><label>Px</label><input type="number" step="any" placeholder="Px"
+                                    class="force-px" required></div>
+                            <div class="input-group"><label>Py</label><input type="number" step="any" placeholder="Py"
+                                    class="force-py" required></div>
+                            <div class="input-group"><label>Pz</label><input type="number" step="any" placeholder="Pz"
+                                    class="force-pz" required></div>
+                            <button type="button" onclick="removeElement(this.parentNode)"
+                                class="remove-btn remove-btn-compact" title="Remove Load">&times;</button>
                         </div>
                         <div class="load-point input-row">
-                             <span class="point-index">#<span class="load-index">1</span>:</span>
-                             <div class="input-group"><label>X</label><input type="number" step="any" placeholder="X" class="coord-x" required value="1"></div>
-                             <div class="input-group"><label>Y</label><input type="number" step="any" placeholder="Y" class="coord-y" required value="1"></div>
-                             <div class="input-group"><label>Z</label><input type="number" step="any" placeholder="Z" class="coord-z" required value="0"></div>
-                             <div class="input-group"><label>Px</label><input type="number" step="any" placeholder="Px" class="force-px" required value="0"></div>
-                             <div class="input-group"><label>Py</label><input type="number" step="any" placeholder="Py" class="force-py" required value="0"></div>
-                             <div class="input-group"><label>Pz</label><input type="number" step="any" placeholder="Pz" class="force-pz" required value="-100"></div>
-                             <button type="button" onclick="removeElement(this.parentNode)" class="remove-btn remove-btn-compact" title="Remove Load">&times;</button>
+                            <span class="point-index">#<span class="load-index">1</span>:</span>
+                            <div class="input-group"><label>X</label><input type="number" step="any" placeholder="X"
+                                    class="coord-x" required value="1"></div>
+                            <div class="input-group"><label>Y</label><input type="number" step="any" placeholder="Y"
+                                    class="coord-y" required value="1"></div>
+                            <div class="input-group"><label>Z</label><input type="number" step="any" placeholder="Z"
+                                    class="coord-z" required value="0"></div>
+                            <div class="input-group"><label>Px</label><input type="number" step="any" placeholder="Px"
+                                    class="force-px" required value="0"></div>
+                            <div class="input-group"><label>Py</label><input type="number" step="any" placeholder="Py"
+                                    class="force-py" required value="0"></div>
+                            <div class="input-group"><label>Pz</label><input type="number" step="any" placeholder="Pz"
+                                    class="force-pz" required value="-100"></div>
+                            <button type="button" onclick="removeElement(this.parentNode)"
+                                class="remove-btn remove-btn-compact" title="Remove Load">&times;</button>
                         </div>
                     </div>
-                    <button type="button" id="add-load-btn" class="add-btn mt-3 text-sm bg-green-500 text-white py-1 px-3 rounded-md shadow hover:bg-green-600">+ Add Load</button>
+                    <button type="button" id="add-load-btn"
+                        class="add-btn mt-3 text-sm bg-green-500 text-white py-1 px-3 rounded-md shadow hover:bg-green-600">+
+                        Add Load</button>
                 </div>
 
                 <div class="mt-8 text-center">
-                    <button type="button" id="calculate-btn" class="calc-btn w-full md:w-auto bg-sky-500 text-white py-2 px-6 rounded-md shadow font-medium hover:bg-sky-600">Calculate Reactions</button>
+                    <button type="button" id="calculate-btn"
+                        class="calc-btn w-full md:w-auto bg-sky-500 text-white py-2 px-6 rounded-md shadow font-medium hover:bg-sky-600">Calculate
+                        Reactions</button>
                 </div>
 
             </div>
 
             <div class="bg-white p-6 rounded-lg shadow-md results-section">
                 <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
-                     <h2 class="text-xl font-semibold border-b pb-2 text-gray-600 flex-grow">Results</h2>
-                     <div class="flex items-center space-x-2 ml-4">
-                         <button id="view-top-btn" class="view-btn text-xs bg-gray-200 px-2 py-1 rounded shadow-sm" title="Top View (Look down Y)">Top</button>
-                         <button id="view-front-btn" class="view-btn text-xs bg-gray-200 px-2 py-1 rounded shadow-sm" title="Front View (Look along Z)">Front</button>
-                         <button id="view-right-btn" class="view-btn text-xs bg-gray-200 px-2 py-1 rounded shadow-sm" title="Right View (Look along X)">Right</button>
-                         <label for="ortho-toggle" class="toggle-label" title="Toggle Orthographic/Perspective View">
+                    <h2 class="text-xl font-semibold border-b pb-2 text-gray-600 flex-grow">Results</h2>
+                    <div class="flex items-center space-x-2 ml-4">
+                        <button id="export-csv-btn"
+                            class="view-btn text-xs bg-green-100 hover:bg-green-200 text-green-800 px-2 py-1 rounded shadow-sm border border-green-300"
+                            title="Export Results to CSV">Export CSV</button>
+                        <div class="w-px h-4 bg-gray-300 mx-1"></div>
+                        <button id="view-top-btn" class="view-btn text-xs bg-gray-200 px-2 py-1 rounded shadow-sm"
+                            title="Top View (Look down Y)">Top</button>
+                        <button id="view-front-btn" class="view-btn text-xs bg-gray-200 px-2 py-1 rounded shadow-sm"
+                            title="Front View (Look along Z)">Front</button>
+                        <button id="view-right-btn" class="view-btn text-xs bg-gray-200 px-2 py-1 rounded shadow-sm"
+                            title="Right View (Look along X)">Right</button>
+                        <label for="ortho-toggle" class="toggle-label" title="Toggle Orthographic/Perspective View">
                             Ortho
                             <input type="checkbox" id="ortho-toggle">
                             <span class="toggle-switch"></span>
                         </label>
-                     </div>
+                    </div>
                 </div>
 
                 <div id="visualization-container" class="mb-4">
-                    </div>
+                </div>
 
                 <div id="results-content" class="space-y-3">
                     <p class="text-gray-500 italic">Results will appear here after calculation.</p>
-                    </div>
+                </div>
 
-                 <div id="error-message" class="my-2 text-red-600 font-medium hidden">
-                    </div>
+                <div id="error-message" class="my-2 text-red-600 font-medium hidden">
+                </div>
 
-                 </div>
+            </div>
         </div>
     </div>
 
@@ -366,6 +539,13 @@
         const viewFrontBtn = document.getElementById('view-front-btn');
         const viewRightBtn = document.getElementById('view-right-btn');
         const orthoToggle = document.getElementById('ortho-toggle');
+        const saveConfigBtn = document.getElementById('save-config-btn');
+        const loadConfigBtn = document.getElementById('load-config-btn');
+        const fileInput = document.getElementById('file-input');
+        const exportCsvBtn = document.getElementById('export-csv-btn');
+
+        // Global variable to store last calculation results for export
+        let lastCalculationResults = null;
 
 
         // --- three.js Variables ---
@@ -377,7 +557,7 @@
         // --- Utility Functions ---
 
         // Function to toggle visibility of support fields
-        window.toggleSupportFields = function(selectElement) {
+        window.toggleSupportFields = function (selectElement) {
             const supportBlock = selectElement.closest('.support-point');
             const generalFields = supportBlock.querySelector('.general-stiffness-fields-compact');
             const tieRodFields = supportBlock.querySelector('.tie-rod-fields-compact');
@@ -390,7 +570,7 @@
         }
 
         // Function to remove a parent element
-        window.removeElement = function(element) {
+        window.removeElement = function (element) {
             const parentContainer = element.parentNode;
             const className = element.classList.contains('support-point') ? 'support-point' : 'load-point';
             const visibleElements = Array.from(parentContainer.children).filter(child =>
@@ -398,12 +578,12 @@
             );
 
             if (visibleElements.length > 1) {
-                 element.remove();
-                 updateIndices(parentContainer, className);
+                element.remove();
+                updateIndices(parentContainer, className);
             } else {
-                 const friendlyName = className.replace('-', ' ');
-                 const title = `Cannot Remove Last ${friendlyName.charAt(0).toUpperCase() + friendlyName.slice(1)}`;
-                 showModal(title, `You need at least one ${friendlyName} defined.`);
+                const friendlyName = className.replace('-', ' ');
+                const title = `Cannot Remove Last ${friendlyName.charAt(0).toUpperCase() + friendlyName.slice(1)}`;
+                showModal(title, `You need at least one ${friendlyName} defined.`);
             }
         }
 
@@ -412,12 +592,12 @@
             const items = container.querySelectorAll(`.${className}:not(#${className.replace('-point', '-template')})`);
             const indexClass = className === 'support-point' ? 'support-index' : 'load-index';
             items.forEach((item, i) => {
-                 if (item.style.display !== 'none') {
+                if (item.style.display !== 'none') {
                     const indexSpan = item.querySelector(`.${indexClass}`);
                     if (indexSpan) {
                         indexSpan.textContent = i + 1;
                     }
-                 }
+                }
             });
         }
 
@@ -486,16 +666,16 @@
                         const ny = parseFloat(el.querySelector('.anchor-y').value);
                         const nz = parseFloat(el.querySelector('.anchor-z').value);
                         const kAxial = parseFloat(el.querySelector('.stiff-kaxial').value);
-                         if (isNaN(ax) || isNaN(ay) || isNaN(az) || isNaN(nx) || isNaN(ny) || isNaN(nz) || isNaN(kAxial)) throw new Error(`Invalid input for Tie Rod Support #${supportIndex}.`);
-                         if (kAxial < 0) throw new Error(`Axial stiffness cannot be negative for Tie Rod Support #${supportIndex}.`);
-                         if (Math.abs(ax - nx) < 1e-9 && Math.abs(ay - ny) < 1e-9 && Math.abs(az - nz) < 1e-9) throw new Error(`Attachment and Anchor points cannot be identical for Tie Rod Support #${supportIndex}.`);
+                        if (isNaN(ax) || isNaN(ay) || isNaN(az) || isNaN(nx) || isNaN(ny) || isNaN(nz) || isNaN(kAxial)) throw new Error(`Invalid input for Tie Rod Support #${supportIndex}.`);
+                        if (kAxial < 0) throw new Error(`Axial stiffness cannot be negative for Tie Rod Support #${supportIndex}.`);
+                        if (Math.abs(ax - nx) < 1e-9 && Math.abs(ay - ny) < 1e-9 && Math.abs(az - nz) < 1e-9) throw new Error(`Attachment and Anchor points cannot be identical for Tie Rod Support #${supportIndex}.`);
                         supportInfo = { ...supportInfo, attachPoint: { x: ax, y: ay, z: az }, anchorPoint: { x: nx, y: ny, z: nz }, kAxial };
                     }
                     currentSupportsData.push(supportInfo);
                 });
 
                 const loadElements = loadsContainer.querySelectorAll('.load-point:not(#load-template)');
-                 loadElements.forEach((el, index) => {
+                loadElements.forEach((el, index) => {
                     const x = parseFloat(el.querySelector('.coord-x').value);
                     const y = parseFloat(el.querySelector('.coord-y').value);
                     const z = parseFloat(el.querySelector('.coord-z').value);
@@ -522,7 +702,7 @@
                         Ki = math.diag([support.kx, support.ky, support.kz]);
                     } else {
                         const { x: ax, y: ay, z: az } = support.attachPoint; const { x: nx, y: ny, z: nz } = support.anchorPoint; attachX = ax; attachY = ay; attachZ = az;
-                        const dx = ax - nx, dy = ay - ny, dz = az - nz; const len = Math.sqrt(dx*dx + dy*dy + dz*dz);
+                        const dx = ax - nx, dy = ay - ny, dz = az - nz; const len = Math.sqrt(dx * dx + dy * dy + dz * dz);
                         if (len < 1e-9) throw new Error(`Zero length Tie Rod detected for Support #${support.index}.`);
                         const ux = dx / len, uy = dy / len, uz = dz / len;
                         const u = math.matrix([[ux], [uy], [uz]]); const uT = math.transpose(u); const uuT = math.multiply(u, uT); Ki = math.multiply(uuT, support.kAxial);
@@ -535,7 +715,7 @@
                 // 4. Solve for Global Displacements (D)
                 let K_inv;
                 try { K_inv = math.inv(K_global); } catch (error) {
-                     if (error.message && error.message.toLowerCase().includes("matrix is singular")) { const det = math.det(K_global); console.warn("Determinant:", det); if (Math.abs(det) < 1e-9) throw new Error("Cannot calculate reactions. Global stiffness matrix is singular. Supports may not adequately constrain the body."); }
+                    if (error.message && error.message.toLowerCase().includes("matrix is singular")) { const det = math.det(K_global); console.warn("Determinant:", det); if (Math.abs(det) < 1e-9) throw new Error("Cannot calculate reactions. Global stiffness matrix is singular. Supports may not adequately constrain the body."); }
                     throw new Error(`Error inverting stiffness matrix: ${error.message}`);
                 }
                 const D_matrix = math.multiply(K_inv, F_ext);
@@ -550,13 +730,14 @@
 
                     const reactionPoint = (support.type === 'general') ? support.point : support.attachPoint;
                     currentCalculatedReactions.push({
-                         index: support.index, x: reactionPoint.x, y: reactionPoint.y, z: reactionPoint.z,
-                         rx: reactionForces[0], ry: reactionForces[1], rz: reactionForces[2],
-                         type: support.type, anchorPoint: support.type === 'tie-rod' ? support.anchorPoint : undefined
+                        index: support.index, x: reactionPoint.x, y: reactionPoint.y, z: reactionPoint.z,
+                        rx: reactionForces[0], ry: reactionForces[1], rz: reactionForces[2],
+                        type: support.type, anchorPoint: support.type === 'tie-rod' ? support.anchorPoint : undefined
                     });
                 });
 
                 // 6. Display Results
+                lastCalculationResults = { reactions: currentCalculatedReactions, displacements: currentDisplacements, supports: currentSupportsData };
                 displayNumericalResults(currentCalculatedReactions, currentDisplacements);
                 updateVisualization(currentSupportsData, currentLoadsData, currentCalculatedReactions);
 
@@ -565,16 +746,17 @@
                 errorMessageDiv.textContent = `Error: ${error.message}`;
                 errorMessageDiv.classList.remove('hidden');
                 resultsContent.innerHTML = '<p class="text-red-500 italic">Calculation failed. See error message above.</p>';
+                lastCalculationResults = null;
                 clearVisualization();
             }
         }
 
         // Function to display numerical results
         function displayNumericalResults(reactions, displacements) {
-             resultsContent.innerHTML = ''; // Clear previous results
+            resultsContent.innerHTML = ''; // Clear previous results
             if (reactions.length === 0 && displacements.length === 0) { resultsContent.innerHTML = '<p class="text-gray-500 italic">No results to display.</p>'; return; }
             const dispDiv = document.createElement('div'); dispDiv.classList.add('mb-4', 'p-3', 'bg-blue-50', 'rounded-md', 'border', 'border-blue-200');
-             dispDiv.innerHTML = `<h4 class="text-md font-semibold mb-2 text-blue-700">Global Rigid Body Displacements (Origin)</h4> <div class="grid grid-cols-3 gap-x-4 gap-y-1 text-sm"> <span>&delta;x: ${displacements[0].toExponential(3)}</span> <span>&delta;y: ${displacements[1].toExponential(3)}</span> <span>&delta;z: ${displacements[2].toExponential(3)}</span> <span>&theta;x: ${displacements[3].toExponential(3)} rad</span> <span>&theta;y: ${displacements[4].toExponential(3)} rad</span> <span>&theta;z: ${displacements[5].toExponential(3)} rad</span> </div>`;
+            dispDiv.innerHTML = `<h4 class="text-md font-semibold mb-2 text-blue-700">Global Rigid Body Displacements (Origin)</h4> <div class="grid grid-cols-3 gap-x-4 gap-y-1 text-sm"> <span>&delta;x: ${displacements[0].toExponential(3)}</span> <span>&delta;y: ${displacements[1].toExponential(3)}</span> <span>&delta;z: ${displacements[2].toExponential(3)}</span> <span>&theta;x: ${displacements[3].toExponential(3)} rad</span> <span>&theta;y: ${displacements[4].toExponential(3)} rad</span> <span>&theta;z: ${displacements[5].toExponential(3)} rad</span> </div>`;
             resultsContent.appendChild(dispDiv);
             const reactionsTitle = document.createElement('h4'); reactionsTitle.className = 'text-md font-semibold mb-2 text-green-700'; reactionsTitle.textContent = 'Reaction Forces at Supports'; resultsContent.appendChild(reactionsTitle);
             const table = document.createElement('table'); table.classList.add('min-w-full', 'divide-y', 'divide-gray-200', 'border', 'rounded-md', 'overflow-hidden', 'shadow-sm');
@@ -638,7 +820,7 @@
             const directionalLight1 = new THREE.DirectionalLight(0xffffff, 0.6);
             directionalLight1.position.set(1, 1, 0.5).normalize();
             scene.add(directionalLight1);
-             const directionalLight2 = new THREE.DirectionalLight(0xffffff, 0.4);
+            const directionalLight2 = new THREE.DirectionalLight(0xffffff, 0.4);
             directionalLight2.position.set(-1, -1, -0.5).normalize();
             scene.add(directionalLight2);
 
@@ -665,7 +847,7 @@
             // Dynamic scaling removed
 
             if (renderer && scene && camera) {
-                 renderer.render(scene, camera);
+                renderer.render(scene, camera);
             }
         }
 
@@ -693,13 +875,13 @@
                 // orthographicCamera.top = currentHeight / (2 * currentZoom); // Adjust top/bottom based on zoom
                 // orthographicCamera.bottom = -currentHeight / (2 * currentZoom);
 
-                 // Option 2: Keep frustum size relative to height, adjust zoom later if needed
-                 // This maintains the vertical view extent better when resizing horizontally
-                 const frustumHeight = orthographicCamera.top - orthographicCamera.bottom; // Get current height
-                 orthographicCamera.left = -frustumHeight * aspect / 2;
-                 orthographicCamera.right = frustumHeight * aspect / 2;
-                 orthographicCamera.top = frustumHeight / 2;
-                 orthographicCamera.bottom = -frustumHeight / 2;
+                // Option 2: Keep frustum size relative to height, adjust zoom later if needed
+                // This maintains the vertical view extent better when resizing horizontally
+                const frustumHeight = orthographicCamera.top - orthographicCamera.bottom; // Get current height
+                orthographicCamera.left = -frustumHeight * aspect / 2;
+                orthographicCamera.right = frustumHeight * aspect / 2;
+                orthographicCamera.top = frustumHeight / 2;
+                orthographicCamera.bottom = -frustumHeight / 2;
 
 
                 orthographicCamera.updateProjectionMatrix();
@@ -707,7 +889,7 @@
 
 
             renderer.setSize(width, height);
-             // Update line material resolution
+            // Update line material resolution
             visualizationGroup.children.forEach(child => {
                 if (child.material && child.material.isLineMaterial) {
                     child.material.resolution.set(width, height);
@@ -716,9 +898,9 @@
         }
 
         function clearVisualization() {
-             // Restore proper disposal
-             if (visualizationGroup) {
-                while(visualizationGroup.children.length > 0){
+            // Restore proper disposal
+            if (visualizationGroup) {
+                while (visualizationGroup.children.length > 0) {
                     const child = visualizationGroup.children[0];
                     visualizationGroup.remove(child);
                     // Dispose geometry and material if necessary
@@ -730,36 +912,36 @@
                             child.material.dispose();
                         }
                     }
-                     // Special handling for ArrowHelper
+                    // Special handling for ArrowHelper
                     if (child.isArrowHelper) {
-                         if(child.line && child.line.material) child.line.material.dispose();
-                         if(child.cone && child.cone.material) child.cone.material.dispose();
-                         if(child.line && child.line.geometry) child.line.geometry.dispose();
-                         if(child.cone && child.cone.geometry) child.cone.geometry.dispose();
+                        if (child.line && child.line.material) child.line.material.dispose();
+                        if (child.cone && child.cone.material) child.cone.material.dispose();
+                        if (child.line && child.line.geometry) child.line.geometry.dispose();
+                        if (child.cone && child.cone.geometry) child.cone.geometry.dispose();
                     }
-                     // Special handling for Line2
-                     if (child.isLine2 && child.geometry) {
-                         child.geometry.dispose(); // LineGeometry needs disposal
-                     }
+                    // Special handling for Line2
+                    if (child.isLine2 && child.geometry) {
+                        child.geometry.dispose(); // LineGeometry needs disposal
+                    }
                 }
             }
         }
 
         // Function to calculate bounding box and max dimension
         function getBounds(object) {
-             const box = new THREE.Box3();
-             box.setFromObject(object, true); // true to traverse children
+            const box = new THREE.Box3();
+            box.setFromObject(object, true); // true to traverse children
 
-             if (box.isEmpty()) {
-                 return { center: new THREE.Vector3(0,0,0), size: new THREE.Vector3(1,1,1), maxDim: 1 };
-             }
+            if (box.isEmpty()) {
+                return { center: new THREE.Vector3(0, 0, 0), size: new THREE.Vector3(1, 1, 1), maxDim: 1 };
+            }
 
-             const center = new THREE.Vector3();
-             const size = new THREE.Vector3();
-             box.getCenter(center);
-             box.getSize(size);
-             const maxDim = Math.max(size.x, size.y, size.z);
-             return { center, size, maxDim: maxDim > 1e-6 ? maxDim : 1 };
+            const center = new THREE.Vector3();
+            const size = new THREE.Vector3();
+            box.getCenter(center);
+            box.getSize(size);
+            const maxDim = Math.max(size.x, size.y, size.z);
+            return { center, size, maxDim: maxDim > 1e-6 ? maxDim : 1 };
         }
 
 
@@ -800,11 +982,11 @@
             // --- Calculate Max Force Magnitude ---
             let maxForceMagnitude = 0;
             reactionsResult.forEach(r => {
-                const reactionMag = Math.sqrt(r.rx**2 + r.ry**2 + r.rz**2);
+                const reactionMag = Math.sqrt(r.rx ** 2 + r.ry ** 2 + r.rz ** 2);
                 maxForceMagnitude = Math.max(maxForceMagnitude, reactionMag);
             });
             loadsInput.forEach(l => {
-                const loadMag = Math.sqrt(l.px**2 + l.py**2 + l.pz**2);
+                const loadMag = Math.sqrt(l.px ** 2 + l.py ** 2 + l.pz ** 2);
                 maxForceMagnitude = Math.max(maxForceMagnitude, loadMag);
             });
 
@@ -823,41 +1005,41 @@
             });
 
             // --- Draw Supports and Tie Rods ---
-             reactionsResult.forEach(r => {
-                 const reactionPointVec = new THREE.Vector3(r.x, r.y, r.z);
-                 const supportMesh = new THREE.Mesh(new THREE.SphereGeometry(pointRadius, 16, 16), supportMaterial);
-                 supportMesh.position.copy(reactionPointVec);
-                 visualizationGroup.add(supportMesh);
+            reactionsResult.forEach(r => {
+                const reactionPointVec = new THREE.Vector3(r.x, r.y, r.z);
+                const supportMesh = new THREE.Mesh(new THREE.SphereGeometry(pointRadius, 16, 16), supportMaterial);
+                supportMesh.position.copy(reactionPointVec);
+                visualizationGroup.add(supportMesh);
 
-                 if (r.type === 'tie-rod' && r.anchorPoint) {
-                     const anchorPointVec = new THREE.Vector3(r.anchorPoint.x, r.anchorPoint.y, r.anchorPoint.z);
-                     const anchorMesh = new THREE.Mesh(new THREE.BoxGeometry(anchorSize, anchorSize, anchorSize), anchorMaterial);
-                     anchorMesh.position.copy(anchorPointVec);
-                     visualizationGroup.add(anchorMesh);
+                if (r.type === 'tie-rod' && r.anchorPoint) {
+                    const anchorPointVec = new THREE.Vector3(r.anchorPoint.x, r.anchorPoint.y, r.anchorPoint.z);
+                    const anchorMesh = new THREE.Mesh(new THREE.BoxGeometry(anchorSize, anchorSize, anchorSize), anchorMaterial);
+                    anchorMesh.position.copy(anchorPointVec);
+                    visualizationGroup.add(anchorMesh);
 
-                     const points = [reactionPointVec.x, reactionPointVec.y, reactionPointVec.z, anchorPointVec.x, anchorPointVec.y, anchorPointVec.z];
-                     const lineGeom = new LineGeometry();
-                     lineGeom.setPositions(points);
-                     const tieRodLine = new Line2(lineGeom, tieRodLineMaterial);
-                     tieRodLine.computeLineDistances();
-                     tieRodLine.scale.set(1, 1, 1);
-                     visualizationGroup.add(tieRodLine);
-                 }
+                    const points = [reactionPointVec.x, reactionPointVec.y, reactionPointVec.z, anchorPointVec.x, anchorPointVec.y, anchorPointVec.z];
+                    const lineGeom = new LineGeometry();
+                    lineGeom.setPositions(points);
+                    const tieRodLine = new Line2(lineGeom, tieRodLineMaterial);
+                    tieRodLine.computeLineDistances();
+                    tieRodLine.scale.set(1, 1, 1);
+                    visualizationGroup.add(tieRodLine);
+                }
 
-                 // Draw Reaction Arrow with new scaling
-                 const reactionVec = new THREE.Vector3(r.rx, r.ry, r.rz);
-                 const reactionMag = reactionVec.length();
-                 if (reactionMag > 1e-9 && arrowScaleFactor > 0) {
-                     const direction = reactionVec.normalize();
-                     const length = reactionMag * arrowScaleFactor;
-                     const color = 0xdc3545;
-                     const headLength = Math.max(length * 0.2, pointRadius * 0.5); // Head size relative to point radius if arrow is short
-                     const headWidth = Math.max(headLength * 0.5, pointRadius * 0.25);
+                // Draw Reaction Arrow with new scaling
+                const reactionVec = new THREE.Vector3(r.rx, r.ry, r.rz);
+                const reactionMag = reactionVec.length();
+                if (reactionMag > 1e-9 && arrowScaleFactor > 0) {
+                    const direction = reactionVec.normalize();
+                    const length = reactionMag * arrowScaleFactor;
+                    const color = 0xdc3545;
+                    const headLength = Math.max(length * 0.2, pointRadius * 0.5); // Head size relative to point radius if arrow is short
+                    const headWidth = Math.max(headLength * 0.5, pointRadius * 0.25);
 
-                     const arrowHelper = new THREE.ArrowHelper(direction, reactionPointVec, length, color, headLength, headWidth);
-                     visualizationGroup.add(arrowHelper);
-                 }
-             });
+                    const arrowHelper = new THREE.ArrowHelper(direction, reactionPointVec, length, color, headLength, headWidth);
+                    visualizationGroup.add(arrowHelper);
+                }
+            });
 
 
             // --- Draw Loads ---
@@ -870,26 +1052,26 @@
                 // Draw Load Arrow with new scaling
                 const forceVec = new THREE.Vector3(l.px, l.py, l.pz);
                 const forceMag = forceVec.length();
-                 if (forceMag > 1e-9 && arrowScaleFactor > 0) {
-                     const direction = forceVec.normalize();
-                     const length = forceMag * arrowScaleFactor;
-                     const color = 0x28a745;
-                     const headLength = Math.max(length * 0.2, pointRadius * 0.5);
-                     const headWidth = Math.max(headLength * 0.5, pointRadius * 0.25);
+                if (forceMag > 1e-9 && arrowScaleFactor > 0) {
+                    const direction = forceVec.normalize();
+                    const length = forceMag * arrowScaleFactor;
+                    const color = 0x28a745;
+                    const headLength = Math.max(length * 0.2, pointRadius * 0.5);
+                    const headWidth = Math.max(headLength * 0.5, pointRadius * 0.25);
 
-                     const arrowHelper = new THREE.ArrowHelper(direction, loadPointVec, length, color, headLength, headWidth);
-                     visualizationGroup.add(arrowHelper);
-                 }
+                    const arrowHelper = new THREE.ArrowHelper(direction, loadPointVec, length, color, headLength, headWidth);
+                    visualizationGroup.add(arrowHelper);
+                }
             });
 
             // --- Adjust Axes Helper ---
-             const { maxDim: boundsMaxDim } = getBounds(visualizationGroup);
-             scene.remove(axesHelper);
-             axesHelper = new THREE.AxesHelper(boundsMaxDim > 0 ? boundsMaxDim * 0.6 : 1);
-             scene.add(axesHelper);
+            const { maxDim: boundsMaxDim } = getBounds(visualizationGroup);
+            scene.remove(axesHelper);
+            axesHelper = new THREE.AxesHelper(boundsMaxDim > 0 ? boundsMaxDim * 0.6 : 1);
+            scene.add(axesHelper);
 
-             // Update line material resolution
-             onWindowResize();
+            // Update line material resolution
+            onWindowResize();
         }
 
 
@@ -897,43 +1079,43 @@
 
         // Gets bounds of VISIBLE objects in the group
         function getVisibleBounds(object) {
-             const box = new THREE.Box3();
-             object.traverseVisible((obj) => {
-                 if (obj.isMesh && obj.geometry && obj.geometry.attributes.position) {
+            const box = new THREE.Box3();
+            object.traverseVisible((obj) => {
+                if (obj.isMesh && obj.geometry && obj.geometry.attributes.position) {
                     obj.updateWorldMatrix(true, false);
                     if (!obj.geometry.boundingBox) {
                         obj.geometry.computeBoundingBox();
                     }
                     if (obj.geometry.boundingBox) {
-                         if (obj.geometry.boundingBox.min instanceof THREE.Vector3 && obj.geometry.boundingBox.max instanceof THREE.Vector3) {
+                        if (obj.geometry.boundingBox.min instanceof THREE.Vector3 && obj.geometry.boundingBox.max instanceof THREE.Vector3) {
                             box.union(obj.geometry.boundingBox.clone().applyMatrix4(obj.matrixWorld));
-                         } else {
-                             console.warn("Invalid boundingBox found for object:", obj);
-                         }
+                        } else {
+                            console.warn("Invalid boundingBox found for object:", obj);
+                        }
                     }
-                 } else if (obj.isLine2 && obj.geometry) {
-                     const positions = obj.geometry.attributes.instanceStart.array;
-                     const tempPos = new THREE.Vector3();
-                     for (let i = 0; i < positions.length; i += 3) {
-                         tempPos.set(positions[i], positions[i+1], positions[i+2]);
-                         tempPos.applyMatrix4(obj.matrixWorld);
-                         box.expandByPoint(tempPos);
-                     }
-                 }
-                 // Could add ArrowHelper bounds if needed
-             });
+                } else if (obj.isLine2 && obj.geometry) {
+                    const positions = obj.geometry.attributes.instanceStart.array;
+                    const tempPos = new THREE.Vector3();
+                    for (let i = 0; i < positions.length; i += 3) {
+                        tempPos.set(positions[i], positions[i + 1], positions[i + 2]);
+                        tempPos.applyMatrix4(obj.matrixWorld);
+                        box.expandByPoint(tempPos);
+                    }
+                }
+                // Could add ArrowHelper bounds if needed
+            });
 
-             if (box.isEmpty() || !box.max || !box.min || !box.max.isVector3 || !box.min.isVector3) {
-                 console.warn("getVisibleBounds: Could not determine valid bounds.");
-                 return { center: new THREE.Vector3(0,0,0), size: new THREE.Vector3(1,1,1), maxDim: 1 };
-             }
+            if (box.isEmpty() || !box.max || !box.min || !box.max.isVector3 || !box.min.isVector3) {
+                console.warn("getVisibleBounds: Could not determine valid bounds.");
+                return { center: new THREE.Vector3(0, 0, 0), size: new THREE.Vector3(1, 1, 1), maxDim: 1 };
+            }
 
-             const center = new THREE.Vector3();
-             const size = new THREE.Vector3();
-             box.getCenter(center);
-             box.getSize(size);
-             const maxDim = Math.max(size.x, size.y, size.z);
-             return { center, size, maxDim: maxDim > 1e-6 ? maxDim : 0.1 };
+            const center = new THREE.Vector3();
+            const size = new THREE.Vector3();
+            box.getCenter(center);
+            box.getSize(size);
+            const maxDim = Math.max(size.x, size.y, size.z);
+            return { center, size, maxDim: maxDim > 1e-6 ? maxDim : 0.1 };
         }
 
 
@@ -959,11 +1141,11 @@
                 const aspect = camera.aspect;
                 let effectiveSize = 0;
                 if (Math.abs(viewAxisNormal.y) > 0.9) { // Top/Bottom
-                     effectiveSize = Math.max(size.x / aspect, size.z);
+                    effectiveSize = Math.max(size.x / aspect, size.z);
                 } else if (Math.abs(viewAxisNormal.z) > 0.9) { // Front/Back
-                     effectiveSize = Math.max(size.x / aspect, size.y);
+                    effectiveSize = Math.max(size.x / aspect, size.y);
                 } else { // Left/Right
-                     effectiveSize = Math.max(size.y, size.z / aspect);
+                    effectiveSize = Math.max(size.y, size.z / aspect);
                 }
                 effectiveSize = Math.max(effectiveSize, 0.01);
 
@@ -982,30 +1164,30 @@
                 // Calculate required frustum size to fit the object
                 const aspect = camera.aspect;
                 let requiredWidth, requiredHeight;
-                 if (Math.abs(viewAxisNormal.y) > 0.9) { // Top/Bottom
-                     requiredWidth = size.x;
-                     requiredHeight = size.z;
-                 } else if (Math.abs(viewAxisNormal.z) > 0.9) { // Front/Back
-                     requiredWidth = size.x;
-                     requiredHeight = size.y;
-                 } else { // Left/Right
-                     requiredWidth = size.z; // Width in view is Z extent
-                     requiredHeight = size.y;
-                 }
+                if (Math.abs(viewAxisNormal.y) > 0.9) { // Top/Bottom
+                    requiredWidth = size.x;
+                    requiredHeight = size.z;
+                } else if (Math.abs(viewAxisNormal.z) > 0.9) { // Front/Back
+                    requiredWidth = size.x;
+                    requiredHeight = size.y;
+                } else { // Left/Right
+                    requiredWidth = size.z; // Width in view is Z extent
+                    requiredHeight = size.y;
+                }
 
-                 // Adjust required size based on aspect ratio to fit both dimensions
-                 const effectiveFrustumWidth = requiredWidth * margin;
-                 const effectiveFrustumHeight = requiredHeight * margin;
+                // Adjust required size based on aspect ratio to fit both dimensions
+                const effectiveFrustumWidth = requiredWidth * margin;
+                const effectiveFrustumHeight = requiredHeight * margin;
 
-                 // Calculate zoom factor needed
-                 const currentFrustumWidth = camera.right - camera.left;
-                 const currentFrustumHeight = camera.top - camera.bottom;
+                // Calculate zoom factor needed
+                const currentFrustumWidth = camera.right - camera.left;
+                const currentFrustumHeight = camera.top - camera.bottom;
 
-                 // Calculate zoom required to fit the larger dimension
-                 const zoomX = currentFrustumWidth / effectiveFrustumWidth;
-                 const zoomY = currentFrustumHeight / effectiveFrustumHeight;
-                 camera.zoom = Math.min(zoomX, zoomY); // Zoom to fit the larger dimension
-                 camera.zoom = Math.max(camera.zoom, 0.1); // Add min zoom constraint
+                // Calculate zoom required to fit the larger dimension
+                const zoomX = currentFrustumWidth / effectiveFrustumWidth;
+                const zoomY = currentFrustumHeight / effectiveFrustumHeight;
+                camera.zoom = Math.min(zoomX, zoomY); // Zoom to fit the larger dimension
+                camera.zoom = Math.max(camera.zoom, 0.1); // Add min zoom constraint
 
             }
 
@@ -1020,30 +1202,188 @@
 
 
         function setView(axis) {
-             if (!camera || !controls || visualizationGroup.children.length === 0) return;
+            if (!camera || !controls || visualizationGroup.children.length === 0) return;
 
-             let viewAxisNormal = new THREE.Vector3();
-             let upVector = new THREE.Vector3(0, 1, 0); // Default Y up
+            let viewAxisNormal = new THREE.Vector3();
+            let upVector = new THREE.Vector3(0, 1, 0); // Default Y up
 
-             switch (axis) {
-                 case 'Y': // Top view (+Y axis looking down)
-                     viewAxisNormal.set(0, 1, 0);
-                     upVector.set(0, 0, -1); // Z is 'up' on screen (Front)
-                     break;
-                 case 'Z': // Front view (+Z axis looking towards origin)
-                     viewAxisNormal.set(0, 0, 1);
-                     upVector.set(0, 1, 0); // Y is up
-                     break;
-                 case 'X': // Right view (+X axis looking towards origin)
-                     viewAxisNormal.set(1, 0, 0);
-                     upVector.set(0, 1, 0); // Y is up
-                     break;
-                 default:
-                     console.warn("Invalid axis for setView:", axis);
-                     return; // Do nothing for invalid axis
-             }
+            switch (axis) {
+                case 'Y': // Top view (+Y axis looking down)
+                    viewAxisNormal.set(0, 1, 0);
+                    upVector.set(0, 0, -1); // Z is 'up' on screen (Front)
+                    break;
+                case 'Z': // Front view (+Z axis looking towards origin)
+                    viewAxisNormal.set(0, 0, 1);
+                    upVector.set(0, 1, 0); // Y is up
+                    break;
+                case 'X': // Right view (+X axis looking towards origin)
+                    viewAxisNormal.set(1, 0, 0);
+                    upVector.set(0, 1, 0); // Y is up
+                    break;
+                default:
+                    console.warn("Invalid axis for setView:", axis);
+                    return; // Do nothing for invalid axis
+            }
 
-             fitCameraToObject(visualizationGroup, viewAxisNormal, upVector);
+            fitCameraToObject(visualizationGroup, viewAxisNormal, upVector);
+        }
+
+        // --- Save / Load / Export Functions ---
+
+        function saveConfiguration() {
+            const supports = [];
+            supportsContainer.querySelectorAll('.support-point:not(#support-template)').forEach(el => {
+                const type = el.querySelector('.support-type').value;
+                let data = { type };
+                if (type === 'general') {
+                    data.x = el.querySelector('.coord-x').value;
+                    data.y = el.querySelector('.coord-y').value;
+                    data.z = el.querySelector('.coord-z').value;
+                    data.kx = el.querySelector('.stiff-kx').value;
+                    data.ky = el.querySelector('.stiff-ky').value;
+                    data.kz = el.querySelector('.stiff-kz').value;
+                } else {
+                    data.ax = el.querySelector('.attach-x').value;
+                    data.ay = el.querySelector('.attach-y').value;
+                    data.az = el.querySelector('.attach-z').value;
+                    data.nx = el.querySelector('.anchor-x').value;
+                    data.ny = el.querySelector('.anchor-y').value;
+                    data.nz = el.querySelector('.anchor-z').value;
+                    data.kAxial = el.querySelector('.stiff-kaxial').value;
+                }
+                supports.push(data);
+            });
+
+            const loads = [];
+            loadsContainer.querySelectorAll('.load-point:not(#load-template)').forEach(el => {
+                loads.push({
+                    x: el.querySelector('.coord-x').value,
+                    y: el.querySelector('.coord-y').value,
+                    z: el.querySelector('.coord-z').value,
+                    px: el.querySelector('.force-px').value,
+                    py: el.querySelector('.force-py').value,
+                    pz: el.querySelector('.force-pz').value
+                });
+            });
+
+            const config = { supports, loads };
+            const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'rigid_body_config.txt';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function loadConfiguration(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                try {
+                    const config = JSON.parse(e.target.result);
+
+                    // Clear existing
+                    supportsContainer.querySelectorAll('.support-point:not(#support-template)').forEach(el => el.remove());
+                    loadsContainer.querySelectorAll('.load-point:not(#load-template)').forEach(el => el.remove());
+
+                    // Restore Supports
+                    if (config.supports && Array.isArray(config.supports)) {
+                        config.supports.forEach(s => {
+                            addSupport();
+                            const el = supportsContainer.lastElementChild;
+                            el.querySelector('.support-type').value = s.type;
+                            toggleSupportFields(el.querySelector('.support-type'));
+
+                            if (s.type === 'general') {
+                                el.querySelector('.coord-x').value = s.x;
+                                el.querySelector('.coord-y').value = s.y;
+                                el.querySelector('.coord-z').value = s.z;
+                                el.querySelector('.stiff-kx').value = s.kx;
+                                el.querySelector('.stiff-ky').value = s.ky;
+                                el.querySelector('.stiff-kz').value = s.kz;
+                            } else {
+                                el.querySelector('.attach-x').value = s.ax;
+                                el.querySelector('.attach-y').value = s.ay;
+                                el.querySelector('.attach-z').value = s.az;
+                                el.querySelector('.anchor-x').value = s.nx;
+                                el.querySelector('.anchor-y').value = s.ny;
+                                el.querySelector('.anchor-z').value = s.nz;
+                                el.querySelector('.stiff-kaxial').value = s.kAxial;
+                            }
+                        });
+                    }
+
+                    // Restore Loads
+                    if (config.loads && Array.isArray(config.loads)) {
+                        config.loads.forEach(l => {
+                            addLoad();
+                            const el = loadsContainer.lastElementChild;
+                            el.querySelector('.coord-x').value = l.x;
+                            el.querySelector('.coord-y').value = l.y;
+                            el.querySelector('.coord-z').value = l.z;
+                            el.querySelector('.force-px').value = l.px;
+                            el.querySelector('.force-py').value = l.py;
+                            el.querySelector('.force-pz').value = l.pz;
+                        });
+                    }
+
+                    // Reset file input
+                    fileInput.value = '';
+
+                } catch (error) {
+                    showModal('Load Error', 'Failed to parse configuration file. Ensure it is a valid JSON/TXT file.');
+                    console.error(error);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function exportResultsCSV() {
+            if (!lastCalculationResults) {
+                showModal('Export Error', 'No results available. Please calculate first.');
+                return;
+            }
+
+            const { reactions, supports } = lastCalculationResults;
+
+            // Header
+            let csvContent = "Point Number,Type,X,Y,Z,Kx,Ky,Kz,K_axial,Anchor_X,Anchor_Y,Anchor_Z,Reaction_Fx,Reaction_Fy,Reaction_Fz\n";
+
+            reactions.forEach((r, i) => {
+                const supportInput = supports[i]; // Corresponding input data
+                let row = [
+                    r.index,
+                    r.type === 'general' ? 'General' : 'Tie Rod',
+                    r.x, r.y, r.z
+                ];
+
+                if (r.type === 'general') {
+                    // Kx, Ky, Kz, K_axial, AncX, AncY, AncZ
+                    row.push(supportInput.kx, supportInput.ky, supportInput.kz, '', '', '', '');
+                } else {
+                    // Kx, Ky, Kz, K_axial, AncX, AncY, AncZ
+                    row.push('', '', '', supportInput.kAxial, supportInput.anchorPoint.x, supportInput.anchorPoint.y, supportInput.anchorPoint.z);
+                }
+
+                // Reactions
+                row.push(r.rx, r.ry, r.rz);
+
+                csvContent += row.join(",") + "\n";
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.setAttribute("href", url);
+            link.setAttribute("download", "rigid_body_results.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
 
         // --- Camera Toggle ---
@@ -1099,6 +1439,10 @@
         viewFrontBtn.addEventListener('click', () => setView('Z'));
         viewRightBtn.addEventListener('click', () => setView('X'));
         orthoToggle.addEventListener('change', handleOrthoToggle);
+        saveConfigBtn.addEventListener('click', saveConfiguration);
+        loadConfigBtn.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', loadConfiguration);
+        exportCsvBtn.addEventListener('click', exportResultsCSV);
 
 
         // --- Initial Setup ---
@@ -1114,4 +1458,5 @@
     </script>
 
 </body>
+
 </html>
