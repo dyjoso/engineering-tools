@@ -1,151 +1,145 @@
-<!DOCTYPE html>
-<html lang="en">
+<title>Generic Beam Analysis Tool</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+<style>
+    :root {
+        --primary: #2563eb;
+        --bg: #f8fafc;
+        --panel: #ffffff;
+        --border: #e2e8f0;
+        --text: #0f172a;
+        --input-bg: #ffffff;
+    }
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Generic Beam Analysis Tool</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
-    <style>
-        :root {
-            --primary: #3b82f6;
-            --bg: #0f172a;
-            --panel: #1e293b;
-            --border: #334155;
-            --text: #f1f5f9;
-            --input-bg: #020617;
-        }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background-color: var(--bg);
+        margin: 0;
+        padding: 20px;
+        color: var(--text);
+    }
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: var(--bg);
-            margin: 0;
-            padding: 20px;
-            color: var(--text);
-        }
+    .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: 350px 1fr;
+        gap: 20px;
+    }
 
+    /* Sidebar Styles */
+    .controls {
+        background: var(--panel);
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+        height: fit-content;
+    }
+
+    h2,
+    h3 {
+        margin-top: 0;
+        color: var(--text);
+    }
+
+    .form-group {
+        margin-bottom: 15px;
+    }
+
+    label {
+        display: block;
+        font-size: 0.9em;
+        font-weight: 600;
+        margin-bottom: 5px;
+        color: #475569;
+    }
+
+    input,
+    select {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        box-sizing: border-box;
+        background: var(--input-bg);
+        color: var(--text);
+    }
+
+    .load-item {
+        background: #f1f5f9;
+        padding: 10px;
+        border-radius: 4px;
+        margin-bottom: 10px;
+        display: flex;
+        gap: 10px;
+        align-items: flex-end;
+    }
+
+    .load-item .form-group {
+        margin-bottom: 0;
+        flex: 1;
+    }
+
+    .btn {
+        background: var(--primary);
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: 500;
+        width: 100%;
+    }
+
+    .btn:hover {
+        opacity: 0.9;
+    }
+
+    .btn-red {
+        background: #ef4444;
+        width: auto;
+        height: 34px;
+        margin-top: 0;
+    }
+
+    /* Main Display Styles */
+    .results {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .canvas-container {
+        background: var(--panel);
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    }
+
+    #beamViz {
+        width: 100%;
+        height: 150px;
+        border-bottom: 1px solid var(--border);
+        margin-bottom: 15px;
+    }
+
+    .reaction-box {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-bottom: 15px;
+        font-family: monospace;
+        background: #f1f5f9;
+        padding: 10px;
+        border-radius: 4px;
+        border: 1px solid var(--border);
+    }
+
+    @media (max-width: 800px) {
         .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: grid;
-            grid-template-columns: 350px 1fr;
-            gap: 20px;
+            grid-template-columns: 1fr;
         }
-
-        /* Sidebar Styles */
-        .controls {
-            background: var(--panel);
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-            height: fit-content;
-        }
-
-        h2,
-        h3 {
-            margin-top: 0;
-            color: var(--text);
-        }
-
-        .form-group {
-            margin-bottom: 15px;
-        }
-
-        label {
-            display: block;
-            font-size: 0.9em;
-            font-weight: 600;
-            margin-bottom: 5px;
-            color: #94a3b8;
-        }
-
-        input,
-        select {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid var(--border);
-            border-radius: 4px;
-            box-sizing: border-box;
-            background: var(--input-bg);
-            color: var(--text);
-        }
-
-        .load-item {
-            background: #334155;
-            padding: 10px;
-            border-radius: 4px;
-            margin-bottom: 10px;
-            display: flex;
-            gap: 10px;
-            align-items: flex-end;
-        }
-
-        .load-item .form-group {
-            margin-bottom: 0;
-            flex: 1;
-        }
-
-        .btn {
-            background: var(--primary);
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: 500;
-            width: 100%;
-        }
-
-        .btn:hover {
-            opacity: 0.9;
-        }
-
-        .btn-red {
-            background: #ef4444;
-            width: auto;
-            height: 34px;
-            margin-top: 0;
-        }
-
-        /* Main Display Styles */
-        .results {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        .canvas-container {
-            background: var(--panel);
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-        }
-
-        #beamViz {
-            width: 100%;
-            height: 150px;
-            border-bottom: 1px solid var(--border);
-            margin-bottom: 15px;
-        }
-
-        .reaction-box {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-bottom: 15px;
-            font-family: monospace;
-            background: #0f172a;
-            padding: 10px;
-            border-radius: 4px;
-            border: 1px solid var(--border);
-        }
-
-        @media (max-width: 800px) {
-            .container {
-                grid-template-columns: 1fr;
-            }
-        }
-    </style>
+    }
+</style>
 </head>
 
 <body>
@@ -186,7 +180,7 @@
             <div id="constraintsContainer"></div>
             <button class="btn" onclick="addConstraint()">+ Add Constraint</button>
 
-            <div style="margin-top: 20px; font-size: 0.8em; color: #94a3b8;">
+            <div style="margin-top: 20px; font-size: 0.8em; color: #64748b;">
                 Note: Solves determinate and indeterminate systems.
             </div>
         </div>
@@ -206,6 +200,11 @@
             <div class="canvas-container">
                 <h3>Bending Moment Diagram (kNm)</h3>
                 <canvas id="momentChart"></canvas>
+            </div>
+
+            <div class="canvas-container">
+                <h3>Displacement (mm)</h3>
+                <canvas id="dispChart"></canvas>
             </div>
         </div>
     </div>
@@ -313,7 +312,7 @@
 
             constraints.forEach((c, index) => {
                 let html = `
-                <div class="load-item" style="background: #1e3a8a;">
+                <div class="load-item" style="background: #eff6ff; border: 1px solid #bfdbfe;">
                     <div class="form-group">
                         <label>Location (m)</label>
                         <input type="number" value="${c.location}" step="0.1" onchange="updateConstraint(${index}, 'location', this.value)">
@@ -571,6 +570,7 @@
             const xVals = [];
             const shearVals = [];
             const momentVals = [];
+            const dispVals = [];
 
             // Reactions
             // R = K*d - F_equivalent
@@ -619,6 +619,18 @@
                     // Tool convention: Sagging positive? 
                     // Let's check results.
 
+                    // Displacement v(x)
+                    // N1 = 1 - 3s^2 + 2s^3
+                    // N2 = L(s - 2s^2 + s^3)
+                    // N3 = 3s^2 - 2s^3
+                    // N4 = L(-s^2 + s^3)
+                    const N1 = 1 - 3 * s ** 2 + 2 * s ** 3;
+                    const N2 = le * (s - 2 * s ** 2 + s ** 3);
+                    const N3 = 3 * s ** 2 - 2 * s ** 3;
+                    const N4 = le * (-(s ** 2) + s ** 3);
+
+                    const v = N1 * u[0] + N2 * u[1] + N3 * u[2] + N4 * u[3];
+
                     // d3N/dx3
                     const d3N1 = 12 / le ** 3;
                     const d3N2 = 6 / le ** 2;
@@ -646,12 +658,13 @@
 
                     xVals.push(xGlobal);
                     shearVals.push(V);
-                    momentVals.push(M); // Flip sign if needed to match tool convention
+                    momentVals.push(M);
+                    dispVals.push(v * 1000); // Convert m to mm
                 }
             }
 
             // Calculate Reactions (Global Equilibrium or Nodal Balance)
-            // Reaction = K_row * d - F_external_node
+            // Reaction = K_row * d - F_equivalent
             // For Node 0:
             const R0_idx = 0;
             let R0_force = 0;
@@ -673,9 +686,91 @@
             for (let c = 0; c < numDOFs; c++) Mn_val += K.get(Mn_idx, c) * d[c];
             MB = Mn_val - F[Mn_idx];
 
-            // Sign corrections for output to match previous tool (CW Positive)
-            // FEM returns CCW positive.
-            return { x: xVals, V: shearVals, M: momentVals, reactions: { RA, MA: -MA, RB, MB: -MB } };
+            // Constraint Reactions
+            const constraintReactions = [];
+            if (constraintList) {
+                constraintList.forEach(c => {
+                    const nIdx = uniqueNodes.findIndex(x => Math.abs(x - c.location) < 1e-6);
+                    if (nIdx !== -1) {
+                        // Calculate Internal Force at this node by summing element forces
+                        // F_int = sum(k_e * u_e) for all connected elements
+                        let F_int = 0;
+
+                        // Check element to the left (connects nIdx-1 to nIdx)
+                        if (nIdx > 0) {
+                            const x1 = uniqueNodes[nIdx - 1];
+                            const x2 = uniqueNodes[nIdx];
+                            const le = x2 - x1;
+                            const u = [d[2 * (nIdx - 1)], d[2 * (nIdx - 1) + 1], d[2 * nIdx], d[2 * nIdx + 1]];
+
+                            // Row 2 of stiffness matrix (Vertical force at second node)
+                            const k21 = -12 * EI / le ** 3;
+                            const k22 = -6 * EI / le ** 2;
+                            const k23 = 12 * EI / le ** 3;
+                            const k24 = -6 * EI / le ** 2;
+
+                            F_int += k21 * u[0] + k22 * u[1] + k23 * u[2] + k24 * u[3];
+
+                            // Add Fixed End Action from Distributed Load on this element
+                            loadList.forEach(l => {
+                                if (l.type === 'distributed') {
+                                    const start = Math.max(x1, l.location);
+                                    const end = Math.min(x2, l.endLocation);
+                                    if (Math.abs(start - x1) < 1e-6 && Math.abs(end - x2) < 1e-6) {
+                                        const q = -l.magnitude;
+                                        // FEA at node 2 (vertical) is qL/2
+                                        F_int -= q * le / 2;
+                                    }
+                                }
+                            });
+                        }
+
+                        // Check element to the right (connects nIdx to nIdx+1)
+                        if (nIdx < numNodes - 1) {
+                            const x1 = uniqueNodes[nIdx];
+                            const x2 = uniqueNodes[nIdx + 1];
+                            const le = x2 - x1;
+                            const u = [d[2 * nIdx], d[2 * nIdx + 1], d[2 * (nIdx + 1)], d[2 * (nIdx + 1) + 1]];
+
+                            // Row 0 of stiffness matrix (Vertical force at first node)
+                            const k11 = 12 * EI / le ** 3;
+                            const k12 = 6 * EI / le ** 2;
+                            const k13 = -12 * EI / le ** 3;
+                            const k14 = 6 * EI / le ** 2;
+
+                            F_int += k11 * u[0] + k12 * u[1] + k13 * u[2] + k14 * u[3];
+
+                            // Add Fixed End Action
+                            loadList.forEach(l => {
+                                if (l.type === 'distributed') {
+                                    const start = Math.max(x1, l.location);
+                                    const end = Math.min(x2, l.endLocation);
+                                    if (Math.abs(start - x1) < 1e-6 && Math.abs(end - x2) < 1e-6) {
+                                        const q = -l.magnitude;
+                                        // FEA at node 1 (vertical) is qL/2
+                                        F_int -= q * le / 2;
+                                    }
+                                }
+                            });
+                        }
+
+                        // Calculate External Point Load at this node
+                        let F_ext = 0;
+                        loadList.forEach(l => {
+                            if (l.type === 'point' && Math.abs(l.location - c.location) < 1e-6) {
+                                F_ext -= l.magnitude; // Downward load is negative
+                            }
+                        });
+
+                        // Reaction R = F_int - F_ext
+                        const R_c = F_int - F_ext;
+
+                        constraintReactions.push({ location: c.location, magnitude: R_c });
+                    }
+                });
+            }
+
+            return { x: xVals, V: shearVals, M: momentVals, disp: dispVals, reactions: { RA, MA: -MA, RB, MB: -MB, constraints: constraintReactions } };
         }
 
         // --- Main Update Function ---
@@ -688,15 +783,23 @@
 
             // Update Text
             const rEl = document.getElementById('reactionOutput');
-            rEl.innerHTML = `
+            let html = `
             <div><strong>R_Left (Up):</strong> ${res.reactions.RA.toFixed(2)} kN</div>
             <div><strong>R_Right (Up):</strong> ${res.reactions.RB.toFixed(2)} kN</div>
             ${res.reactions.MA !== 0 ? `<div><strong>M_Left:</strong> ${res.reactions.MA.toFixed(2)} kNm</div>` : ''}
             ${res.reactions.MB !== 0 ? `<div><strong>M_Right:</strong> ${res.reactions.MB.toFixed(2)} kNm</div>` : ''}
-        `;
+            `;
+
+            if (res.reactions.constraints.length > 0) {
+                html += `<div style="grid-column: span 2; margin-top: 5px; border-top: 1px solid #ccc; padding-top: 5px;"><strong>Constraint Reactions:</strong></div>`;
+                res.reactions.constraints.forEach(c => {
+                    html += `<div>@ ${c.location}m: ${c.magnitude.toFixed(2)} kN</div>`;
+                });
+            }
+            rEl.innerHTML = html;
 
             drawVisualizer(L, leftType, rightType, loads, constraints);
-            drawCharts(res.x, res.V, res.M);
+            drawCharts(res.x, res.V, res.M, res.disp);
         }
 
         // --- Visualization (Canvas) ---
@@ -716,7 +819,7 @@
             // Draw Beam
             ctx.beginPath();
             ctx.lineWidth = 6;
-            ctx.strokeStyle = '#334155';
+            ctx.strokeStyle = '#cbd5e1';
             ctx.moveTo(margin, beamY);
             ctx.lineTo(margin + beamLenPx, beamY);
             ctx.stroke();
@@ -735,7 +838,7 @@
             function drawFixed(x, isLeft) {
                 ctx.beginPath();
                 ctx.lineWidth = 4;
-                ctx.strokeStyle = '#94a3b8'; // Lighter for dark mode visibility
+                ctx.strokeStyle = '#64748b';
                 ctx.moveTo(x, beamY - 20);
                 ctx.lineTo(x, beamY + 20);
                 ctx.stroke();
@@ -752,13 +855,13 @@
             // Helper: Draw Roller (Constraint)
             function drawRoller(x) {
                 ctx.beginPath();
-                ctx.fillStyle = '#1e3a8a'; // Blue for constraints
+                ctx.fillStyle = '#2563eb';
                 ctx.arc(x, beamY + 10, 8, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.beginPath();
                 ctx.moveTo(x - 10, beamY + 20);
                 ctx.lineTo(x + 10, beamY + 20);
-                ctx.strokeStyle = '#1e3a8a';
+                ctx.strokeStyle = '#2563eb';
                 ctx.lineWidth = 2;
                 ctx.stroke();
             }
@@ -808,10 +911,11 @@
         }
 
         // --- Charting ---
-        function drawCharts(xVals, shearData, momentData) {
+        function drawCharts(xVals, shearData, momentData, dispData) {
             // Destroy old charts if exist
             if (charts.shear) charts.shear.destroy();
             if (charts.moment) charts.moment.destroy();
+            if (charts.disp) charts.disp.destroy();
 
             const commonOptions = {
                 responsive: true,
@@ -821,14 +925,14 @@
                 scales: {
                     x: {
                         type: 'linear',
-                        title: { display: true, text: 'Length (m)', color: '#94a3b8' },
-                        ticks: { maxTicksLimit: 10, color: '#94a3b8' },
-                        grid: { color: '#334155' }
+                        title: { display: true, text: 'Length (m)', color: '#64748b' },
+                        ticks: { maxTicksLimit: 10, color: '#64748b' },
+                        grid: { color: '#e2e8f0' }
                     },
                     y: {
-                        title: { display: true, text: 'Magnitude', color: '#94a3b8' },
-                        ticks: { color: '#94a3b8' },
-                        grid: { color: '#334155' }
+                        title: { display: true, text: 'Magnitude', color: '#64748b' },
+                        ticks: { color: '#64748b' },
+                        grid: { color: '#e2e8f0' }
                     }
                 },
                 elements: { point: { radius: 0 } } // Hide points for smooth line
@@ -842,8 +946,8 @@
                     datasets: [{
                         label: 'Shear Force (kN)',
                         data: xVals.map((x, i) => ({ x: x, y: shearData[i] })),
-                        borderColor: '#3b82f6',
-                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        borderColor: '#2563eb',
+                        backgroundColor: 'rgba(37, 99, 235, 0.1)',
                         fill: true,
                         borderWidth: 2
                     }]
@@ -859,8 +963,25 @@
                     datasets: [{
                         label: 'Bending Moment (kNm)',
                         data: xVals.map((x, i) => ({ x: x, y: momentData[i] })),
-                        borderColor: '#10b981',
-                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        borderColor: '#059669',
+                        backgroundColor: 'rgba(5, 150, 105, 0.1)',
+                        fill: true,
+                        borderWidth: 2
+                    }]
+                },
+                options: commonOptions
+            });
+
+            // Displacement Chart
+            const ctxD = document.getElementById('dispChart').getContext('2d');
+            charts.disp = new Chart(ctxD, {
+                type: 'line',
+                data: {
+                    datasets: [{
+                        label: 'Displacement (mm)',
+                        data: xVals.map((x, i) => ({ x: x, y: dispData[i] })),
+                        borderColor: '#d97706',
+                        backgroundColor: 'rgba(217, 119, 6, 0.1)',
                         fill: true,
                         borderWidth: 2
                     }]
