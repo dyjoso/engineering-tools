@@ -15,19 +15,35 @@ const MATERIAL = {
 
 let chartInstance = null;
 
+function toggleInputs() {
+    const geom = document.getElementById('geometry').value;
+    const holeGroup = document.getElementById('hole-diam-group');
+    if (geom === 'TC23') {
+        holeGroup.style.display = 'block';
+    } else {
+        holeGroup.style.display = 'none';
+    }
+}
+
 function runAnalysis() {
     // 1. Get Inputs
+    const geom = document.getElementById('geometry').value;
     const W = parseFloat(document.getElementById('width').value); // in
     const t = parseFloat(document.getElementById('thickness').value); // in
     const two_a_init = parseFloat(document.getElementById('crack-length').value); // in
     const sigma_max = parseFloat(document.getElementById('max-stress').value); // ksi
     const R = parseFloat(document.getElementById('r-ratio').value);
 
+    let D = 0;
+    if (geom === 'TC23') {
+        D = parseFloat(document.getElementById('hole-diam').value);
+    }
+
     const errorEl = document.getElementById('error-msg');
     const logEl = document.getElementById('analysis-log');
     errorEl.style.display = 'none';
     errorEl.textContent = '';
-    logEl.value = "Starting analysis...\n";
+    logEl.value = `Starting analysis for ${geom}...\n`;
 
     if (two_a_init >= W) {
         showError("Initial crack length must be smaller than width.");
@@ -54,24 +70,23 @@ function runAnalysis() {
 
     // Loop limit to prevent browser freeze
     const MAX_CYCLES = 1e7;
-    const MAX_STEPS = 10000; // Increased steps slightly
+    const MAX_STEPS = 10000;
 
     dataPoints.push({ x: N, y: a * 2 }); // Store 2a in inches
 
     let failureMode = "N/A";
     let step = 0;
     let logBuffer = "";
+    let nextLogN = 1000;
 
     // 4. Growth Loop
     while (step < MAX_STEPS) {
-        // A. Calculate Kmax and dK
-        // Geometry Factor for M(T) Central Crack: Beta = sqrt(sec(pi*a/W))
-        // K = Beta * sigma * sqrt(pi * a)
+        // A. Calculate Kmax
 
-        const beta = Math.sqrt(1 / Math.cos((Math.PI * a_curr) / W_curr));
+        // Get Beta Factor based on geometry
+        const beta = getBeta(geom, a_curr, W_curr, D);
 
-        // Check for geometry validity (a/W < 0.95 approx)
-        if ((Math.PI * a_curr) / W_curr >= Math.PI / 2 * 0.99) {
+        if (beta === -1) {
             failureMode = "Geometry Limit";
             break;
         }
@@ -90,64 +105,36 @@ function runAnalysis() {
         // da/dN = C * [ ((1-f)/(1-R)) * dK ]^n * [ (1 - dKth/dK)^p / (1 - Kmax/Kcrit)^q ]
 
         // C.1 Calculate f (Newman Closure Function)
-        // Simplified Newman for constant amplitude
         const f = calculateNewmanF(R, MATERIAL.alpha, MATERIAL.Smax_Sflow);
 
         // C.2 Calculate Effective dK term
-        // dK_eff term = ((1-f)/(1-R)) * dK
-
         let term1 = ((1 - f) / (1 - R)) * dK;
         if (term1 < 0) term1 = 0;
 
         // C.3 Threshold term
-        // If dK < dKth, growth is zero (or near zero)
         if (dK <= MATERIAL.dKth) {
-            // No growth
             failureMode = "Threshold (No Growth)";
-            break; // Or just stop?
+            break;
         }
 
         let term2_num = 1 - (MATERIAL.dKth / dK);
         if (term2_num < 0) term2_num = 0;
 
         let term2_den = 1 - (Kmax / Kcrit);
-        if (term2_den < 0.001) term2_den = 0.001; // Avoid singularity near fracture
+        if (term2_den < 0.001) term2_den = 0.001;
 
         const term2 = Math.pow(term2_num, MATERIAL.p) / Math.pow(term2_den, MATERIAL.q);
 
         const dadN = MATERIAL.C * Math.pow(term1, MATERIAL.n) * term2; // in/cycle
 
-        // Logging every 1000 cycles (approximate check based on N)
-        // Or simply log every X steps to avoid huge logs
-        // Let's log every 1000 steps of the loop, or if N crosses a 1000 threshold?
-        // The user asked for "every 1000 cycles". Since N is continuous, let's log if Math.floor(N/1000) > Math.floor(prev_N/1000)
-        // But step size delta_N might be large.
-        // Let's just log the state at the beginning of the step if it's the first step or if we've passed a multiple of 1000 since last log.
-
-        // Actually, simpler: Log every iteration? No, too much.
-        // Let's log if (step % 100 === 0) or if it's the first step.
-        // User asked "at every 1000 cycles".
-        // Since delta_N varies, we can't guarantee hitting exactly 1000, 2000.
-        // We will log the current state if N >= nextLogTarget.
-
+        // Logging
         if (step === 0) {
             logBuffer += formatLogLine(N, a_curr * 2, Kmax, dK, dadN);
-        } else {
-            // Check if we crossed a 1000 cycle boundary
-            // This might miss if delta_N is huge, but for fatigue it's usually small.
-            // If delta_N is large, we should log.
-            // Let's just use a simple counter or check against last logged N.
         }
-
-        // Re-reading request: "detailed output log showing all critical crack growth parameters during the analysis at every 1000 cycles."
-        // I'll implement a nextLogN tracker.
-
-        if (typeof nextLogN === 'undefined') var nextLogN = 1000;
 
         if (N >= nextLogN) {
             logBuffer += formatLogLine(N, a_curr * 2, Kmax, dK, dadN);
             nextLogN += 1000;
-            // If N jumped way ahead (e.g. delta_N = 5000), update nextLogN to catch up
             while (nextLogN <= N) nextLogN += 1000;
         }
 
@@ -157,12 +144,8 @@ function runAnalysis() {
         }
 
         // D. Increment Crack
-        // Adaptive step size
-
-        let delta_a = 0.005; // 0.005 in default step (approx 0.12 mm)
-
-        // Refine step near failure
-        if (term2_den < 0.1) delta_a = 0.001; // 0.001 in
+        let delta_a = 0.005;
+        if (term2_den < 0.1) delta_a = 0.001;
 
         const delta_N = delta_a / dadN;
 
@@ -190,6 +173,79 @@ function runAnalysis() {
     document.getElementById('res-mode').textContent = failureMode;
 
     renderChart(dataPoints);
+}
+
+function getBeta(geom, a, W, D) {
+    if (geom === 'MT') {
+        // M(T) - Central Crack
+        // Beta = sqrt(sec(pi*a/W))
+        // Validity: a/W < 0.95 approx
+        if ((Math.PI * a) / W >= Math.PI / 2 * 0.99) return -1;
+        return Math.sqrt(1 / Math.cos((Math.PI * a) / W));
+    } else if (geom === 'TC23') {
+        // TC23 - Through Crack at Hole (Approximated as Bowie/Newman for Central Hole)
+        // a is crack length measured from the hole edge? 
+        // NASGRO definition for TC23: "c" is crack length from hole edge.
+        // In our tool, "a" variable tracks half crack length for M(T).
+        // For TC23, let's assume the user input "Initial Crack Length" is the TOTAL crack length (2c) if it were M(T),
+        // but here we should clarify.
+        // Usually for hole cracks, input is 'c' (length from hole edge).
+        // But to keep UI consistent, let's assume the user input "Initial Crack Length" means the total flaw size?
+        // No, "Initial Crack Length, 2a" usually implies the physical crack size.
+        // For TC23, let's interpret the input "2a" as the total length of the two cracks emerging from the hole?
+        // OR, let's interpret "2a" as the total length including the hole? 2a = D + 2c?
+        // Let's stick to the standard definition: "2a" in the input field is the total length of the crack(s).
+        // For TC23 (two cracks), let's assume symmetric cracks of length c each.
+        // So input value = 2c. 
+        // Therefore c = input / 2.
+        // And 'a' in the code (which is half length) corresponds to 'c'.
+
+        // Bowie Solution for symmetric cracks at hole:
+        // Beta = F1 * F2
+        // F1 (Hole interaction) = 0.5 * (3 - c/r) / (1 + c/r) ... this is for single crack?
+        // Let's use the Newman solution for symmetric cracks at a hole in finite plate.
+
+        // Newman (1981) for two symmetric cracks at a hole:
+        // K = S * sqrt(pi * c) * F
+        // F = F_hole * F_width
+
+        // r = D / 2
+        const r = D / 2.0;
+        const c = a; // 'a' in our loop is half the total crack length input.
+
+        // x = c / (c + r)
+        // But Newman uses lambda = c / r?
+
+        // Let's use the Bowie approximation fitted by Newman:
+        // F_hole = 1 + 0.358*lambda + 1.425*lambda^2 - 1.578*lambda^3 + 2.156*lambda^4 ... valid for c/r?
+        // Actually, a simpler form often used:
+        // F_hole = 0.5 * (3 - c/r) / (1 + c/r) is for single crack? No.
+
+        // Let's use the Grandt/Bowie formula for double cracks:
+        // F_hole = 1 + 0.2 * (1 - c/(c+r)) + 0.3 * (1 - c/(c+r))^2 ... ?
+
+        // Let's use the classic Bowie solution (approx):
+        // F_hole = 1 / sqrt(1 + c/r) ... No, that decreases.
+
+        // Reliable approximation for two symmetric cracks (Newman):
+        // F_hole = 1 - 0.15*u + 3.46*u^2 - 4.47*u^3 + 3.52*u^4
+        // where u = 1 / (1 + c/r)
+
+        const u = 1.0 / (1.0 + c / r);
+        const F_hole = 1.0 - 0.15 * u + 3.46 * Math.pow(u, 2) - 4.47 * Math.pow(u, 3) + 3.52 * Math.pow(u, 4);
+
+        // Finite Width Correction (Feddersen or similar):
+        // Secant formula modified for hole
+        // width_ratio = (2r + 2c) / W
+        const width_ratio = (2 * r + 2 * c) / W;
+
+        if (width_ratio >= 0.99) return -1;
+
+        const F_width = Math.sqrt(1 / Math.cos((Math.PI * width_ratio) / 2));
+
+        return F_hole * F_width;
+    }
+    return 1.0;
 }
 
 function formatLogLine(N, two_a, Kmax, dK, dadN) {

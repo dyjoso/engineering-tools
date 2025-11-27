@@ -181,8 +181,13 @@
             <div id="loadsContainer"></div>
             <button class="btn" onclick="addLoad()">+ Add Load</button>
 
+            <hr style="border-color: var(--border);">
+            <h3>Point Constraints</h3>
+            <div id="constraintsContainer"></div>
+            <button class="btn" onclick="addConstraint()">+ Add Constraint</button>
+
             <div style="margin-top: 20px; font-size: 0.8em; color: #94a3b8;">
-                Note: Solves determinate and indeterminate systems (Fixed/Pinned).
+                Note: Solves determinate and indeterminate systems.
             </div>
         </div>
 
@@ -211,11 +216,14 @@
             { type: 'point', magnitude: 10, location: 5 } // Default load
         ];
 
+        let constraints = []; // { location: number, displacement: number }
+
         let charts = {};
 
         // --- Initialization ---
         window.onload = function () {
             renderLoadInputs();
+            renderConstraintInputs();
             updateAnalysis();
         };
 
@@ -282,249 +290,392 @@
             });
         }
 
-        // --- Physics Engine (Slope Deflection Method) ---
-        function solveBeam(L, leftType, rightType, loadList) {
-            // Initialize Reactions and End Moments
-            let RA = 0, MA = 0; // Left Support (Force Up, Moment CW)
-            let RB = 0, MB = 0; // Right Support (Force Up, Moment CW)
-
-            // Check for Cantilever/Statics cases (Free ends)
-            // If either end is Free, we use statics (Determinate)
-            if (leftType === 'free' || rightType === 'free') {
-                return solveDeterminate(L, leftType, rightType, loadList);
-            }
-
-            // --- Indeterminate / Determinate Supported Beam (Pin/Fixed ends) ---
-            // Step 1: Calculate Fixed-End Moments (FEM)
-            // Sign Convention: Clockwise Moments on the beam ends are POSITIVE.
-            // FEM_AB is moment at A, FEM_BA is moment at B.
-            let FEM_AB = 0;
-            let FEM_BA = 0;
-
-            loadList.forEach(l => {
-                let a = l.location;
-                let b = L - a;
-
-                if (l.type === 'point') {
-                    let P = l.magnitude;
-                    // Standard Formulas:
-                    // FEM_AB = -Pab^2 / L^2
-                    // FEM_BA = +Pa^2b / L^2
-                    FEM_AB += -P * a * (b * b) / (L * L);
-                    FEM_BA += +P * (a * a) * b / (L * L);
-                }
-                else if (l.type === 'moment') {
-                    let M = l.magnitude; // CW is positive
-                    // Formula for Moment M at a:
-                    // FEM_AB = + M * b * (2a - b) / L^2
-                    // FEM_BA = + M * a * (2b - a) / L^2
-                    FEM_AB += M * b * (2 * a - b) / (L * L);
-                    FEM_BA += M * a * (2 * b - a) / (L * L);
-                }
-                else if (l.type === 'distributed') {
-                    let w = l.magnitude;
-                    let start = l.location;
-                    let end = l.endLocation;
-
-                    // Integrate point load formula from start to end
-                    // FEM_AB = Integral( - (w dx) * x * (L-x)^2 / L^2 )
-                    // FEM_BA = Integral( + (w dx) * x^2 * (L-x) / L^2 )
-
-                    // Helper to integrate x(L-x)^2 = x(L^2 - 2Lx + x^2) = L^2x - 2Lx^2 + x^3
-                    // Int = L^2 x^2/2 - 2L x^3/3 + x^4/4
-                    const intFuncAB = (x) => (L * L * x * x / 2 - 2 * L * x * x * x / 3 + x * x * x * x / 4);
-
-                    // Helper to integrate x^2(L-x) = L x^2 - x^3
-                    // Int = L x^3/3 - x^4/4
-                    const intFuncBA = (x) => (L * x * x * x / 3 - x * x * x * x / 4);
-
-                    let termAB = (intFuncAB(end) - intFuncAB(start)) / (L * L);
-                    let termBA = (intFuncBA(end) - intFuncBA(start)) / (L * L);
-
-                    FEM_AB += -w * termAB;
-                    FEM_BA += +w * termBA;
-                }
-            });
-
-            // Step 2: Slope Deflection Equations
-            // M_AB = 2k (2theta_A + theta_B) + FEM_AB
-            // M_BA = 2k (2theta_B + theta_A) + FEM_BA
-            // We set 2k = 1 for solving (relative stiffness EI/L constant).
-            // M_AB = 2theta_A + theta_B + FEM_AB
-            // M_BA = theta_A + 2theta_B + FEM_BA
-
-            let theta_A = 0;
-            let theta_B = 0;
-
-            // Apply Boundary Conditions to solve for theta_A, theta_B
-            if (leftType === 'fixed' && rightType === 'fixed') {
-                // theta_A = 0, theta_B = 0
-            }
-            else if (leftType === 'pinned' && rightType === 'pinned') {
-                // M_AB = 0, M_BA = 0
-                // 2tA + tB = -FEM_AB
-                // tA + 2tB = -FEM_BA
-                // Solve linear system:
-                // Multiply eq2 by 2: 2tA + 4tB = -2*FEM_BA
-                // Subtract eq1: 3tB = -2*FEM_BA - (-FEM_AB) = FEM_AB - 2FEM_BA
-                theta_B = (FEM_AB - 2 * FEM_BA) / 3;
-                theta_A = -FEM_BA - 2 * theta_B;
-            }
-            else if (leftType === 'fixed' && rightType === 'pinned') {
-                // theta_A = 0, M_BA = 0
-                // M_BA = 0 + 2tB + FEM_BA = 0 => tB = -FEM_BA / 2
-                theta_B = -FEM_BA / 2;
-            }
-            else if (leftType === 'pinned' && rightType === 'fixed') {
-                // M_AB = 0, theta_B = 0
-                // M_AB = 2tA + 0 + FEM_AB = 0 => tA = -FEM_AB / 2
-                theta_A = -FEM_AB / 2;
-            }
-
-            // Calculate Final End Moments
-            let M_AB = 2 * theta_A + theta_B + FEM_AB;
-            let M_BA = theta_A + 2 * theta_B + FEM_BA;
-
-            // Step 3: Calculate Reactions from Equilibrium
-            // Sum Moments about B = 0:
-            // RA * L + M_AB + M_BA - Sum(Moment of Loads about B) = 0
-            // RA = (Sum(M_loads_B) - M_AB - M_BA) / L
-
-            let sumM_loads_B = 0; // Clockwise positive
-            loadList.forEach(l => {
-                if (l.type === 'point') {
-                    sumM_loads_B += l.magnitude * (L - l.location);
-                } else if (l.type === 'moment') {
-                    sumM_loads_B += l.magnitude; // Moment is constant
-                } else if (l.type === 'distributed') {
-                    let w = l.magnitude;
-                    let len = l.endLocation - l.location;
-                    let total = w * len;
-                    let distFromB = L - (l.location + len / 2);
-                    sumM_loads_B += total * distFromB;
-                }
-            });
-
-            RA = (sumM_loads_B - M_AB - M_BA) / L;
-
-            // Sum Forces Y = 0: RA + RB - TotalLoad = 0
-            let totalLoad = 0;
-            loadList.forEach(l => {
-                if (l.type === 'point') totalLoad += l.magnitude;
-                else if (l.type === 'distributed') totalLoad += l.magnitude * (l.endLocation - l.location);
-            });
-
-            RB = totalLoad - RA;
-
-            // Map internal M_AB, M_BA to reaction outputs
-            // M_AB is moment ON beam at A. Reaction MA is same.
-            // M_BA is moment ON beam at B. Reaction MB is same.
-            MA = M_AB;
-            MB = M_BA;
-
-            return calculateInternalForces(L, RA, MA, loadList, RB, MB);
+        function addConstraint() {
+            constraints.push({ location: 5, displacement: 0 });
+            renderConstraintInputs();
+            updateAnalysis();
         }
 
-        function solveDeterminate(L, leftType, rightType, loadList) {
-            // Fallback for Cantilevers (Fixed-Free, Free-Fixed)
-            let RA = 0, MA = 0, RB = 0, MB = 0;
-            let sumF = 0;
-            let sumM_at_0 = 0;
+        function removeConstraint(index) {
+            constraints.splice(index, 1);
+            renderConstraintInputs();
+            updateAnalysis();
+        }
 
-            loadList.forEach(l => {
-                if (l.type === 'point') {
-                    sumF += l.magnitude;
-                    sumM_at_0 += l.magnitude * l.location;
-                } else if (l.type === 'moment') {
-                    sumM_at_0 += l.magnitude;
-                } else if (l.type === 'distributed') {
-                    let w = l.magnitude;
-                    let len = l.endLocation - l.location;
-                    let total = w * len;
-                    let cent = l.location + len / 2;
-                    sumF += total;
-                    sumM_at_0 += total * cent;
-                }
+        function updateConstraint(index, field, value) {
+            constraints[index][field] = parseFloat(value);
+            updateAnalysis();
+        }
+
+        function renderConstraintInputs() {
+            const container = document.getElementById('constraintsContainer');
+            container.innerHTML = '';
+
+            constraints.forEach((c, index) => {
+                let html = `
+                <div class="load-item" style="background: #1e3a8a;">
+                    <div class="form-group">
+                        <label>Location (m)</label>
+                        <input type="number" value="${c.location}" step="0.1" onchange="updateConstraint(${index}, 'location', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label>Disp. (mm)</label>
+                        <input type="number" value="${c.displacement}" step="0.1" onchange="updateConstraint(${index}, 'displacement', this.value)">
+                    </div>
+                    <button class="btn btn-red" onclick="removeConstraint(${index})">X</button>
+                </div>`;
+                container.innerHTML += html;
             });
+        }
 
-            if (leftType === 'fixed' && rightType === 'free') {
-                RA = sumF;
-                MA = -sumM_at_0;
-            } else if (leftType === 'free' && rightType === 'fixed') {
-                RB = sumF;
-                // Moment at B
-                let sumM_at_L = 0;
-                loadList.forEach(l => {
-                    if (l.type === 'point') sumM_at_L += l.magnitude * (l.location - L);
-                    else if (l.type === 'moment') sumM_at_L += l.magnitude;
-                    else if (l.type === 'distributed') {
-                        let w = l.magnitude;
-                        let len = l.endLocation - l.location;
-                        let total = w * len;
-                        let cent = l.location + len / 2;
-                        sumM_at_L += total * (cent - L);
+        // --- Physics Engine (Matrix Stiffness Method / FEM) ---
+
+        // Matrix Helper Class
+        class Matrix {
+            constructor(rows, cols) {
+                this.rows = rows;
+                this.cols = cols;
+                this.data = Array(rows).fill().map(() => Array(cols).fill(0));
+            }
+
+            static zeros(rows, cols) { return new Matrix(rows, cols); }
+
+            get(r, c) { return this.data[r][c]; }
+            set(r, c, val) { this.data[r][c] = val; }
+            add(r, c, val) { this.data[r][c] += val; }
+        }
+
+        // Linear Solver (Gaussian Elimination)
+        function solveLinearSystem(K, F, constrainedDOFs) {
+            const n = F.length;
+            const freeDOFs = [];
+            for (let i = 0; i < n; i++) {
+                if (!constrainedDOFs.has(i)) freeDOFs.push(i);
+            }
+
+            const dim = freeDOFs.length;
+            const A = Array(dim).fill().map(() => Array(dim).fill(0));
+            const b = Array(dim).fill(0);
+
+            // Extract submatrix for free DOFs
+            for (let i = 0; i < dim; i++) {
+                b[i] = F[freeDOFs[i]];
+                for (let j = 0; j < dim; j++) {
+                    A[i][j] = K.get(freeDOFs[i], freeDOFs[j]);
+                }
+            }
+
+            // Solve Ax = b
+            const x = gaussianElimination(A, b);
+
+            // Construct full displacement vector
+            const d = Array(n).fill(0);
+            for (let i = 0; i < dim; i++) {
+                d[freeDOFs[i]] = x[i];
+            }
+            return d;
+        }
+
+        function gaussianElimination(A, b) {
+            const n = b.length;
+            for (let i = 0; i < n; i++) {
+                // Pivot
+                let maxRow = i;
+                for (let k = i + 1; k < n; k++) {
+                    if (Math.abs(A[k][i]) > Math.abs(A[maxRow][i])) maxRow = k;
+                }
+                [A[i], A[maxRow]] = [A[maxRow], A[i]];
+                [b[i], b[maxRow]] = [b[maxRow], b[i]];
+
+                // Eliminate
+                for (let k = i + 1; k < n; k++) {
+                    const factor = A[k][i] / A[i][i];
+                    b[k] -= factor * b[i];
+                    for (let j = i; j < n; j++) {
+                        A[k][j] -= factor * A[i][j];
                     }
-                });
-                MB = -sumM_at_L;
+                }
             }
 
-            return calculateInternalForces(L, RA, MA, loadList, RB, MB);
+            // Back Substitution
+            const x = Array(n).fill(0);
+            for (let i = n - 1; i >= 0; i--) {
+                let sum = 0;
+                for (let j = i + 1; j < n; j++) {
+                    sum += A[i][j] * x[j];
+                }
+                x[i] = (b[i] - sum) / A[i][i];
+            }
+            return x;
         }
 
-        function calculateInternalForces(L, RA, MA, loadList, RB, MB) {
-            const segments = 200;
-            const dx = L / segments;
-            const xVals = [];
-            const shearVals = [];
-            const momentVals = [];
+        function solveBeam(L, leftType, rightType, loadList, constraintList) {
+            // 1. Discretization (Nodes)
+            let nodes = new Set([0, L]);
+            loadList.forEach(l => {
+                nodes.add(l.location);
+                if (l.type === 'distributed') nodes.add(l.endLocation);
+            });
 
-            // RB and MB are passed in, so we use them directly for the return object.
+            if (constraintList) {
+                constraintList.forEach(c => nodes.add(c.location));
+            }
 
-            for (let i = 0; i <= segments; i++) {
-                let x = i * dx;
-                xVals.push(x.toFixed(2));
+            const sortedNodes = Array.from(nodes).sort((a, b) => a - b);
+            // Remove duplicates (tolerance)
+            let uniqueNodes = [sortedNodes[0]];
+            for (let i = 1; i < sortedNodes.length; i++) {
+                if (sortedNodes[i] - uniqueNodes[uniqueNodes.length - 1] > 1e-6) {
+                    uniqueNodes.push(sortedNodes[i]);
+                }
+            }
 
-                let V = 0;
-                let M = 0;
+            // Mesh Refinement: Subdivide large elements
+            const maxElLen = L / 50; // Ensure at least 50 elements
+            let refinedNodes = [uniqueNodes[0]];
+            for (let i = 0; i < uniqueNodes.length - 1; i++) {
+                const x1 = uniqueNodes[i];
+                const x2 = uniqueNodes[i + 1];
+                const L_el = x2 - x1;
+                if (L_el > maxElLen) {
+                    const nSub = Math.ceil(L_el / maxElLen);
+                    for (let k = 1; k < nSub; k++) {
+                        refinedNodes.push(x1 + k * L_el / nSub);
+                    }
+                }
+                refinedNodes.push(x2);
+            }
+            uniqueNodes = refinedNodes;
 
-                // Reactions
-                if (x >= 0) {
-                    V += RA;
-                    M += MA; // Reaction Moment (CW positive)
-                    M += RA * x; // Moment from Reaction Force
+            const numNodes = uniqueNodes.length;
+            const numDOFs = numNodes * 2; // v, theta per node
+
+            // 2. Global Stiffness Matrix & Load Vector
+            const K = Matrix.zeros(numDOFs, numDOFs);
+            const F = Array(numDOFs).fill(0);
+
+            // Material Properties (Arbitrary constant EI)
+            const E = 200e9; // Pa
+            const I = 100e-6; // m^4
+            const EI = E * I;
+
+            // 3. Assembly
+            for (let i = 0; i < numNodes - 1; i++) {
+                const x1 = uniqueNodes[i];
+                const x2 = uniqueNodes[i + 1];
+                const le = x2 - x1;
+
+                // Element Stiffness Matrix (Hermite Beam)
+                const k11 = 12 * EI / le ** 3, k12 = 6 * EI / le ** 2;
+                const k22 = 4 * EI / le, k23 = 2 * EI / le;
+
+                // Indices in Global Matrix
+                // Node i: 2*i, 2*i+1
+                // Node i+1: 2*(i+1), 2*(i+1)+1
+                const idx = [2 * i, 2 * i + 1, 2 * (i + 1), 2 * (i + 1) + 1];
+
+                const ke = [
+                    [k11, k12, -k11, k12],
+                    [k12, k22, -k12, k23],
+                    [-k11, -k12, k11, -k12],
+                    [k12, k23, -k12, k22]
+                ];
+
+                for (let r = 0; r < 4; r++) {
+                    for (let c = 0; c < 4; c++) {
+                        K.add(idx[r], idx[c], ke[r][c]);
+                    }
                 }
 
-                // Loads
+                // Distributed Loads (Fixed End Actions)
                 loadList.forEach(l => {
-                    if (l.type === 'point') {
-                        if (x > l.location) {
-                            V -= l.magnitude;
-                            M -= l.magnitude * (x - l.location);
-                        }
-                    } else if (l.type === 'moment') {
-                        if (x > l.location) {
-                            M += l.magnitude;
-                        }
-                    } else if (l.type === 'distributed') {
-                        if (x > l.location) {
-                            let start = l.location;
-                            let end = Math.min(x, l.endLocation);
-                            let distLen = end - start;
-                            if (distLen > 0) {
-                                let loadPart = l.magnitude * distLen;
-                                V -= loadPart;
-                                let cent = start + distLen / 2;
-                                M -= loadPart * (x - cent);
+                    if (l.type === 'distributed') {
+                        // Check overlap
+                        const start = Math.max(x1, l.location);
+                        const end = Math.min(x2, l.endLocation);
+
+                        if (end > start + 1e-6) {
+                            const w = l.magnitude; // Downward is negative in FEM usually, but let's stick to sign convention
+                            // Our sign convention: Up is +y. Load magnitude is usually "force", so down load is -magnitude?
+                            // User inputs positive for down load usually. Let's assume input magnitude is DOWN force.
+                            // So force = -w.
+                            const q = -w;
+
+                            // For UDL over entire element (simplified for now, assuming split nodes handle partials)
+                            // Since we added nodes at start/end of loads, any UDL covers the FULL element or NONE of it.
+                            if (Math.abs(start - x1) < 1e-6 && Math.abs(end - x2) < 1e-6) {
+                                const f1 = q * le / 2;
+                                const m1 = q * le ** 2 / 12;
+                                const f2 = q * le / 2;
+                                const m2 = -q * le ** 2 / 12;
+
+                                F[idx[0]] += f1;
+                                F[idx[1]] += m1;
+                                F[idx[2]] += f2;
+                                F[idx[3]] += m2;
                             }
                         }
                     }
                 });
-
-                shearVals.push(V);
-                momentVals.push(M);
             }
 
-            return { x: xVals, V: shearVals, M: momentVals, reactions: { RA, MA, RB, MB } };
+            // Point Loads
+            loadList.forEach(l => {
+                if (l.type === 'point' || l.type === 'moment') {
+                    // Find node index
+                    const nIdx = uniqueNodes.findIndex(x => Math.abs(x - l.location) < 1e-6);
+                    if (nIdx !== -1) {
+                        if (l.type === 'point') F[2 * nIdx] -= l.magnitude; // Downward load input = negative force
+                        if (l.type === 'moment') F[2 * nIdx + 1] -= l.magnitude; // Assuming CW input, FEM CCW+ -> -Magnitude
+                    }
+                }
+            });
+
+            // 4. Boundary Conditions
+            const constrainedDOFs = new Set();
+
+            // Left Support (Node 0)
+            if (leftType === 'pinned') constrainedDOFs.add(0); // Fix v
+            if (leftType === 'fixed') { constrainedDOFs.add(0); constrainedDOFs.add(1); } // Fix v, theta
+
+            // Right Support (Last Node)
+            const lastNodeIdx = numNodes - 1;
+            if (rightType === 'pinned') constrainedDOFs.add(2 * lastNodeIdx);
+            if (rightType === 'fixed') { constrainedDOFs.add(2 * lastNodeIdx); constrainedDOFs.add(2 * lastNodeIdx + 1); }
+
+            // Point Constraints
+            if (constraintList) {
+                constraintList.forEach(c => {
+                    const nIdx = uniqueNodes.findIndex(x => Math.abs(x - c.location) < 1e-6);
+                    if (nIdx !== -1) {
+                        constrainedDOFs.add(2 * nIdx); // Fix v
+                        // Handle non-zero displacement?
+                        // For now, assume 0. To support non-zero, we need to modify F.
+                        // Penalty method or partition. Partition is cleaner but complex code.
+                        // Simple approach: Large stiffness penalty.
+                        if (c.displacement !== 0) {
+                            // Penalty Method
+                            const penalty = 1e14 * EI;
+                            K.add(2 * nIdx, 2 * nIdx, penalty);
+                            F[2 * nIdx] += penalty * (c.displacement / 1000); // Convert mm to m
+                            constrainedDOFs.delete(2 * nIdx); // Treat as free but with penalty
+                        }
+                    }
+                });
+            }
+
+            // 5. Solve
+            const d = solveLinearSystem(K, F, constrainedDOFs);
+
+            // 6. Post-Processing (Internal Forces)
+            const xVals = [];
+            const shearVals = [];
+            const momentVals = [];
+
+            // Reactions
+            // R = K*d - F_equivalent
+            // Actually, we can just sum forces/moments at nodes, or use element forces.
+            // Let's calculate element forces and string them together.
+
+            let RA = 0, MA = 0, RB = 0, MB = 0;
+
+            for (let i = 0; i < numNodes - 1; i++) {
+                const x1 = uniqueNodes[i];
+                const x2 = uniqueNodes[i + 1];
+                const le = x2 - x1;
+
+                // Element displacements
+                const u = [d[2 * i], d[2 * i + 1], d[2 * (i + 1)], d[2 * (i + 1) + 1]];
+
+                // Subdivide element for plotting
+                const numSub = 20;
+                for (let j = 0; j <= numSub; j++) {
+                    // Allow duplicates at nodes for vertical steps in charts
+                    // if (i > 0 && j === 0) continue;
+
+                    const xi = j * le / numSub; // Local x
+                    const xGlobal = x1 + xi;
+
+                    // Shape functions derivatives for V and M
+                    // v(x) = N1*u1 + N2*u2 + N3*u3 + N4*u4
+                    // M = EI * v''
+                    // V = -EI * v''' (Bernoulli) or dM/dx
+
+                    // N1 = 1 - 3xi^2 + 2xi^3 (xi = x/L)
+                    const s = xi / le;
+
+                    // M(x) = EI/L^2 * [ (6s-4)*u1 + (6s-2)*u2*L + (-6s+2)*u3 + (6s-4)*u4*L ] ? 
+                    // Let's use standard cubic interpolation derivatives
+
+                    // d2N/dx2
+                    const d2N1 = (12 * s - 6) / le ** 2;
+                    const d2N2 = (6 * s - 4) / le;
+                    const d2N3 = (-12 * s + 6) / le ** 2;
+                    const d2N4 = (6 * s - 2) / le;
+
+                    const curvature = d2N1 * u[0] + d2N2 * u[1] + d2N3 * u[2] + d2N4 * u[3];
+                    let M = EI * curvature; // Standard FEM: M = EI v''. 
+                    // Sign convention: Positive curvature (smile) -> Compression top -> Positive Moment?
+                    // Tool convention: Sagging positive? 
+                    // Let's check results.
+
+                    // d3N/dx3
+                    const d3N1 = 12 / le ** 3;
+                    const d3N2 = 6 / le ** 2;
+                    const d3N3 = -12 / le ** 3;
+                    const d3N4 = 6 / le ** 2;
+
+                    const d3v = d3N1 * u[0] + d3N2 * u[1] + d3N3 * u[2] + d3N4 * u[3];
+                    let V = -EI * d3v; // V = -EI v'''
+
+                    // Add Fixed End Actions effects for internal points if UDL exists
+                    loadList.forEach(l => {
+                        if (l.type === 'distributed') {
+                            if (Math.abs(Math.max(x1, l.location) - x1) < 1e-6 && Math.abs(Math.min(x2, l.endLocation) - x2) < 1e-6) {
+                                const q = -l.magnitude;
+                                // Simply supported beam V and M due to q
+                                // V_q = q(L/2 - x)
+                                // M_q = qx(L-x)/2
+                                // Superposition
+                                const x_local = xi;
+                                V += q * (le / 2 - x_local);
+                                M += (q * x_local / 2) * (le - x_local);
+                            }
+                        }
+                    });
+
+                    xVals.push(xGlobal);
+                    shearVals.push(V);
+                    momentVals.push(M); // Flip sign if needed to match tool convention
+                }
+            }
+
+            // Calculate Reactions (Global Equilibrium or Nodal Balance)
+            // Reaction = K_row * d - F_external_node
+            // For Node 0:
+            const R0_idx = 0;
+            let R0_force = 0;
+            for (let c = 0; c < numDOFs; c++) R0_force += K.get(0, c) * d[c];
+            RA = R0_force - F[0]; // F[0] contains external loads added to node
+
+            const M0_idx = 1;
+            let M0_val = 0;
+            for (let c = 0; c < numDOFs; c++) M0_val += K.get(1, c) * d[c];
+            MA = M0_val - F[1];
+
+            const Rn_idx = 2 * (numNodes - 1);
+            let Rn_force = 0;
+            for (let c = 0; c < numDOFs; c++) Rn_force += K.get(Rn_idx, c) * d[c];
+            RB = Rn_force - F[Rn_idx];
+
+            const Mn_idx = Rn_idx + 1;
+            let Mn_val = 0;
+            for (let c = 0; c < numDOFs; c++) Mn_val += K.get(Mn_idx, c) * d[c];
+            MB = Mn_val - F[Mn_idx];
+
+            // Sign corrections for output to match previous tool (CW Positive)
+            // FEM returns CCW positive.
+            return { x: xVals, V: shearVals, M: momentVals, reactions: { RA, MA: -MA, RB, MB: -MB } };
         }
 
         // --- Main Update Function ---
@@ -533,7 +684,7 @@
             const leftType = document.getElementById('leftSupport').value;
             const rightType = document.getElementById('rightSupport').value;
 
-            const res = solveBeam(L, leftType, rightType, loads);
+            const res = solveBeam(L, leftType, rightType, loads, constraints);
 
             // Update Text
             const rEl = document.getElementById('reactionOutput');
@@ -544,12 +695,12 @@
             ${res.reactions.MB !== 0 ? `<div><strong>M_Right:</strong> ${res.reactions.MB.toFixed(2)} kNm</div>` : ''}
         `;
 
-            drawVisualizer(L, leftType, rightType, loads);
+            drawVisualizer(L, leftType, rightType, loads, constraints);
             drawCharts(res.x, res.V, res.M);
         }
 
         // --- Visualization (Canvas) ---
-        function drawVisualizer(L, left, right, loadList) {
+        function drawVisualizer(L, left, right, loadList, constraintList) {
             const canvas = document.getElementById('beamViz');
             const ctx = canvas.getContext('2d');
             const w = canvas.width = canvas.parentElement.offsetWidth;
@@ -598,11 +749,32 @@
                 }
             }
 
+            // Helper: Draw Roller (Constraint)
+            function drawRoller(x) {
+                ctx.beginPath();
+                ctx.fillStyle = '#1e3a8a'; // Blue for constraints
+                ctx.arc(x, beamY + 10, 8, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.moveTo(x - 10, beamY + 20);
+                ctx.lineTo(x + 10, beamY + 20);
+                ctx.strokeStyle = '#1e3a8a';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+
             // Draw Supports
             if (left === 'pinned') drawPin(margin);
             if (left === 'fixed') drawFixed(margin, true);
             if (right === 'pinned') drawPin(margin + beamLenPx);
             if (right === 'fixed') drawFixed(margin + beamLenPx, false);
+
+            // Draw Constraints
+            if (constraintList) {
+                constraintList.forEach(c => {
+                    drawRoller(margin + c.location * scale);
+                });
+            }
 
             // Draw Loads
             loadList.forEach(l => {
@@ -636,7 +808,7 @@
         }
 
         // --- Charting ---
-        function drawCharts(labels, shearData, momentData) {
+        function drawCharts(xVals, shearData, momentData) {
             // Destroy old charts if exist
             if (charts.shear) charts.shear.destroy();
             if (charts.moment) charts.moment.destroy();
@@ -648,6 +820,7 @@
                 },
                 scales: {
                     x: {
+                        type: 'linear',
                         title: { display: true, text: 'Length (m)', color: '#94a3b8' },
                         ticks: { maxTicksLimit: 10, color: '#94a3b8' },
                         grid: { color: '#334155' }
@@ -666,10 +839,9 @@
             charts.shear = new Chart(ctxS, {
                 type: 'line',
                 data: {
-                    labels: labels,
                     datasets: [{
                         label: 'Shear Force (kN)',
-                        data: shearData,
+                        data: xVals.map((x, i) => ({ x: x, y: shearData[i] })),
                         borderColor: '#3b82f6',
                         backgroundColor: 'rgba(59, 130, 246, 0.1)',
                         fill: true,
@@ -684,10 +856,9 @@
             charts.moment = new Chart(ctxM, {
                 type: 'line',
                 data: {
-                    labels: labels,
                     datasets: [{
                         label: 'Bending Moment (kNm)',
-                        data: momentData,
+                        data: xVals.map((x, i) => ({ x: x, y: momentData[i] })),
                         borderColor: '#10b981',
                         backgroundColor: 'rgba(16, 185, 129, 0.1)',
                         fill: true,

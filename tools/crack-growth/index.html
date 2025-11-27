@@ -14,13 +14,25 @@
     <div class="container">
         <header>
             <h1>Crack Growth Analysis (Nasgro)</h1>
-            <p style="color: #64748b; font-size: 0.9rem; margin-top: 4px;">Central Crack in Finite Width Plate [M(T)] -
-                2024-T3 Sheet</p>
+            <p style="color: #64748b; font-size: 0.9rem; margin-top: 4px;">Fatigue Crack Growth Analysis Tool</p>
         </header>
 
         <aside class="controls">
             <div class="card">
                 <h3>Parameters</h3>
+
+                <div class="input-group">
+                    <label for="geometry">Geometry</label>
+                    <select id="geometry" onchange="toggleInputs()">
+                        <option value="MT">M(T) - Central Crack</option>
+                        <option value="TC23">TC23 - Through Crack at Hole</option>
+                    </select>
+                </div>
+
+                <div class="input-group" id="hole-diam-group" style="display: none;">
+                    <label for="hole-diam">Hole Diameter, D (in)</label>
+                    <input type="number" id="hole-diam" value="0.25" step="0.01">
+                </div>
 
                 <div class="input-group">
                     <label for="width">Plate Width, W (in)</label>
@@ -52,19 +64,19 @@
                 <h4 style="margin: 0 0 12px 0; font-size: 0.9rem;">Material (2024-T3)</h4>
                 <div class="input-group">
                     <label>C (Nasgro)</label>
-                    <input type="number" id="mat-c" value="1.1e-8" readonly style="background: #f1f5f9;">
+                    <input type="number" id="mat-c" value="8e-9" readonly style="background: #f1f5f9;">
                 </div>
                 <div class="input-group">
                     <label>n</label>
-                    <input type="number" id="mat-n" value="3.5" readonly style="background: #f1f5f9;">
+                    <input type="number" id="mat-n" value="3.2" readonly style="background: #f1f5f9;">
                 </div>
                 <div class="input-group">
                     <label>K<sub>IC</sub> (ksi&radic;in)</label>
-                    <input type="number" id="mat-k1c" value="33" readonly style="background: #f1f5f9;">
+                    <input type="number" id="mat-k1c" value="30" readonly style="background: #f1f5f9;">
                 </div>
                 <div class="input-group">
                     <label>Yield (ksi)</label>
-                    <input type="number" id="mat-yield" value="47" readonly style="background: #f1f5f9;">
+                    <input type="number" id="mat-yield" value="53" readonly style="background: #f1f5f9;">
                 </div>
                 <div class="input-group">
                     <label>A<sub>k</sub></label>
