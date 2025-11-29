@@ -81,7 +81,7 @@
             width: 100%;
             border-collapse: collapse;
             font-size: 12px;
-            margin-bottom: 6px;
+            margin-bottom: 4px;
         }
 
         th {
@@ -90,7 +90,7 @@
             padding: 4px 6px;
             text-align: center;
             font-weight: bold;
-            font-size: 11px;
+            font-size: 12px;
         }
 
         td {
@@ -101,9 +101,9 @@
 
         input[type="number"] {
             width: 100%;
-            padding: 3px 2px;
+            padding: 2px 2px;
             border: none;
-            font-size: 11px;
+            font-size: 12px;
             text-align: center;
             box-sizing: border-box;
             background-color: transparent;
@@ -144,10 +144,10 @@
         }
 
         .remove-btn {
-            padding: 2px 6px;
-            font-size: 11px;
-            background-color: #f44336;
-            color: white;
+            padding: 0px 4px;
+            font-size: 13px;
+            background-color: #9e9e9e;
+            color: #333;
             border: none;
             border-radius: 2px;
             cursor: pointer;
@@ -181,7 +181,7 @@
 
         .view-btn {
             padding: 4px 10px;
-            font-size: 11px;
+            font-size: 12px;
             background-color: #e0e0e0;
             border: 1px solid #aaa;
             border-radius: 3px;
@@ -197,7 +197,7 @@
             border: 1px solid #90caf9;
             border-radius: 3px;
             padding: 8px;
-            font-size: 11px;
+            font-size: 12px;
         }
 
         .displacements-box h4 {
@@ -217,7 +217,7 @@
             display: flex;
             align-items: center;
             cursor: pointer;
-            font-size: 11px;
+            font-size: 12px;
         }
 
         .toggle-switch {
@@ -277,11 +277,17 @@
         <h1>Rigid Body Reaction Force Calculator</h1>
 
         <div class="button-bar">
-            <button id="calculate-btn">Calculate</button>
-            <button id="plot-btn">Plot</button>
+            <button id="calculate-btn"
+                style="background: linear-gradient(to bottom, #f44848, #c62828); color: white; border-color: #b71c1c;">Calculate</button>
+            <button id="plot-btn"
+                style="background: linear-gradient(to bottom, #e4f2fd, #97aab9); color: black; border-color: #1565C0;">Plot</button>
+            <button id="load-config-btn"
+                style="background: linear-gradient(to bottom, #e4f2fd, #97aab9); color: black; border-color: #1565C0;">Load
+                Data</button>
+            <button id="save-config-btn"
+                style="background: linear-gradient(to bottom, #e4f2fd, #97aab9); color: black; border-color: #1565C0;">Save
+                Data</button>
             <button id="displacements-btn">Displacements</button>
-            <button id="load-config-btn">Load Data</button>
-            <button id="save-config-btn">Save Data</button>
             <input type="file" id="file-input" style="display: none;" accept=".txt,.json">
         </div>
 
@@ -333,9 +339,9 @@
                         <th>KX</th>
                         <th>KY</th>
                         <th>KZ</th>
-                        <th class="output-cell">RX</th>
-                        <th class="output-cell">RY</th>
-                        <th class="output-cell">RZ</th>
+                        <th class="output-cell" style="font-weight: bold;">RX</th>
+                        <th class="output-cell" style="font-weight: bold;">RY</th>
+                        <th class="output-cell" style="font-weight: bold;">RZ</th>
                         <th style="width: 40px;"></th>
                     </tr>
                 </thead>
