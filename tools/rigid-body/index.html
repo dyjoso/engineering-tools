@@ -34,7 +34,7 @@
 
         h1 {
             text-align: center;
-            font-size: 18px;
+            font-size: 24px;
             font-weight: bold;
             margin: 0 0 8px 0;
             color: #333;
@@ -76,7 +76,7 @@
 
         .section-title {
             font-weight: bold;
-            font-size: 13px;
+            font-size: 16px;
             margin-bottom: 4px;
             color: #333;
             border-bottom: 2px solid #ddd;
@@ -96,7 +96,7 @@
             padding: 4px 6px;
             text-align: center;
             font-weight: bold;
-            font-size: 12px;
+            font-size: 13px;
         }
 
         td {
@@ -130,7 +130,7 @@
 
         .output-cell {
             background-color: #c8e6c9;
-            font-weight: 500;
+            font-weight: bold;
         }
 
         th.output-cell {
@@ -174,6 +174,7 @@
             margin-bottom: 8px;
             cursor: grab;
             position: relative;
+            overflow: hidden;
         }
 
         #visualization-container:active {
@@ -209,7 +210,7 @@
         }
 
         .displacements-box h4 {
-            font-size: 12px;
+            font-size: 14px;
             font-weight: bold;
             margin: 0 0 4px 0;
             color: #1976d2;
@@ -278,13 +279,25 @@
             color: #555;
         }
 
-        /* Subtle grouping helper for inputs */
-        .group-header {
-            font-size: 10px;
-            color: #666;
-            display: block;
-            margin-bottom: 2px;
+        /* Updated Label Styles for Centered White Text 
+           The .point-label class is now applied to the inner div.
+        */
+        .point-label {
+            /* Center the text perfectly on the coordinate */
+            transform: translate(-50%, -50%);
         }
+
+        .point-label {
+            background-color: rgba(255, 255, 255, 0.85);
+            padding: 1px 2px;
+            font-family: Arial, sans-serif;
+            font-size: 13px;
+            font-weight: bold;
+            color: #000;
+            pointer-events: none;
+            user-select: none;
+            white-space: nowrap;
+            transform: translate(-50%, -50%);
     </style>
 </head>
 
@@ -314,7 +327,7 @@
             <table id="loads-table">
                 <thead>
                     <tr>
-                        <th style="width: 50px;">Load</th>
+                        <th style="width: 50px;">#</th>
                         <th>X</th>
                         <th>Y</th>
                         <th>Z</th>
@@ -326,7 +339,7 @@
                 </thead>
                 <tbody id="loads-tbody">
                     <tr data-load-index="1">
-                        <td class="index-cell">1</td>
+                        <td class="index-cell">L1</td>
                         <td><input type="number" step="any" class="coord-x" value="1"></td>
                         <td><input type="number" step="any" class="coord-y" value="1"></td>
                         <td><input type="number" step="any" class="coord-z" value="0"></td>
@@ -345,7 +358,7 @@
             <table id="supports-table">
                 <thead>
                     <tr>
-                        <th style="width: 50px;">Support</th>
+                        <th style="width: 50px;">#</th>
                         <th>X</th>
                         <th>Y</th>
                         <th>Z</th>
@@ -360,7 +373,7 @@
                 </thead>
                 <tbody id="supports-tbody">
                     <tr data-support-index="1">
-                        <td class="index-cell">1</td>
+                        <td class="index-cell">S1</td>
                         <td><input type="number" step="any" class="coord-x" value="0"></td>
                         <td><input type="number" step="any" class="coord-y" value="0"></td>
                         <td><input type="number" step="any" class="coord-z" value="0"></td>
@@ -437,12 +450,12 @@
     </div>
 
     <script type="module">
-        // --- Import three.js modules ---
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
         import { Line2 } from 'three/addons/lines/Line2.js';
         import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
         import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
+        import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 
         // --- Global Variables ---
         const loadsTbody = document.getElementById('loads-tbody');
@@ -464,18 +477,19 @@
         let lastCalculationResults = null;
 
         // --- three.js Variables ---
-        let scene, perspectiveCamera, orthographicCamera, camera, renderer, controls, visualizationGroup, axesHelper;
+        let scene, perspectiveCamera, orthographicCamera, camera, renderer, labelRenderer, controls, visualizationGroup, axesHelper;
+        let resizeObserver;
         const initialCameraPosition = new THREE.Vector3(5, 5, 5);
         let isOrthographic = false;
         let threeInitialized = false;
 
-        // --- Add/Remove Functions for LOADS ---
+        // --- Add/Remove Functions ---
         window.addLoad = function () {
             const newIndex = loadsTbody.children.length + 1;
             const row = loadsTbody.insertRow();
             row.setAttribute('data-load-index', newIndex);
             row.innerHTML = `
-                <td class="index-cell">${newIndex}</td>
+                <td class="index-cell">L${newIndex}</td>
                 <td><input type="number" step="any" class="coord-x" value="0"></td>
                 <td><input type="number" step="any" class="coord-y" value="0"></td>
                 <td><input type="number" step="any" class="coord-z" value="0"></td>
@@ -502,13 +516,12 @@
             });
         }
 
-        // --- Add/Remove Functions for GENERAL SUPPORTS ---
         window.addSupport = function () {
             const newIndex = supportsTbody.children.length + 1;
             const row = supportsTbody.insertRow();
             row.setAttribute('data-support-index', newIndex);
             row.innerHTML = `
-                <td class="index-cell">${newIndex}</td>
+                <td class="index-cell">S${newIndex}</td>
                 <td><input type="number" step="any" class="coord-x" value="0"></td>
                 <td><input type="number" step="any" class="coord-y" value="0"></td>
                 <td><input type="number" step="any" class="coord-z" value="0"></td>
@@ -534,13 +547,12 @@
             });
         }
 
-        // --- Add/Remove Functions for TIE RODS ---
         window.addTieRod = function () {
             const newIndex = tieRodsTbody.children.length + 1;
             const row = tieRodsTbody.insertRow();
             row.setAttribute('data-tierod-index', newIndex);
             row.innerHTML = `
-                <td class="index-cell">${newIndex}</td>
+                <td class="index-cell">TR${newIndex}</td>
                 <td><input type="number" step="any" class="att-x" value="0"></td>
                 <td><input type="number" step="any" class="att-y" value="0"></td>
                 <td><input type="number" step="any" class="att-z" value="0"></td>
@@ -573,11 +585,9 @@
             errorMessageDiv.style.display = 'none';
             errorMessageDiv.textContent = '';
 
-            // Clear previous reactions (General)
             supportsTbody.querySelectorAll('.reaction-rx, .reaction-ry, .reaction-rz').forEach(cell => {
                 cell.textContent = '-';
             });
-            // Clear previous reactions (Tie Rods)
             tieRodsTbody.querySelectorAll('.reaction-rx, .reaction-ry, .reaction-rz').forEach(cell => {
                 cell.textContent = '-';
             });
@@ -588,7 +598,6 @@
             let currentDisplacements = [];
 
             try {
-                // 1. Read General Support Data
                 const supportRows = supportsTbody.querySelectorAll('tr');
                 supportRows.forEach((row, index) => {
                     const x = parseFloat(row.querySelector('.coord-x').value);
@@ -598,22 +607,12 @@
                     const ky = parseFloat(row.querySelector('.stiff-ky').value);
                     const kz = parseFloat(row.querySelector('.stiff-kz').value);
 
-                    if (isNaN(x) || isNaN(y) || isNaN(z) || isNaN(kx) || isNaN(ky) || isNaN(kz)) {
-                        throw new Error(`Invalid input for General Support #${index + 1}.`);
-                    }
-                    if (kx < 0 || ky < 0 || kz < 0) {
-                        throw new Error(`Stiffness values cannot be negative for General Support #${index + 1}.`);
-                    }
+                    if (isNaN(x) || isNaN(y) || isNaN(z) || isNaN(kx) || isNaN(ky) || isNaN(kz)) throw new Error(`Invalid input for General Support #${index + 1}.`);
+                    if (kx < 0 || ky < 0 || kz < 0) throw new Error(`Stiffness values cannot be negative for General Support #${index + 1}.`);
 
-                    currentSupportsData.push({
-                        index: index + 1,
-                        type: 'general',
-                        point: { x, y, z },
-                        kx, ky, kz
-                    });
+                    currentSupportsData.push({ index: index + 1, type: 'general', point: { x, y, z }, kx, ky, kz });
                 });
 
-                // 2. Read Tie Rod Data
                 const tieRodRows = tieRodsTbody.querySelectorAll('tr');
                 tieRodRows.forEach((row, index) => {
                     const ax = parseFloat(row.querySelector('.att-x').value);
@@ -624,24 +623,13 @@
                     const nz = parseFloat(row.querySelector('.anc-z').value);
                     const kAxial = parseFloat(row.querySelector('.stiff-axial').value);
 
-                    if (isNaN(ax) || isNaN(ay) || isNaN(az) || isNaN(nx) || isNaN(ny) || isNaN(nz) || isNaN(kAxial)) {
-                        throw new Error(`Invalid input for Tie Rod #${index + 1}.`);
-                    }
+                    if (isNaN(ax) || isNaN(ay) || isNaN(az) || isNaN(nx) || isNaN(ny) || isNaN(nz) || isNaN(kAxial)) throw new Error(`Invalid input for Tie Rod #${index + 1}.`);
                     if (kAxial < 0) throw new Error(`Axial stiffness cannot be negative for Tie Rod #${index + 1}.`);
-                    if (Math.abs(ax - nx) < 1e-9 && Math.abs(ay - ny) < 1e-9 && Math.abs(az - nz) < 1e-9) {
-                        throw new Error(`Attachment and Anchor points cannot be identical for Tie Rod #${index + 1}.`);
-                    }
+                    if (Math.abs(ax - nx) < 1e-9 && Math.abs(ay - ny) < 1e-9 && Math.abs(az - nz) < 1e-9) throw new Error(`Attachment and Anchor points cannot be identical for Tie Rod #${index + 1}.`);
 
-                    currentSupportsData.push({
-                        index: index + 1,
-                        type: 'tie-rod',
-                        attachPoint: { x: ax, y: ay, z: az },
-                        anchorPoint: { x: nx, y: ny, z: nz },
-                        kAxial
-                    });
+                    currentSupportsData.push({ index: index + 1, type: 'tie-rod', attachPoint: { x: ax, y: ay, z: az }, anchorPoint: { x: nx, y: ny, z: nz }, kAxial });
                 });
 
-                // 3. Read Load Data
                 const loadRows = loadsTbody.querySelectorAll('tr');
                 loadRows.forEach((row, index) => {
                     const x = parseFloat(row.querySelector('.coord-x').value);
@@ -651,114 +639,77 @@
                     const py = parseFloat(row.querySelector('.force-py').value);
                     const pz = parseFloat(row.querySelector('.force-pz').value);
 
-                    if (isNaN(x) || isNaN(y) || isNaN(z) || isNaN(px) || isNaN(py) || isNaN(pz)) {
-                        throw new Error(`Invalid input for Load #${index + 1}.`);
-                    }
-
+                    if (isNaN(x) || isNaN(y) || isNaN(z) || isNaN(px) || isNaN(py) || isNaN(pz)) throw new Error(`Invalid input for Load #${index + 1}.`);
                     currentLoadsData.push({ index: index + 1, x, y, z, px, py, pz });
                 });
 
                 if (currentSupportsData.length === 0) throw new Error("At least one support (General or Tie Rod) must be defined.");
                 if (currentLoadsData.length === 0) throw new Error("At least one load point must be defined.");
 
-                // 4. Build External Force/Moment Vector
                 let F_ext = math.zeros(6, 1);
                 currentLoadsData.forEach(load => {
                     F_ext = math.add(F_ext, math.matrix([
-                        [load.px],
-                        [load.py],
-                        [load.pz],
+                        [load.px], [load.py], [load.pz],
                         [load.y * load.pz - load.z * load.py],
                         [load.z * load.px - load.x * load.pz],
                         [load.x * load.py - load.y * load.px]
                     ]));
                 });
 
-                // 5. Build Global Stiffness Matrix
                 let K_global = math.zeros(6, 6);
                 currentSupportsData.forEach(support => {
                     let Ki, Ti, attachX, attachY, attachZ;
-
                     if (support.type === 'general') {
-                        // General Support Logic
                         const { x, y, z } = support.point;
                         attachX = x; attachY = y; attachZ = z;
                         Ki = math.diag([support.kx, support.ky, support.kz]);
                     } else {
-                        // Tie Rod Logic (Imported from OLD CODE)
                         const { x: ax, y: ay, z: az } = support.attachPoint;
                         const { x: nx, y: ny, z: nz } = support.anchorPoint;
                         attachX = ax; attachY = ay; attachZ = az;
-
-                        // Calculate direction vector from Anchor to Attachment
                         const dx = ax - nx, dy = ay - ny, dz = az - nz;
                         const len = Math.sqrt(dx * dx + dy * dy + dz * dz);
                         if (len < 1e-9) throw new Error(`Zero length Tie Rod detected.`);
-
-                        // Unit vector
                         const ux = dx / len, uy = dy / len, uz = dz / len;
                         const u = math.matrix([[ux], [uy], [uz]]);
-                        const uT = math.transpose(u);
-                        const uuT = math.multiply(u, uT);
-
-                        // Stiffness matrix in global coords
+                        const uuT = math.multiply(u, math.transpose(u));
                         Ki = math.multiply(uuT, support.kAxial);
                     }
-
-                    // Transformation Matrix (same for both, based on Attachment Point)
                     Ti = math.matrix([
                         [1, 0, 0, 0, attachZ, -attachY],
                         [0, 1, 0, -attachZ, 0, attachX],
                         [0, 0, 1, attachY, -attachX, 0]
                     ]);
-
-                    support.Ki = Ki;
-                    support.Ti = Ti;
-                    const Ki_global_contrib = math.multiply(math.transpose(Ti), Ki, Ti);
-                    K_global = math.add(K_global, Ki_global_contrib);
+                    support.Ki = Ki; support.Ti = Ti;
+                    K_global = math.add(K_global, math.multiply(math.transpose(Ti), Ki, Ti));
                 });
 
-                // 6. Solve for Global Displacements
                 let K_inv;
                 try {
                     K_inv = math.inv(K_global);
                 } catch (error) {
-                    throw new Error("Cannot calculate reactions. Global stiffness matrix is singular. Supports may not adequately constrain the body.");
+                    throw new Error("Cannot calculate reactions. Global stiffness matrix is singular.");
                 }
                 const D_matrix = math.multiply(K_inv, F_ext);
                 currentDisplacements = D_matrix.valueOf().flat();
 
-                // 7. Calculate Reaction Forces
                 currentSupportsData.forEach(support => {
                     const { Ki, Ti } = support;
                     const Ri_body_on_support_matrix = math.multiply(Ki, Ti, D_matrix);
                     const Ri_support_on_body_matrix = math.multiply(Ri_body_on_support_matrix, -1);
                     const reactionForces = Ri_support_on_body_matrix.valueOf().flat();
-
                     const reactionPoint = (support.type === 'general') ? support.point : support.attachPoint;
 
                     currentCalculatedReactions.push({
                         index: support.index,
                         type: support.type,
-                        x: reactionPoint.x,
-                        y: reactionPoint.y,
-                        z: reactionPoint.z,
-                        rx: reactionForces[0],
-                        ry: reactionForces[1],
-                        rz: reactionForces[2],
-                        // Include anchor point for visualization if tie rod
+                        x: reactionPoint.x, y: reactionPoint.y, z: reactionPoint.z,
+                        rx: reactionForces[0], ry: reactionForces[1], rz: reactionForces[2],
                         anchorPoint: support.type === 'tie-rod' ? support.anchorPoint : undefined
                     });
                 });
 
-                // 8. Display Results
-                lastCalculationResults = {
-                    reactions: currentCalculatedReactions,
-                    displacements: currentDisplacements,
-                    supports: currentSupportsData,
-                    loads: currentLoadsData
-                };
-
+                lastCalculationResults = { reactions: currentCalculatedReactions, displacements: currentDisplacements, supports: currentSupportsData, loads: currentLoadsData };
                 displayReactions(currentCalculatedReactions);
                 displayDisplacements(currentDisplacements);
 
@@ -771,71 +722,17 @@
         }
 
         function formatReactionValue(val) {
-            // Logic: Max 6 significant figures OR 3 decimal places (whichever is more concise), 
-            // but prioritize staying within standard notation unless very large/small.
-
             const absVal = Math.abs(val);
-
-            // If number is very large or very small, use scientific notation with 6 sig figs
-            if (absVal !== 0 && (absVal >= 1e6 || absVal < 1e-3)) {
-                return val.toPrecision(6);
-            }
-
-            // Otherwise, get 6 significant figures
-            let s = val.toPrecision(6);
-
-            // Check if this results in more than 3 decimal places
-            // Convert back to number to check value, or string manipulation
-            // Easier: just format to max 3 decimal places if it doesn't lose too much info?
-            // The prompt asks: "no more than 3 decimal place or 6 significant figures"
-            // This usually implies: Default to 6 sig figs, BUT truncate decimals to 3 if it exceeds that.
-
-            // Let's try to convert the 6-sig-fig string back to a number
-            let num = parseFloat(s);
-
-            // Now format that number to maximum 3 decimal places
-            // Using Intl.NumberFormat or similar is robust, but custom logic works too.
-            // Let's use string manipulation to be safe.
-
-            if (Number.isInteger(num)) {
-                return num.toString();
-            }
-
-            // Convert to fixed 3 to see what it looks like
-            const fixed3 = num.toFixed(3);
-
-            // If the 6-sig-fig version has fewer decimal places than 3, use it (strips trailing zeros)
-            // If it has more, use fixed 3.
-
-            // Actually, a simpler way to satisfy "No more than 3 decimal places" is:
-            // 1. Calculate 6 sig figs.
-            // 2. Round THAT result to 3 decimal places.
-
-            // Example: 0.123456 (6 sig figs) -> 0.123 (3 decimals)
-            // Example: 100.1234 (7 sig figs) -> 100.123 (3 decimals)
-            // Example: 1234.56  (6 sig figs) -> 1234.56 (2 decimals) -> Keep as is.
-
+            if (absVal !== 0 && (absVal >= 1e6 || absVal < 1e-3)) return val.toPrecision(6);
             const sigFigNum = parseFloat(val.toPrecision(6));
-
-            // Now ensure no more than 3 decimals on this number
-            // We can use Math.round logic
             const factor = Math.pow(10, 3);
-            const rounded = Math.round(sigFigNum * factor) / factor;
-
-            return rounded.toString();
+            return (Math.round(sigFigNum * factor) / factor).toString();
         }
 
         function displayReactions(reactions) {
             reactions.forEach(r => {
-                let row;
-                if (r.type === 'general') {
-                    row = supportsTbody.querySelector(`tr[data-support-index="${r.index}"]`);
-                } else {
-                    row = tieRodsTbody.querySelector(`tr[data-tierod-index="${r.index}"]`);
-                }
-
+                let row = (r.type === 'general') ? supportsTbody.querySelector(`tr[data-support-index="${r.index}"]`) : tieRodsTbody.querySelector(`tr[data-tierod-index="${r.index}"]`);
                 if (row) {
-                    // UPDATED: Using the new formatReactionValue function
                     row.querySelector('.reaction-rx').textContent = formatReactionValue(r.rx);
                     row.querySelector('.reaction-ry').textContent = formatReactionValue(r.ry);
                     row.querySelector('.reaction-rz').textContent = formatReactionValue(r.rz);
@@ -845,133 +742,68 @@
 
         function displayDisplacements(displacements) {
             displacementsGrid.innerHTML = `
-                <span>δx: ${displacements[0].toExponential(3)}</span>
-                <span>δy: ${displacements[1].toExponential(3)}</span>
-                <span>δz: ${displacements[2].toExponential(3)}</span>
-                <span>θx: ${displacements[3].toExponential(3)} rad</span>
-                <span>θy: ${displacements[4].toExponential(3)} rad</span>
-                <span>θz: ${displacements[5].toExponential(3)} rad</span>
+                <span>δx: ${displacements[0].toExponential(3)}</span> <span>δy: ${displacements[1].toExponential(3)}</span> <span>δz: ${displacements[2].toExponential(3)}</span>
+                <span>θx: ${displacements[3].toExponential(3)} rad</span> <span>θy: ${displacements[4].toExponential(3)} rad</span> <span>θz: ${displacements[5].toExponential(3)} rad</span>
             `;
         }
 
-        // --- Save/Load Configuration ---
+        // --- Configuration ---
         function saveConfiguration() {
             const supports = [];
-            // Save General Supports
             supportsTbody.querySelectorAll('tr').forEach(row => {
-                supports.push({
-                    type: 'general',
-                    x: row.querySelector('.coord-x').value,
-                    y: row.querySelector('.coord-y').value,
-                    z: row.querySelector('.coord-z').value,
-                    kx: row.querySelector('.stiff-kx').value,
-                    ky: row.querySelector('.stiff-ky').value,
-                    kz: row.querySelector('.stiff-kz').value
-                });
+                supports.push({ type: 'general', x: row.querySelector('.coord-x').value, y: row.querySelector('.coord-y').value, z: row.querySelector('.coord-z').value, kx: row.querySelector('.stiff-kx').value, ky: row.querySelector('.stiff-ky').value, kz: row.querySelector('.stiff-kz').value });
             });
-            // Save Tie Rods
             tieRodsTbody.querySelectorAll('tr').forEach(row => {
-                supports.push({
-                    type: 'tie-rod',
-                    ax: row.querySelector('.att-x').value,
-                    ay: row.querySelector('.att-y').value,
-                    az: row.querySelector('.att-z').value,
-                    nx: row.querySelector('.anc-x').value,
-                    ny: row.querySelector('.anc-y').value,
-                    nz: row.querySelector('.anc-z').value,
-                    kAxial: row.querySelector('.stiff-axial').value
-                });
+                supports.push({ type: 'tie-rod', ax: row.querySelector('.att-x').value, ay: row.querySelector('.att-y').value, az: row.querySelector('.att-z').value, nx: row.querySelector('.anc-x').value, ny: row.querySelector('.anc-y').value, nz: row.querySelector('.anc-z').value, kAxial: row.querySelector('.stiff-axial').value });
             });
-
             const loads = [];
             loadsTbody.querySelectorAll('tr').forEach(row => {
-                loads.push({
-                    x: row.querySelector('.coord-x').value,
-                    y: row.querySelector('.coord-y').value,
-                    z: row.querySelector('.coord-z').value,
-                    px: row.querySelector('.force-px').value,
-                    py: row.querySelector('.force-py').value,
-                    pz: row.querySelector('.force-pz').value
-                });
+                loads.push({ x: row.querySelector('.coord-x').value, y: row.querySelector('.coord-y').value, z: row.querySelector('.coord-z').value, px: row.querySelector('.force-px').value, py: row.querySelector('.force-py').value, pz: row.querySelector('.force-pz').value });
             });
-
             const config = { supports, loads };
             const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'text/plain' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = url;
-            a.download = 'rigid_body_config.txt';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
+            a.href = url; a.download = 'rigid_body_config.txt';
+            document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
         }
 
         function loadConfiguration(event) {
             const file = event.target.files[0];
             if (!file) return;
-
             const reader = new FileReader();
             reader.onload = function (e) {
                 try {
                     const config = JSON.parse(e.target.result);
-
-                    // Clear existing
-                    supportsTbody.innerHTML = '';
-                    tieRodsTbody.innerHTML = '';
-                    loadsTbody.innerHTML = '';
-
-                    // Restore Supports (Split by type)
-                    if (config.supports && Array.isArray(config.supports)) {
+                    supportsTbody.innerHTML = ''; tieRodsTbody.innerHTML = ''; loadsTbody.innerHTML = '';
+                    if (config.supports) {
                         config.supports.forEach((s) => {
                             if (s.type === 'tie-rod') {
-                                addTieRod();
-                                const row = tieRodsTbody.lastElementChild;
-                                row.querySelector('.att-x').value = s.ax;
-                                row.querySelector('.att-y').value = s.ay;
-                                row.querySelector('.att-z').value = s.az;
-                                row.querySelector('.anc-x').value = s.nx;
-                                row.querySelector('.anc-y').value = s.ny;
-                                row.querySelector('.anc-z').value = s.nz;
+                                addTieRod(); const row = tieRodsTbody.lastElementChild;
+                                row.querySelector('.att-x').value = s.ax; row.querySelector('.att-y').value = s.ay; row.querySelector('.att-z').value = s.az;
+                                row.querySelector('.anc-x').value = s.nx; row.querySelector('.anc-y').value = s.ny; row.querySelector('.anc-z').value = s.nz;
                                 row.querySelector('.stiff-axial').value = s.kAxial;
                             } else {
-                                // Default to general if type missing or 'general'
-                                addSupport();
-                                const row = supportsTbody.lastElementChild;
-                                row.querySelector('.coord-x').value = s.x;
-                                row.querySelector('.coord-y').value = s.y;
-                                row.querySelector('.coord-z').value = s.z;
-                                row.querySelector('.stiff-kx').value = s.kx;
-                                row.querySelector('.stiff-ky').value = s.ky;
-                                row.querySelector('.stiff-kz').value = s.kz;
+                                addSupport(); const row = supportsTbody.lastElementChild;
+                                row.querySelector('.coord-x').value = s.x; row.querySelector('.coord-y').value = s.y; row.querySelector('.coord-z').value = s.z;
+                                row.querySelector('.stiff-kx').value = s.kx; row.querySelector('.stiff-ky').value = s.ky; row.querySelector('.stiff-kz').value = s.kz;
                             }
                         });
                     }
-
-                    // Restore Loads
-                    if (config.loads && Array.isArray(config.loads)) {
+                    if (config.loads) {
                         config.loads.forEach((l) => {
-                            addLoad();
-                            const row = loadsTbody.lastElementChild;
-                            row.querySelector('.coord-x').value = l.x;
-                            row.querySelector('.coord-y').value = l.y;
-                            row.querySelector('.coord-z').value = l.z;
-                            row.querySelector('.force-px').value = l.px;
-                            row.querySelector('.force-py').value = l.py;
-                            row.querySelector('.force-pz').value = l.pz;
+                            addLoad(); const row = loadsTbody.lastElementChild;
+                            row.querySelector('.coord-x').value = l.x; row.querySelector('.coord-y').value = l.y; row.querySelector('.coord-z').value = l.z;
+                            row.querySelector('.force-px').value = l.px; row.querySelector('.force-py').value = l.py; row.querySelector('.force-pz').value = l.pz;
                         });
                     }
-
                     fileInput.value = '';
-                } catch (error) {
-                    alert('Failed to parse configuration file. Ensure it is a valid JSON/TXT file.');
-                    console.error(error);
-                }
+                } catch (error) { alert('Failed to parse file.'); }
             };
             reader.readAsText(file);
         }
 
-        // --- Three.js Visualization ---
+        // --- Three.js ---
         function initThreeJS() {
             if (threeInitialized) return;
 
@@ -984,8 +816,8 @@
             perspectiveCamera = new THREE.PerspectiveCamera(50, width / height, 0.1, 2000);
             perspectiveCamera.position.copy(initialCameraPosition);
 
-            const aspect = width / height;
             const frustumSize = 10;
+            const aspect = width / height;
             orthographicCamera = new THREE.OrthographicCamera(
                 frustumSize * aspect / -2, frustumSize * aspect / 2,
                 frustumSize / 2, frustumSize / -2,
@@ -998,9 +830,21 @@
             document.getElementById('ortho-toggle').checked = false;
 
             renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setSize(width, height);
             renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(width, height);
+            renderer.domElement.style.width = '100%';
+            renderer.domElement.style.height = '100%';
             visualizationContainer.appendChild(renderer.domElement);
+
+            labelRenderer = new CSS2DRenderer();
+            labelRenderer.setSize(width, height);
+            labelRenderer.domElement.style.position = 'absolute';
+            labelRenderer.domElement.style.top = '0px';
+            labelRenderer.domElement.style.left = '0px';
+            labelRenderer.domElement.style.width = '100%';
+            labelRenderer.domElement.style.height = '100%';
+            labelRenderer.domElement.style.pointerEvents = 'none';
+            visualizationContainer.appendChild(labelRenderer.domElement);
 
             controls = new OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
@@ -1019,8 +863,35 @@
             visualizationGroup = new THREE.Group();
             scene.add(visualizationGroup);
 
+            resizeObserver = new ResizeObserver(() => {
+                onWindowResize();
+            });
+            resizeObserver.observe(visualizationContainer);
+
             animate();
             threeInitialized = true;
+        }
+
+        function onWindowResize() {
+            if (!camera || !renderer || !labelRenderer || !visualizationContainer) return;
+
+            const width = visualizationContainer.clientWidth;
+            const height = visualizationContainer.clientHeight;
+
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+
+            if (isOrthographic) {
+                const aspect = width / height;
+                const frustumSize = (orthographicCamera.top - orthographicCamera.bottom);
+                const newWidth = frustumSize * aspect;
+                orthographicCamera.left = -newWidth / 2;
+                orthographicCamera.right = newWidth / 2;
+                orthographicCamera.updateProjectionMatrix();
+            }
+
+            renderer.setSize(width, height, false);
+            labelRenderer.setSize(width, height);
         }
 
         function animate() {
@@ -1028,6 +899,7 @@
             if (controls) controls.update();
             if (renderer && scene && camera) {
                 renderer.render(scene, camera);
+                if (labelRenderer) labelRenderer.render(scene, camera);
             }
         }
 
@@ -1038,18 +910,29 @@
                     visualizationGroup.remove(child);
                     if (child.geometry) child.geometry.dispose();
                     if (child.material) {
-                        if (Array.isArray(child.material)) {
-                            child.material.forEach(m => m.dispose());
-                        } else {
-                            child.material.dispose();
-                        }
+                        if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+                        else child.material.dispose();
                     }
-                    // Special handling for Line2
-                    if (child.isLine2 && child.geometry) {
-                        child.geometry.dispose();
-                    }
+                    if (child.isLine2 && child.geometry) child.geometry.dispose();
                 }
             }
+        }
+
+        // Updated helper to create a label
+        function createLabel(text, positionVector) {
+            // Create a wrapper div to handle the CSS2DObject positioning (top-left at coordinate)
+            const wrapperDiv = document.createElement('div');
+
+            // Create the inner div that centers the text
+            const innerDiv = document.createElement('div');
+            innerDiv.className = 'point-label';
+            innerDiv.textContent = text;
+
+            wrapperDiv.appendChild(innerDiv);
+
+            const label = new CSS2DObject(wrapperDiv);
+            label.position.copy(positionVector);
+            return label;
         }
 
         function updateVisualization(supportsInput, loadsInput, reactionsResult) {
@@ -1059,120 +942,85 @@
             let allPoints = [];
             reactionsResult.forEach(r => {
                 allPoints.push(new THREE.Vector3(r.x, r.y, r.z));
-                // Add anchor point to bounds calc if it exists
-                if (r.anchorPoint) {
-                    allPoints.push(new THREE.Vector3(r.anchorPoint.x, r.anchorPoint.y, r.anchorPoint.z));
-                }
+                if (r.anchorPoint) allPoints.push(new THREE.Vector3(r.anchorPoint.x, r.anchorPoint.y, r.anchorPoint.z));
             });
-            loadsInput.forEach(l => {
-                allPoints.push(new THREE.Vector3(l.x, l.y, l.z));
-            });
+            loadsInput.forEach(l => allPoints.push(new THREE.Vector3(l.x, l.y, l.z)));
 
             let maxPointDistance = 0;
             if (allPoints.length >= 2) {
                 for (let i = 0; i < allPoints.length; i++) {
-                    for (let j = i + 1; j < allPoints.length; j++) {
-                        maxPointDistance = Math.max(maxPointDistance, allPoints[i].distanceTo(allPoints[j]));
-                    }
+                    for (let j = i + 1; j < allPoints.length; j++) maxPointDistance = Math.max(maxPointDistance, allPoints[i].distanceTo(allPoints[j]));
                 }
             }
             if (maxPointDistance < 1e-6) maxPointDistance = 10.0;
 
             const pointRadius = maxPointDistance / 40.0;
             const anchorSize = pointRadius * 1.2;
-
-            // --- CHANGED LOGIC START ---
-
-            // 1. Determine "Fit to screen" size (Target Length)
             const targetVisualLength = maxPointDistance * 0.50;
-
-            // 2. Find the Maximum Reaction Magnitude
             let maxReactionMagnitude = 0;
-            reactionsResult.forEach(r => {
-                maxReactionMagnitude = Math.max(maxReactionMagnitude, Math.sqrt(r.rx ** 2 + r.ry ** 2 + r.rz ** 2));
-            });
-
-            // 3. Calculate Scale for Reactions
-            // The user wants the *longest* reaction arrow to be the length that the load arrows are set to.
-            // Since load arrows are set to targetVisualLength, we map Max Reaction -> targetVisualLength.
+            reactionsResult.forEach(r => maxReactionMagnitude = Math.max(maxReactionMagnitude, Math.sqrt(r.rx ** 2 + r.ry ** 2 + r.rz ** 2)));
             const reactionScaleFactor = (maxReactionMagnitude > 1e-9) ? targetVisualLength / maxReactionMagnitude : 0;
-
-            // 4. Define Load Length (Fixed "Nominal" Length)
-            // "set them equal to the length of the highest reaction load"
             const fixedLoadLength = targetVisualLength;
-
-            // --- CHANGED LOGIC END ---
 
             const supportMaterial = new THREE.MeshStandardMaterial({ color: 0x007bff, roughness: 0.5 });
             const loadMaterial = new THREE.MeshStandardMaterial({ color: 0xffa500, roughness: 0.5 });
             const anchorMaterial = new THREE.MeshStandardMaterial({ color: 0x6c757d, roughness: 0.7 });
-            const tieRodLineMaterial = new LineMaterial({
-                color: 0x6c757d, linewidth: 2, dashed: false,
-                resolution: new THREE.Vector2(visualizationContainer.clientWidth, visualizationContainer.clientHeight)
-            });
+            const tieRodLineMaterial = new LineMaterial({ color: 0x6c757d, linewidth: 2, dashed: false, resolution: new THREE.Vector2(visualizationContainer.clientWidth, visualizationContainer.clientHeight) });
 
-            // Draw Supports, Tie Rods and Reactions
             reactionsResult.forEach(r => {
                 const reactionPointVec = new THREE.Vector3(r.x, r.y, r.z);
                 const supportMesh = new THREE.Mesh(new THREE.SphereGeometry(pointRadius, 16, 16), supportMaterial);
                 supportMesh.position.copy(reactionPointVec);
                 visualizationGroup.add(supportMesh);
 
-                // Draw Tie Rod Visuals (Link Line + Anchor Box)
+                // Add Label (Centered)
+                const labelText = r.type === 'general' ? `S${r.index}` : `TR${r.index}`;
+                // Use exact position, no offset
+                const label = createLabel(labelText, reactionPointVec);
+                visualizationGroup.add(label);
+
                 if (r.type === 'tie-rod' && r.anchorPoint) {
                     const anchorPointVec = new THREE.Vector3(r.anchorPoint.x, r.anchorPoint.y, r.anchorPoint.z);
                     const anchorMesh = new THREE.Mesh(new THREE.BoxGeometry(anchorSize, anchorSize, anchorSize), anchorMaterial);
                     anchorMesh.position.copy(anchorPointVec);
                     visualizationGroup.add(anchorMesh);
-
                     const points = [reactionPointVec.x, reactionPointVec.y, reactionPointVec.z, anchorPointVec.x, anchorPointVec.y, anchorPointVec.z];
                     const lineGeom = new LineGeometry();
                     lineGeom.setPositions(points);
                     const tieRodLine = new Line2(lineGeom, tieRodLineMaterial);
-                    tieRodLine.computeLineDistances();
-                    tieRodLine.scale.set(1, 1, 1);
+                    tieRodLine.computeLineDistances(); tieRodLine.scale.set(1, 1, 1);
                     visualizationGroup.add(tieRodLine);
                 }
-
-                // Draw Reaction Arrow
                 const reactionVec = new THREE.Vector3(r.rx, r.ry, r.rz);
                 const reactionMag = reactionVec.length();
                 if (reactionMag > 1e-9 && reactionScaleFactor > 0) {
                     const direction = reactionVec.normalize();
-                    // Scale reaction arrow proportionally
                     const length = reactionMag * reactionScaleFactor;
-
-                    const arrowHelper = new THREE.ArrowHelper(direction, reactionPointVec, length, 0xdc3545,
-                        Math.max(length * 0.2, pointRadius * 0.5),
-                        Math.max(length * 0.1, pointRadius * 0.25));
+                    const arrowHelper = new THREE.ArrowHelper(direction, reactionPointVec, length, 0xdc3545, Math.max(length * 0.2, pointRadius * 0.5), Math.max(length * 0.1, pointRadius * 0.25));
                     visualizationGroup.add(arrowHelper);
                 }
             });
 
-            // Draw Loads
             loadsInput.forEach(l => {
                 const loadPointVec = new THREE.Vector3(l.x, l.y, l.z);
                 const loadMesh = new THREE.Mesh(new THREE.SphereGeometry(pointRadius, 16, 16), loadMaterial);
                 loadMesh.position.copy(loadPointVec);
                 visualizationGroup.add(loadMesh);
 
+                // Add Label (Centered)
+                const label = createLabel(`L${l.index}`, loadPointVec);
+                visualizationGroup.add(label);
+
                 const forceVec = new THREE.Vector3(l.px, l.py, l.pz);
                 const forceMag = forceVec.length();
-
-                // Draw load arrow if magnitude > 0, but use FIXED nominal length
                 if (forceMag > 1e-9) {
                     const direction = forceVec.normalize();
-                    // Use fixed nominal length as requested
                     const length = fixedLoadLength;
-
-                    const arrowHelper = new THREE.ArrowHelper(direction, loadPointVec, length, 0x28a745,
-                        Math.max(length * 0.2, pointRadius * 0.5),
-                        Math.max(length * 0.1, pointRadius * 0.25));
+                    const arrowHelper = new THREE.ArrowHelper(direction, loadPointVec, length, 0x28a745, Math.max(length * 0.2, pointRadius * 0.5), Math.max(length * 0.1, pointRadius * 0.25));
                     visualizationGroup.add(arrowHelper);
                 }
             });
 
-            // Adjust Axes
             const box = new THREE.Box3().setFromObject(visualizationGroup);
             if (!box.isEmpty()) {
                 const size = box.getSize(new THREE.Vector3());
@@ -1185,111 +1033,62 @@
 
         function setView(axis) {
             if (!camera || !controls || visualizationGroup.children.length === 0) return;
-
             const box = new THREE.Box3().setFromObject(visualizationGroup);
             if (box.isEmpty()) return;
-
             const center = box.getCenter(new THREE.Vector3());
             const size = box.getSize(new THREE.Vector3());
             const maxDim = Math.max(size.x, size.y, size.z);
-
-            let viewAxisNormal = new THREE.Vector3();
-            let upVector = new THREE.Vector3(0, 1, 0);
-
+            let viewAxisNormal = new THREE.Vector3(); let upVector = new THREE.Vector3(0, 1, 0);
             switch (axis) {
-                case 'Y':
-                    viewAxisNormal.set(0, 1, 0);
-                    upVector.set(0, 0, -1);
-                    break;
-                case 'Z':
-                    viewAxisNormal.set(0, 0, 1);
-                    upVector.set(0, 1, 0);
-                    break;
-                case 'X':
-                    viewAxisNormal.set(1, 0, 0);
-                    upVector.set(0, 1, 0);
-                    break;
+                case 'Y': viewAxisNormal.set(0, 1, 0); upVector.set(0, 0, -1); break;
+                case 'Z': viewAxisNormal.set(0, 0, 1); upVector.set(0, 1, 0); break;
+                case 'X': viewAxisNormal.set(1, 0, 0); upVector.set(0, 1, 0); break;
             }
-
             const distance = maxDim * 2;
             camera.position.copy(viewAxisNormal).multiplyScalar(distance).add(center);
-            camera.up.copy(upVector);
-            camera.lookAt(center);
-            camera.updateProjectionMatrix();
-            controls.target.copy(center);
-            controls.update();
+            camera.up.copy(upVector); camera.lookAt(center); camera.updateProjectionMatrix();
+            controls.target.copy(center); controls.update();
         }
 
         function handleOrthoToggle(event) {
             const useOrtho = event.target.checked;
             if (useOrtho === isOrthographic) return;
-
             const oldCamera = camera;
-
             if (useOrtho) {
                 camera = orthographicCamera;
                 isOrthographic = true;
-
                 const distance = perspectiveCamera.position.distanceTo(controls.target);
                 const visibleHeight = 2 * Math.tan(THREE.MathUtils.degToRad(perspectiveCamera.fov / 2)) * distance;
                 const visibleWidth = visibleHeight * perspectiveCamera.aspect;
-
-                camera.left = -visibleWidth / 2;
-                camera.right = visibleWidth / 2;
-                camera.top = visibleHeight / 2;
-                camera.bottom = -visibleHeight / 2;
-                camera.zoom = 1;
+                camera.left = -visibleWidth / 2; camera.right = visibleWidth / 2; camera.top = visibleHeight / 2; camera.bottom = -visibleHeight / 2; camera.zoom = 1;
             } else {
                 camera = perspectiveCamera;
                 isOrthographic = false;
             }
-
-            camera.position.copy(oldCamera.position);
-            camera.up.copy(oldCamera.up);
-            camera.lookAt(controls.target);
-            camera.updateProjectionMatrix();
-            controls.object = camera;
-            controls.update();
+            camera.position.copy(oldCamera.position); camera.up.copy(oldCamera.up); camera.lookAt(controls.target); camera.updateProjectionMatrix();
+            controls.object = camera; controls.update();
         }
 
-        // --- Event Listeners ---
         calculateBtn.addEventListener('click', calculateReactions);
-
         plotBtn.addEventListener('click', () => {
-            if (!lastCalculationResults) {
-                alert('Please calculate first.');
-                return;
-            }
-            plotSection.style.display = 'block';
-            displacementsSection.style.display = 'none';
-
-            if (!threeInitialized) {
-                initThreeJS();
-            }
+            if (!lastCalculationResults) { alert('Please calculate first.'); return; }
+            plotSection.style.display = 'block'; displacementsSection.style.display = 'none';
+            if (!threeInitialized) initThreeJS();
             updateVisualization(lastCalculationResults.supports, lastCalculationResults.loads, lastCalculationResults.reactions);
         });
-
         displacementsBtn.addEventListener('click', () => {
-            if (!lastCalculationResults) {
-                alert('Please calculate first.');
-                return;
-            }
-            displacementsSection.style.display = 'block';
-            plotSection.style.display = 'none';
+            if (!lastCalculationResults) { alert('Please calculate first.'); return; }
+            displacementsSection.style.display = 'block'; plotSection.style.display = 'none';
         });
-
         saveConfigBtn.addEventListener('click', saveConfiguration);
         loadConfigBtn.addEventListener('click', () => fileInput.click());
         fileInput.addEventListener('change', loadConfiguration);
-
         document.getElementById('view-top-btn').addEventListener('click', () => setView('Y'));
         document.getElementById('view-front-btn').addEventListener('click', () => setView('Z'));
         document.getElementById('view-right-btn').addEventListener('click', () => setView('X'));
         document.getElementById('ortho-toggle').addEventListener('change', handleOrthoToggle);
 
-        // Initialize default tie rod
         addTieRod();
-
     </script>
 </body>
 
