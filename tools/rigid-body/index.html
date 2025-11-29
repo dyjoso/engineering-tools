@@ -24,11 +24,12 @@
         }
 
         .container {
-            max-width: 1000px;
+            max-width: 1100px;
             margin: 0 auto;
             background-color: white;
             padding: 12px;
             border-radius: 4px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
 
         h1 {
@@ -68,13 +69,18 @@
 
         .section {
             margin-bottom: 12px;
+            background: #fafafa;
+            padding: 5px;
+            border: 1px solid #eee;
         }
 
         .section-title {
             font-weight: bold;
-            font-size: 14px;
+            font-size: 13px;
             margin-bottom: 4px;
             color: #333;
+            border-bottom: 2px solid #ddd;
+            padding-bottom: 2px;
         }
 
         table {
@@ -109,10 +115,8 @@
             background-color: transparent;
             outline: none;
             -moz-appearance: textfield;
-            /* Firefox */
         }
 
-        /* Chrome, Safari, Edge, Opera */
         input[type="number"]::-webkit-outer-spin-button,
         input[type="number"]::-webkit-inner-spin-button {
             -webkit-appearance: none;
@@ -127,6 +131,10 @@
         .output-cell {
             background-color: #c8e6c9;
             font-weight: 500;
+        }
+
+        th.output-cell {
+            font-weight: bold;
         }
 
         .add-btn {
@@ -159,7 +167,7 @@
 
         #visualization-container {
             width: 100%;
-            height: 350px;
+            height: 700px;
             background-color: #f0f0f0;
             border: 1px solid #ccc;
             border-radius: 3px;
@@ -269,6 +277,14 @@
             font-weight: bold;
             color: #555;
         }
+
+        /* Subtle grouping helper for inputs */
+        .group-header {
+            font-size: 10px;
+            color: #666;
+            display: block;
+            margin-bottom: 2px;
+        }
     </style>
 </head>
 
@@ -294,19 +310,17 @@
         <div id="error-message" class="error-message" style="display: none;"></div>
 
         <div class="section">
-            <div class="section-title">Load Point Coordinates
-                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                Applied Loads</div>
+            <div class="section-title">Applied Loads</div>
             <table id="loads-table">
                 <thead>
                     <tr>
-                        <th style="width: 60px;">Load #</th>
+                        <th style="width: 50px;">Load</th>
                         <th>X</th>
                         <th>Y</th>
                         <th>Z</th>
-                        <th>PX</th>
-                        <th>PY</th>
-                        <th>PZ</th>
+                        <th>FX</th>
+                        <th>FY</th>
+                        <th>FZ</th>
                         <th style="width: 40px;"></th>
                     </tr>
                 </thead>
@@ -327,21 +341,20 @@
         </div>
 
         <div class="section">
-            <div class="section-title">Support Point Coordinates &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Support
-                Point Stiffness &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Support Point Reaction Loads</div>
+            <div class="section-title">General Supports (3-DOF Springs)</div>
             <table id="supports-table">
                 <thead>
                     <tr>
-                        <th style="width: 60px;">Support #</th>
+                        <th style="width: 50px;">Support</th>
                         <th>X</th>
                         <th>Y</th>
                         <th>Z</th>
                         <th>KX</th>
                         <th>KY</th>
                         <th>KZ</th>
-                        <th class="output-cell" style="font-weight: bold;">RX</th>
-                        <th class="output-cell" style="font-weight: bold;">RY</th>
-                        <th class="output-cell" style="font-weight: bold;">RZ</th>
+                        <th class="output-cell">RX</th>
+                        <th class="output-cell">RY</th>
+                        <th class="output-cell">RZ</th>
                         <th style="width: 40px;"></th>
                     </tr>
                 </thead>
@@ -351,35 +364,9 @@
                         <td><input type="number" step="any" class="coord-x" value="0"></td>
                         <td><input type="number" step="any" class="coord-y" value="0"></td>
                         <td><input type="number" step="any" class="coord-z" value="0"></td>
-                        <td><input type="number" step="any" class="stiff-kx" value="1000"></td>
-                        <td><input type="number" step="any" class="stiff-ky" value="1000"></td>
-                        <td><input type="number" step="any" class="stiff-kz" value="1000"></td>
-                        <td class="output-cell reaction-rx">-</td>
-                        <td class="output-cell reaction-ry">-</td>
-                        <td class="output-cell reaction-rz">-</td>
-                        <td><button class="remove-btn" onclick="removeSupport(this)">×</button></td>
-                    </tr>
-                    <tr data-support-index="2">
-                        <td class="index-cell">2</td>
-                        <td><input type="number" step="any" class="coord-x" value="2"></td>
-                        <td><input type="number" step="any" class="coord-y" value="0"></td>
-                        <td><input type="number" step="any" class="coord-z" value="0"></td>
-                        <td><input type="number" step="any" class="stiff-kx" value="1000"></td>
-                        <td><input type="number" step="any" class="stiff-ky" value="1000"></td>
-                        <td><input type="number" step="any" class="stiff-kz" value="1000"></td>
-                        <td class="output-cell reaction-rx">-</td>
-                        <td class="output-cell reaction-ry">-</td>
-                        <td class="output-cell reaction-rz">-</td>
-                        <td><button class="remove-btn" onclick="removeSupport(this)">×</button></td>
-                    </tr>
-                    <tr data-support-index="3">
-                        <td class="index-cell">3</td>
-                        <td><input type="number" step="any" class="coord-x" value="1"></td>
-                        <td><input type="number" step="any" class="coord-y" value="1"></td>
-                        <td><input type="number" step="any" class="coord-z" value="0"></td>
-                        <td><input type="number" step="any" class="stiff-kx" value="1000"></td>
-                        <td><input type="number" step="any" class="stiff-ky" value="1000"></td>
-                        <td><input type="number" step="any" class="stiff-kz" value="1000"></td>
+                        <td><input type="number" step="any" class="stiff-kx" value="1"></td>
+                        <td><input type="number" step="any" class="stiff-ky" value="1"></td>
+                        <td><input type="number" step="any" class="stiff-kz" value="1"></td>
                         <td class="output-cell reaction-rx">-</td>
                         <td class="output-cell reaction-ry">-</td>
                         <td class="output-cell reaction-rz">-</td>
@@ -387,7 +374,37 @@
                     </tr>
                 </tbody>
             </table>
-            <button class="add-btn" onclick="addSupport()">+ Add Support</button>
+            <button class="add-btn" onclick="addSupport()">+ Add General Support</button>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Directional Supports (Tie Rod Elements)</div>
+            <table id="tierods-table">
+                <thead>
+                    <tr>
+                        <th rowspan="2" style="width: 50px;">Point</th>
+                        <th colspan="3">Attachment (On Body)</th>
+                        <th colspan="3">Anchor (Fixed in Space)</th>
+                        <th rowspan="2">K Axial</th>
+                        <th colspan="3" class="output-cell">Reaction Components</th>
+                        <th rowspan="2" style="width: 40px;"></th>
+                    </tr>
+                    <tr>
+                        <th style="font-size: 10px;">X</th>
+                        <th style="font-size: 10px;">Y</th>
+                        <th style="font-size: 10px;">Z</th>
+                        <th style="font-size: 10px;">X</th>
+                        <th style="font-size: 10px;">Y</th>
+                        <th style="font-size: 10px;">Z</th>
+                        <th class="output-cell" style="font-size: 10px;">RX</th>
+                        <th class="output-cell" style="font-size: 10px;">RY</th>
+                        <th class="output-cell" style="font-size: 10px;">RZ</th>
+                    </tr>
+                </thead>
+                <tbody id="tierods-tbody">
+                </tbody>
+            </table>
+            <button class="add-btn" onclick="addTieRod()">+ Add Tie Rod</button>
         </div>
 
         <div id="displacements-section" style="display: none;">
@@ -430,6 +447,8 @@
         // --- Global Variables ---
         const loadsTbody = document.getElementById('loads-tbody');
         const supportsTbody = document.getElementById('supports-tbody');
+        const tieRodsTbody = document.getElementById('tierods-tbody');
+
         const calculateBtn = document.getElementById('calculate-btn');
         const plotBtn = document.getElementById('plot-btn');
         const displacementsBtn = document.getElementById('displacements-btn');
@@ -450,7 +469,7 @@
         let isOrthographic = false;
         let threeInitialized = false;
 
-        // --- Add/Remove Functions ---
+        // --- Add/Remove Functions for LOADS ---
         window.addLoad = function () {
             const newIndex = loadsTbody.children.length + 1;
             const row = loadsTbody.insertRow();
@@ -483,6 +502,7 @@
             });
         }
 
+        // --- Add/Remove Functions for GENERAL SUPPORTS ---
         window.addSupport = function () {
             const newIndex = supportsTbody.children.length + 1;
             const row = supportsTbody.insertRow();
@@ -492,9 +512,9 @@
                 <td><input type="number" step="any" class="coord-x" value="0"></td>
                 <td><input type="number" step="any" class="coord-y" value="0"></td>
                 <td><input type="number" step="any" class="coord-z" value="0"></td>
-                <td><input type="number" step="any" class="stiff-kx" value="1000"></td>
-                <td><input type="number" step="any" class="stiff-ky" value="1000"></td>
-                <td><input type="number" step="any" class="stiff-kz" value="1000"></td>
+                <td><input type="number" step="any" class="stiff-kx" value="1"></td>
+                <td><input type="number" step="any" class="stiff-ky" value="1"></td>
+                <td><input type="number" step="any" class="stiff-kz" value="1"></td>
                 <td class="output-cell reaction-rx">-</td>
                 <td class="output-cell reaction-ry">-</td>
                 <td class="output-cell reaction-rz">-</td>
@@ -503,10 +523,6 @@
         }
 
         window.removeSupport = function (btn) {
-            if (supportsTbody.children.length <= 1) {
-                alert('You need at least one support point defined.');
-                return;
-            }
             btn.closest('tr').remove();
             updateSupportIndices();
         }
@@ -518,13 +534,51 @@
             });
         }
 
+        // --- Add/Remove Functions for TIE RODS ---
+        window.addTieRod = function () {
+            const newIndex = tieRodsTbody.children.length + 1;
+            const row = tieRodsTbody.insertRow();
+            row.setAttribute('data-tierod-index', newIndex);
+            row.innerHTML = `
+                <td class="index-cell">${newIndex}</td>
+                <td><input type="number" step="any" class="att-x" value="0"></td>
+                <td><input type="number" step="any" class="att-y" value="0"></td>
+                <td><input type="number" step="any" class="att-z" value="0"></td>
+                <td><input type="number" step="any" class="anc-x" value="0"></td>
+                <td><input type="number" step="any" class="anc-y" value="1"></td>
+                <td><input type="number" step="any" class="anc-z" value="0"></td>
+                <td><input type="number" step="any" class="stiff-axial" value="1"></td>
+                <td class="output-cell reaction-rx">-</td>
+                <td class="output-cell reaction-ry">-</td>
+                <td class="output-cell reaction-rz">-</td>
+                <td><button class="remove-btn" onclick="removeTieRod(this)">×</button></td>
+            `;
+        }
+
+        window.removeTieRod = function (btn) {
+            btn.closest('tr').remove();
+            updateTieRodIndices();
+        }
+
+        function updateTieRodIndices() {
+            Array.from(tieRodsTbody.children).forEach((row, index) => {
+                row.setAttribute('data-tierod-index', index + 1);
+                row.cells[0].textContent = index + 1;
+            });
+        }
+
+
         // --- Calculation Logic ---
         function calculateReactions() {
             errorMessageDiv.style.display = 'none';
             errorMessageDiv.textContent = '';
 
-            // Clear previous reactions
+            // Clear previous reactions (General)
             supportsTbody.querySelectorAll('.reaction-rx, .reaction-ry, .reaction-rz').forEach(cell => {
+                cell.textContent = '-';
+            });
+            // Clear previous reactions (Tie Rods)
+            tieRodsTbody.querySelectorAll('.reaction-rx, .reaction-ry, .reaction-rz').forEach(cell => {
                 cell.textContent = '-';
             });
 
@@ -534,7 +588,7 @@
             let currentDisplacements = [];
 
             try {
-                // 1. Read Support Data
+                // 1. Read General Support Data
                 const supportRows = supportsTbody.querySelectorAll('tr');
                 supportRows.forEach((row, index) => {
                     const x = parseFloat(row.querySelector('.coord-x').value);
@@ -545,10 +599,10 @@
                     const kz = parseFloat(row.querySelector('.stiff-kz').value);
 
                     if (isNaN(x) || isNaN(y) || isNaN(z) || isNaN(kx) || isNaN(ky) || isNaN(kz)) {
-                        throw new Error(`Invalid input for Support #${index + 1}.`);
+                        throw new Error(`Invalid input for General Support #${index + 1}.`);
                     }
                     if (kx < 0 || ky < 0 || kz < 0) {
-                        throw new Error(`Stiffness values cannot be negative for Support #${index + 1}.`);
+                        throw new Error(`Stiffness values cannot be negative for General Support #${index + 1}.`);
                     }
 
                     currentSupportsData.push({
@@ -559,7 +613,35 @@
                     });
                 });
 
-                // 2. Read Load Data
+                // 2. Read Tie Rod Data
+                const tieRodRows = tieRodsTbody.querySelectorAll('tr');
+                tieRodRows.forEach((row, index) => {
+                    const ax = parseFloat(row.querySelector('.att-x').value);
+                    const ay = parseFloat(row.querySelector('.att-y').value);
+                    const az = parseFloat(row.querySelector('.att-z').value);
+                    const nx = parseFloat(row.querySelector('.anc-x').value);
+                    const ny = parseFloat(row.querySelector('.anc-y').value);
+                    const nz = parseFloat(row.querySelector('.anc-z').value);
+                    const kAxial = parseFloat(row.querySelector('.stiff-axial').value);
+
+                    if (isNaN(ax) || isNaN(ay) || isNaN(az) || isNaN(nx) || isNaN(ny) || isNaN(nz) || isNaN(kAxial)) {
+                        throw new Error(`Invalid input for Tie Rod #${index + 1}.`);
+                    }
+                    if (kAxial < 0) throw new Error(`Axial stiffness cannot be negative for Tie Rod #${index + 1}.`);
+                    if (Math.abs(ax - nx) < 1e-9 && Math.abs(ay - ny) < 1e-9 && Math.abs(az - nz) < 1e-9) {
+                        throw new Error(`Attachment and Anchor points cannot be identical for Tie Rod #${index + 1}.`);
+                    }
+
+                    currentSupportsData.push({
+                        index: index + 1,
+                        type: 'tie-rod',
+                        attachPoint: { x: ax, y: ay, z: az },
+                        anchorPoint: { x: nx, y: ny, z: nz },
+                        kAxial
+                    });
+                });
+
+                // 3. Read Load Data
                 const loadRows = loadsTbody.querySelectorAll('tr');
                 loadRows.forEach((row, index) => {
                     const x = parseFloat(row.querySelector('.coord-x').value);
@@ -576,10 +658,10 @@
                     currentLoadsData.push({ index: index + 1, x, y, z, px, py, pz });
                 });
 
-                if (currentSupportsData.length === 0) throw new Error("At least one support point must be defined.");
+                if (currentSupportsData.length === 0) throw new Error("At least one support (General or Tie Rod) must be defined.");
                 if (currentLoadsData.length === 0) throw new Error("At least one load point must be defined.");
 
-                // 3. Build External Force/Moment Vector
+                // 4. Build External Force/Moment Vector
                 let F_ext = math.zeros(6, 1);
                 currentLoadsData.forEach(load => {
                     F_ext = math.add(F_ext, math.matrix([
@@ -592,23 +674,51 @@
                     ]));
                 });
 
-                // 4. Build Global Stiffness Matrix
+                // 5. Build Global Stiffness Matrix
                 let K_global = math.zeros(6, 6);
                 currentSupportsData.forEach(support => {
-                    const { x, y, z } = support.point;
-                    const Ki = math.diag([support.kx, support.ky, support.kz]);
-                    const Ti = math.matrix([
-                        [1, 0, 0, 0, z, -y],
-                        [0, 1, 0, -z, 0, x],
-                        [0, 0, 1, y, -x, 0]
+                    let Ki, Ti, attachX, attachY, attachZ;
+
+                    if (support.type === 'general') {
+                        // General Support Logic
+                        const { x, y, z } = support.point;
+                        attachX = x; attachY = y; attachZ = z;
+                        Ki = math.diag([support.kx, support.ky, support.kz]);
+                    } else {
+                        // Tie Rod Logic (Imported from OLD CODE)
+                        const { x: ax, y: ay, z: az } = support.attachPoint;
+                        const { x: nx, y: ny, z: nz } = support.anchorPoint;
+                        attachX = ax; attachY = ay; attachZ = az;
+
+                        // Calculate direction vector from Anchor to Attachment
+                        const dx = ax - nx, dy = ay - ny, dz = az - nz;
+                        const len = Math.sqrt(dx * dx + dy * dy + dz * dz);
+                        if (len < 1e-9) throw new Error(`Zero length Tie Rod detected.`);
+
+                        // Unit vector
+                        const ux = dx / len, uy = dy / len, uz = dz / len;
+                        const u = math.matrix([[ux], [uy], [uz]]);
+                        const uT = math.transpose(u);
+                        const uuT = math.multiply(u, uT);
+
+                        // Stiffness matrix in global coords
+                        Ki = math.multiply(uuT, support.kAxial);
+                    }
+
+                    // Transformation Matrix (same for both, based on Attachment Point)
+                    Ti = math.matrix([
+                        [1, 0, 0, 0, attachZ, -attachY],
+                        [0, 1, 0, -attachZ, 0, attachX],
+                        [0, 0, 1, attachY, -attachX, 0]
                     ]);
+
                     support.Ki = Ki;
                     support.Ti = Ti;
                     const Ki_global_contrib = math.multiply(math.transpose(Ti), Ki, Ti);
                     K_global = math.add(K_global, Ki_global_contrib);
                 });
 
-                // 5. Solve for Global Displacements
+                // 6. Solve for Global Displacements
                 let K_inv;
                 try {
                     K_inv = math.inv(K_global);
@@ -618,26 +728,30 @@
                 const D_matrix = math.multiply(K_inv, F_ext);
                 currentDisplacements = D_matrix.valueOf().flat();
 
-                // 6. Calculate Reaction Forces
+                // 7. Calculate Reaction Forces
                 currentSupportsData.forEach(support => {
                     const { Ki, Ti } = support;
                     const Ri_body_on_support_matrix = math.multiply(Ki, Ti, D_matrix);
                     const Ri_support_on_body_matrix = math.multiply(Ri_body_on_support_matrix, -1);
                     const reactionForces = Ri_support_on_body_matrix.valueOf().flat();
 
+                    const reactionPoint = (support.type === 'general') ? support.point : support.attachPoint;
+
                     currentCalculatedReactions.push({
                         index: support.index,
-                        x: support.point.x,
-                        y: support.point.y,
-                        z: support.point.z,
+                        type: support.type,
+                        x: reactionPoint.x,
+                        y: reactionPoint.y,
+                        z: reactionPoint.z,
                         rx: reactionForces[0],
                         ry: reactionForces[1],
                         rz: reactionForces[2],
-                        type: 'general'
+                        // Include anchor point for visualization if tie rod
+                        anchorPoint: support.type === 'tie-rod' ? support.anchorPoint : undefined
                     });
                 });
 
-                // 7. Display Results
+                // 8. Display Results
                 lastCalculationResults = {
                     reactions: currentCalculatedReactions,
                     displacements: currentDisplacements,
@@ -656,13 +770,75 @@
             }
         }
 
+        function formatReactionValue(val) {
+            // Logic: Max 6 significant figures OR 3 decimal places (whichever is more concise), 
+            // but prioritize staying within standard notation unless very large/small.
+
+            const absVal = Math.abs(val);
+
+            // If number is very large or very small, use scientific notation with 6 sig figs
+            if (absVal !== 0 && (absVal >= 1e6 || absVal < 1e-3)) {
+                return val.toPrecision(6);
+            }
+
+            // Otherwise, get 6 significant figures
+            let s = val.toPrecision(6);
+
+            // Check if this results in more than 3 decimal places
+            // Convert back to number to check value, or string manipulation
+            // Easier: just format to max 3 decimal places if it doesn't lose too much info?
+            // The prompt asks: "no more than 3 decimal place or 6 significant figures"
+            // This usually implies: Default to 6 sig figs, BUT truncate decimals to 3 if it exceeds that.
+
+            // Let's try to convert the 6-sig-fig string back to a number
+            let num = parseFloat(s);
+
+            // Now format that number to maximum 3 decimal places
+            // Using Intl.NumberFormat or similar is robust, but custom logic works too.
+            // Let's use string manipulation to be safe.
+
+            if (Number.isInteger(num)) {
+                return num.toString();
+            }
+
+            // Convert to fixed 3 to see what it looks like
+            const fixed3 = num.toFixed(3);
+
+            // If the 6-sig-fig version has fewer decimal places than 3, use it (strips trailing zeros)
+            // If it has more, use fixed 3.
+
+            // Actually, a simpler way to satisfy "No more than 3 decimal places" is:
+            // 1. Calculate 6 sig figs.
+            // 2. Round THAT result to 3 decimal places.
+
+            // Example: 0.123456 (6 sig figs) -> 0.123 (3 decimals)
+            // Example: 100.1234 (7 sig figs) -> 100.123 (3 decimals)
+            // Example: 1234.56  (6 sig figs) -> 1234.56 (2 decimals) -> Keep as is.
+
+            const sigFigNum = parseFloat(val.toPrecision(6));
+
+            // Now ensure no more than 3 decimals on this number
+            // We can use Math.round logic
+            const factor = Math.pow(10, 3);
+            const rounded = Math.round(sigFigNum * factor) / factor;
+
+            return rounded.toString();
+        }
+
         function displayReactions(reactions) {
             reactions.forEach(r => {
-                const row = supportsTbody.querySelector(`tr[data-support-index="${r.index}"]`);
+                let row;
+                if (r.type === 'general') {
+                    row = supportsTbody.querySelector(`tr[data-support-index="${r.index}"]`);
+                } else {
+                    row = tieRodsTbody.querySelector(`tr[data-tierod-index="${r.index}"]`);
+                }
+
                 if (row) {
-                    row.querySelector('.reaction-rx').textContent = r.rx.toFixed(3);
-                    row.querySelector('.reaction-ry').textContent = r.ry.toFixed(3);
-                    row.querySelector('.reaction-rz').textContent = r.rz.toFixed(3);
+                    // UPDATED: Using the new formatReactionValue function
+                    row.querySelector('.reaction-rx').textContent = formatReactionValue(r.rx);
+                    row.querySelector('.reaction-ry').textContent = formatReactionValue(r.ry);
+                    row.querySelector('.reaction-rz').textContent = formatReactionValue(r.rz);
                 }
             });
         }
@@ -681,6 +857,7 @@
         // --- Save/Load Configuration ---
         function saveConfiguration() {
             const supports = [];
+            // Save General Supports
             supportsTbody.querySelectorAll('tr').forEach(row => {
                 supports.push({
                     type: 'general',
@@ -690,6 +867,19 @@
                     kx: row.querySelector('.stiff-kx').value,
                     ky: row.querySelector('.stiff-ky').value,
                     kz: row.querySelector('.stiff-kz').value
+                });
+            });
+            // Save Tie Rods
+            tieRodsTbody.querySelectorAll('tr').forEach(row => {
+                supports.push({
+                    type: 'tie-rod',
+                    ax: row.querySelector('.att-x').value,
+                    ay: row.querySelector('.att-y').value,
+                    az: row.querySelector('.att-z').value,
+                    nx: row.querySelector('.anc-x').value,
+                    ny: row.querySelector('.anc-y').value,
+                    nz: row.querySelector('.anc-z').value,
+                    kAxial: row.querySelector('.stiff-axial').value
                 });
             });
 
@@ -728,44 +918,47 @@
 
                     // Clear existing
                     supportsTbody.innerHTML = '';
+                    tieRodsTbody.innerHTML = '';
                     loadsTbody.innerHTML = '';
 
-                    // Restore Supports
+                    // Restore Supports (Split by type)
                     if (config.supports && Array.isArray(config.supports)) {
-                        config.supports.forEach((s, index) => {
-                            const row = supportsTbody.insertRow();
-                            row.setAttribute('data-support-index', index + 1);
-                            row.innerHTML = `
-                                <td class="index-cell">${index + 1}</td>
-                                <td><input type="number" step="any" class="coord-x" value="${s.x}"></td>
-                                <td><input type="number" step="any" class="coord-y" value="${s.y}"></td>
-                                <td><input type="number" step="any" class="coord-z" value="${s.z}"></td>
-                                 <td><input type="number" step="any" class="stiff-kx" value="${s.kx}"></td>
-                                <td><input type="number" step="any" class="stiff-ky" value="${s.ky}"></td>
-                                <td><input type="number" step="any" class="stiff-kz" value="${s.kz}"></td>
-                                <td class="output-cell reaction-rx">-</td>
-                                <td class="output-cell reaction-ry">-</td>
-                                <td class="output-cell reaction-rz">-</td>
-                                <td><button class="remove-btn" onclick="removeSupport(this)">×</button></td>
-                            `;
+                        config.supports.forEach((s) => {
+                            if (s.type === 'tie-rod') {
+                                addTieRod();
+                                const row = tieRodsTbody.lastElementChild;
+                                row.querySelector('.att-x').value = s.ax;
+                                row.querySelector('.att-y').value = s.ay;
+                                row.querySelector('.att-z').value = s.az;
+                                row.querySelector('.anc-x').value = s.nx;
+                                row.querySelector('.anc-y').value = s.ny;
+                                row.querySelector('.anc-z').value = s.nz;
+                                row.querySelector('.stiff-axial').value = s.kAxial;
+                            } else {
+                                // Default to general if type missing or 'general'
+                                addSupport();
+                                const row = supportsTbody.lastElementChild;
+                                row.querySelector('.coord-x').value = s.x;
+                                row.querySelector('.coord-y').value = s.y;
+                                row.querySelector('.coord-z').value = s.z;
+                                row.querySelector('.stiff-kx').value = s.kx;
+                                row.querySelector('.stiff-ky').value = s.ky;
+                                row.querySelector('.stiff-kz').value = s.kz;
+                            }
                         });
                     }
 
                     // Restore Loads
                     if (config.loads && Array.isArray(config.loads)) {
-                        config.loads.forEach((l, index) => {
-                            const row = loadsTbody.insertRow();
-                            row.setAttribute('data-load-index', index + 1);
-                            row.innerHTML = `
-                                <td class="index-cell">${index + 1}</td>
-                                <td><input type="number" step="any" class="coord-x" value="${l.x}"></td>
-                                <td><input type="number" step="any" class="coord-y" value="${l.y}"></td>
-                                <td><input type="number" step="any" class="coord-z" value="${l.z}"></td>
-                                <td><input type="number" step="any" class="force-px" value="${l.px}"></td>
-                                <td><input type="number" step="any" class="force-py" value="${l.py}"></td>
-                                <td><input type="number" step="any" class="force-pz" value="${l.pz}"></td>
-                                <td><button class="remove-btn" onclick="removeLoad(this)">×</button></td>
-                            `;
+                        config.loads.forEach((l) => {
+                            addLoad();
+                            const row = loadsTbody.lastElementChild;
+                            row.querySelector('.coord-x').value = l.x;
+                            row.querySelector('.coord-y').value = l.y;
+                            row.querySelector('.coord-z').value = l.z;
+                            row.querySelector('.force-px').value = l.px;
+                            row.querySelector('.force-py').value = l.py;
+                            row.querySelector('.force-pz').value = l.pz;
                         });
                     }
 
@@ -851,6 +1044,10 @@
                             child.material.dispose();
                         }
                     }
+                    // Special handling for Line2
+                    if (child.isLine2 && child.geometry) {
+                        child.geometry.dispose();
+                    }
                 }
             }
         }
@@ -862,6 +1059,10 @@
             let allPoints = [];
             reactionsResult.forEach(r => {
                 allPoints.push(new THREE.Vector3(r.x, r.y, r.z));
+                // Add anchor point to bounds calc if it exists
+                if (r.anchorPoint) {
+                    allPoints.push(new THREE.Vector3(r.anchorPoint.x, r.anchorPoint.y, r.anchorPoint.z));
+                }
             });
             loadsInput.forEach(l => {
                 allPoints.push(new THREE.Vector3(l.x, l.y, l.z));
@@ -878,33 +1079,69 @@
             if (maxPointDistance < 1e-6) maxPointDistance = 10.0;
 
             const pointRadius = maxPointDistance / 40.0;
+            const anchorSize = pointRadius * 1.2;
 
-            let maxForceMagnitude = 0;
+            // --- CHANGED LOGIC START ---
+
+            // 1. Determine "Fit to screen" size (Target Length)
+            const targetVisualLength = maxPointDistance * 0.50;
+
+            // 2. Find the Maximum Reaction Magnitude
+            let maxReactionMagnitude = 0;
             reactionsResult.forEach(r => {
-                maxForceMagnitude = Math.max(maxForceMagnitude, Math.sqrt(r.rx ** 2 + r.ry ** 2 + r.rz ** 2));
-            });
-            loadsInput.forEach(l => {
-                maxForceMagnitude = Math.max(maxForceMagnitude, Math.sqrt(l.px ** 2 + l.py ** 2 + l.pz ** 2));
+                maxReactionMagnitude = Math.max(maxReactionMagnitude, Math.sqrt(r.rx ** 2 + r.ry ** 2 + r.rz ** 2));
             });
 
-            const targetMaxLength = maxPointDistance * 0.50;
-            const arrowScaleFactor = (maxForceMagnitude > 1e-9) ? targetMaxLength / maxForceMagnitude : 0;
+            // 3. Calculate Scale for Reactions
+            // The user wants the *longest* reaction arrow to be the length that the load arrows are set to.
+            // Since load arrows are set to targetVisualLength, we map Max Reaction -> targetVisualLength.
+            const reactionScaleFactor = (maxReactionMagnitude > 1e-9) ? targetVisualLength / maxReactionMagnitude : 0;
+
+            // 4. Define Load Length (Fixed "Nominal" Length)
+            // "set them equal to the length of the highest reaction load"
+            const fixedLoadLength = targetVisualLength;
+
+            // --- CHANGED LOGIC END ---
 
             const supportMaterial = new THREE.MeshStandardMaterial({ color: 0x007bff, roughness: 0.5 });
             const loadMaterial = new THREE.MeshStandardMaterial({ color: 0xffa500, roughness: 0.5 });
+            const anchorMaterial = new THREE.MeshStandardMaterial({ color: 0x6c757d, roughness: 0.7 });
+            const tieRodLineMaterial = new LineMaterial({
+                color: 0x6c757d, linewidth: 2, dashed: false,
+                resolution: new THREE.Vector2(visualizationContainer.clientWidth, visualizationContainer.clientHeight)
+            });
 
-            // Draw Supports and Reactions
+            // Draw Supports, Tie Rods and Reactions
             reactionsResult.forEach(r => {
                 const reactionPointVec = new THREE.Vector3(r.x, r.y, r.z);
                 const supportMesh = new THREE.Mesh(new THREE.SphereGeometry(pointRadius, 16, 16), supportMaterial);
                 supportMesh.position.copy(reactionPointVec);
                 visualizationGroup.add(supportMesh);
 
+                // Draw Tie Rod Visuals (Link Line + Anchor Box)
+                if (r.type === 'tie-rod' && r.anchorPoint) {
+                    const anchorPointVec = new THREE.Vector3(r.anchorPoint.x, r.anchorPoint.y, r.anchorPoint.z);
+                    const anchorMesh = new THREE.Mesh(new THREE.BoxGeometry(anchorSize, anchorSize, anchorSize), anchorMaterial);
+                    anchorMesh.position.copy(anchorPointVec);
+                    visualizationGroup.add(anchorMesh);
+
+                    const points = [reactionPointVec.x, reactionPointVec.y, reactionPointVec.z, anchorPointVec.x, anchorPointVec.y, anchorPointVec.z];
+                    const lineGeom = new LineGeometry();
+                    lineGeom.setPositions(points);
+                    const tieRodLine = new Line2(lineGeom, tieRodLineMaterial);
+                    tieRodLine.computeLineDistances();
+                    tieRodLine.scale.set(1, 1, 1);
+                    visualizationGroup.add(tieRodLine);
+                }
+
+                // Draw Reaction Arrow
                 const reactionVec = new THREE.Vector3(r.rx, r.ry, r.rz);
                 const reactionMag = reactionVec.length();
-                if (reactionMag > 1e-9 && arrowScaleFactor > 0) {
+                if (reactionMag > 1e-9 && reactionScaleFactor > 0) {
                     const direction = reactionVec.normalize();
-                    const length = reactionMag * arrowScaleFactor;
+                    // Scale reaction arrow proportionally
+                    const length = reactionMag * reactionScaleFactor;
+
                     const arrowHelper = new THREE.ArrowHelper(direction, reactionPointVec, length, 0xdc3545,
                         Math.max(length * 0.2, pointRadius * 0.5),
                         Math.max(length * 0.1, pointRadius * 0.25));
@@ -921,9 +1158,13 @@
 
                 const forceVec = new THREE.Vector3(l.px, l.py, l.pz);
                 const forceMag = forceVec.length();
-                if (forceMag > 1e-9 && arrowScaleFactor > 0) {
+
+                // Draw load arrow if magnitude > 0, but use FIXED nominal length
+                if (forceMag > 1e-9) {
                     const direction = forceVec.normalize();
-                    const length = forceMag * arrowScaleFactor;
+                    // Use fixed nominal length as requested
+                    const length = fixedLoadLength;
+
                     const arrowHelper = new THREE.ArrowHelper(direction, loadPointVec, length, 0x28a745,
                         Math.max(length * 0.2, pointRadius * 0.5),
                         Math.max(length * 0.1, pointRadius * 0.25));
@@ -1025,7 +1266,7 @@
             if (!threeInitialized) {
                 initThreeJS();
             }
-            updateVisualization(lastCalculationResults.loads, lastCalculationResults.loads, lastCalculationResults.reactions);
+            updateVisualization(lastCalculationResults.supports, lastCalculationResults.loads, lastCalculationResults.reactions);
         });
 
         displacementsBtn.addEventListener('click', () => {
@@ -1045,6 +1286,9 @@
         document.getElementById('view-front-btn').addEventListener('click', () => setView('Z'));
         document.getElementById('view-right-btn').addEventListener('click', () => setView('X'));
         document.getElementById('ortho-toggle').addEventListener('change', handleOrthoToggle);
+
+        // Initialize default tie rod
+        addTieRod();
 
     </script>
 </body>

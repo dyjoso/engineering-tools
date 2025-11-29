@@ -148,7 +148,7 @@
         <div class="controls">
             <h2>Beam Config</h2>
             <div class="form-group">
-                <label>Length (m)</label>
+                <label>Length (in)</label>
                 <input type="number" id="beamLength" value="10" min="1" step="0.1" onchange="updateAnalysis()">
             </div>
 
@@ -193,17 +193,17 @@
             </div>
 
             <div class="canvas-container">
-                <h3>Shear Force Diagram (kN)</h3>
+                <h3>Shear Force Diagram (lbf)</h3>
                 <canvas id="shearChart"></canvas>
             </div>
 
             <div class="canvas-container">
-                <h3>Bending Moment Diagram (kNm)</h3>
+                <h3>Bending Moment Diagram (in.lbf)</h3>
                 <canvas id="momentChart"></canvas>
             </div>
 
             <div class="canvas-container">
-                <h3>Displacement (mm)</h3>
+                <h3>Displacement (in)</h3>
                 <canvas id="dispChart"></canvas>
             </div>
         </div>
@@ -260,9 +260,9 @@
                     <div class="form-group">
                         <label>Type</label>
                         <select onchange="updateLoadType(${index}, this.value)">
-                            <option value="point" ${load.type === 'point' ? 'selected' : ''}>Point Load (kN)</option>
-                            <option value="moment" ${load.type === 'moment' ? 'selected' : ''}>Moment (kNm)</option>
-                            <option value="distributed" ${load.type === 'distributed' ? 'selected' : ''}>Distributed (kN/m)</option>
+                            <option value="point" ${load.type === 'point' ? 'selected' : ''}>Point Load (lbf)</option>
+                            <option value="moment" ${load.type === 'moment' ? 'selected' : ''}>Moment (in.lbf)</option>
+                            <option value="distributed" ${load.type === 'distributed' ? 'selected' : ''}>Distributed (lbf/in)</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -270,7 +270,7 @@
                         <input type="number" value="${load.magnitude}" step="0.1" onchange="updateLoad(${index}, 'magnitude', this.value)">
                     </div>
                     <div class="form-group">
-                        <label>Start (m)</label>
+                        <label>Start (in)</label>
                         <input type="number" value="${load.location}" step="0.1" onchange="updateLoad(${index}, 'location', this.value)">
                     </div>
             `;
@@ -278,7 +278,7 @@
                 if (load.type === 'distributed') {
                     html += `
                     <div class="form-group">
-                        <label>End (m)</label>
+                        <label>End (in)</label>
                         <input type="number" value="${load.endLocation || load.location + 1}" step="0.1" onchange="updateLoad(${index}, 'endLocation', this.value)">
                     </div>
                 `;
@@ -314,11 +314,11 @@
                 let html = `
                 <div class="load-item" style="background: #eff6ff; border: 1px solid #bfdbfe;">
                     <div class="form-group">
-                        <label>Location (m)</label>
+                        <label>Location (in)</label>
                         <input type="number" value="${c.location}" step="0.1" onchange="updateConstraint(${index}, 'location', this.value)">
                     </div>
                     <div class="form-group">
-                        <label>Disp. (mm)</label>
+                        <label>Disp. (in)</label>
                         <input type="number" value="${c.displacement}" step="0.1" onchange="updateConstraint(${index}, 'displacement', this.value)">
                     </div>
                     <button class="btn btn-red" onclick="removeConstraint(${index})">X</button>
@@ -454,8 +454,8 @@
             const F = Array(numDOFs).fill(0);
 
             // Material Properties (Arbitrary constant EI)
-            const E = 200e9; // Pa
-            const I = 100e-6; // m^4
+            const E = 10.5e6; // psi
+            const I = 1; // in^4
             const EI = E * I;
 
             // 3. Assembly
@@ -556,7 +556,7 @@
                             // Penalty Method
                             const penalty = 1e14 * EI;
                             K.add(2 * nIdx, 2 * nIdx, penalty);
-                            F[2 * nIdx] += penalty * (c.displacement / 1000); // Convert mm to m
+                            F[2 * nIdx] += penalty * (c.displacement); // Use inches for displacment input
                             constrainedDOFs.delete(2 * nIdx); // Treat as free but with penalty
                         }
                     }
@@ -659,7 +659,7 @@
                     xVals.push(xGlobal);
                     shearVals.push(V);
                     momentVals.push(M);
-                    dispVals.push(v * 1000); // Convert m to mm
+                    dispVals.push(v); // Use inches for displacement output
                 }
             }
 
@@ -784,16 +784,16 @@
             // Update Text
             const rEl = document.getElementById('reactionOutput');
             let html = `
-            <div><strong>R_Left (Up):</strong> ${res.reactions.RA.toFixed(2)} kN</div>
-            <div><strong>R_Right (Up):</strong> ${res.reactions.RB.toFixed(2)} kN</div>
-            ${res.reactions.MA !== 0 ? `<div><strong>M_Left:</strong> ${res.reactions.MA.toFixed(2)} kNm</div>` : ''}
-            ${res.reactions.MB !== 0 ? `<div><strong>M_Right:</strong> ${res.reactions.MB.toFixed(2)} kNm</div>` : ''}
+            <div><strong>R_Left (Up):</strong> ${res.reactions.RA.toFixed(2)} lbf</div>
+            <div><strong>R_Right (Up):</strong> ${res.reactions.RB.toFixed(2)} lbf</div>
+            ${res.reactions.MA !== 0 ? `<div><strong>M_Left:</strong> ${res.reactions.MA.toFixed(2)} in.lbf</div>` : ''}
+            ${res.reactions.MB !== 0 ? `<div><strong>M_Right:</strong> ${res.reactions.MB.toFixed(2)} in.lbf</div>` : ''}
             `;
 
             if (res.reactions.constraints.length > 0) {
                 html += `<div style="grid-column: span 2; margin-top: 5px; border-top: 1px solid #ccc; padding-top: 5px;"><strong>Constraint Reactions:</strong></div>`;
                 res.reactions.constraints.forEach(c => {
-                    html += `<div>@ ${c.location}m: ${c.magnitude.toFixed(2)} kN</div>`;
+                    html += `<div>@ ${c.location}in: ${c.magnitude.toFixed(2)} lbf</div>`;
                 });
             }
             rEl.innerHTML = html;
@@ -899,13 +899,13 @@
                     ctx.lineTo(startX + 5, beamY - 15);
                     ctx.fill();
                     // Text
-                    ctx.fillText(l.magnitude + "kN", startX - 10, beamY - 55);
+                    ctx.fillText(l.magnitude + "lbf", startX - 10, beamY - 55);
                 } else if (l.type === 'distributed') {
                     let endX = margin + (l.endLocation || l.location) * scale;
                     ctx.globalAlpha = 0.3;
                     ctx.fillRect(startX, beamY - 30, endX - startX, 28);
                     ctx.globalAlpha = 1.0;
-                    ctx.fillText(l.magnitude + "kN/m", startX, beamY - 35);
+                    ctx.fillText(l.magnitude + "lbf/in", startX, beamY - 35);
                 }
             });
         }
@@ -925,7 +925,7 @@
                 scales: {
                     x: {
                         type: 'linear',
-                        title: { display: true, text: 'Length (m)', color: '#64748b' },
+                        title: { display: true, text: 'Length (in)', color: '#64748b' },
                         ticks: { maxTicksLimit: 10, color: '#64748b' },
                         grid: { color: '#e2e8f0' }
                     },
@@ -944,7 +944,7 @@
                 type: 'line',
                 data: {
                     datasets: [{
-                        label: 'Shear Force (kN)',
+                        label: 'Shear Force (lbf)',
                         data: xVals.map((x, i) => ({ x: x, y: shearData[i] })),
                         borderColor: '#2563eb',
                         backgroundColor: 'rgba(37, 99, 235, 0.1)',
@@ -961,7 +961,7 @@
                 type: 'line',
                 data: {
                     datasets: [{
-                        label: 'Bending Moment (kNm)',
+                        label: 'Bending Moment (in.lbf)',
                         data: xVals.map((x, i) => ({ x: x, y: momentData[i] })),
                         borderColor: '#059669',
                         backgroundColor: 'rgba(5, 150, 105, 0.1)',
@@ -978,7 +978,7 @@
                 type: 'line',
                 data: {
                     datasets: [{
-                        label: 'Displacement (mm)',
+                        label: 'Displacement (in)',
                         data: xVals.map((x, i) => ({ x: x, y: dispData[i] })),
                         borderColor: '#d97706',
                         backgroundColor: 'rgba(217, 119, 6, 0.1)',
