@@ -304,6 +304,7 @@
 
                 <div class="button-group">
                     <button id="add-block-btn" class="button orange">Add Block</button>
+                    <button id="add-std-btn" class="button orange">Standard Section</button>
                     <button id="add-snap-btn" class="button orange">Add by Snapping</button>
                 </div>
                 <div id="snap-status"></div>
@@ -358,12 +359,41 @@
     </div>
 
 
+    <!-- Standard Section Modal -->
+    <div id="std-modal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 500px;">
+            <span class="std-modal-close-btn modal-close-btn">&times;</span>
+            <h2>Generate Standard Section</h2>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: center;">
+                <label>Section Type:</label>
+                <select id="std-type" style="padding: 5px;">
+                    <option value="I">I-Section</option>
+                    <option value="Z">Z-Section</option>
+                </select>
+
+                <label>Origin y0:</label><input type="number" id="std-y0" value="0">
+                <label>Origin z0:</label><input type="number" id="std-z0" value="0">
+
+                <label>Total Height (H):</label><input type="number" id="std-h" value="10">
+                <label>Top Flange Width (B_top):</label><input type="number" id="std-bt" value="5">
+                <label>Bottom Flange Width (B_bot):</label><input type="number" id="std-bb" value="5">
+                <label>Web Thickness (tw):</label><input type="number" id="std-tw" value="0.5">
+                <label>Flange Thickness (tf):</label><input type="number" id="std-tf" value="0.5">
+
+                <div style="grid-column: 1 / -1; margin-top: 10px;">
+                    <button id="generate-std-btn" class="button orange" style="width: 100%;">Generate</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             // --- ELEMENT REFERENCES ---
             const appContainer = document.querySelector('.app-container');
             const blocksContainer = document.getElementById('blocks-container');
             const addBlockBtn = document.getElementById('add-block-btn');
+            const addStdBtn = document.getElementById('add-std-btn');
             const addSnapBtn = document.getElementById('add-snap-btn');
             const snapStatus = document.getElementById('snap-status');
             const uploader = document.getElementById('file-uploader');
@@ -375,6 +405,12 @@
             const modalTitle = document.getElementById('modal-title');
             const modalBody = document.getElementById('modal-body');
             const modalCloseBtn = document.querySelector('.modal-close-btn');
+
+            // Standard Section Modal Elements
+            const stdModal = document.getElementById('std-modal');
+            const stdModalCloseBtn = document.querySelector('.std-modal-close-btn');
+            const generateStdBtn = document.getElementById('generate-std-btn');
+
             const canvas = document.getElementById('section-plot');
 
             let chartInstance = null;
@@ -588,8 +624,49 @@
 
             const openModal = () => modal.style.display = 'flex'; const closeModal = () => modal.style.display = 'none';
 
+            const openStdModal = () => stdModal.style.display = 'flex';
+            const closeStdModal = () => stdModal.style.display = 'none';
+
+            const generateStandardSection = () => {
+                const type = document.getElementById('std-type').value;
+                const y0 = parseFloat(document.getElementById('std-y0').value) || 0;
+                const z0 = parseFloat(document.getElementById('std-z0').value) || 0;
+                const H = parseFloat(document.getElementById('std-h').value) || 0;
+                const Bt = parseFloat(document.getElementById('std-bt').value) || 0;
+                const Bb = parseFloat(document.getElementById('std-bb').value) || 0;
+                const tw = parseFloat(document.getElementById('std-tw').value) || 0;
+                const tf = parseFloat(document.getElementById('std-tf').value) || 0;
+
+                if (H <= 0 || Bt <= 0 || Bb <= 0 || tw <= 0 || tf <= 0) {
+                    alert("Dimensions must be positive.");
+                    return;
+                }
+
+                const h_web = H - 2 * tf;
+
+                if (type === 'I') {
+                    // Bottom Flange
+                    addBlock({ y0: y0 - Bb / 2, z0: z0, ly: Bb, lz: tf, label: 'Bot Flange' });
+                    // Web
+                    addBlock({ y0: y0 - tw / 2, z0: z0 + tf, ly: tw, lz: h_web, label: 'Web' });
+                    // Top Flange
+                    addBlock({ y0: y0 - Bt / 2, z0: z0 + H - tf, ly: Bt, lz: tf, label: 'Top Flange' });
+                } else if (type === 'Z') {
+                    // Bot Flange (Left) - aligned to right edge of web
+                    addBlock({ y0: y0 + tw / 2 - Bb, z0: z0, ly: Bb, lz: tf, label: 'Bot Flange' });
+                    // Web
+                    addBlock({ y0: y0 - tw / 2, z0: z0 + tf, ly: tw, lz: h_web, label: 'Web' });
+                    // Top Flange (Right) - aligned to left edge of web
+                    addBlock({ y0: y0 - tw / 2, z0: z0 + H - tf, ly: Bt, lz: tf, label: 'Top Flange' });
+                }
+
+                closeStdModal();
+                runFullCalculation();
+            };
+
             // --- EVENT LISTENERS ---
             addBlockBtn.addEventListener('click', () => { addBlock(); runFullCalculation(); });
+            addStdBtn.addEventListener('click', openStdModal);
             addSnapBtn.addEventListener('click', () => toggleSnappingMode());
 
             blocksContainer.addEventListener('click', (event) => {
@@ -642,7 +719,12 @@
             principalBtn.addEventListener('click', () => { if (!lastResults) { return; } modalTitle.textContent = 'Properties about Principal Axes'; modalBody.innerHTML = `<label>I1 =</label><span>${lastResults.I1.toExponential(3)}</span><label>I2 =</label><span>${lastResults.I2.toExponential(3)}</span><label>θ (deg) =</label><span>${(lastResults.theta * 180 / Math.PI).toFixed(2)}</span>`; openModal(); });
             plasticBtn.addEventListener('click', () => { if (!lastResults) { return; } modalTitle.textContent = 'Plastic Shape Factors'; modalBody.innerHTML = `<label>fy =</label><span>${lastResults.fy.toFixed(3)}</span><label>fz =</label><span>${lastResults.fz.toFixed(3)}</span><p style="grid-column:1/-1;font-size:0.8em;margin-top:10px;">Note: Assumes plastic neutral axis coincides with elastic neutral axis.</p>`; openModal(); });
             modalCloseBtn.addEventListener('click', closeModal);
-            window.addEventListener('click', (e) => e.target === modal && closeModal());
+            stdModalCloseBtn.addEventListener('click', closeStdModal);
+            generateStdBtn.addEventListener('click', generateStandardSection);
+            window.addEventListener('click', (e) => {
+                if (e.target === modal) closeModal();
+                if (e.target === stdModal) closeStdModal();
+            });
             window.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape' && isSnapping) toggleSnappingMode(true);
             });
