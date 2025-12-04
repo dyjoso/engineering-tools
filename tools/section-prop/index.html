@@ -1,391 +1,729 @@
 <!DOCTYPE html>
+
 <html lang="en">
 
+
 <head>
+
     <meta charset="UTF-8">
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>Section Property and Beam Stress Calculator</title>
+
     <!-- Include Chart.js library for plotting -->
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
     <style>
         :root {
+
             --primary-color: #0068c9;
+
             --bg-color: #f0f0f0;
+
             --card-bg-color: #ffffff;
+
             --text-color: #333;
+
             --border-color: #ccc;
+
             --box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+
             --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
             --orange-btn: #fa9e61;
+
             --green-btn: #B4CEA1;
+
             --result-bg: #d5e2ca;
+
             --danger-btn: #f44336;
+
         }
+
 
         body {
+
             font-family: var(--font-family);
+
             background-color: var(--bg-color);
+
             color: var(--text-color);
+
             margin: 0;
+
             padding: 0.5rem;
+
             display: flex;
+
             justify-content: center;
+
             font-size: 14px;
+
         }
+
 
         .app-container {
+
             width: 100%;
+
             max-width: 950px;
+
             background-color: var(--card-bg-color);
+
             padding: 15px;
+
             border-radius: 8px;
+
             box-shadow: var(--box-shadow);
+
             border: 1px solid var(--border-color);
+
         }
+
 
         h1 {
+
             text-align: center;
+
             font-size: 1.4em;
+
             margin-top: 0;
+
             margin-bottom: 15px;
+
             color: var(--primary-color);
+
         }
+
 
         h2 {
+
             font-size: 1.0em;
+
             margin-top: 0;
+
             margin-bottom: 8px;
+
         }
+
 
         .card {
+
             border: 1px solid var(--border-color);
+
             padding: 10px;
+
             border-radius: 5px;
+
             margin-bottom: 10px;
+
         }
+
 
         .main-layout-grid {
+
             display: grid;
+
             grid-template-columns: 420px 1fr;
+
             gap: 20px;
+
         }
+
 
         .block-input-header {
+
             display: grid;
+
             grid-template-columns: 1fr 1fr 1fr 1fr 1.5fr 0.5fr;
+
             gap: 5px;
+
             font-weight: bold;
+
             text-align: center;
+
             margin-bottom: 5px;
+
         }
+
 
         .block-definition {
+
             display: grid;
+
             grid-template-columns: 1fr 1fr 1fr 1fr 1.5fr 0.5fr;
+
             gap: 5px;
+
             margin-bottom: 4px;
+
             align-items: center;
+
         }
+
 
         input::-webkit-outer-spin-button,
+
         input::-webkit-inner-spin-button {
+
             -webkit-appearance: none;
+
             margin: 0;
+
         }
+
 
         input[type=number] {
+
             -moz-appearance: textfield;
+
         }
+
 
         input[type="number"],
+
         input[type="text"] {
+
             width: 100%;
+
             padding: 4px;
+
             border-radius: 4px;
+
             border: 1px solid var(--border-color);
+
             box-sizing: border-box;
+
             text-align: center;
+
         }
+
 
         .button-group {
+
             display: flex;
+
             gap: 10px;
+
             margin-bottom: 10px;
+
         }
+
 
         .button {
+
             flex: 1;
+
             padding: 8px;
+
             border: 1px solid #999;
+
             border-radius: 4px;
+
             font-size: 0.9em;
+
             cursor: pointer;
+
             background-color: #e7e7e7;
+
             transition: background-color 0.2s, color 0.2s;
+
         }
+
 
         .button:hover {
+
             background-color: #dcdcdc;
+
         }
+
 
         .button.orange {
+
             background-color: var(--orange-btn);
+
             border-color: #e08e51;
+
             color: white;
+
         }
+
 
         .button.orange:hover {
+
             background-color: #e08e51;
+
         }
+
 
         .button.green {
+
             background-color: var(--green-btn);
+
             border-color: #a0b991;
+
         }
+
 
         .button.green:hover {
+
             background-color: #a0b991;
+
         }
+
 
         .button.snapping-active {
+
             background-color: var(--primary-color);
+
             color: white;
+
             border-color: #0056b3;
+
         }
+
 
         .remove-block-btn {
+
             background-color: var(--danger-btn);
+
             color: white;
+
             border: none;
+
             border-radius: 4px;
+
             cursor: pointer;
+
             font-weight: bold;
+
             padding: 4px 0;
+
             line-height: 1;
+
             height: 100%;
+
         }
 
+
         .remove-block-btn:hover {
+
             background-color: #d32f2f;
+
         }
+
 
 
         .side-by-side-cards {
+
             display: grid;
+
             grid-template-columns: 1fr 1fr;
+
             gap: 10px;
+
         }
+
 
         .results-column .card {
+
             display: grid;
+
             grid-template-columns: 1fr 1fr;
+
             gap: 5px 8px;
+
             align-items: center;
+
         }
+
 
         .results-column h2 {
+
             grid-column: 1 / -1;
+
         }
+
 
         .results-column label {
+
             font-weight: bold;
+
             text-align: right;
+
         }
+
 
         .results-column .result-value,
+
         .results-column input {
+
             background-color: var(--result-bg);
+
             padding: 4px;
+
             border-radius: 4px;
+
             text-align: center;
+
             font-family: monospace;
+
             border: 1px solid #c0d0b8;
+
         }
+
 
         .plot-container {
+
             height: 100%;
+
             min-height: 450px;
+
         }
+
 
         .plot-container canvas {
+
             cursor: crosshair;
+
         }
+
 
         #snap-status {
+
             text-align: center;
+
             font-weight: bold;
+
             color: var(--primary-color);
+
             height: 1.2em;
+
             margin-top: 5px;
+
         }
+
 
         .modal-overlay {
+
             display: none;
+
             position: fixed;
+
             z-index: 1000;
+
             left: 0;
+
             top: 0;
+
             width: 100%;
+
             height: 100%;
+
             background-color: rgba(0, 0, 0, 0.5);
+
             justify-content: center;
+
             align-items: center;
+
         }
+
 
         .modal-content {
+
             background-color: #fff;
+
             padding: 20px;
+
             border-radius: 8px;
+
             width: 90%;
+
             max-width: 400px;
+
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+
             position: relative;
+
         }
+
 
         .modal-close-btn {
+
             position: absolute;
+
             top: 10px;
+
             right: 15px;
+
             color: #aaa;
+
             font-size: 28px;
+
             font-weight: bold;
+
             cursor: pointer;
+
         }
+
 
         #modal-body {
+
             display: grid;
+
             grid-template-columns: 1fr 1fr;
+
             gap: 10px;
+
             align-items: center;
+
         }
+
 
         #modal-body label {
+
             font-weight: bold;
+
             text-align: right;
+
         }
+
 
         #modal-body span {
+
             font-family: monospace;
+
         }
+
 
         @media (max-width: 880px) {
+
             .main-layout-grid {
+
                 grid-template-columns: 1fr;
+
             }
+
         }
     </style>
+
 </head>
 
+
 <body>
+
     <div class="app-container">
+
         <h1>SCT-005 Section Property and Beam Stress Calculator</h1>
 
+
         <div class="main-layout-grid">
+
             <div class="left-column">
+
                 <div class="card">
+
                     <h2>Enter block element dimensions</h2>
+
                     <div class="button-group">
+
                         <button id="save-btn" class="button">Save</button>
+
                         <input type="file" id="file-uploader" style="display:none;">
+
                         <button id="open-btn" class="button">Open</button>
+
                     </div>
+
                     <div class="block-input-header">
+
                         <span>y0</span>
+
                         <span>z0</span>
+
                         <span>Ly</span>
+
                         <span>Lz</span>
+
                         <span>Element Label</span>
+
                         <span></span>
+
                     </div>
+
                     <div id="blocks-container">
+
                         <!-- JS will populate this -->
+
                     </div>
+
                 </div>
+
 
                 <div class="button-group">
+
                     <button id="add-block-btn" class="button orange">Add Block</button>
+
                     <button id="add-std-btn" class="button orange">Standard Section</button>
+
                     <button id="add-snap-btn" class="button orange">Add by Snapping</button>
+
                 </div>
+
                 <div id="snap-status"></div>
 
+
                 <div class="results-column">
+
                     <div class="side-by-side-cards">
+
                         <div class="card">
+
                             <h2>Properties about Neutral Axis:</h2>
+
                             <label>Izz =</label><span id="res-izz" class="result-value">n/a</span>
+
                             <label>Iyy =</label><span id="res-iyy" class="result-value">n/a</span>
+
                             <label>Iyz =</label><span id="res-iyz" class="result-value">n/a</span>
+
                             <label>A =</label><span id="res-area" class="result-value">n/a</span>
+
                             <label>y_min =</label><span id="res-ymin" class="result-value">n/a</span>
+
                             <label>y_max =</label><span id="res-ymax" class="result-value">n/a</span>
+
                             <label>z_min =</label><span id="res-zmin" class="result-value">n/a</span>
+
                             <label>z_max =</label><span id="res-zmax" class="result-value">n/a</span>
+
                         </div>
+
                         <div class="card">
+
                             <h2>Applied bending and axial:</h2>
+
                             <label>Myy:</label><input type="number" id="myy" value="0">
+
                             <label>Mzz:</label><input type="number" id="mzz" value="0">
+
                             <label>Fxx:</label><input type="number" id="fxx" value="0">
+
                             <label>Max σxx =</label><span id="res-sxx-max" class="result-value">n/a</span>
+
                             <label>Min σxx =</label><span id="res-sxx-min" class="result-value">n/a</span>
+
                             <h2 style="margin-top: 10px;">Stress at a point:</h2>
+
                             <label>y-coord:</label><input type="number" id="py" value="0">
+
                             <label>z-coord:</label><input type="number" id="pz" value="0">
+
                             <label>σxx =</label><span id="res-sxx-point" class="result-value">n/a</span>
+
                         </div>
+
                     </div>
+
                     <div class="button-group">
+
                         <button id="principal-btn" class="button green">Properties about Principal Axes</button>
+
                         <button id="plastic-btn" class="button green">Plastic Shape Factors</button>
+
                     </div>
+
                 </div>
+
             </div>
+
             <div class="right-column">
+
                 <div class="plot-container card">
+
                     <canvas id="section-plot"></canvas>
+
                 </div>
+
             </div>
+
         </div>
+
     </div>
 
+
     <!-- Modal Structure -->
+
     <div id="modal" class="modal-overlay">
+
         <div class="modal-content">
+
             <span class="modal-close-btn">&times;</span>
+
             <h2 id="modal-title"></h2>
+
             <div id="modal-body"></div>
+
         </div>
+
     </div>
+
 
 
     <!-- Standard Section Modal -->
+
     <div id="std-modal" class="modal-overlay">
+
         <div class="modal-content" style="max-width: 500px;">
+
             <span class="std-modal-close-btn modal-close-btn">&times;</span>
+
             <h2>Generate Standard Section</h2>
+
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: center;">
+
                 <label>Section Type:</label>
+
                 <select id="std-type" style="padding: 5px;">
+
                     <option value="I">I-Section</option>
+
                     <option value="Z">Z-Section</option>
+
                 </select>
 
+
                 <label>Origin y0:</label><input type="number" id="std-y0" value="0">
+
                 <label>Origin z0:</label><input type="number" id="std-z0" value="0">
 
+
                 <label>Total Height (H):</label><input type="number" id="std-h" value="10">
+
                 <label>Top Flange Width (B_top):</label><input type="number" id="std-bt" value="5">
+
                 <label>Bottom Flange Width (B_bot):</label><input type="number" id="std-bb" value="5">
+
                 <label>Web Thickness (tw):</label><input type="number" id="std-tw" value="0.5">
+
                 <label>Flange Thickness (tf):</label><input type="number" id="std-tf" value="0.5">
 
+
                 <div style="grid-column: 1 / -1; margin-top: 10px;">
+
                     <button id="generate-std-btn" class="button orange" style="width: 100%;">Generate</button>
+
                 </div>
+
             </div>
+
         </div>
+
     </div>
+
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
@@ -440,7 +778,7 @@
                     snapStatus.textContent = '';
                     hoveredSnapPoint = null;
                 }
-                runFullCalculation(); // Redraw chart with/without snap points
+                runFullCalculation();
             };
 
             const addBlock = (data = {}) => {
@@ -448,13 +786,13 @@
                 const blockDiv = document.createElement('div');
                 blockDiv.className = 'block-definition';
                 blockDiv.innerHTML = `
-                    <input type="number" class="block-y0" value="${data.y0 !== undefined ? data.y0 : 0}">
-                    <input type="number" class="block-z0" value="${data.z0 !== undefined ? data.z0 : 0}">
-                    <input type="number" class="block-ly" value="${data.ly !== undefined ? data.ly : 0}">
-                    <input type="number" class="block-lz" value="${data.lz !== undefined ? data.lz : 0}">
-                    <input type="text" class="block-label" value="${data.label || `Block ${blockId}`}">
-                    <button class="remove-block-btn">X</button>
-                `;
+                <input type="number" class="block-y0" value="${data.y0 !== undefined ? data.y0 : 0}">
+                <input type="number" class="block-z0" value="${data.z0 !== undefined ? data.z0 : 0}">
+                <input type="number" class="block-ly" value="${data.ly !== undefined ? data.ly : 0}">
+                <input type="number" class="block-lz" value="${data.lz !== undefined ? data.lz : 0}">
+                <input type="text" class="block-label" value="${data.label || `Block ${blockId}`}">
+                <button class="remove-block-btn">X</button>
+            `;
                 blocksContainer.appendChild(blockDiv);
             };
 
@@ -474,71 +812,278 @@
                     py: parseFloat(document.getElementById('py').value) || 0,
                     pz: parseFloat(document.getElementById('pz').value) || 0
                 };
-                return { blocks, loads };
+                return {
+                    blocks,
+                    loads
+                };
             };
 
+            // --- IMPROVED PLASTIC CALCULATION LOGIC ---
+
+            // Helper: Find the axis that divides area in half (PNA)
+            // axis param: 'z' (find z_pna for bending about y), 'y' (find y_pna for bending about z)
+            const findPlasticNeutralAxis = (normBlocks, totalArea, axis) => {
+                const targetArea = totalArea / 2;
+
+                // 1. Get all unique boundary coordinates along the axis
+                let boundaries = new Set();
+                normBlocks.forEach(b => {
+                    if (axis === 'z') {
+                        boundaries.add(b.z_min);
+                        boundaries.add(b.z_max);
+                    } else {
+                        boundaries.add(b.y_min);
+                        boundaries.add(b.y_max);
+                    }
+                });
+                // Sort boundaries ascending
+                const sortedBounds = Array.from(boundaries).sort((a, b) => a - b);
+
+                let accumulatedArea = 0;
+
+                // 2. Iterate through strips defined by boundaries
+                for (let i = 0; i < sortedBounds.length - 1; i++) {
+                    const start = sortedBounds[i];
+                    const end = sortedBounds[i + 1];
+                    const stripHeight = end - start;
+
+                    // Calculate effective width of material in this strip
+                    let effectiveWidth = 0;
+                    normBlocks.forEach(b => {
+                        const bStart = axis === 'z' ? b.z_min : b.y_min;
+                        const bEnd = axis === 'z' ? b.z_max : b.y_max;
+                        const bWidth = axis === 'z' ? (b.y_max - b.y_min) : (b.z_max - b.z_min);
+
+                        if (bStart <= start && bEnd >= end) {
+                            effectiveWidth += bWidth;
+                        }
+                    });
+
+                    if (effectiveWidth === 0) continue;
+
+                    const stripArea = effectiveWidth * stripHeight;
+
+                    // Check if the PNA falls within this strip
+                    if (accumulatedArea + stripArea >= targetArea) {
+                        const areaNeeded = targetArea - accumulatedArea;
+                        const distanceIntoStrip = areaNeeded / effectiveWidth;
+                        return start + distanceIntoStrip;
+                    }
+
+                    accumulatedArea += stripArea;
+                }
+                return 0; // Should not happen for valid geometry
+            };
+
+            // Helper: Calculate Zp about a specific PNA
+            const calculateZp = (normBlocks, pna, axis) => {
+                let Zp = 0;
+
+                normBlocks.forEach(b => {
+                    const start = axis === 'z' ? b.z_min : b.y_min;
+                    const end = axis === 'z' ? b.z_max : b.y_max;
+                    const transDim = axis === 'z' ? (b.y_max - b.y_min) : (b.z_max - b.z_min);
+                    const mainDim = end - start;
+                    const centroid = start + mainDim / 2;
+
+                    // Case 1: Entire block is "below" (or left of) PNA
+                    if (end <= pna) {
+                        const dist = pna - centroid;
+                        Zp += (mainDim * transDim) * dist;
+                    }
+                    // Case 2: Entire block is "above" (or right of) PNA
+                    else if (start >= pna) {
+                        const dist = centroid - pna;
+                        Zp += (mainDim * transDim) * dist;
+                    }
+                    // Case 3: PNA cuts through the block
+                    else {
+                        // Split into two rectangles
+                        const belowHeight = pna - start;
+                        const aboveHeight = end - pna;
+
+                        // Moment of lower part
+                        const distBelow = pna - (start + belowHeight / 2);
+                        Zp += (belowHeight * transDim) * distBelow;
+
+                        // Moment of upper part
+                        const distAbove = (pna + aboveHeight / 2) - pna;
+                        Zp += (aboveHeight * transDim) * distAbove;
+                    }
+                });
+                return Zp;
+            };
+
+            const calculatePlasticProperties = (normBlocks, totalArea) => {
+                // For bending about Y-axis (vertical bending), we need horizontal PNA (z=?)
+                const z_pna = findPlasticNeutralAxis(normBlocks, totalArea, 'z');
+                const Zpy_plastic = calculateZp(normBlocks, z_pna, 'z'); // Zp for bending about Y (uses z coords)
+
+                // For bending about Z-axis (horizontal bending), we need vertical PNA (y=?)
+                const y_pna = findPlasticNeutralAxis(normBlocks, totalArea, 'y');
+                const Zpz_plastic = calculateZp(normBlocks, y_pna, 'y'); // Zp for bending about Z (uses y coords)
+
+                return { z_pna, y_pna, Zpy_plastic, Zpz_plastic };
+            };
+
+
             const calculateProperties = (blocks, loads) => {
+                // 1. Normalize Blocks (handle negative widths/heights by converting to min/max)
+                const normBlocks = blocks.map(b => {
+                    return {
+                        y_min: Math.min(b.y0, b.y0 + b.ly),
+                        y_max: Math.max(b.y0, b.y0 + b.ly),
+                        z_min: Math.min(b.z0, b.z0 + b.lz),
+                        z_max: Math.max(b.z0, b.z0 + b.lz),
+                        orig: b
+                    };
+                });
+
                 let ybar_list = [], zbar_list = [], A = [], yA = [], y2A = [], Iyy = [], zA = [], z2A = [], Izz = [];
-                let Iyz_na = 0, Zpy = 0, Zpz = 0;
+                let Iyz_na = 0;
 
                 snapPoints = [];
-                blocks.forEach(b => {
-                    snapPoints.push({ x: b.y0, y: b.z0 });
-                    snapPoints.push({ x: b.y0 + b.ly, y: b.z0 });
-                    snapPoints.push({ x: b.y0, y: b.z0 + b.lz });
-                    snapPoints.push({ x: b.y0 + b.ly, y: b.z0 + b.lz });
-                    const current_ybar = b.y0 + b.ly / 2;
-                    const current_zbar = b.z0 + b.lz / 2;
-                    const current_A = Math.abs(b.ly) * Math.abs(b.lz);
-                    ybar_list.push(current_ybar); zbar_list.push(current_zbar); A.push(current_A);
-                    yA.push(current_A * current_ybar); y2A.push(current_A * current_ybar * current_ybar);
-                    Iyy.push(Math.pow(Math.abs(b.lz), 3) * Math.abs(b.ly) / 12);
-                    zA.push(current_A * current_zbar); z2A.push(current_A * current_zbar * current_zbar);
-                    Izz.push(Math.pow(Math.abs(b.ly), 3) * Math.abs(b.lz) / 12);
+
+                // Elastic Calculation Loop
+                normBlocks.forEach(b => {
+                    const width = b.y_max - b.y_min;
+                    const height = b.z_max - b.z_min;
+                    const current_ybar = b.y_min + width / 2;
+                    const current_zbar = b.z_min + height / 2;
+                    const current_A = width * height;
+
+                    // For Snapping
+                    snapPoints.push({ x: b.y_min, y: b.z_min });
+                    snapPoints.push({ x: b.y_max, y: b.z_min });
+                    snapPoints.push({ x: b.y_min, y: b.z_max });
+                    snapPoints.push({ x: b.y_max, y: b.z_max });
+
+                    ybar_list.push(current_ybar);
+                    zbar_list.push(current_zbar);
+                    A.push(current_A);
+                    yA.push(current_A * current_ybar);
+                    y2A.push(current_A * current_ybar * current_ybar);
+
+                    Iyy.push(width * Math.pow(height, 3) / 12); // I about local horizontal centroidal axis
+                    Izz.push(height * Math.pow(width, 3) / 12); // I about local vertical centroidal axis
+
+                    zA.push(current_A * current_zbar);
+                    z2A.push(current_A * current_zbar * current_zbar);
                 });
 
                 const sum = arr => arr.reduce((acc, val) => acc + val, 0);
                 const total_A = sum(A);
-                if (total_A === 0) { return null; }
+                if (total_A === 0) {
+                    return null;
+                }
 
                 const ybar_o = sum(yA) / total_A;
                 const zbar_o = sum(zA) / total_A;
-                const Izz_o = sum(Izz) + sum(y2A);
-                const Iyy_o = sum(Iyy) + sum(z2A);
-                const Izz_na = Izz_o - total_A * ybar_o ** 2;
-                const Iyy_na = Iyy_o - total_A * zbar_o ** 2;
-                A.forEach((_, n) => { Iyz_na += A[n] * (ybar_list[n] - ybar_o) * (zbar_list[n] - zbar_o); });
+
+                // Parallel Axis Theorem
+                // I_about_origin = sum(I_local + A*d^2)
+                // But we want about Neutral Axis.
+                // I_NA = sum(I_local + A * (dist_to_NA)^2)
+
+                let Sum_I_local_z_bending = 0; // Bending about horizontal axis (changes in Z)
+                let Sum_I_local_y_bending = 0; // Bending about vertical axis (changes in Y)
+
+                normBlocks.forEach((b, i) => {
+                    // Iyy_na (Resistance to bending about horizontal Y-axis)
+                    // Requires vertical distances (z)
+                    const dist_z = zbar_list[i] - zbar_o;
+                    Sum_I_local_z_bending += Iyy[i] + A[i] * dist_z * dist_z;
+
+                    // Izz_na (Resistance to bending about vertical Z-axis)
+                    // Requires horizontal distances (y)
+                    const dist_y = ybar_list[i] - ybar_o;
+                    Sum_I_local_y_bending += Izz[i] + A[i] * dist_y * dist_y;
+
+                    // Product of Inertia
+                    Iyz_na += A[i] * (ybar_list[i] - ybar_o) * (zbar_list[i] - zbar_o);
+                });
+
+                // Map back to the UI's variable names
+                const Iyy_na = Sum_I_local_z_bending; // Inertia about horizontal centroidal axis
+                const Izz_na = Sum_I_local_y_bending; // Inertia about vertical centroidal axis
+
                 const I1 = 0.5 * (Izz_na + Iyy_na) + Math.sqrt(0.25 * (Izz_na - Iyy_na) ** 2 + Iyz_na ** 2);
                 const I2 = 0.5 * (Izz_na + Iyy_na) - Math.sqrt(0.25 * (Izz_na - Iyy_na) ** 2 + Iyz_na ** 2);
                 const theta = (Iyy_na === Izz_na) ? 0 : 0.5 * Math.atan(2 * Iyz_na / (Iyy_na - Izz_na));
 
-                let pxy = [];
-                blocks.forEach(b => {
-                    pxy.push({ y: b.y0 - ybar_o, z: b.z0 - zbar_o });
-                    pxy.push({ y: b.y0 - ybar_o, z: b.z0 + b.lz - zbar_o });
-                    pxy.push({ y: b.y0 + b.ly - ybar_o, z: b.z0 + b.lz - zbar_o });
-                    pxy.push({ y: b.y0 + b.ly - ybar_o, z: b.z0 - zbar_o });
-                    if (Math.sign(b.y0 + b.ly - ybar_o) === Math.sign(b.y0 - ybar_o)) Zpz += (b.ly * b.lz) * Math.abs(b.y0 + b.ly / 2 - ybar_o);
-                    else { const w1 = Math.abs(ybar_o - b.y0), w2 = Math.abs(b.y0 + b.ly - ybar_o); Zpz += (w1 * b.lz) * w1 / 2 + (w2 * b.lz) * w2 / 2; }
-                    if (Math.sign(b.z0 + b.lz - zbar_o) === Math.sign(b.z0 - zbar_o)) Zpy += (b.ly * b.lz) * Math.abs(b.z0 + b.lz / 2 - zbar_o);
-                    else { const h1 = Math.abs(zbar_o - b.z0), h2 = Math.abs(b.z0 + b.lz - zbar_o); Zpy += (b.ly * h1) * h1 / 2 + (b.ly * h2) * h2 / 2; }
-                });
+                // Max bounds relative to Centroid
+                const y_coords = normBlocks.flatMap(b => [b.y_min, b.y_max]);
+                const z_coords = normBlocks.flatMap(b => [b.z_min, b.z_max]);
 
-                const y_coords = pxy.map(p => p.y), z_coords = pxy.map(p => p.z);
-                const y_min = y_coords.length > 0 ? Math.min(...y_coords) : 0, y_max = y_coords.length > 0 ? Math.max(...y_coords) : 0;
-                const z_min = z_coords.length > 0 ? Math.min(...z_coords) : 0, z_max = z_coords.length > 0 ? Math.max(...z_coords) : 0;
+                const y_min = Math.min(...y_coords);
+                const y_max = Math.max(...y_coords);
+                const z_min = Math.min(...z_coords);
+                const z_max = Math.max(...z_coords);
 
+                // Stress Calc
                 const denominator = (Iyy_na * Izz_na - Iyz_na ** 2);
-                if (denominator === 0) { return { ...lastResults, Sxx_at_point: NaN }; }
 
-                const Sxx = pxy.map(p => (-(loads.Mzz * Iyy_na + loads.Myy * Iyz_na) * p.y + (loads.Myy * Izz_na + loads.Mzz * Iyz_na) * p.z) / denominator + loads.Fxx / total_A);
-                const Sxx_at_point = (-(loads.Mzz * Iyy_na + loads.Myy * Iyz_na) * (loads.py - ybar_o) + (loads.Myy * Izz_na + loads.Mzz * Iyz_na) * (loads.pz - zbar_o)) / denominator + loads.Fxx / total_A;
+                // sigma = ( (M_y * I_z + M_z * I_yz) * z - (M_z * I_y + M_y * I_yz) * y ) / (I_y I_z - I_yz^2)
+                // Note: Signs depend on coordinate system.
 
-                const fy = Zpy / (Iyy_na / Math.max(Math.abs(z_max), Math.abs(z_min))), fz = Zpz / (Izz_na / Math.max(Math.abs(y_max), Math.abs(y_min)));
+                let Sxx_max = -Infinity, Sxx_min = Infinity;
+
+                // Check stress at all corners
+                const corners = normBlocks.flatMap(b => [
+                    { y: b.y_min - ybar_o, z: b.z_min - zbar_o },
+                    { y: b.y_max - ybar_o, z: b.z_min - zbar_o },
+                    { y: b.y_min - ybar_o, z: b.z_max - zbar_o },
+                    { y: b.y_max - ybar_o, z: b.z_max - zbar_o }
+                ]);
+
+                if (denominator !== 0) {
+                    corners.forEach(p => {
+                        const s = (-(loads.Mzz * Iyy_na + loads.Myy * Iyz_na) * p.y + (loads.Myy * Izz_na + loads.Mzz * Iyz_na) * p.z) / denominator + loads.Fxx / total_A;
+                        if (s > Sxx_max) Sxx_max = s;
+                        if (s < Sxx_min) Sxx_min = s;
+                    });
+                } else {
+                    Sxx_max = 0; Sxx_min = 0;
+                }
+
+                const Sxx_at_point = denominator !== 0 ? (-(loads.Mzz * Iyy_na + loads.Myy * Iyz_na) * (loads.py - ybar_o) + (loads.Myy * Izz_na + loads.Mzz * Iyz_na) * (loads.pz - zbar_o)) / denominator + loads.Fxx / total_A : 0;
+
+                // --- PLASTIC CALCULATION ---
+                const plasticProps = calculatePlasticProperties(normBlocks, total_A);
+
+                // Shape Factors: nu = Zp / Ze
+                // Ze_y (Elastic Modulus about Y axis) = Iyy_na / z_extreme
+                // Extreme fiber distance for Y-axis bending is max vertical distance from NA
+                const z_extreme = Math.max(Math.abs(z_max - zbar_o), Math.abs(z_min - zbar_o));
+                const Ze_y = Iyy_na / z_extreme;
+
+                // Ze_z (Elastic Modulus about Z axis) = Izz_na / y_extreme
+                const y_extreme = Math.max(Math.abs(y_max - ybar_o), Math.abs(y_min - ybar_o));
+                const Ze_z = Izz_na / y_extreme;
+
+                const fy = plasticProps.Zpy_plastic / Ze_y; // Shape factor for bending about Horizontal (Y) axis
+                const fz = plasticProps.Zpz_plastic / Ze_z; // Shape factor for bending about Vertical (Z) axis
 
                 return {
-                    area: total_A, ybar_o, zbar_o, Izz_na, Iyy_na, Iyz_na, I1, I2, theta, ymin: y_min, ymax: y_max, zmin: z_min, zmax: z_max,
-                    Sxx_max: Sxx.length > 0 ? Math.max(...Sxx) : 0, Sxx_min: Sxx.length > 0 ? Math.min(...Sxx) : 0, Sxx_at_point, fy, fz
+                    area: total_A,
+                    ybar_o,
+                    zbar_o,
+                    Izz_na,
+                    Iyy_na,
+                    Iyz_na,
+                    I1,
+                    I2,
+                    theta,
+                    ymin: y_min - ybar_o,
+                    ymax: y_max - ybar_o,
+                    zmin: z_min - zbar_o,
+                    zmax: z_max - zbar_o,
+                    Sxx_max,
+                    Sxx_min,
+                    Sxx_at_point,
+                    fy,
+                    fz,
+                    ...plasticProps // Pass plastic data (pna locations, Zp values)
                 };
             };
 
@@ -562,41 +1107,112 @@
                 const ctx = canvas.getContext('2d');
                 if (chartInstance) chartInstance.destroy();
 
-                let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-                if (blocks.length > 0 && blocks.some(b => b.ly !== 0 || b.lz !== 0)) { blocks.forEach(b => { minX = Math.min(minX, b.y0, b.y0 + b.ly); maxX = Math.max(maxX, b.y0, b.y0 + b.ly); minY = Math.min(minY, b.z0, b.z0 + b.lz); maxY = Math.max(maxY, b.z0, b.z0 + b.lz); }); } else { minX = -1, maxX = 1, minY = -1, maxY = 1; }
-                minX = Math.min(minX, loads.py, results.ybar_o); maxX = Math.max(maxX, loads.py, results.ybar_o);
-                minY = Math.min(minY, loads.pz, results.zbar_o); maxY = Math.max(maxY, loads.pz, results.zbar_o);
-                const rangeX = maxX - minX, rangeY = maxY - minY, maxRange = Math.max(rangeX, rangeY);
-                const padding = maxRange * 0.1 || 1, centerX = (minX + maxX) / 2, centerY = (minY + maxY) / 2;
+                let minX = Infinity,
+                    maxX = -Infinity,
+                    minY = Infinity,
+                    maxY = -Infinity;
+                if (blocks.length > 0 && blocks.some(b => b.ly !== 0 || b.lz !== 0)) {
+                    blocks.forEach(b => {
+                        const y1 = b.y0, y2 = b.y0 + b.ly, z1 = b.z0, z2 = b.z0 + b.lz;
+                        minX = Math.min(minX, y1, y2);
+                        maxX = Math.max(maxX, y1, y2);
+                        minY = Math.min(minY, z1, z2);
+                        maxY = Math.max(maxY, z1, z2);
+                    });
+                } else {
+                    minX = -1, maxX = 1, minY = -1, maxY = 1;
+                }
+                minX = Math.min(minX, loads.py, results.ybar_o);
+                maxX = Math.max(maxX, loads.py, results.ybar_o);
+                minY = Math.min(minY, loads.pz, results.zbar_o);
+                maxY = Math.max(maxY, loads.pz, results.zbar_o);
+                const rangeX = maxX - minX,
+                    rangeY = maxY - minY,
+                    maxRange = Math.max(rangeX, rangeY);
+                const padding = maxRange * 0.1 || 1,
+                    centerX = (minX + maxX) / 2,
+                    centerY = (minY + maxY) / 2;
                 const finalScale = {
-                    x: { min: centerX - (maxRange / 2) - padding, max: centerX + (maxRange / 2) + padding },
-                    y: { min: centerY - (maxRange / 2) - padding, max: centerY + (maxRange / 2) + padding }
+                    x: {
+                        min: centerX - (maxRange / 2) - padding,
+                        max: centerX + (maxRange / 2) + padding
+                    },
+                    y: {
+                        min: centerY - (maxRange / 2) - padding,
+                        max: centerY + (maxRange / 2) + padding
+                    }
                 };
 
                 const plotData = {
-                    datasets: [
-                        {
-                            label: 'Centroid',
-                            data: [{ x: results.ybar_o, y: results.zbar_o }],
-                            backgroundColor: 'red',
-                            pointRadius: 6,
-                        },
-                        {
-                            label: 'Stress Point',
-                            data: [{ x: loads.py, y: loads.pz }],
-                            backgroundColor: 'green',
-                            pointRadius: 6,
-                        }
+                    datasets: [{
+                        label: 'Centroid',
+                        data: [{
+                            x: results.ybar_o,
+                            y: results.zbar_o
+                        }],
+                        backgroundColor: 'red',
+                        pointRadius: 6,
+                    },
+                    {
+                        label: 'Stress Point',
+                        data: [{
+                            x: loads.py,
+                            y: loads.pz
+                        }],
+                        backgroundColor: 'green',
+                        pointRadius: 6,
+                    }
                     ]
                 };
 
                 const shapePlugin = {
-                    id: 'drawShapes', beforeDraw: (chart) => {
-                        const { ctx, scales: { x: xAxis, y: yAxis } } = chart;
+                    id: 'drawShapes',
+                    beforeDraw: (chart) => {
+                        const {
+                            ctx,
+                            scales: {
+                                x: xAxis,
+                                y: yAxis
+                            }
+                        } = chart;
                         ctx.save();
-                        ctx.fillStyle = 'rgba(0,104,201,0.2)'; ctx.strokeStyle = 'rgba(0,48,93,0.8)'; ctx.lineWidth = 1.5;
-                        blocks.forEach(b => { const x_pixel = xAxis.getPixelForValue(b.y0), y_pixel = yAxis.getPixelForValue(b.z0), width = xAxis.getPixelForValue(b.y0 + b.ly) - x_pixel, height = yAxis.getPixelForValue(b.z0 + b.lz) - y_pixel; ctx.fillRect(x_pixel, y_pixel, width, height); ctx.strokeRect(x_pixel, y_pixel, width, height); });
-                        if (loads.Myy !== 0 || loads.Mzz !== 0) { const { Iyy_na, Izz_na, Iyz_na } = results; const num = (loads.Mzz * Iyy_na + loads.Myy * Iyz_na), den = (loads.Myy * Izz_na + loads.Mzz * Iyz_na); if (den !== 0) { const na_theta = Math.atan(num / den), { min: xMin, max: xMax } = xAxis; const z1 = Math.tan(na_theta) * (xMin - results.ybar_o) + results.zbar_o, z2 = Math.tan(na_theta) * (xMax - results.ybar_o) + results.zbar_o; ctx.beginPath(); ctx.moveTo(xAxis.getPixelForValue(xMin), yAxis.getPixelForValue(z1)); ctx.lineTo(xAxis.getPixelForValue(xMax), yAxis.getPixelForValue(z2)); ctx.strokeStyle = 'red'; ctx.lineWidth = 2; ctx.setLineDash([6, 6]); ctx.stroke(); ctx.setLineDash([]); } }
+                        ctx.fillStyle = 'rgba(0,104,201,0.2)';
+                        ctx.strokeStyle = 'rgba(0,48,93,0.8)';
+                        ctx.lineWidth = 1.5;
+                        blocks.forEach(b => {
+                            const x_pixel = xAxis.getPixelForValue(b.y0),
+                                y_pixel = yAxis.getPixelForValue(b.z0),
+                                width = xAxis.getPixelForValue(b.y0 + b.ly) - x_pixel,
+                                height = yAxis.getPixelForValue(b.z0 + b.lz) - y_pixel;
+                            ctx.fillRect(x_pixel, y_pixel, width, height);
+                            ctx.strokeRect(x_pixel, y_pixel, width, height);
+                        });
+                        if (loads.Myy !== 0 || loads.Mzz !== 0) {
+                            const {
+                                Iyy_na,
+                                Izz_na,
+                                Iyz_na
+                            } = results;
+                            const num = (loads.Mzz * Iyy_na + loads.Myy * Iyz_na),
+                                den = (loads.Myy * Izz_na + loads.Mzz * Iyz_na);
+                            if (den !== 0) {
+                                const na_theta = Math.atan(num / den),
+                                    {
+                                        min: xMin,
+                                        max: xMax
+                                    } = xAxis;
+                                const z1 = Math.tan(na_theta) * (xMin - results.ybar_o) + results.zbar_o,
+                                    z2 = Math.tan(na_theta) * (xMax - results.ybar_o) + results.zbar_o;
+                                ctx.beginPath();
+                                ctx.moveTo(xAxis.getPixelForValue(xMin), yAxis.getPixelForValue(z1));
+                                ctx.lineTo(xAxis.getPixelForValue(xMax), yAxis.getPixelForValue(z2));
+                                ctx.strokeStyle = 'red';
+                                ctx.lineWidth = 2;
+                                ctx.setLineDash([6, 6]);
+                                ctx.stroke();
+                                ctx.setLineDash([]);
+                            }
+                        }
                         if (isSnapping) {
                             snapPoints.forEach(p => {
                                 const isHovered = hoveredSnapPoint && hoveredSnapPoint.x === p.x && hoveredSnapPoint.y === p.y;
@@ -610,19 +1226,77 @@
                     }
                 };
 
-                chartInstance = new Chart(ctx, { type: 'scatter', data: plotData, options: { responsive: true, maintainAspectRatio: true, aspectRatio: 1, scales: { x: { ...finalScale.x, type: 'linear', position: 'bottom', title: { display: true, text: 'Y-axis' } }, y: { ...finalScale.y, title: { display: true, text: 'Z-axis' } } }, plugins: { legend: { display: false } } }, plugins: [shapePlugin] });
+                chartInstance = new Chart(ctx, {
+                    type: 'scatter',
+                    data: plotData,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        aspectRatio: 1,
+                        scales: {
+                            x: {
+                                ...finalScale.x,
+                                type: 'linear',
+                                position: 'bottom',
+                                title: {
+                                    display: true,
+                                    text: 'Y-axis'
+                                }
+                            },
+                            y: {
+                                ...finalScale.y,
+                                title: {
+                                    display: true,
+                                    text: 'Z-axis'
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        }
+                    },
+                    plugins: [shapePlugin]
+                });
             };
 
             const runFullCalculation = () => {
-                const { blocks, loads } = collectInputs();
+                const {
+                    blocks,
+                    loads
+                } = collectInputs();
                 const results = calculateProperties(blocks, loads);
                 updateResults(results);
                 if (results) createPlot(blocks, loads, results);
             };
 
-            const handleFileRead = (c) => { try { const l = c.trim().split('\n'), n = parseInt(l[0], 10); if (isNaN(n) || n < 1) throw new Error("Invalid format."); blocksContainer.innerHTML = ''; for (let i = 1; i <= n && i < l.length; i++) { const p = l[i].split(','); if (p.length < 5) continue; addBlock({ y0: parseFloat(p[0]), z0: parseFloat(p[1]), ly: parseFloat(p[2]), lz: parseFloat(p[3]), label: p[4] }); } runFullCalculation(); } catch (e) { alert("Error reading file."); console.error(e); } };
+            const handleFileRead = (c) => {
+                try {
+                    const l = c.trim().split('\n'),
+                        n = parseInt(l[0], 10);
+                    if (isNaN(n) || n < 1) throw new Error("Invalid format.");
+                    blocksContainer.innerHTML = '';
+                    for (let i = 1; i <= n && i < l.length; i++) {
+                        const p = l[i].split(',');
+                        if (p.length < 5) continue;
+                        addBlock({
+                            y0: parseFloat(p[0]),
+                            z0: parseFloat(p[1]),
+                            ly: parseFloat(p[2]),
+                            lz: parseFloat(p[3]),
+                            label: p[4]
+                        });
+                    }
+                    runFullCalculation();
+                } catch (e) {
+                    alert("Error reading file.");
+                    console.error(e);
+                }
+            };
 
-            const openModal = () => modal.style.display = 'flex'; const closeModal = () => modal.style.display = 'none';
+            const openModal = () => modal.style.display = 'flex';
+            const closeModal = () => modal.style.display = 'none';
 
             const openStdModal = () => stdModal.style.display = 'flex';
             const closeStdModal = () => stdModal.style.display = 'none';
@@ -646,18 +1320,54 @@
 
                 if (type === 'I') {
                     // Bottom Flange
-                    addBlock({ y0: y0 - Bb / 2, z0: z0, ly: Bb, lz: tf, label: 'Bot Flange' });
+                    addBlock({
+                        y0: y0 - Bb / 2,
+                        z0: z0,
+                        ly: Bb,
+                        lz: tf,
+                        label: 'Bot Flange'
+                    });
                     // Web
-                    addBlock({ y0: y0 - tw / 2, z0: z0 + tf, ly: tw, lz: h_web, label: 'Web' });
+                    addBlock({
+                        y0: y0 - tw / 2,
+                        z0: z0 + tf,
+                        ly: tw,
+                        lz: h_web,
+                        label: 'Web'
+                    });
                     // Top Flange
-                    addBlock({ y0: y0 - Bt / 2, z0: z0 + H - tf, ly: Bt, lz: tf, label: 'Top Flange' });
+                    addBlock({
+                        y0: y0 - Bt / 2,
+                        z0: z0 + H - tf,
+                        ly: Bt,
+                        lz: tf,
+                        label: 'Top Flange'
+                    });
                 } else if (type === 'Z') {
                     // Bot Flange (Left) - aligned to right edge of web
-                    addBlock({ y0: y0 + tw / 2 - Bb, z0: z0, ly: Bb, lz: tf, label: 'Bot Flange' });
+                    addBlock({
+                        y0: y0 + tw / 2 - Bb,
+                        z0: z0,
+                        ly: Bb,
+                        lz: tf,
+                        label: 'Bot Flange'
+                    });
                     // Web
-                    addBlock({ y0: y0 - tw / 2, z0: z0 + tf, ly: tw, lz: h_web, label: 'Web' });
+                    addBlock({
+                        y0: y0 - tw / 2,
+                        z0: z0 + tf,
+                        ly: tw,
+                        lz: h_web,
+                        label: 'Web'
+                    });
                     // Top Flange (Right) - aligned to left edge of web
-                    addBlock({ y0: y0 - tw / 2, z0: z0 + H - tf, ly: Bt, lz: tf, label: 'Top Flange' });
+                    addBlock({
+                        y0: y0 - tw / 2,
+                        z0: z0 + H - tf,
+                        ly: Bt,
+                        lz: tf,
+                        label: 'Top Flange'
+                    });
                 }
 
                 closeStdModal();
@@ -665,7 +1375,10 @@
             };
 
             // --- EVENT LISTENERS ---
-            addBlockBtn.addEventListener('click', () => { addBlock(); runFullCalculation(); });
+            addBlockBtn.addEventListener('click', () => {
+                addBlock();
+                runFullCalculation();
+            });
             addStdBtn.addEventListener('click', openStdModal);
             addSnapBtn.addEventListener('click', () => toggleSnappingMode());
 
@@ -676,19 +1389,27 @@
                 }
             });
 
-            appContainer.addEventListener('input', debounce((e) => { if (e.target.matches('input[type="number"],input[type="text"]')) { runFullCalculation(); } }, 250));
+            appContainer.addEventListener('input', debounce((e) => {
+                if (e.target.matches('input[type="number"],input[type="text"]')) {
+                    runFullCalculation();
+                }
+            }, 250));
 
             canvas.addEventListener('mousemove', (event) => {
                 if (!isSnapping || !chartInstance) return;
                 const rect = canvas.getBoundingClientRect();
-                const x = event.clientX - rect.left; const y = event.clientY - rect.top;
+                const x = event.clientX - rect.left;
+                const y = event.clientY - rect.top;
                 const snapRadiusPixels = 10;
                 let foundPoint = null;
                 for (const point of snapPoints) {
                     const pixelX = chartInstance.scales.x.getPixelForValue(point.x);
                     const pixelY = chartInstance.scales.y.getPixelForValue(point.y);
                     const distance = Math.sqrt((x - pixelX) ** 2 + (y - pixelY) ** 2);
-                    if (distance < snapRadiusPixels) { foundPoint = point; break; }
+                    if (distance < snapRadiusPixels) {
+                        foundPoint = point;
+                        break;
+                    }
                 }
                 if (hoveredSnapPoint !== foundPoint) {
                     hoveredSnapPoint = foundPoint;
@@ -698,15 +1419,20 @@
 
             canvas.addEventListener('click', (event) => {
                 if (isSnapping && hoveredSnapPoint) {
-                    addBlock({ y0: hoveredSnapPoint.x.toFixed(3), z0: hoveredSnapPoint.y.toFixed(3) });
+                    addBlock({
+                        y0: hoveredSnapPoint.x.toFixed(3),
+                        z0: hoveredSnapPoint.y.toFixed(3)
+                    });
                     toggleSnappingMode(true);
                     runFullCalculation();
                     return;
                 }
                 if (!isSnapping && chartInstance) {
                     const rect = canvas.getBoundingClientRect();
-                    const x = event.clientX - rect.left, y = event.clientY - rect.top;
-                    const yC = chartInstance.scales.x.getValueForPixel(x), zC = chartInstance.scales.y.getValueForPixel(y);
+                    const x = event.clientX - rect.left,
+                        y = event.clientY - rect.top;
+                    const yC = chartInstance.scales.x.getValueForPixel(x),
+                        zC = chartInstance.scales.y.getValueForPixel(y);
                     document.getElementById('py').value = yC.toFixed(3);
                     document.getElementById('pz').value = zC.toFixed(3);
                     runFullCalculation();
@@ -715,9 +1441,56 @@
 
             openBtn.addEventListener('click', () => uploader.click());
             uploader.addEventListener('change', (e) => e.target.files[0] && e.target.files[0].text().then(handleFileRead));
-            saveBtn.addEventListener('click', () => { const { blocks } = collectInputs(); let c = `${blocks.length}\n`; c += blocks.map(b => `${b.y0},${b.z0},${b.ly},${b.lz},${b.label}`).join('\n'); const blob = new Blob([c], { type: 'text/csv;charset=utf-8,' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'section_data.csv'; a.click(); URL.revokeObjectURL(url); });
-            principalBtn.addEventListener('click', () => { if (!lastResults) { return; } modalTitle.textContent = 'Properties about Principal Axes'; modalBody.innerHTML = `<label>I1 =</label><span>${lastResults.I1.toExponential(3)}</span><label>I2 =</label><span>${lastResults.I2.toExponential(3)}</span><label>θ (deg) =</label><span>${(lastResults.theta * 180 / Math.PI).toFixed(2)}</span>`; openModal(); });
-            plasticBtn.addEventListener('click', () => { if (!lastResults) { return; } modalTitle.textContent = 'Plastic Shape Factors'; modalBody.innerHTML = `<label>fy =</label><span>${lastResults.fy.toFixed(3)}</span><label>fz =</label><span>${lastResults.fz.toFixed(3)}</span><p style="grid-column:1/-1;font-size:0.8em;margin-top:10px;">Note: Assumes plastic neutral axis coincides with elastic neutral axis.</p>`; openModal(); });
+            saveBtn.addEventListener('click', () => {
+                const {
+                    blocks
+                } = collectInputs();
+                let c = `${blocks.length}\n`;
+                c += blocks.map(b => `${b.y0},${b.z0},${b.ly},${b.lz},${b.label}`).join('\n');
+                const blob = new Blob([c], {
+                    type: 'text/csv;charset=utf-8,'
+                });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'section_data.csv';
+                a.click();
+                URL.revokeObjectURL(url);
+            });
+
+            principalBtn.addEventListener('click', () => {
+                if (!lastResults) {
+                    return;
+                }
+                modalTitle.textContent = 'Properties about Principal Axes';
+                modalBody.innerHTML = `
+                <label>I1 =</label><span>${lastResults.I1.toExponential(3)}</span>
+                <label>I2 =</label><span>${lastResults.I2.toExponential(3)}</span>
+                <label>θ (deg) =</label><span>${(lastResults.theta * 180 / Math.PI).toFixed(2)}</span>
+            `;
+                openModal();
+            });
+
+            // --- UPDATED MODAL LISTENER FOR PLASTIC PROPERTIES ---
+            plasticBtn.addEventListener('click', () => {
+                if (!lastResults) {
+                    return;
+                }
+                modalTitle.textContent = 'Plastic Properties';
+                modalBody.innerHTML = `
+                <h3 style="grid-column: 1/-1; margin: 5px 0 0 0; font-size: 1.1em; border-bottom:1px solid #ccc;">Bending about Y-axis (Vertical Bending)</h3>
+                <label>Shape Factor (fy) =</label><span>${lastResults.fy.toFixed(3)}</span>
+                <label>Z_plastic (Zpy) =</label><span>${lastResults.Zpy_plastic.toExponential(3)}</span>
+                <label>PNA height (z) =</label><span>${lastResults.z_pna.toFixed(3)}</span>
+                
+                <h3 style="grid-column: 1/-1; margin: 15px 0 0 0; font-size: 1.1em; border-bottom:1px solid #ccc;">Bending about Z-axis (Horizontal Bending)</h3>
+                <label>Shape Factor (fz) =</label><span>${lastResults.fz.toFixed(3)}</span>
+                <label>Z_plastic (Zpz) =</label><span>${lastResults.Zpz_plastic.toExponential(3)}</span>
+                <label>PNA loc (y) =</label><span>${lastResults.y_pna.toFixed(3)}</span>
+            `;
+                openModal();
+            });
+
             modalCloseBtn.addEventListener('click', closeModal);
             stdModalCloseBtn.addEventListener('click', closeStdModal);
             generateStdBtn.addEventListener('click', generateStandardSection);
@@ -729,10 +1502,12 @@
                 if (e.key === 'Escape' && isSnapping) toggleSnappingMode(true);
             });
 
-            for (let i = 0; i < 2; i++)addBlock();
+            for (let i = 0; i < 2; i++) addBlock();
             runFullCalculation();
         });
     </script>
+
 </body>
+
 
 </html>
