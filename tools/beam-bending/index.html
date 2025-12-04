@@ -1,145 +1,170 @@
-<title>Generic Beam Analysis Tool</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
-<style>
-    :root {
-        --primary: #2563eb;
-        --bg: #f8fafc;
-        --panel: #ffffff;
-        --border: #e2e8f0;
-        --text: #0f172a;
-        --input-bg: #ffffff;
-    }
+<!DOCTYPE html>
+<html>
 
-    body {
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        background-color: var(--bg);
-        margin: 0;
-        padding: 20px;
-        color: var(--text);
-    }
-
-    .container {
-        max-width: 1200px;
-        margin: 0 auto;
-        display: grid;
-        grid-template-columns: 350px 1fr;
-        gap: 20px;
-    }
-
-    /* Sidebar Styles */
-    .controls {
-        background: var(--panel);
-        padding: 20px;
-        border-radius: 8px;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-        height: fit-content;
-    }
-
-    h2,
-    h3 {
-        margin-top: 0;
-        color: var(--text);
-    }
-
-    .form-group {
-        margin-bottom: 15px;
-    }
-
-    label {
-        display: block;
-        font-size: 0.9em;
-        font-weight: 600;
-        margin-bottom: 5px;
-        color: #475569;
-    }
-
-    input,
-    select {
-        width: 100%;
-        padding: 8px;
-        border: 1px solid var(--border);
-        border-radius: 4px;
-        box-sizing: border-box;
-        background: var(--input-bg);
-        color: var(--text);
-    }
-
-    .load-item {
-        background: #f1f5f9;
-        padding: 10px;
-        border-radius: 4px;
-        margin-bottom: 10px;
-        display: flex;
-        gap: 10px;
-        align-items: flex-end;
-    }
-
-    .load-item .form-group {
-        margin-bottom: 0;
-        flex: 1;
-    }
-
-    .btn {
-        background: var(--primary);
-        color: white;
-        border: none;
-        padding: 8px 16px;
-        border-radius: 4px;
-        cursor: pointer;
-        font-weight: 500;
-        width: 100%;
-    }
-
-    .btn:hover {
-        opacity: 0.9;
-    }
-
-    .btn-red {
-        background: #ef4444;
-        width: auto;
-        height: 34px;
-        margin-top: 0;
-    }
-
-    /* Main Display Styles */
-    .results {
-        display: flex;
-        flex-direction: column;
-        gap: 20px;
-    }
-
-    .canvas-container {
-        background: var(--panel);
-        padding: 20px;
-        border-radius: 8px;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-    }
-
-    #beamViz {
-        width: 100%;
-        height: 150px;
-        border-bottom: 1px solid var(--border);
-        margin-bottom: 15px;
-    }
-
-    .reaction-box {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 10px;
-        margin-bottom: 15px;
-        font-family: monospace;
-        background: #f1f5f9;
-        padding: 10px;
-        border-radius: 4px;
-        border: 1px solid var(--border);
-    }
-
-    @media (max-width: 800px) {
-        .container {
-            grid-template-columns: 1fr;
+<head>
+    <title>Generic Beam Analysis Tool</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --bg: #f8fafc;
+            --panel: #ffffff;
+            --border: #e2e8f0;
+            --text: #0f172a;
+            --input-bg: #ffffff;
         }
-    }
-</style>
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            padding: 20px;
+            color: var(--text);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 450px 1fr;
+            gap: 20px;
+        }
+
+        /* Sidebar Styles */
+        .controls {
+            background: var(--panel);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+            height: fit-content;
+        }
+
+        h2,
+        h3 {
+            margin-top: 0;
+            color: var(--text);
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.9em;
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #475569;
+        }
+
+        input,
+        select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            box-sizing: border-box;
+            background: var(--input-bg);
+            color: var(--text);
+        }
+
+        .load-item {
+            background: #f1f5f9;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+        }
+
+        .load-item .form-group {
+            margin-bottom: 0;
+            flex: 1;
+        }
+
+        .btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            width: 100%;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+        }
+
+        .btn-red {
+            background: #ef4444;
+            width: auto;
+            height: 34px;
+            margin-top: 0;
+        }
+
+        /* Main Display Styles */
+        .results {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .canvas-container {
+            background: var(--panel);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+
+        #beamViz {
+            width: 100%;
+            height: 150px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 15px;
+        }
+
+        .reaction-box {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+            font-family: monospace;
+            background: #f1f5f9;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid var(--border);
+        }
+
+        .critical-val-header {
+            grid-column: span 2;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 2px solid #cbd5e1;
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        @media (max-width: 800px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Remove arrows/spinners for Chrome, Safari, Edge, Opera */
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        /* Remove arrows/spinners for Firefox */
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+    </style>
 </head>
 
 <body>
@@ -187,7 +212,7 @@
 
         <div class="results">
             <div class="canvas-container">
-                <h3>System Visualization & Reactions</h3>
+                <h3>Beam Arrangement and Key Results</h3>
                 <canvas id="beamViz"></canvas>
                 <div id="reactionOutput" class="reaction-box"></div>
             </div>
@@ -257,7 +282,7 @@
             loads.forEach((load, index) => {
                 let html = `
                 <div class="load-item">
-                    <div class="form-group">
+                    <div class="form-group" style="flex: 2; min-width: 140px;">
                         <label>Type</label>
                         <select onchange="updateLoadType(${index}, this.value)">
                             <option value="point" ${load.type === 'point' ? 'selected' : ''}>Point Load (lbf)</option>
@@ -430,7 +455,7 @@
             }
 
             // Mesh Refinement: Subdivide large elements
-            const maxElLen = L / 50; // Ensure at least 50 elements
+            const maxElLen = L / 20; // Ensure at least 20 elements
             let refinedNodes = [uniqueNodes[0]];
             for (let i = 0; i < uniqueNodes.length - 1; i++) {
                 const x1 = uniqueNodes[i];
@@ -494,10 +519,7 @@
                         const end = Math.min(x2, l.endLocation);
 
                         if (end > start + 1e-6) {
-                            const w = l.magnitude; // Downward is negative in FEM usually, but let's stick to sign convention
-                            // Our sign convention: Up is +y. Load magnitude is usually "force", so down load is -magnitude?
-                            // User inputs positive for down load usually. Let's assume input magnitude is DOWN force.
-                            // So force = -w.
+                            const w = l.magnitude;
                             const q = -w;
 
                             // For UDL over entire element (simplified for now, assuming split nodes handle partials)
@@ -645,13 +667,14 @@
                         if (l.type === 'distributed') {
                             if (Math.abs(Math.max(x1, l.location) - x1) < 1e-6 && Math.abs(Math.min(x2, l.endLocation) - x2) < 1e-6) {
                                 const q = -l.magnitude;
-                                // Simply supported beam V and M due to q
-                                // V_q = q(L/2 - x)
-                                // M_q = qx(L-x)/2
-                                // Superposition
                                 const x_local = xi;
                                 V += q * (le / 2 - x_local);
-                                M += (q * x_local / 2) * (le - x_local);
+
+                                // OLD LINE:
+                                // M += (q * x_local / 2) * (le - x_local);
+
+                                // NEW LINE: Add the Fixed-End Moment offset (q*L^2/12)
+                                M += (q * x_local / 2) * (le - x_local) + (q * le ** 2 / 12);
                             }
                         }
                     });
@@ -781,6 +804,13 @@
 
             const res = solveBeam(L, leftType, rightType, loads, constraints);
 
+            // --- CHANGED: Calculate Min/Max Values ---
+            const maxShear = Math.max(...res.V);
+            const minShear = Math.min(...res.V);
+            const maxMoment = Math.max(...res.M);
+            const minMoment = Math.min(...res.M);
+            // ------------------------------------------
+
             // Update Text
             const rEl = document.getElementById('reactionOutput');
             let html = `
@@ -796,6 +826,17 @@
                     html += `<div>@ ${c.location}in: ${c.magnitude.toFixed(2)} lbf</div>`;
                 });
             }
+
+            // --- CHANGED: Add Min/Max to HTML ---
+            html += `
+            <div class="critical-val-header">Critical Values</div>
+            <div><strong>Max Shear:</strong> ${maxShear.toFixed(2)} lbf</div>
+            <div><strong>Min Shear:</strong> ${minShear.toFixed(2)} lbf</div>
+            <div><strong>Max Moment:</strong> ${maxMoment.toFixed(2)} in.lbf</div>
+            <div><strong>Min Moment:</strong> ${minMoment.toFixed(2)} in.lbf</div>
+            `;
+            // ------------------------------------
+
             rEl.innerHTML = html;
 
             drawVisualizer(L, leftType, rightType, loads, constraints);
