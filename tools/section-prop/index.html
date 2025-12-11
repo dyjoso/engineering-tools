@@ -1242,7 +1242,7 @@
                 }
                 modalTitle.textContent = 'Plastic Properties';
                 const hasRelE = Array.from(document.querySelectorAll('.block-rele')).some(input => parseFloat(input.value) !== 1);
-                const note = hasRelE ? '<p style="grid-column: 1/-1; margin-top: 15px; font-style: italic; color: #555;">Note: Relative E factors are treated as scaling the material yield stress (effective width/area approach).</p>' : '';
+                const note = hasRelE ? '<p style="grid-column: 1/-1; margin-top: 15px; font-style: italic; color: #555;">Note: Relative E (Rel E) factors are used to scale both the material modulus (E) and the yield stress.</p>' : '';
 
                 modalBody.innerHTML = `
                 <h3 style="grid-column: 1/-1; margin: 5px 0 0 0; font-size: 1.1em; border-bottom:1px solid #ccc;">Bending about Y-axis (Vertical Bending)</h3>
