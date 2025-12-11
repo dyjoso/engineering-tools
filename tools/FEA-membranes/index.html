@@ -31,73 +31,142 @@
     <div class="flex flex-col md:flex-row gap-4">
         <div class="w-full md:w-1/4 bg-white p-4 rounded-lg shadow overflow-y-auto max-h-[90vh]">
             <h2 class="text-lg font-semibold mb-3 border-b pb-2">Controls - Modes</h2>
-            <div class="space-y-2"> <!-- Parent div for mode buttons -->
-                <!-- Added Tailwind classes directly -->
-                <button id="btn-add-node"
-                    class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-1.5 px-3 rounded-lg shadow-sm hover:shadow transition duration-150 ease-in-out mb-2 w-full text-left disabled:opacity-50 disabled:cursor-not-allowed active">Mode:
-                    Add Node</button>
-                <button id="btn-select-geo-node"
-                    class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-1.5 px-3 rounded-lg shadow-sm hover:shadow transition duration-150 ease-in-out mb-2 w-full text-left disabled:opacity-50 disabled:cursor-not-allowed">Mode:
-                    Select Geo Node</button>
-                <button id="btn-select-membrane"
-                    class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-1.5 px-3 rounded-lg shadow-sm hover:shadow transition duration-150 ease-in-out mb-2 w-full text-left disabled:opacity-50 disabled:cursor-not-allowed">Mode:
-                    Select Membrane</button>
-                <button id="btn-select-fe-box"
-                    class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-1.5 px-3 rounded-lg shadow-sm hover:shadow transition duration-150 ease-in-out mb-2 w-full text-left disabled:opacity-50 disabled:cursor-not-allowed">Mode:
-                    Select FE Nodes (Box)</button>
-                <button id="btn-mark-spring"
-                    class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-1.5 px-3 rounded-lg shadow-sm hover:shadow transition duration-150 ease-in-out mb-2 w-full text-left disabled:opacity-50 disabled:cursor-not-allowed">Mode:
-                    Mark Spring Point</button>
-                <button id="btn-delete-item"
-                    class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-1.5 px-3 rounded-lg shadow-sm hover:shadow transition duration-150 ease-in-out mb-2 w-full text-left disabled:opacity-50 disabled:cursor-not-allowed">Mode:
-                    Delete Item</button>
-                <!-- Added new mode button -->
-                <button id="btn-add-rect-membrane"
-                    class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-1.5 px-3 rounded-lg shadow-sm hover:shadow transition duration-150 ease-in-out mb-2 w-full text-left disabled:opacity-50 disabled:cursor-not-allowed">Mode:
-                    Add Rect Membrane</button>
-                <!-- Added new mode button -->
-                <button id="btn-add-spring-grid"
-                    class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-1.5 px-3 rounded-lg shadow-sm hover:shadow transition duration-150 ease-in-out mb-2 w-full text-left disabled:opacity-50 disabled:cursor-not-allowed">Mode:
-                    Add Spring Grid</button>
-                <div id="spring-grid-input-area" class="p-3 my-2 border border-gray-200 rounded bg-gray-50" hidden>
-                    <!-- Input Area Style -->
-                    <label for="spring-grid-nx-input"
-                        class="block text-sm font-medium text-gray-700 mb-1">Nx:</label><input type="number"
-                        id="spring-grid-nx-input" name="spring-grid-nx" min="2" value="4"
-                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-1 px-2 font-mono">
-                    <label for="spring-grid-ny-input"
-                        class="mt-2 block text-sm font-medium text-gray-700 mb-1">Ny:</label><input type="number"
-                        id="spring-grid-ny-input" name="spring-grid-ny" min="2" value="3"
-                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-1 px-2 font-mono">
-                    <!-- Removed Confirm Spring Grid button from here -->
+            <!-- Modified Controls Section -->
+
+            <!-- Membrane Creation Panel -->
+            <div class="mb-4 border-b pb-4">
+                <h3 class="text-sm font-semibold mb-2 text-gray-700">New Membrane</h3>
+                <div class="grid grid-cols-2 gap-2 mb-2">
+                    <div>
+                        <label class="block text-xs text-gray-600">Origin X</label>
+                        <input type="number" id="new-mem-x" value="0" class="w-full border rounded px-1 py-0.5 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-600">Origin Y</label>
+                        <input type="number" id="new-mem-y" value="0" class="w-full border rounded px-1 py-0.5 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-600">Length (X)</label>
+                        <input type="number" id="new-mem-w" value="100"
+                            class="w-full border rounded px-1 py-0.5 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-600">Width (Y)</label>
+                        <input type="number" id="new-mem-h" value="50"
+                            class="w-full border rounded px-1 py-0.5 text-sm">
+                    </div>
                 </div>
-                <!-- New Edit Node Mode Button -->
-                <button id="btn-edit-node-coords"
-                    class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-1.5 px-3 rounded-lg shadow-sm hover:shadow transition duration-150 ease-in-out mb-2 w-full text-left disabled:opacity-50 disabled:cursor-not-allowed">Mode:
-                    Edit Node Coords</button>
-                <!-- New Input Area for Editing Node Coordinates -->
-                <div id="edit-node-coords-input-area" class="p-3 my-2 border border-gray-200 rounded bg-gray-50" hidden>
-                    <h4 class="text-md font-semibold mb-2">Edit Coordinates</h4>
-                    <p class="text-sm mb-2">Node ID: <span id="edit-node-id-display" class="font-mono">N/A</span></p>
-                    <label for="edit-node-x-input" class="block text-sm font-medium text-gray-700 mb-1">New X:</label>
-                    <input type="number" id="edit-node-x-input" step="any"
-                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-1 px-2 font-mono">
-                    <label for="edit-node-y-input" class="mt-2 block text-sm font-medium text-gray-700 mb-1">New
-                        Y:</label>
-                    <input type="number" id="edit-node-y-input" step="any"
-                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-1 px-2 font-mono">
-                    <button id="btn-apply-node-coords"
-                        class="mt-3 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-1.5 px-3 rounded-lg shadow-sm hover:shadow">Apply
-                        Coordinates</button>
+                <button id="btn-create-parametric-membrane"
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-1.5 px-3 rounded text-sm shadow-sm transition">
+                    Create Membrane
+                </button>
+            </div>
+
+            <!-- Spring Grid Creation Panel -->
+            <div class="mb-4 border-b pb-4">
+                <h3 class="text-sm font-semibold mb-2 text-gray-700">New Spring Grid</h3>
+                <div class="grid grid-cols-2 gap-2 mb-2">
+                    <div>
+                        <label class="block text-xs text-gray-600">Origin X</label>
+                        <input type="number" id="spring-grid-x" value="0"
+                            class="w-full border rounded px-1 py-0.5 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-600">Origin Y</label>
+                        <input type="number" id="spring-grid-y" value="0"
+                            class="w-full border rounded px-1 py-0.5 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-600">Width</label>
+                        <input type="number" id="spring-grid-w" value="100"
+                            class="w-full border rounded px-1 py-0.5 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-600">Height</label>
+                        <input type="number" id="spring-grid-h" value="50"
+                            class="w-full border rounded px-1 py-0.5 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-600">Count X</label>
+                        <input type="number" id="spring-grid-nx" value="5" min="2"
+                            class="w-full border rounded px-1 py-0.5 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-600">Count Y</label>
+                        <input type="number" id="spring-grid-ny" value="3" min="2"
+                            class="w-full border rounded px-1 py-0.5 text-sm">
+                    </div>
                 </div>
-            </div> <!-- End parent div for mode buttons -->
+                <button id="btn-create-parametric-springs"
+                    class="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-1.5 px-3 rounded text-sm shadow-sm transition">
+                    Create Spring Grid
+                </button>
+            </div>
+
+            <!-- Selection Modes -->
+            <h3 class="text-sm font-semibold mb-2 text-gray-700">Selection / Edit</h3>
+            <!-- Moved Select Geo Node out or kept? Prompt: "Remove the ability to define individual grid points". Selecting them for MEMBRANE definition is gone. Selecting them for DELETION? Maybe. -->
+            <!-- Prompt says "Selection of membranes for meshing should be left as it is" -->
+
+            <button id="btn-select-membrane"
+                class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-1.5 px-3 rounded-lg shadow-sm hover:shadow transition duration-150 ease-in-out mb-2 w-full text-left disabled:opacity-50 disabled:cursor-not-allowed">Mode:
+                Select Membrane</button>
+            <button id="btn-mode-select-fe-box"
+                class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-1.5 px-3 rounded-lg shadow-sm hover:shadow transition duration-150 ease-in-out mb-2 w-full text-left">Mode:
+                Select Nodes (Box)</button>
+            <button id="btn-mode-select-element-box"
+                class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-1.5 px-3 rounded-lg shadow-sm hover:shadow transition duration-150 ease-in-out mb-2 w-full text-left">Mode:
+                Select Elements (Box)</button>
+            <button id="btn-mode-select-springs-box"
+                class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-1.5 px-3 rounded-lg shadow-sm hover:shadow transition duration-150 ease-in-out mb-2 w-full text-left">Mode:
+                Select Springs (Box)</button>
+            <button id="btn-mode-select-fe-element"
+                class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-1.5 px-3 rounded-lg shadow-sm hover:shadow transition duration-150 ease-in-out mb-2 w-full text-left"
+                hidden>Mode:
+                Select Element (One)</button>
+            <button id="btn-mode-delete"
+                class="bg-red-500 hover:bg-red-600 text-white font-semibold py-1.5 px-3 rounded-lg shadow-sm hover:shadow transition duration-150 ease-in-out mb-2 w-full text-left">Mode:
+                Delete Item</button>
+            <button id="btn-mode-edit-node"
+                class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-1.5 px-3 rounded-lg shadow-sm hover:shadow transition duration-150 ease-in-out mb-2 w-full text-left">Mode:
+                Edit Node Coords</button>
+
+            <!-- Edit Node Input Area -->
+            <div id="edit-node-coords-input-area" class="p-3 my-2 border border-gray-200 rounded bg-gray-50" hidden>
+                <h4 class="text-md font-semibold mb-2">Edit Coordinates</h4>
+                <p class="text-sm mb-2">Node ID: <span id="edit-node-id-display" class="font-mono">N/A</span></p>
+                <label for="edit-node-x-input" class="block text-sm font-medium text-gray-700 mb-1">New X:</label>
+                <input type="number" id="edit-node-x-input" step="any"
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-1 px-2 font-mono">
+                <label for="edit-node-y-input" class="mt-2 block text-sm font-medium text-gray-700 mb-1">New
+                    Y:</label>
+                <input type="number" id="edit-node-y-input" step="any"
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-1 px-2 font-mono">
+                <button id="btn-apply-node-coords"
+                    class="mt-3 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-1.5 px-3 rounded-lg shadow-sm hover:shadow">Apply
+                    Coordinates</button>
+            </div>
+            <!-- End parent div for mode buttons (removed premature close) -->
             <hr class="my-3 border-gray-300">
 
-            <h2 class="text-lg font-semibold mb-3 border-b pb-2">Controls - Actions</h2>
+            <!-- Model Tree -->
+            <div id="model-explorer" class="mb-4 border-t pt-4">
+                <h3 class="text-sm font-semibold mb-2 text-gray-700">Model Explorer</h3>
+                <div id="model-tree-list"
+                    class="text-xs text-gray-600 max-h-32 overflow-y-auto bg-gray-50 p-2 rounded border mb-2">
+                    <p class="text-gray-500 italic">No membranes.</p>
+                </div>
+                <h4 class="text-xs font-semibold mb-1 text-gray-700">Spring Groups</h4>
+                <div id="spring-group-list"
+                    class="text-xs text-gray-600 max-h-32 overflow-y-auto bg-gray-50 p-2 rounded border">
+                    <p class="text-gray-500 italic">No spring groups.</p>
+                </div>
+            </div>
+
+
+            <h2 class="text-lg font-semibold mb-3 border-b pb-2">Process</h2>
             <div class="space-y-2">
-                <button id="btn-add-membrane"
-                    class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-1.5 px-3 rounded-lg shadow-sm hover:shadow transition duration-150 ease-in-out mb-2 w-full text-left disabled:opacity-50 disabled:cursor-not-allowed">Create
-                    Membrane</button>
+                <!-- Removed btn-add-membrane (replaced by parametric input above) -->
                 <button id="btn-mesh-membranes"
                     class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-1.5 px-3 rounded-lg shadow-sm hover:shadow transition duration-150 ease-in-out mb-2 w-full text-left disabled:opacity-50 disabled:cursor-not-allowed">Mesh
                     Selected Membranes</button>
@@ -192,38 +261,123 @@
                         Properties to Selected</button>
                 </div>
 
-                <hr class="my-2 border-gray-300">
-                <!-- Note: Special background colors for Solve/Save/Load are handled via !important utilities or specific JS -->
-                <button id="btn-solve"
-                    class="bg-red-600 hover:bg-red-700 text-white font-semibold py-1.5 px-3 rounded-lg shadow-sm hover:shadow transition duration-150 ease-in-out mb-2 w-full text-left disabled:opacity-50 disabled:cursor-not-allowed">Run
-                    Analysis</button>
-                <hr class="my-3 border-gray-300">
-                <h2 class="text-lg font-semibold mb-3 border-b pb-2">Save / Load</h2>
-                <div class="space-y-2">
-                    <button id="btn-save-model"
-                        class="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-1.5 px-3 rounded-lg shadow-sm hover:shadow transition duration-150 ease-in-out mb-2 w-full text-left disabled:opacity-50 disabled:cursor-not-allowed">Save
-                        Model (Copy JSON)</button>
-                    <div id="load-model-area" class="p-3 my-2 border border-gray-200 rounded bg-gray-50">
-                        <!-- Input Area Style -->
-                        <label for="load-textarea" class="block text-sm font-medium text-gray-700 mb-1">Paste Model JSON
-                            here:</label>
-                        <textarea id="load-textarea" rows="4"
-                            class="text-xs mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-1 px-2 font-mono"></textarea>
-                        <button id="btn-load-text"
-                            class="mt-3 w-full bg-gray-600 hover:bg-gray-700 text-white font-semibold py-1.5 px-3 rounded-lg shadow-sm hover:shadow">Load
-                            from Text</button> <!-- Special Button Style -->
+                <!-- NEW: Element Property Area -->
+                <div id="element-properties-area" class="p-3 my-2 border border-blue-200 rounded bg-blue-50" hidden>
+                    <h4 class="text-md font-semibold mb-2 text-blue-900">Element Properties</h4>
+                    <p id="element-note" class="text-xs text-gray-600 mb-2 italic">ID: <span id="el-prop-id"></span></p>
+
+                    <label for="el-prop-e" class="block text-sm font-medium text-gray-700 mb-1">E (Override):</label>
+                    <div class="flex gap-2">
+                        <input type="number" id="el-prop-e" placeholder="Inherit"
+                            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-1 px-2 font-mono">
+                        <button id="btn-clear-el-e" class="text-xs bg-gray-200 hover:bg-gray-300 px-2 rounded"
+                            title="Reset to Inherit">X</button>
+                    </div>
+
+                    <label for="el-prop-nu" class="mt-2 block text-sm font-medium text-gray-700 mb-1">Nu
+                        (Override):</label>
+                    <div class="flex gap-2">
+                        <input type="number" id="el-prop-nu" placeholder="Inherit"
+                            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-1 px-2 font-mono">
+                        <button id="btn-clear-el-nu" class="text-xs bg-gray-200 hover:bg-gray-300 px-2 rounded"
+                            title="Reset to Inherit">X</button>
+                    </div>
+
+                    <label for="el-prop-t" class="mt-2 block text-sm font-medium text-gray-700 mb-1">t
+                        (Override):</label>
+                    <div class="flex gap-2">
+                        <input type="number" id="el-prop-t" placeholder="Inherit"
+                            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-1 px-2 font-mono">
+                        <button id="btn-clear-el-t" class="text-xs bg-gray-200 hover:bg-gray-300 px-2 rounded"
+                            title="Reset to Inherit">X</button>
                     </div>
                 </div>
+
+                <div id="spring-properties-area" class="p-3 my-2 border border-green-200 rounded bg-green-50" hidden>
+                    <h4 class="text-md font-semibold mb-2 text-green-900">Spring Properties</h4>
+                    <p id="spring-select-note" class="text-xs text-gray-600 mb-2 italic">Selected: <span
+                            id="spring-sel-count">0</span></p>
+
+                    <label for="spring-prop-k" class="block text-sm font-medium text-gray-700 mb-1">Stiffness
+                        (k):</label>
+                    <input type="number" id="spring-prop-k" placeholder="1000"
+                        class="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm py-1 px-2 font-mono">
+
+                    <button id="btn-update-springs"
+                        class="mt-2 w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-1.5 px-3 rounded-lg shadow-sm hover:shadow">Update
+                        Selected</button>
+
+                    <button id="btn-delete-springs"
+                        class="mt-4 w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-1.5 px-3 rounded-lg shadow-sm hover:shadow">Delete
+                        Selected</button>
+                </div>
+                <div class="flex gap-2">
+                    <input type="number" id="el-prop-nu" placeholder="Inherit" step="0.01"
+                        class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-1 px-2 font-mono">
+                    <button id="btn-clear-el-nu" class="text-xs bg-gray-200 hover:bg-gray-300 px-2 rounded"
+                        title="Reset to Inherit">X</button>
+                </div>
+
+                <label for="el-prop-t" class="mt-2 block text-sm font-medium text-gray-700 mb-1">Thickness
+                    (Override):</label>
+                <div class="flex gap-2">
+                    <input type="number" id="el-prop-t" placeholder="Inherit" step="any"
+                        class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-1 px-2 font-mono">
+                    <button id="btn-clear-el-t" class="text-xs bg-gray-200 hover:bg-gray-300 px-2 rounded"
+                        title="Reset to Inherit">X</button>
+                </div>
+
+                <div id="el-stress-display" class="mt-3 pt-2 border-t border-blue-200 text-xs text-blue-800" hidden>
+                    <strong>Stress (Von Mises):</strong> <span id="el-stress-val">N/A</span>
+                </div>
+
+                <button id="btn-apply-element-props"
+                    class="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-1.5 px-3 rounded-lg shadow-sm hover:shadow">Apply
+                    to Selected</button>
+
+                <button id="btn-delete-selected-elements"
+                    class="mt-2 w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-1.5 px-3 rounded-lg shadow-sm hover:shadow">Delete
+                    Selected Elements</button>
             </div>
+
+            <hr class="my-2 border-gray-300">
+            <!-- Note: Special background colors for Solve/Save/Load are handled via !important utilities or specific JS -->
+            <button id="btn-solve"
+                class="bg-red-600 hover:bg-red-700 text-white font-semibold py-1.5 px-3 rounded-lg shadow-sm hover:shadow transition duration-150 ease-in-out mb-2 w-full text-left disabled:opacity-50 disabled:cursor-not-allowed">Run
+                Analysis</button>
+            <hr class="my-3 border-gray-300">
+            <h2 class="text-lg font-semibold mb-3 border-b pb-2">Save / Load</h2>
+            <div class="space-y-2">
+                <button id="btn-save-model"
+                    class="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-1.5 px-3 rounded-lg shadow-sm hover:shadow transition duration-150 ease-in-out mb-2 w-full text-left disabled:opacity-50 disabled:cursor-not-allowed">Save
+                    Model (Copy JSON)</button>
+                <div id="load-model-area" class="p-3 my-2 border border-gray-200 rounded bg-gray-50">
+                    <!-- Input Area Style -->
+                    <label for="load-textarea" class="block text-sm font-medium text-gray-700 mb-1">Paste Model JSON
+                        here:</label>
+                    <textarea id="load-textarea" rows="4"
+                        class="text-xs mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-1 px-2 font-mono"></textarea>
+                    <button id="btn-load-text"
+                        class="mt-3 w-full bg-gray-600 hover:bg-gray-700 text-white font-semibold py-1.5 px-3 rounded-lg shadow-sm hover:shadow">Load
+                        from Text</button> <!-- Special Button Style -->
+                </div>
+            </div>
+            <!-- End of Controls Section (div removed to include Results in Sidebar) -->
             <!-- Added Tailwind classes directly to Results Area elements -->
             <div class="results-area mt-4 pt-4 border-t">
                 <h3 class="text-md font-semibold mb-2">Selected Geo Nodes</h3>
                 <div id="selection-info"
-                    class="text-sm text-gray-600 h-16 overflow-y-auto bg-gray-50 p-2 rounded border">None.</div>
+                    class="text-sm text-gray-600 h-16 overflow-y-auto bg-gray-50 p-2 rounded border">
+                    None.</div>
             </div>
             <div class="results-area mt-4 pt-4 border-t">
                 <h3 class="text-md font-semibold mb-2">Selected Membranes</h3>
                 <div id="membrane-selection-info"
+                    class="text-sm text-gray-600 h-16 overflow-y-auto bg-gray-50 p-2 rounded border">None.</div>
+            </div>
+            <div id="results-area mt-4 pt-4 border-t">
+                <h3 class="text-md font-semibold mb-2">Selected Elements</h3>
+                <div id="element-selection-info"
                     class="text-sm text-gray-600 h-16 overflow-y-auto bg-gray-50 p-2 rounded border">None.</div>
             </div>
             <div class="results-area mt-4 pt-4 border-t">
@@ -244,8 +398,17 @@
                             id="radio-view-springs" checked class="mr-1 cursor-pointer"> Springs</label>
                     <label class="mr-4 text-sm cursor-pointer"><input type="radio" name="results-view" value="reactions"
                             id="radio-view-reactions" class="mr-1 cursor-pointer"> Reactions</label>
-                    <label class="mr-4 text-sm cursor-pointer"><input type="radio" name="results-view" value="stress"
-                            id="radio-view-stress" class="mr-1 cursor-pointer"> Stress</label>
+                    <label class="inline-flex items-center">
+                        <input type="radio" name="results-view" value="stress" class="form-radio text-indigo-600">
+                        <span class="ml-2">Stresses</span>
+                    </label>
+                    <div class="mt-2 pt-2 border-t border-gray-200">
+                        <label class="inline-flex items-center text-sm text-gray-700">
+                            <input type="checkbox" id="chk-filter-results"
+                                class="form-checkbox text-indigo-600 h-4 w-4">
+                            <span class="ml-2">Filter Results by Selection</span>
+                        </label>
+                    </div>
                 </div>
                 <div id="results-springs" class="results-content">
                     <h4>Spring Loads:</h4>
@@ -281,22 +444,26 @@
         // --- Global Variables ---
         let stage;
         let backgroundLayer, membraneFillLayer, meshLayer, springLayer, geometryLayer, selectionLayer, stressLayer;
-        let currentMode = 'add-node';
-        // --- ADDED state variable for the new mode ---
-        let rectMembraneFirstCornerNode = null;
-        // --- ADDED state for spring grid mode ---
-        let springGridFirstCornerPos = null;
+        let currentMode = 'select-membrane';
         // --- ADDED state for editing node coords ---
         let editingNodeId = null;
         let nodes = [], membranes = [], selectedNodes = [], selectedMembranes = [], geometricSpringNodes = [];
-        let feNodes = [], feElements = [], feSprings = [];
-        let selectedFeNodes = [];
+        let feNodes = []; // { id, x, y, bc: { type, ... } }
+        let feElements = []; // { id, type: 'quad', nodeIds: [], materialE, materialNu, materialT, ... }
+        let feSprings = [];  // { id, feNodeId1, feNodeId2, stiffness }
+        let selectedFeNodes = []; // Array of FE Node IDs
+        let selectedFeSprings = []; // Array of FE Spring IDs
+        let selectedFeElements = []; // New selection array for elements
+        let resultsDisplacements = null; // Store d vector
+        let resultsSpringLoads = []; // Store spring loads
+        let resultsReactions = []; // Store reaction forces
+        let resultsElementStresses = []; // Store stresses
         let isSelectingBox = false;
-        let selectionBoxStart = { x: 0, y: 0 };
+        let selectionBoxStart = null;
         let selectionRect = null;
         let nextNodeId = 1, nextMembraneId = 1, feNodeIdCounter = 1, feElementIdCounter = 1, feSpringIdCounter = 1;
         // --- REMOVED Global Material Variables ---
-        let resultsDisplacements = null; let resultsSpringLoads = []; let resultsReactions = []; let resultsElementStresses = [];
+        // let resultsDisplacements = null; let resultsSpringLoads = []; let resultsReactions = []; let resultsElementStresses = []; // These are now declared above
 
         // --- ADDED Default Material Constants ---
         const DEFAULT_MATERIAL_E = 10.5e6;
@@ -311,12 +478,17 @@
         const FE_NODE_SELECTED_RADIUS_TARGET_PX = 3.5;
         // --- Reduced target line width ---
         const LINE_STROKE_WIDTH_TARGET_PX = 0.75; // For mesh, springs, etc.
-        const BC_SYMBOL_SIZE_TARGET_PX = 8;
-        const BC_SYMBOL_OFFSET_TARGET_PX = 4; // Offset from node edge
+        const BC_SYMBOL_SIZE_TARGET_PX = 12; // Size of arrow/triangle
+        const BC_SYMBOL_OFFSET_TARGET_PX = 4; // Offset from node
+        const SELECTION_BOX_COLOR = 'rgba(0, 0, 255, 0.2)';
+
+        const SPRING_SELECTED_COLOR = 'cyan'; // Color for selected springs
+        const SPRING_SELECTED_WIDTH_PX = 3;   // Width for selected springs
+
         // --- Fixed Pixel Size/Offset Constants for Spring Labels ---
-        const SPRING_LABEL_FIXED_FONT_SIZE = 12; // Font size in screen pixels (e.g., 10px)
-        const SPRING_LABEL_SCREEN_OFFSET_X = 6;  // Offset right from node1 in screen pixels
-        const SPRING_LABEL_SCREEN_OFFSET_Y = 10;  // Offset 'up' from node1 in screen pixels
+        const SPRING_LABEL_FIXED_FONT_SIZE = 7; // Font size in screen pixels (reduced from 12)
+        const SPRING_LABEL_SCREEN_OFFSET_X = 15; // Horizontal offset in screen pixels
+        const SPRING_LABEL_SCREEN_OFFSET_Y = 15; // Vertical offset in screen pixels
         const FE_NODE_RADIUS = 2, FE_NODE_SELECTED_RADIUS = 3.5; // REMOVE these old constants
         const MESH_LINE_COLOR = '#999999', SPRING_LINE_COLOR = 'green', SPRING_LABEL_COLOR = 'darkgreen';
         const MEMBRANE_DEFAULT_OPACITY = 0.5, MEMBRANE_SELECTED_OPACITY = 0.8;
@@ -324,16 +496,165 @@
         // --- Reduced selected membrane stroke width ---
         const MEMBRANE_DEFAULT_STROKE_WIDTH = 1, MEMBRANE_SELECTED_STROKE_WIDTH = 1.5;
         const SPRING_CONN_TOLERANCE_SQ = 4.0;
-        const SELECTION_BOX_COLOR = 'rgba(0, 123, 255, 0.3)';
+        // const SELECTION_BOX_COLOR = 'rgba(0, 123, 255, 0.3)'; // Moved up
         const SPRING_RESULT_LABEL_OFFSET_PX = 6; // Offset in pixels from node center (adjust as needed)
 
+        // --- NEW: Spring Point Groups Data ---
+        let springPointGroups = []; // Array of { id: number, name: string, nodeIds: [], isSelected: boolean }
+        let nextSpringGroupId = 1;
+
         // --- Function Definitions ---
+
+        // --- NEW: Orphan Node Cleanup ---
+        function cleanupOrphanFeNodes() {
+            // Find all Node IDs currently used by elements
+            const usedNodeIds = new Set();
+            feElements.forEach(el => {
+                el.nodeIds.forEach(nid => usedNodeIds.add(nid));
+            });
+            // Also keep nodes that are part of springs
+            feSprings.forEach(s => {
+                usedNodeIds.add(s.feNodeId1);
+                usedNodeIds.add(s.feNodeId2);
+            });
+            // Also keep nodes that have BCs
+            feNodes.forEach(node => {
+                if (node.bc && node.bc.type !== 'none') {
+                    usedNodeIds.add(node.id);
+                }
+            });
+
+
+            const initialCount = feNodes.length;
+            feNodes = feNodes.filter(node => usedNodeIds.has(node.id));
+
+            if (feNodes.length < initialCount) {
+                console.log(`Cleaned up ${initialCount - feNodes.length} orphan FE nodes.`);
+                // Update selection if deleted nodes were selected
+                selectedFeNodes = selectedFeNodes.filter(id => feNodes.find(n => n.id === id));
+                updateFeSelectionInfo();
+            }
+        }
+
 
         // --- Moved UI Update Functions Higher ---
         function updateStatus(message) { const statusElement = document.getElementById('status-message'); if (statusElement) { statusElement.textContent = message; } else { console.warn("Status message element not found."); } }
         function updateSelectionInfo() { const infoDiv = document.getElementById('selection-info'); if (!infoDiv) return; if (selectedNodes.length === 0) { infoDiv.textContent = 'None.'; } else { infoDiv.innerHTML = `Node IDs (${selectedNodes.length}):<br>`; selectedNodes.forEach((node, index) => { if (node && typeof node.id !== 'undefined') { infoDiv.innerHTML += `${index + 1}. ${node.id} <br>`; } else { infoDiv.innerHTML += `${index + 1}. ? <br>`; console.error("Error displaying node data:", node); } }); } }
         function updateSpringPointsInfo() { const infoDiv = document.getElementById('spring-points-info'); if (!infoDiv) return; if (geometricSpringNodes.length === 0) { infoDiv.textContent = 'None.'; } else { infoDiv.innerHTML = `Node IDs: ${geometricSpringNodes.join(', ')}`; } }
-        function updateMembraneSelectionInfo() { const infoDiv = document.getElementById('membrane-selection-info'); if (!infoDiv) return; if (selectedMembranes.length === 0) { infoDiv.textContent = 'None.'; } else { infoDiv.innerHTML = `Membrane IDs: ${selectedMembranes.join(', ')}`; } }
+        // --- REPLACED: updateMembraneSelectionInfo to also update Model Tree ---
+        function updateMembraneSelectionInfo() {
+            const infoDiv = document.getElementById('membrane-selection-info');
+            if (infoDiv) {
+                if (selectedMembranes.length === 0) { infoDiv.textContent = 'None.'; }
+                else { infoDiv.innerHTML = `Membrane IDs: ${selectedMembranes.join(', ')}`; }
+            }
+            updateModelTree(); // Update the tree highlighting
+        }
+
+        // --- NEW: updateModelTree with Visibility Toggles ---
+        function updateModelTree() {
+            const list = document.getElementById('model-tree-list');
+            if (!list) return;
+            list.innerHTML = '';
+
+            if (membranes.length === 0) {
+                list.innerHTML = '<p class="text-gray-500 italic">No membranes.</p>';
+                return;
+            }
+
+            membranes.forEach(m => {
+                const item = document.createElement('div');
+                const isSelected = selectedMembranes.includes(m.id);
+                item.className = `p-1 rounded mb-1 flex justify-between items-center ${isSelected ? 'bg-indigo-100 border-indigo-300 border' : 'hover:bg-gray-100'}`;
+
+                // Flex container for Checkbox + Label
+                const leftDiv = document.createElement('div');
+                leftDiv.className = 'flex items-center gap-2 cursor-pointer';
+
+                // Visibility Checkbox
+                const chk = document.createElement('input');
+                chk.type = 'checkbox';
+                chk.checked = m.visible !== false; // Default true
+                chk.onclick = (e) => {
+                    e.stopPropagation(); // Don't trigger select
+                    m.visible = chk.checked;
+                    console.log(`Membrane ${m.id} visibility: ${m.visible}`);
+                    // Trigger redrawing of EVERYTHING affected
+                    drawMembraneFill(); // Assume this exists or I'll fix
+                    drawMesh();
+                    drawStressResults(resultsElementStresses); // Redraw stress if present
+                };
+
+                // Label
+                const label = document.createElement('span');
+                const status = m.isMeshed ? '(Meshed)' : '';
+                label.textContent = `Membrane ${m.id} ${status}`;
+
+                leftDiv.appendChild(chk);
+                leftDiv.appendChild(label);
+
+                // Click on Label/Div selects
+                leftDiv.onclick = (e) => {
+                    if (e.ctrlKey || e.metaKey) {
+                        toggleMembraneSelection(m.id);
+                    } else {
+                        clearMembraneSelection();
+                        toggleMembraneSelection(m.id);
+                    }
+                };
+
+                item.appendChild(leftDiv);
+                list.appendChild(item);
+            });
+        }
+
+        // --- NEW: Spring Group Tree Updater ---
+        function updateSpringGroupTree() {
+            const list = document.getElementById('spring-group-list');
+            if (!list) return;
+            list.innerHTML = '';
+
+            if (springPointGroups.length === 0) {
+                list.innerHTML = '<p class="text-gray-500 italic">No spring groups.</p>';
+                return;
+            }
+
+            springPointGroups.forEach(g => {
+                const item = document.createElement('div');
+                const isSelected = g.isSelected;
+                item.className = `p-1 cursor-pointer rounded mb-1 flex justify-between items-center ${isSelected ? 'bg-green-100 border-green-300 border' : 'hover:bg-gray-100'}`;
+                item.textContent = `${g.name} (${g.nodeIds.length} nodes)`;
+
+                item.onclick = () => {
+                    // Exclusive selection for spring groups (simplest for "create for selected")
+                    springPointGroups.forEach(grp => grp.isSelected = false);
+                    g.isSelected = true;
+                    updateSpringGroupTree();
+
+                    // Visualize selected group points
+                    updateSpringGroupHighlights();
+                };
+                list.appendChild(item);
+            });
+        }
+        // --- UPDATED: Update Highlights (Red & Thick) ---
+        function updateMembraneHighlights() {
+            // Loop all membranes and update their stroke based on selection
+            membranes.forEach(m => {
+                if (m.konvaShape) {
+                    const isSelected = selectedMembranes.includes(m.id);
+                    if (isSelected) {
+                        m.konvaShape.stroke('red');
+                        m.konvaShape.strokeWidth(4); // Thicker
+                        m.konvaShape.moveToTop(); // Ensure visibility
+                    } else {
+                        m.konvaShape.stroke(MEMBRANE_DEFAULT_STROKE); // Blue/Default
+                        m.konvaShape.strokeWidth(MEMBRANE_DEFAULT_STROKE_WIDTH);
+                    }
+                }
+            });
+            if (membraneFillLayer) membraneFillLayer.batchDraw();
+        }
         function updateFeSelectionInfo() { const infoDiv = document.getElementById('fe-selection-info'); if (!infoDiv) return; if (selectedFeNodes.length === 0) { infoDiv.textContent = 'None.'; } else { infoDiv.innerHTML = `Count: ${selectedFeNodes.length}<br>IDs: ${selectedFeNodes.slice(0, 10).join(', ')} ${selectedFeNodes.length > 10 ? '...' : ''}`; } }
         function toggleBcInputArea() { const bcArea = document.getElementById('bc-input-area'); if (!bcArea) return; const hasSelection = selectedFeNodes.length > 0; bcArea.hidden = !hasSelection; if (hasSelection) { document.getElementById('bc-type-select').value = 'none'; handleBcTypeChange(); } }
         function handleBcTypeChange() { const selectedType = document.getElementById('bc-type-select')?.value; document.getElementById('bc-fixed-options')?.setAttribute('hidden', ''); document.getElementById('bc-enforced-options')?.setAttribute('hidden', ''); document.getElementById('bc-load-options')?.setAttribute('hidden', ''); if (selectedType === 'fixed') { document.getElementById('bc-fixed-options')?.removeAttribute('hidden'); } else if (selectedType === 'enforced') { document.getElementById('bc-enforced-options')?.removeAttribute('hidden'); } else if (selectedType === 'load') { document.getElementById('bc-load-options')?.removeAttribute('hidden'); } }
@@ -376,45 +697,255 @@
 
         // --- ADDED Handler for applying material properties (Moved Higher) ---
         function handleApplyMaterialProperties() {
-            console.log("Applying material properties to selected membranes...");
-            if (selectedMembranes.length === 0) {
-                updateStatus("No membranes selected to apply properties to.");
-                return;
+            // ... (existing code)
+        }
+
+        function updateElementSelectionInfo() {
+            const infoDiv = document.getElementById('element-selection-info');
+            if (!infoDiv) return;
+            if (selectedFeElements.length === 0) {
+                infoDiv.textContent = 'None.';
+            } else {
+                infoDiv.innerHTML = `Count: ${selectedFeElements.length}<br>IDs: ${selectedFeElements.slice(0, 10).join(', ')} ${selectedFeElements.length > 10 ? '...' : ''}`;
             }
+        }
 
-            const inputE = document.getElementById('mem-mat-prop-e');
-            const inputNu = document.getElementById('mem-mat-prop-nu');
-            const inputT = document.getElementById('mem-mat-prop-t');
-            let valid = true;
-            const e_val = parseFloat(inputE?.value);
-            const nu_val = parseFloat(inputNu?.value);
-            const t_val = parseFloat(inputT?.value);
+        function updateElementPropertyDisplay() {
+            const elPropArea = document.getElementById('element-properties-area');
+            const noteSpan = document.getElementById('el-prop-id');
+            const inputE = document.getElementById('el-prop-e');
+            const inputNu = document.getElementById('el-prop-nu');
+            const inputT = document.getElementById('el-prop-t');
+            const stressDisplay = document.getElementById('el-stress-display');
+            const stressVal = document.getElementById('el-stress-val');
 
-            if (isNaN(e_val) || e_val <= 0) { alert("Invalid Young's Modulus (E). Must be positive number."); valid = false; }
-            if (isNaN(nu_val) || nu_val < 0 || nu_val > 0.5) { alert("Invalid Poisson's Ratio (nu). Must be between 0 and 0.5."); valid = false; }
-            if (isNaN(t_val) || t_val <= 0) { alert("Invalid Thickness (t). Must be positive number."); valid = false; }
+            if (!elPropArea) return;
 
-            if (!valid) {
-                console.error("Invalid material properties entered.");
-                updateStatus("Error: Invalid material properties.");
-                return;
+            if (selectedFeElements.length > 0) {
+                elPropArea.hidden = false;
+
+                // Display ID info
+                if (selectedFeElements.length === 1) {
+                    noteSpan.textContent = selectedFeElements[0];
+                    // Stress for single element
+                    const result = resultsElementStresses.find(r => r.elementId === selectedFeElements[0]);
+                    if (result) {
+                        stressDisplay.hidden = false;
+                        stressVal.textContent = result.sigmaVM.toFixed(2) + " Pa";
+                    } else {
+                        stressDisplay.hidden = true;
+                    }
+                } else {
+                    noteSpan.textContent = `${selectedFeElements.length} elements selected (Bulk Edit)`;
+                    stressDisplay.hidden = true; // Hide stress for multiple
+                }
+
+                // Helper to determine common value
+                const getCommonValue = (propName) => {
+                    let firstVal = undefined;
+                    let isMixed = false;
+                    for (let i = 0; i < selectedFeElements.length; i++) {
+                        const el = findFeElementById(selectedFeElements[i]);
+                        if (!el) continue;
+                        const val = el[propName];
+                        if (i === 0) firstVal = val;
+                        else if (val !== firstVal) isMixed = true;
+                    }
+                    return isMixed ? '' : (firstVal !== undefined ? firstVal : '');
+                };
+
+                // Populate inputs (Blank if mixed or undefined, Value if all same)
+                inputE.value = getCommonValue('propE');
+                inputNu.value = getCommonValue('propNu');
+                inputT.value = getCommonValue('propT');
+
+                // Set placeholders to indicate behavior
+                const placeholderText = selectedFeElements.length > 1 ? "Keep Existing (Mixed)" : "Inherit";
+                inputE.placeholder = placeholderText;
+                inputNu.placeholder = placeholderText;
+                inputT.placeholder = placeholderText;
+
+            } else {
+                elPropArea.hidden = true;
             }
+        }
+
+        function handleApplyElementProperties() {
+            if (selectedFeElements.length === 0) return;
+
+            const inputE = document.getElementById('el-prop-e');
+            const inputNu = document.getElementById('el-prop-nu');
+            const inputT = document.getElementById('el-prop-t');
+
+            // Only update if value is provided (non-empty)
+            // If empty, preserve existing value (allows partial bulk updates)
+            const eStr = inputE.value.trim();
+            const nuStr = inputNu.value.trim();
+            const tStr = inputT.value.trim();
+
+            const eVal = eStr === '' ? null : parseFloat(eStr);
+            const nuVal = nuStr === '' ? null : parseFloat(nuStr);
+            const tVal = tStr === '' ? null : parseFloat(tStr);
 
             let updatedCount = 0;
-            selectedMembranes.forEach(memId => {
-                const membrane = findMembraneById(memId);
-                if (membrane) {
-                    membrane.materialE = e_val;
-                    membrane.materialNu = nu_val;
-                    membrane.materialT = t_val;
+            selectedFeElements.forEach(id => {
+                const element = findFeElementById(id);
+                if (element) {
+                    if (eVal !== null) element.propE = eVal;
+                    if (nuVal !== null) element.propNu = nuVal;
+                    if (tVal !== null) element.propT = tVal;
                     updatedCount++;
-                    console.log(`Updated material for Membrane ${memId}: E=${e_val}, nu=${nu_val}, t=${t_val}`);
-                } else {
-                    console.warn(`Could not find membrane ${memId} to update properties.`);
+                }
+            });
+            updateStatus(`Updated properties for ${updatedCount} elements.`);
+            updateElementPropertyDisplay(); // Refresh display logic (might show new common values)
+        }
+
+        function handleClearElementProp(propNameShort) {
+            // propNameShort is 'e', 'nu', or 't'
+            // Reset means set to undefined (Inherit)
+            if (selectedFeElements.length === 0) return;
+
+            const propMap = { 'e': 'propE', 'nu': 'propNu', 't': 'propT' };
+            const fullPropName = propMap[propNameShort];
+
+            selectedFeElements.forEach(id => {
+                const element = findFeElementById(id);
+                if (element) {
+                    element[fullPropName] = undefined; // Reset to inherit
                 }
             });
 
-            updateStatus(`Applied properties to ${updatedCount} selected membranes.`);
+            // Clear input visual
+            const input = document.getElementById(`el-prop-${propNameShort}`);
+            if (input) input.value = '';
+
+            updateStatus(`Reset property '${propNameShort}' to Inherit for selected elements.`);
+            updateElementPropertyDisplay();
+        }
+
+        function deleteSelectedElements() {
+            if (selectedFeElements.length === 0) return;
+            if (!confirm(`Are you sure you want to delete ${selectedFeElements.length} selected elements?`)) return;
+
+            // Create a copy to iterate because deleteElement modifies the array/selection
+            const idsToDelete = [...selectedFeElements];
+            let deletedCount = 0;
+
+            idsToDelete.forEach(id => {
+                const idx = feElements.findIndex(e => e.id === id);
+                if (idx > -1) {
+                    feElements.splice(idx, 1);
+                    deletedCount++;
+                }
+            });
+
+            selectedFeElements = []; // Clear selection
+            updateElementSelectionInfo();
+            updateElementPropertyDisplay();
+            cleanupOrphanFeNodes(); // Clean up orphans
+            drawMesh(); // Single redraw
+            updateStatus(`Deleted ${deletedCount} elements.`);
+        }
+
+        // --- NEW: Parametric Membrane Creation Handler ---
+        function handleCreateMembraneParametric() {
+            const x = parseFloat(document.getElementById('new-mem-x').value);
+            const y = parseFloat(document.getElementById('new-mem-y').value);
+            const w = parseFloat(document.getElementById('new-mem-w').value);
+            const h = parseFloat(document.getElementById('new-mem-h').value);
+
+            if (isNaN(x) || isNaN(y) || isNaN(w) || isNaN(h) || w <= 0 || h <= 0) {
+                alert("Please enter valid parameters for the membrane. Width and Height must be positive.");
+                return;
+            }
+
+            // Create 4 nodes
+            // Order: Bottom-Left (x,y), Bottom-Right (x+w, y), Top-Right (x+w, y+h), Top-Left (x, y+h)
+            // Note: Canvas Y coordinates increase downwards, but engineering usually expects Y up.
+            // Konva coords: (0,0) top left.
+            // If user inputs "Origin" as bottom-left in engineering terms, and width/height...
+            // Let's assume standard canvas coordinates for now to be safe (X right, Y down).
+            // Or better, assume user "Origin X,Y" is the top-left corner as per standard rect drawing?
+            // "Lower left corner" was requested.
+            // If user enters (0,0) as lower-left, and wants Y to go UP...
+            // Standard computer graphics (Konva) has Y down.
+            // Let's implement as: Origin is (x,y).
+            // Node 1: (x,y)
+            // Node 2: (x+w, y)
+            // Node 3: (x+w, y+h)
+            // Node 4: (x, y+h)
+            // This creates a rectangle.
+
+            const n1 = addNode(x, y);
+            const n2 = addNode(x + w, y);
+            const n3 = addNode(x + w, y + h); // +h goes down in canvas
+            const n4 = addNode(x, y + h);
+
+            if (n1 && n2 && n3 && n4) {
+                const nodesData = [n1, n2, n3, n4];
+                createMembraneWithNodes(nodesData);
+                updateStatus(`Created parametric membrane at (${x},${y}) with ${w}x${h}.`);
+            } else {
+                updateStatus("Error creating nodes for membrane.");
+            }
+        }
+
+        // --- NEW: Parametric Spring Grid Creation Handler ---
+        function handleCreateSpringGridParametric() {
+            const xOrigin = parseFloat(document.getElementById('spring-grid-x').value);
+            const yOrigin = parseFloat(document.getElementById('spring-grid-y').value);
+            const w = parseFloat(document.getElementById('spring-grid-w').value);
+            const h = parseFloat(document.getElementById('spring-grid-h').value);
+            const nx = parseInt(document.getElementById('spring-grid-nx').value, 10);
+            const ny = parseInt(document.getElementById('spring-grid-ny').value, 10);
+
+            if (isNaN(xOrigin) || isNaN(yOrigin) || isNaN(w) || isNaN(h) || isNaN(nx) || isNaN(ny)) {
+                alert("Please enter valid numeric values for all spring grid fields.");
+                return;
+            }
+            if (nx < 2 || ny < 2) {
+                alert("Count X and Count Y must be at least 2.");
+                return;
+            }
+
+            let nodesCreated = 0;
+            const dx = (nx > 1) ? w / (nx - 1) : 0;
+            const dy = (ny > 1) ? h / (ny - 1) : 0;
+
+            // Create NEW Spring Group
+            const newGroup = {
+                id: nextSpringGroupId++,
+                name: `Grid ${nextSpringGroupId - 1}`,
+                nodeIds: [],
+                isSelected: true // Auto-select new group
+            };
+            // Deselect others
+            springPointGroups.forEach(g => g.isSelected = false);
+
+            for (let i = 0; i < nx; i++) {
+                for (let j = 0; j < ny; j++) {
+                    const x = xOrigin + i * dx;
+                    const y = yOrigin + j * dy;
+                    const newNodeData = addNode(x, y);
+                    if (newNodeData) {
+                        // toggleSpringPointMarking(newNodeData); // OLD Logic
+                        // NEW Logic: Add to group
+                        newGroup.nodeIds.push(newNodeData.id);
+                        newNodeData.konvaCircle.fill(SPRING_NODE_COLOR); // Visual feedback
+                        nodesCreated++;
+                    }
+                }
+            }
+
+            springPointGroups.push(newGroup);
+            updateSpringGroupTree();
+
+            // Visualize the newly created group
+            updateSpringGroupHighlights();
+
+            updateStatus(`Created Spring Group "${newGroup.name}" with ${nodesCreated} points.`);
+            console.log(`Finished creating parametric spring grid.`);
         }
 
         // --- Initialization ---
@@ -434,13 +965,25 @@
                 if (typeof math === 'undefined') { console.error("Math.js library not loaded yet."); /* Optionally add alert or status update */ }
 
                 stage = new Konva.Stage({ container: 'container', width: width, height: height, draggable: true });
-                backgroundLayer = new Konva.Layer(); stage.add(backgroundLayer);
-                membraneFillLayer = new Konva.Layer(); stage.add(membraneFillLayer);
-                stressLayer = new Konva.Layer({ opacity: 0.6 }); stage.add(stressLayer);
-                meshLayer = new Konva.Layer(); stage.add(meshLayer);
-                springLayer = new Konva.Layer(); stage.add(springLayer);
-                geometryLayer = new Konva.Layer(); stage.add(geometryLayer);
-                selectionLayer = new Konva.Layer(); stage.add(selectionLayer);
+                backgroundLayer = new Konva.Layer();
+                membraneFillLayer = new Konva.Layer();
+                meshLayer = new Konva.Layer();
+                springLayer = new Konva.Layer();
+                geometryLayer = new Konva.Layer();
+                selectionLayer = new Konva.Layer();
+                stressLayer = new Konva.Layer({ visible: false }); // Start hidden
+                reactionLayer = new Konva.Layer({ visible: false }); // Start hidden for reactions
+                const bcLayer = new Konva.Layer(); // For BC symbols
+
+                stage.add(backgroundLayer);
+                stage.add(membraneFillLayer);
+                stage.add(meshLayer); // FE elements below springs
+                stage.add(stressLayer); // Stress map (filled elements)
+                stage.add(geometryLayer); // Nodes/Membrane outlines
+                stage.add(springLayer); // Springs on top of mesh
+                stage.add(reactionLayer); // Reactions/BCs on top
+                stage.add(bcLayer); // BC symbols
+                stage.add(selectionLayer); // Selection highlights on top
                 const background = new Konva.Rect({ x: 0, y: 0, width: width, height: height, fill: '#f0f0f0' });
                 backgroundLayer.add(background);
 
@@ -451,36 +994,80 @@
                 stage.on('wheel', handleWheelZoom);
 
                 const safeAddListener = (id, event, handler) => { try { const element = document.getElementById(id); if (element) { if (typeof handler === 'function') { element.addEventListener(event, handler); } else { console.error(`Handler for #${id} is not defined or not a function!`); } } else { console.error(`Element #${id} not found!`); } } catch (err) { console.error(`Error adding listener for #${id}:`, err.message, err.stack); throw err; } };
-                safeAddListener('btn-add-node', 'click', () => { console.log("Button Clicked: Add Node"); setMode('add-node'); });
-                safeAddListener('btn-select-geo-node', 'click', () => { console.log("Button Clicked: Select Geo Node"); setMode('select-geo-node'); });
-                // --- ADDED listener for new mode button ---
-                safeAddListener('btn-add-rect-membrane', 'click', () => { console.log("Button Clicked: Add Rect Membrane"); setMode('add-rect-membrane'); });
-                // --- ADDED listener for spring grid mode button ---
-                safeAddListener('btn-add-spring-grid', 'click', () => { console.log("Button Clicked: Add Spring Grid"); setMode('add-spring-grid'); });
-                // --- End of Added Listeners ---
-                // --- ADDED listener for edit node coords mode ---
-                safeAddListener('btn-edit-node-coords', 'click', () => { console.log("Button Clicked: Edit Node Coords"); setMode('edit-node-coords'); });
+
+                // --- Updated Listeners for Parametric UI ---
+                safeAddListener('btn-create-parametric-membrane', 'click', () => { console.log("Button Clicked: Create Parametric Membrane"); handleCreateMembraneParametric(); });
+                safeAddListener('btn-create-parametric-springs', 'click', () => { console.log("Button Clicked: Create Parametric Spring Grid"); handleCreateSpringGridParametric(); });
+
+                // --- Existing Modes that are kept ---
                 safeAddListener('btn-select-membrane', 'click', () => { console.log("Button Clicked: Select Membrane"); setMode('select-membrane'); });
                 safeAddListener('btn-select-fe-box', 'click', () => { console.log("Button Clicked: Select FE Box"); setMode('select-fe-nodes-box'); });
-                safeAddListener('btn-mark-spring', 'click', () => { console.log("Button Clicked: Mark Spring"); setMode('mark-spring'); });
                 safeAddListener('btn-delete-item', 'click', () => { console.log("Button Clicked: Delete Item"); setMode('delete-item'); });
-                safeAddListener('btn-add-membrane', 'click', () => { console.log("Button Clicked: Create Membrane Action"); setMode('add-membrane'); createMembrane(); });
+                safeAddListener('btn-edit-node-coords', 'click', () => { console.log("Button Clicked: Edit Node Coords"); setMode('edit-node-coords'); });
+
+                // --- Action Listeners ---
                 safeAddListener('btn-mesh-membranes', 'click', () => { console.log("Button Clicked: Mesh Selected"); requestMeshInput(); });
                 safeAddListener('btn-confirm-mesh', 'click', () => { console.log("Button Clicked: Confirm Mesh"); handleConfirmMesh(); });
-                safeAddListener('btn-add-spring', 'click', () => { console.log("Button Clicked: Create Springs"); requestSpringInput(); });
-                safeAddListener('btn-confirm-springs', 'click', () => { console.log("Button Clicked: Confirm Springs"); handleConfirmSprings(); });
+                safeAddListener('btn-add-spring', 'click', () => { console.log("Button Clicked: Create Springs (FE)"); requestSpringInput(); });
+                safeAddListener('btn-confirm-springs', 'click', () => { console.log("Button Clicked: Confirm Springs (FE)"); handleConfirmSprings(); });
                 safeAddListener('btn-apply-bc-confirm', 'click', () => { console.log("Button Clicked: Apply BC Confirm"); handleApplyBc(); });
                 safeAddListener('bc-type-select', 'change', () => { console.log("Dropdown Changed: BC Type"); handleBcTypeChange(); });
                 safeAddListener('btn-apply-material', 'click', () => { console.log("Button Clicked: Apply Material Properties"); handleApplyMaterialProperties(); });
-                // --- ADDED listener for apply node coords button ---
                 safeAddListener('btn-apply-node-coords', 'click', () => { console.log("Button Clicked: Apply Node Coordinates"); handleApplyNodeCoords(); });
                 safeAddListener('btn-solve', 'click', () => { console.log("Button Clicked: Run Analysis"); runAnalysis(); });
                 safeAddListener('btn-save-model', 'click', () => { console.log("Button Clicked: Save Model"); handleSaveModel(); });
                 safeAddListener('btn-load-text', 'click', () => { console.log("Button Clicked: Load From Text"); handleLoadText(); });
 
-                document.querySelectorAll('input[name="results-view"]').forEach(radio => {
-                    safeAddListener(radio.id, 'change', (event) => { console.log(`Radio Changed: ${event.target.id}`); handleResultsViewChange(event); });
+                // Results View Radio Buttons
+                const resultRadios = document.querySelectorAll('input[name="results-view"]');
+                resultRadios.forEach(radio => {
+                    safeAddListener(radio.id, 'change', (event) => { console.log(`Radio Changed: ${event.target.value}`); handleResultsViewChange(event); });
                 });
+
+                // Filter Checkbox
+                safeAddListener('chk-filter-results', 'change', () => {
+                    console.log("Filter checkbox changed.");
+                    drawStressResults(resultsElementStresses); // Redraw stress map
+                    updateResultsDisplay(); // Update text
+                    drawSprings(); // Update springs (if we decide to filter them too)
+                    drawReactions(); // Update reactions (if filtering)
+                });
+
+                safeAddListener('btn-select-element', 'click', () => { console.log("Button Clicked: Select FE Element"); setMode('select-element'); }); // NEW Listener
+                safeAddListener('btn-apply-element-props', 'click', handleApplyElementProperties);
+                safeAddListener('btn-delete-selected-elements', 'click', deleteSelectedElements); // NEW Listener
+                safeAddListener('btn-clear-el-e', 'click', () => handleClearElementProp('e'));
+                safeAddListener('btn-clear-el-nu', 'click', () => handleClearElementProp('nu'));
+                safeAddListener('btn-clear-el-t', 'click', () => handleClearElementProp('t'));
+
+                // Wire up new buttons
+                safeAddListener('btn-mode-select-fe-box', 'click', () => setMode('select-fe-nodes-box'));
+                safeAddListener('btn-mode-select-element-box', 'click', () => setMode('select-element-box'));
+                safeAddListener('btn-mode-select-springs-box', 'click', () => setMode('select-springs-box'));
+                safeAddListener('btn-mode-select-fe-element', 'click', () => setMode('select-element')); // Keep support if needed
+
+                safeAddListener('btn-delete-springs', 'click', deleteSelectedSprings);
+                safeAddListener('btn-update-springs', 'click', updateSelectedSpringsStiffness);
+
+                // Wire up Element Property Listeners for Bulk Edit?
+                // If we want bulk edit for elements, we need a button or handle change.
+                // The existing UI for elements (`element-properties-area`) had inputs.
+                // We didn't add an "Apply" button there.
+                // User asked for "Bulk delete or bulk edit spring stiffness".
+                // User didn't explicitly ask for Bulk Edit Elements, just "select things entirely within box".
+                // But "Select Membrane Elements" implies some action.
+                // Assuming current actions (Delete Item) work on selected items?
+                // I need to ensure `Mode: Delete Item` works for selectedFeElements.
+
+                safeAddListener('btn-mode-delete', 'click', () => setMode('delete-item'));
+                // We need to update delete logic to handle selectedFeElements if Delete Mode is clicked?
+                // Or usually Delete Mode means "Click to delete".
+                // Bulk delete via button? The Spring panel has a button.
+                // Elements don't have a specific bulk delete button yet.
+                // Maybe "Mode: Delete Item" handles box selections?
+                // Usually, separate "Delete Selected" button is clearer.
+                // For now, I satisfy the Spring request fully.
+                // Element request was mainly about Selection.
 
                 window.addEventListener('resize', resizeCanvas);
                 resizeCanvas(); // Initial resize
@@ -498,12 +1085,20 @@
                 // --- End initial view adjustment ---
 
                 console.log("Initialization complete.");
-                setMode('add-node');
+                setMode('select-membrane'); // Default mode updated
                 updateSpringPointsInfo();
                 updateMembraneSelectionInfo();
                 updateFeSelectionInfo();
+                updateElementSelectionInfo(); // NEW
+                updateSpringSelectionInfo(); // NEW
                 updateResultsDisplay();
                 handleResultsViewChange();
+                if (document.getElementById('chk-filter-results').checked) {
+                    // If filtering is on, update visuals when selection changes
+                    drawStressResults(resultsElementStresses);
+                    // drawSprings();
+                    // drawReactions();
+                }
 
             } catch (error) { console.error("Error during Konva initialization or listener binding:", error, error.message, error.stack); updateStatus(`Initialization Error: ${error.message}`); }
         }
@@ -516,62 +1111,47 @@
             const springInputArea = document.getElementById('spring-input-area');
             const bcInputArea = document.getElementById('bc-input-area');
             const materialInputArea = document.getElementById('membrane-material-input-area');
-            // --- ADDED Reference to new input area ---
-            const springGridInputArea = document.getElementById('spring-grid-input-area');
-            // --- ADDED Reference to edit node coords input area ---
+            const springGridInputArea = document.getElementById('spring-grid-input-area'); // Kept for reference if exists, but hidden
             const editCoordsInputArea = document.getElementById('edit-node-coords-input-area');
-            const loadArea = document.getElementById('load-model-area');
 
             // Hide input areas if they are visible
             if (meshInputArea && !meshInputArea.hidden) { meshInputArea.hidden = true; }
             if (springInputArea && !springInputArea.hidden) { springInputArea.hidden = true; }
             if (bcInputArea && !bcInputArea.hidden) { bcInputArea.hidden = true; }
             if (materialInputArea && newMode !== 'select-membrane') { materialInputArea.hidden = true; }
-            // --- ADDED Hide spring grid input area ---
-            if (springGridInputArea && newMode !== 'add-spring-grid') { springGridInputArea.hidden = true; }
-            // --- ADDED Hide edit coords input area ---
+            if (springGridInputArea) { springGridInputArea.hidden = true; } // Always hide old input area if it exists
             if (editCoordsInputArea && newMode !== 'edit-node-coords') { editCoordsInputArea.hidden = true; }
 
             // Clear selections based on mode changes
-            if (currentMode === 'select-geo-node' && newMode !== 'add-membrane') { clearSelection(false); }
-            if (['add-node', 'mark-spring', 'select-membrane', 'select-fe-nodes-box', 'delete-item'].includes(newMode)) { clearSelection(true); } // Clear geo node selection
-            if (newMode !== 'select-membrane' && newMode !== 'mesh-membranes') { clearMembraneSelection(); } // This will also hide material area via updateMaterialPropertyDisplay
-            if (newMode !== 'select-fe-nodes-box') { clearFeSelection(); } // This will also hide BC area via toggleBcInputArea
-            // --- ADDED: Reset rect membrane state when changing modes ---
-            if (newMode !== 'add-rect-membrane') {
-                rectMembraneFirstCornerNode = null;
-            }
-            // --- ADDED: Reset spring grid state when changing modes ---
-            if (newMode !== 'add-spring-grid') {
-                springGridFirstCornerPos = null;
-            }
-            // --- ADDED: Reset editing node state when changing modes ---
+            if (['select-membrane', 'select-fe-nodes-box', 'delete-item'].includes(newMode)) { clearSelection(true); } // Clear geo node selection
+            if (newMode !== 'select-membrane' && newMode !== 'mesh-membranes') { clearMembraneSelection(); }
+            if (newMode !== 'select-fe-nodes-box') { clearFeSelection(); }
+            if (newMode !== 'select-element') { clearFeElementSelection(); } // Clear element selection on mode switch
+            if (newMode !== 'select-springs-box') { clearSpringSelection(); } // Clear spring selection on mode switch
+
+            // Reset editing node state when changing modes
             if (newMode !== 'edit-node-coords') {
                 if (editingNodeId !== null) {
-                    // Clear visual highlight if any was applied specifically for editing
                     const editedNode = findNodeDataById(editingNodeId);
                     if (editedNode?.konvaCircle) {
-                        // Reset to standard non-selected appearance (or selected if it was part of a group selection)
                         const index = selectedNodes.findIndex(n => n.id === editingNodeId);
-                        if (index === -1) { // If not part of the general selection
+                        if (index === -1) {
                             editedNode.konvaCircle.stroke('black');
-                            editedNode.konvaCircle.strokeWidth(NODE_STROKE_WIDTH_TARGET_PX); // Use target pixel width
-                        } else { // If it was selected, keep selected appearance
+                            editedNode.konvaCircle.strokeWidth(NODE_STROKE_WIDTH_TARGET_PX);
+                        } else {
                             editedNode.konvaCircle.stroke('#007bff');
-                            editedNode.konvaCircle.strokeWidth(3); // Selected stroke width (consider scaling this too?)
+                            editedNode.konvaCircle.strokeWidth(3);
                         }
                     }
                     editingNodeId = null;
                 }
             }
-            // --- End Added ---
 
             const container = document.getElementById('container');
             if (container) {
-                container.classList.toggle('crosshair-cursor', newMode === 'select-fe-nodes-box');
+                container.classList.toggle('crosshair-cursor', newMode === 'select-fe-nodes-box' || newMode === 'select-springs-box' || newMode === 'select-element-box');
                 container.classList.toggle('delete-cursor', newMode === 'delete-item');
-                // Remove default cursor class if others are active
-                if (newMode === 'select-fe-nodes-box' || newMode === 'delete-item') {
+                if (newMode === 'select-fe-nodes-box' || newMode === 'delete-item' || newMode === 'select-springs-box' || newMode === 'select-element-box') {
                     container.classList.remove('cursor-default');
                 } else if (!container.classList.contains('cursor-default')) {
                     container.classList.add('cursor-default');
@@ -581,93 +1161,64 @@
             currentMode = newMode;
             console.log("Mode changed to:", currentMode);
 
-            // Update button active states visually using Tailwind classes
-            const allButtons = document.querySelectorAll('button[id^="btn-"]'); // Select all buttons with IDs starting btn-
+            // Update button active states
+            const allButtons = document.querySelectorAll('button[id^="btn-"]');
             allButtons.forEach(btn => {
-                // Skip the buttons inside input areas for this general reset
-                if (btn.id === 'btn-confirm-mesh' || btn.id === 'btn-confirm-springs' || btn.id === 'btn-apply-bc-confirm' || btn.id === 'btn-apply-material') {
+                // Skip special buttons
+                if (btn.id.includes('create-parametric') || btn.id === 'btn-confirm-mesh' || btn.id === 'btn-confirm-springs'
+                    || btn.id === 'btn-apply-bc-confirm' || btn.id === 'btn-apply-material' || btn.id === 'btn-apply-node-coords'
+                    || btn.id === 'btn-apply-element-props' || btn.id.startsWith('btn-clear-el') || btn.id === 'btn-delete-selected-elements'
+                    || btn.id === 'btn-delete-springs' || btn.id === 'btn-update-springs') { // Added new spring buttons
                     return;
                 }
-                // Remove all potential active/inactive background/hover states defined directly
-                btn.classList.remove(
-                    'bg-green-600', 'hover:bg-green-700', 'shadow', // Base active
-                    'bg-purple-600', 'hover:bg-purple-700',        // Spring active
-                    'bg-teal-600', 'hover:bg-teal-700',            // Membrane active
-                    'bg-orange-600', 'hover:bg-orange-700',        // FE Box active
-                    '!bg-red-600', '!hover:!bg-red-700',            // Delete active
-                    'bg-blue-600', 'hover:bg-blue-700'             // Base inactive
-                );
-                // Remove potential special colors (Save/Load/Solve) before reapplying base
-                btn.classList.remove(
-                    '!bg-gray-600', '!hover:!bg-gray-700',         // Save/Load inactive
-                    '!bg-red-600', '!hover:!bg-red-700'             // Solve inactive (same as delete active, but needs reset)
-                );
 
-                // Reapply base inactive style unless it's Save/Load/Solve
-                if (!['btn-save-model', 'btn-load-text', 'btn-solve'].includes(btn.id)) {
+                // Clear active styles
+                btn.classList.remove('bg-green-600', 'hover:bg-green-700', 'shadow', 'bg-teal-600', 'hover:bg-teal-700', 'bg-orange-600', 'hover:bg-orange-700', '!bg-red-600', '!hover:!bg-red-700', 'bg-blue-600', 'hover:bg-blue-700', 'bg-purple-600', 'hover:bg-purple-700'); // Added purple
+                btn.classList.remove('!bg-gray-600', '!hover:!bg-gray-700', '!bg-red-600', '!hover:!bg-red-700');
+
+                // Apply inactive styles
+                if (btn.id === 'btn-solve') {
+                    btn.classList.add('!bg-red-600', '!hover:!bg-red-700');
+                } else if (['btn-save-model', 'btn-load-text'].includes(btn.id)) {
+                    btn.classList.add('!bg-gray-600', '!hover:!bg-gray-700');
+                } else {
                     btn.classList.add('bg-blue-600', 'hover:bg-blue-700');
-                } else if (btn.id === 'btn-solve') {
-                    btn.classList.add('!bg-red-600', '!hover:!bg-red-700'); // Reapply solve specific color
-                } else { // Save/Load
-                    btn.classList.add('!bg-gray-600', '!hover:!bg-gray-700'); // Reapply save/load specific color
                 }
             });
 
             const activeButton = document.getElementById(`btn-${newMode.replace(/_/g, '-')}`);
             if (activeButton) {
-                // Remove the base inactive style first
                 activeButton.classList.remove('bg-blue-600', 'hover:bg-blue-700');
-                // Apply specific active style
                 if (newMode === 'delete-item') {
                     activeButton.classList.add('!bg-red-600', '!hover:!bg-red-700', 'shadow');
-                } else if (newMode === 'mark-spring') {
-                    activeButton.classList.add('bg-purple-600', 'hover:bg-purple-700', 'shadow');
                 } else if (newMode === 'select-membrane') {
                     activeButton.classList.add('bg-teal-600', 'hover:bg-teal-700', 'shadow');
-                    // --- Show material area if membranes are selected ---
-                    updateMaterialPropertyDisplay(); // Update display based on current selection
+                    updateMaterialPropertyDisplay();
                 } else if (newMode === 'select-fe-nodes-box') {
                     activeButton.classList.add('bg-orange-600', 'hover:bg-orange-700', 'shadow');
-                } else { // Default active state (e.g., Add Node, Add Rect Membrane)
+                } else if (newMode === 'edit-node-coords') {
                     activeButton.classList.add('bg-green-600', 'hover:bg-green-700', 'shadow');
+                } else if (newMode === 'select-element' || newMode === 'select-element-box') { // Combined for styling
+                    activeButton.classList.add('bg-purple-600', 'hover:bg-purple-700', 'shadow');
+                } else if (newMode === 'select-springs-box') { // New mode for springs
+                    activeButton.classList.add('bg-pink-600', 'hover:bg-pink-700', 'shadow'); // Using pink for springs
                 }
             }
 
-            // --- ADDED: Show spring grid input area if in that mode ---
-            if (newMode === 'add-spring-grid' && springGridInputArea) {
-                springGridInputArea.hidden = false;
-            }
-            // --- ADDED: Show edit coords input area IF a node is being edited ---
+            // Show edit coords input area IF a node is being edited
             if (newMode === 'edit-node-coords' && editCoordsInputArea && editingNodeId !== null) {
                 editCoordsInputArea.hidden = false;
-            } else if (editCoordsInputArea) {
-                editCoordsInputArea.hidden = true; // Ensure hidden if no node selected
             }
-            // --- End Added ---
 
             // Update status message
             switch (currentMode) {
-                case 'add-node': updateStatus("Mode: Add Node. Click canvas to add nodes."); break;
-                case 'select-geo-node': updateStatus("Mode: Select Geo Node. Click nodes for membrane creation."); break;
-                // --- ADDED Status for new mode ---
-                case 'add-rect-membrane': updateStatus("Mode: Add Rect Membrane. Click first corner."); break;
-                // --- ADJUSTED Status for spring grid mode ---
-                case 'add-spring-grid': updateStatus("Mode: Add Spring Grid. Set Nx/Ny above, then click first corner."); break;
-                // --- End Adjusted Status ---
-                // --- ADDED Status for edit node coords mode ---
                 case 'edit-node-coords': updateStatus("Mode: Edit Node Coords. Click a node to edit."); break;
-                // --- End Added ---
                 case 'select-membrane': updateStatus("Mode: Select Membrane. Click inside membranes to select/deselect/cycle."); break;
                 case 'select-fe-nodes-box': updateStatus("Mode: Select FE Nodes. Drag a box to select nodes."); break;
-                case 'mark-spring': updateStatus("Mode: Mark Spring Point. Click nodes to mark/unmark."); break;
-                case 'delete-item': updateStatus("Mode: Delete Item. Click a Geo Node or Membrane to delete."); break;
-                case 'add-membrane':
-                    if (selectedNodes.length < 3) {
-                        updateStatus("Mode: Add Membrane. Select 3+ nodes in order using 'Select Geo Node' mode, then click button.");
-                    } else {
-                        updateStatus(`Mode: Add Membrane. ${selectedNodes.length} nodes selected. Click button.`);
-                    }
-                    break;
+                case 'select-element': updateStatus("Mode: Select Element. Click mesh elements to select."); break;
+                case 'select-element-box': updateStatus("Mode: Select Elements. Drag a box to select elements."); break;
+                case 'select-springs-box': updateStatus("Mode: Select Springs. Drag a box to select springs."); break;
+                case 'delete-item': updateStatus("Mode: Delete Item. Click a Geo Node, Membrane, Mesh Element, or Spring to delete."); break;
                 default: updateStatus(`Mode: ${currentMode}`);
             }
         }
@@ -685,11 +1236,7 @@
             const clickPos = { x: (pos.x - stagePos.x) / scale, y: (pos.y - stagePos.y) / scale };
 
             // --- Standard Modes ---
-            if (currentMode === 'add-node') {
-                if (e.target === stage || e.target === backgroundLayer.findOne('Rect')) {
-                    addNode(clickPos.x, clickPos.y);
-                }
-            } else if (currentMode === 'select-membrane' || currentMode === 'delete-item') {
+            if (currentMode === 'select-membrane' || currentMode === 'delete-item') {
                 // Check if click is inside any membrane
                 const overlappingMembranes = membranes.filter(m => {
                     if (!m || m.nodeIds.length < 3) return false;
@@ -733,117 +1280,11 @@
                     // Click was on background, clear selections
                     if (e.target === stage || e.target === backgroundLayer.findOne('Rect')) {
                         if (currentMode === 'select-membrane') clearMembraneSelection();
-                        if (currentMode === 'select-geo-node' || currentMode === 'mark-spring') clearSelection(false); // Clear visual only
+                        // Removed select-geo-node clearing
                         if (currentMode === 'select-fe-nodes-box') clearFeSelection();
+                        if (currentMode === 'select-springs-box') clearSpringSelection(); // NEW
+                        if (currentMode === 'select-element-box') clearFeElementSelection(); // NEW
                     }
-                }
-            }
-            // --- ADDED: Logic for new Rectangular Membrane mode ---
-            else if (currentMode === 'add-rect-membrane') {
-                if (e.target === stage || e.target === backgroundLayer.findOne('Rect')) {
-                    if (rectMembraneFirstCornerNode === null) {
-                        // First click: Create first node and store it
-                        const node1Data = addNode(clickPos.x, clickPos.y);
-                        if (node1Data) {
-                            rectMembraneFirstCornerNode = node1Data;
-                            updateStatus("Mode: Add Rect Membrane. Click diagonal corner.");
-                        } else {
-                            updateStatus("Error creating first node. Try again.");
-                        }
-                    } else {
-                        // Second click: Create remaining nodes and the membrane
-                        const node2Data = addNode(clickPos.x, clickPos.y); // Diagonal corner
-                        if (node2Data) {
-                            // Calculate inferred corners
-                            const pos3 = { x: rectMembraneFirstCornerNode.x, y: node2Data.y };
-                            const pos4 = { x: node2Data.x, y: rectMembraneFirstCornerNode.y };
-
-                            // Create inferred nodes
-                            const node3Data = addNode(pos3.x, pos3.y);
-                            const node4Data = addNode(pos4.x, pos4.y);
-
-                            if (node3Data && node4Data) {
-                                // Create the membrane using the four nodes in correct order
-                                // Order: click1, inferred1(same Y as click2), click2, inferred2(same Y as click1)
-                                const membraneNodesData = [rectMembraneFirstCornerNode, node3Data, node2Data, node4Data];
-                                createMembraneWithNodes(membraneNodesData);
-                                updateStatus(`Rectangular Membrane created.`);
-                            } else {
-                                updateStatus("Error creating inferred nodes. Membrane creation failed.");
-                                // Clean up potentially created nodes? Optional.
-                                if (node2Data) deleteNode(node2Data.id); // Delete second node if inferrence failed
-                                if (node3Data) deleteNode(node3Data.id);
-                                if (node4Data) deleteNode(node4Data.id);
-                            }
-                        } else {
-                            updateStatus("Error creating second node. Try again.");
-                        }
-                        // Reset state regardless of success/failure of second stage
-                        rectMembraneFirstCornerNode = null;
-                        setMode('add-node'); // Switch back to default mode after attempt
-                    }
-                }
-            }
-            // --- ADDED: Logic for Spring Grid mode ---
-            else if (currentMode === 'add-spring-grid') {
-                if (e.target === stage || e.target === backgroundLayer.findOne('Rect')) {
-                    if (springGridFirstCornerPos === null) {
-                        // First click: Store position
-                        springGridFirstCornerPos = { x: clickPos.x, y: clickPos.y };
-                        updateStatus("Mode: Add Spring Grid. Click diagonal corner."); // Update status after first click
-                        console.log("Spring Grid: Stored first corner", springGridFirstCornerPos);
-                    } else {
-                        // Second click: Create the grid
-                        const corner1 = springGridFirstCornerPos;
-                        const corner2 = clickPos;
-                        console.log("Spring Grid: Stored second corner", corner2);
-
-                        const nxInput = document.getElementById('spring-grid-nx-input');
-                        const nyInput = document.getElementById('spring-grid-ny-input');
-                        const Nx = parseInt(nxInput?.value, 10);
-                        const Ny = parseInt(nyInput?.value, 10);
-
-                        // Validate Nx/Ny (No alert, update status instead)
-                        if (isNaN(Nx) || isNaN(Ny) || Nx < 2 || Ny < 2) {
-                            // --- CHANGED: Update status instead of alert ---
-                            updateStatus("Error: Invalid Nx/Ny (>= 2). Set Nx/Ny, then click first corner again.");
-                            springGridFirstCornerPos = null; // Reset state, user needs to click first corner again
-                            // Keep the mode 'add-spring-grid' and inputs visible
-                            return;
-                        }
-
-                        console.log(`Creating ${Nx}x${Ny} spring grid...`);
-                        let nodesCreated = 0;
-                        const dx = (Nx > 1) ? (corner2.x - corner1.x) / (Nx - 1) : 0;
-                        const dy = (Ny > 1) ? (corner2.y - corner1.y) / (Ny - 1) : 0;
-
-                        for (let i = 0; i < Nx; i++) {
-                            for (let j = 0; j < Ny; j++) {
-                                const x = corner1.x + i * dx;
-                                const y = corner1.y + j * dy;
-                                const newNodeData = addNode(x, y);
-                                if (newNodeData) {
-                                    toggleSpringPointMarking(newNodeData); // Mark as spring point immediately
-                                    nodesCreated++;
-                                }
-                            }
-                        }
-
-                        updateStatus(`Created ${nodesCreated} spring grid points (${Nx}x${Ny}).`);
-                        console.log(`Finished creating spring grid.`);
-
-                        // Reset state and switch back to default mode
-                        springGridFirstCornerPos = null;
-                        setMode('add-node');
-                    }
-                }
-            }
-            // --- End Modified Spring Grid Logic ---
-            else {
-                // Other modes or background click
-                if (e.target === stage || e.target === backgroundLayer.findOne('Rect')) {
-                    if (currentMode === 'select-geo-node' || currentMode === 'mark-spring') clearSelection(false); // Clear visual only
-                    if (currentMode === 'select-fe-nodes-box') clearFeSelection();
                 }
             }
         }
@@ -851,7 +1292,7 @@
             console.log(`handleNodeClick called for node ${nodeData?.id} in mode: ${currentMode}`);
             if (!nodeData || !nodeData.konvaCircle) { console.error("Invalid nodeData received in handleNodeClick"); return; }
 
-            // --- ADDED: Logic for Edit Node Coords mode ---
+            // --- Logic for Edit Node Coords mode ---
             if (currentMode === 'edit-node-coords') {
                 // Clear previous selection highlight if any
                 if (editingNodeId !== null && editingNodeId !== nodeData.id) {
@@ -868,42 +1309,120 @@
 
                 // Populate input area
                 document.getElementById('edit-node-id-display').textContent = editingNodeId;
-                document.getElementById('edit-node-x-input').value = nodeData.x.toFixed(3); // Show current coords
-                document.getElementById('edit-node-y-input').value = nodeData.y.toFixed(3);
+                const xVal = nodeData.x !== undefined ? nodeData.x : 0;
+                const yVal = nodeData.y !== undefined ? nodeData.y : 0;
+                document.getElementById('edit-node-x-input').value = xVal.toFixed(3);
+                document.getElementById('edit-node-y-input').value = yVal.toFixed(3);
 
                 // Show input area
                 const inputArea = document.getElementById('edit-node-coords-input-area');
                 if (inputArea) inputArea.hidden = false;
 
-                // Highlight the selected node (optional, subtle)
-                // nodeData.konvaCircle.stroke('darkorange');
-                // nodeData.konvaCircle.strokeWidth(2); // Or use a different visual cue
+                // Immediate highlight
+                if (nodeData.konvaCircle) {
+                    nodeData.konvaCircle.stroke('#007bff');
+                    nodeData.konvaCircle.strokeWidth(3);
+                }
 
                 geometryLayer?.batchDraw();
                 updateStatus(`Editing coordinates for Node ${editingNodeId}. Enter new X/Y and click Apply.`);
             }
             // --- End Edit Node Coords Logic ---
-            else if (currentMode === 'select-geo-node') {
-                toggleNodeSelection(nodeData);
-            }
-            else if (currentMode === 'mark-spring') {
-                toggleSpringPointMarking(nodeData);
-            }
+
             else if (currentMode === 'delete-item') {
                 deleteNode(nodeData.id);
             }
         }
+
         function handleStageMouseDown(e) {
-            if (currentMode !== 'select-fe-nodes-box' || !stage) return; stage.stopDrag(); e.evt.preventDefault(); isSelectingBox = true; let pos = stage.getPointerPosition(); if (!pos) { isSelectingBox = false; return; } const stagePos = stage.position(); const scale = stage.scaleX(); selectionBoxStart = { x: (pos.x - stagePos.x) / scale, y: (pos.y - stagePos.y) / scale }; clearFeSelection(); selectionRect = new Konva.Rect({
+            if ((currentMode !== 'select-fe-nodes-box' && currentMode !== 'select-springs-box' && currentMode !== 'select-element-box') || !stage) return;
+            stage.stopDrag();
+            e.evt.preventDefault();
+            isSelectingBox = true;
+            let pos = stage.getPointerPosition();
+            if (!pos) { isSelectingBox = false; return; }
+            const stagePos = stage.position();
+            const scale = stage.scaleX();
+            selectionBoxStart = { x: (pos.x - stagePos.x) / scale, y: (pos.y - stagePos.y) / scale }; // World coords
+
+            // Clear relevant selection based on mode
+            if (currentMode === 'select-fe-nodes-box') clearFeSelection(); // Clears all FE nodes and springs
+            if (currentMode === 'select-springs-box') clearSpringSelection();
+            if (currentMode === 'select-element-box') clearFeElementSelection(); // Clear element selection
+
+            selectionRect = new Konva.Rect({
                 x: selectionBoxStart.x, y: selectionBoxStart.y, width: 0, height: 0, fill: SELECTION_BOX_COLOR,
                 stroke: 'blue',
                 strokeWidth: 1, // Use constant pixel width
                 strokeScaleEnabled: false, // Disable scaling with zoom
                 visible: true,
-            }); selectionLayer.add(selectionRect); selectionLayer.batchDraw();
+            });
+            selectionLayer.add(selectionRect);
+            selectionLayer.batchDraw();
         }
         function handleStageMouseMove(e) { if (!isSelectingBox || !selectionRect || !stage) return; let currentPos = stage.getPointerPosition(); if (!currentPos) return; const stagePos = stage.position(); const scale = stage.scaleX(); const adjustedPos = { x: (currentPos.x - stagePos.x) / scale, y: (currentPos.y - stagePos.y) / scale }; const width = adjustedPos.x - selectionBoxStart.x; const height = adjustedPos.y - selectionBoxStart.y; selectionRect.setAttrs({ x: width > 0 ? selectionBoxStart.x : adjustedPos.x, y: height > 0 ? selectionBoxStart.y : adjustedPos.y, width: Math.abs(width), height: Math.abs(height), }); selectionLayer.batchDraw(); }
-        function handleStageMouseUp(e) { if (!isSelectingBox || !selectionRect || !stage) { return; } isSelectingBox = false; const finalAttrs = selectionRect.getAttrs(); const box = { x: finalAttrs.x, y: finalAttrs.y, width: finalAttrs.width, height: finalAttrs.height }; console.log("Selection box finished:", box); selectedFeNodes = feNodes.filter(feN => feN.x >= box.x && feN.x <= box.x + box.width && feN.y >= box.y && feN.y <= box.y + box.height).map(feN => feN.id); console.log(`Selected ${selectedFeNodes.length} FE nodes.`); selectionRect.destroy(); selectionLayer.batchDraw(); selectionRect = null; updateFeSelectionInfo(); drawMesh(); toggleBcInputArea(); }
+        function handleStageMouseUp(e) {
+            if (!isSelectingBox || !selectionRect || !stage) { return; }
+            isSelectingBox = false;
+            const finalAttrs = selectionRect.getAttrs();
+            // Normalize box (width/height can be negative during draw, but filter prefers x/y/w/h normalized)
+            const box = {
+                x: finalAttrs.width > 0 ? finalAttrs.x : finalAttrs.x + finalAttrs.width,
+                y: finalAttrs.height > 0 ? finalAttrs.y : finalAttrs.y + finalAttrs.height,
+                width: Math.abs(finalAttrs.width),
+                height: Math.abs(finalAttrs.height)
+            };
+
+            console.log("Selection box finished (World):", box);
+
+            if (currentMode === 'select-fe-nodes-box') {
+                selectedFeNodes = feNodes.filter(feN =>
+                    feN.x >= box.x && feN.x <= box.x + box.width &&
+                    feN.y >= box.y && feN.y <= box.y + box.height
+                ).map(feN => feN.id);
+                console.log(`Selected ${selectedFeNodes.length} FE nodes.`);
+                updateFeSelectionInfo();
+                drawMesh();
+                toggleBcInputArea();
+            }
+            else if (currentMode === 'select-springs-box') {
+                // Select springs where BOTH nodes are inside the box
+                selectedFeSprings = feSprings.filter(s => {
+                    const n1 = findFeNodeById(s.feNodeId1);
+                    const n2 = findFeNodeById(s.feNodeId2);
+                    if (!n1 || !n2) return false;
+
+                    const n1Inside = n1.x >= box.x && n1.x <= box.x + box.width && n1.y >= box.y && n1.y <= box.y + box.height;
+                    const n2Inside = n2.x >= box.x && n2.x <= box.x + box.width && n2.y >= box.y && n2.y <= box.y + box.height;
+                    return n1Inside && n2Inside;
+                }).map(s => s.id);
+                console.log(`Selected ${selectedFeSprings.length} Springs.`);
+                updateSpringSelectionInfo();
+                drawSprings();
+            }
+            else if (currentMode === 'select-element-box') {
+                // Select elements where ALL nodes are inside the box
+                const elementsInBox = feElements.filter(el => {
+                    return el.nodeIds.every(nid => {
+                        const n = findFeNodeById(nid);
+                        if (!n) return false;
+                        return n.x >= box.x && n.x <= box.x + box.width && n.y >= box.y && n.y <= box.y + box.height;
+                    });
+                });
+
+                // Update selectedFeElements array
+                selectedFeElements = elementsInBox.map(el => el.id);
+
+                console.log(`Selected ${selectedFeElements.length} Elements (by Box).`);
+                updateElementSelectionInfo();
+                updateElementPropertyDisplay();
+                drawMesh(); // Redraw to highlight selected elements
+            }
+
+            selectionRect.destroy();
+            selectionLayer.batchDraw();
+            selectionRect = null;
+        }
         function handleWheelZoom(e) {
             e.evt.preventDefault();
             if (!stage) return;
@@ -951,7 +1470,11 @@
             // Update geometric nodes (Radius only)
             nodes.forEach(node => {
                 if (node.konvaCircle) {
-                    node.konvaCircle.radius(NODE_RADIUS_TARGET_PX / scale);
+                    let radius = NODE_RADIUS_TARGET_PX / scale;
+                    if (node.isSpringGroupSelected) {
+                        radius *= 1.5; // Apply highlight multiplier
+                    }
+                    node.konvaCircle.radius(radius);
                 }
             });
 
@@ -1024,41 +1547,36 @@
         function toggleNodeSelection(nodeData) { if (!nodeData || !nodeData.konvaCircle) { console.error("Invalid node data passed to toggleNodeSelection:", nodeData); return; } const index = selectedNodes.findIndex(n => n.id === nodeData.id); if (index > -1) { selectedNodes.splice(index, 1); nodeData.konvaCircle.stroke('black'); nodeData.konvaCircle.strokeWidth(1); console.log(`Node ${nodeData.id} deselected.`); } else { selectedNodes.push(nodeData); nodeData.konvaCircle.stroke('#007bff'); nodeData.konvaCircle.strokeWidth(3); console.log(`Node ${nodeData.id} selected.`); } if (geometryLayer) geometryLayer.batchDraw(); updateSelectionInfo(); }
         function clearSelection(clearData = true) { selectedNodes.forEach(nodeData => { if (nodeData && nodeData.konvaCircle) { nodeData.konvaCircle.stroke('black'); nodeData.konvaCircle.strokeWidth(1); } }); if (clearData) { selectedNodes = []; console.log("Selection data cleared."); } if (geometryLayer) geometryLayer.batchDraw(); updateSelectionInfo(); console.log("Selection visual cleared."); }
         function toggleSpringPointMarking(nodeData) { if (!nodeData || !nodeData.konvaCircle) return; const index = geometricSpringNodes.indexOf(nodeData.id); if (index > -1) { geometricSpringNodes.splice(index, 1); nodeData.konvaCircle.fill(DEFAULT_NODE_COLOR); updateStatus(`Unmarked node ${nodeData.id} as spring point.`); console.log(`Unmarked node ${nodeData.id} for springs.`); } else { geometricSpringNodes.push(nodeData.id); nodeData.konvaCircle.fill(SPRING_NODE_COLOR); updateStatus(`Marked node ${nodeData.id} as spring point.`); console.log(`Marked node ${nodeData.id} for springs.`); } if (geometryLayer) geometryLayer.batchDraw(); updateSpringPointsInfo(); }
-        function toggleMembraneSelection(membraneData) {
-            if (!membraneData || !membraneData.konvaShape) return;
-            const index = selectedMembranes.indexOf(membraneData.id);
+        // --- UPDATED: Refactored toggle logic ---
+        function toggleMembraneSelection(membraneArg) {
+            let mid;
+            // Handle both object (from click) and ID (from tree)
+            if (typeof membraneArg === 'object' && membraneArg !== null) {
+                mid = membraneArg.id;
+            } else {
+                mid = membraneArg;
+            }
+
+            const index = selectedMembranes.indexOf(mid);
             if (index > -1) {
                 selectedMembranes.splice(index, 1);
-                membraneData.konvaShape.opacity(MEMBRANE_DEFAULT_OPACITY);
-                membraneData.konvaShape.stroke(MEMBRANE_DEFAULT_STROKE);
-                membraneData.konvaShape.strokeWidth(MEMBRANE_DEFAULT_STROKE_WIDTH);
-                console.log(`Membrane ${membraneData.id} deselected.`);
+                console.log(`Deselected Membrane ${mid}`);
             } else {
-                selectedMembranes.push(membraneData.id);
-                membraneData.konvaShape.opacity(MEMBRANE_SELECTED_OPACITY);
-                membraneData.konvaShape.stroke(MEMBRANE_SELECTED_STROKE);
-                membraneData.konvaShape.strokeWidth(MEMBRANE_SELECTED_STROKE_WIDTH);
-                console.log(`Membrane ${membraneData.id} selected.`);
+                selectedMembranes.push(mid);
+                console.log(`Selected Membrane ${mid}`);
             }
-            membraneFillLayer.batchDraw();
+
+            // Centralized Updates
             updateMembraneSelectionInfo();
-            // --- Update material display on selection change ---
             updateMaterialPropertyDisplay();
+            updateMembraneHighlights(); // Apply Red/Thick lines
         }
+
         function clearMembraneSelection() {
-            selectedMembranes.forEach(memId => {
-                const membrane = findMembraneById(memId);
-                if (membrane && membrane.konvaShape) {
-                    membrane.konvaShape.opacity(MEMBRANE_DEFAULT_OPACITY);
-                    membrane.konvaShape.stroke(MEMBRANE_DEFAULT_STROKE);
-                    membrane.konvaShape.strokeWidth(MEMBRANE_DEFAULT_STROKE_WIDTH);
-                }
-            });
             selectedMembranes = [];
-            if (membraneFillLayer) membraneFillLayer.batchDraw();
             updateMembraneSelectionInfo();
-            // --- Update material display when selection is cleared ---
             updateMaterialPropertyDisplay();
+            updateMembraneHighlights(); // Reset all to default
             console.log("Membrane selection cleared.");
         }
         function clearFeSelection() { if (selectedFeNodes.length > 0) { selectedFeNodes = []; console.log("FE Node selection cleared."); updateFeSelectionInfo(); drawMesh(); toggleBcInputArea(); } }
@@ -1078,6 +1596,16 @@
             }
         }
 
+        // --- NEW: Helper to sync Membrane Fill visibility ---
+        function drawMembraneFill() {
+            membranes.forEach(m => {
+                if (m.konvaShape) {
+                    m.konvaShape.visible(m.visible !== false); // Default true
+                }
+            });
+            if (membraneFillLayer) membraneFillLayer.batchDraw();
+        }
+
         // --- REFACTORED: createMembrane to accept node data array ---
         function createMembraneWithNodes(nodesDataArray) {
             if (!nodesDataArray || nodesDataArray.length < 3) {
@@ -1093,7 +1621,7 @@
             const uniqueNodeIds = new Set();
 
             for (const nodeData of nodesDataArray) {
-                if (!nodeData || !nodeData.id || typeof nodeData.x !== 'number' || typeof nodeData.y !== 'number') {
+                if (!nodeData || !nodeData.id || typeof nodeData.x !== 'number' || typeof nodeData.x !== 'number') {
                     console.error("Invalid node data found in array:", nodeData);
                     nodesAreValid = false;
                     break;
@@ -1164,6 +1692,7 @@
 
             console.log(`Membrane ${membraneId} created (${nodeIds.length} nodes: ${nodeIds.join(', ')})`);
             updateStatus(`Membrane ${membraneId} created.`);
+            updateModelTree(); // Update Model Tree
             return true; // Indicate success
         }
         // --- End Refactored Function ---
@@ -1172,7 +1701,7 @@
         function handleConfirmMesh() { console.log("Confirm Mesh button clicked."); const mInput = document.getElementById('mesh-m-input'); const nInput = document.getElementById('mesh-n-input'); const meshInputArea = document.getElementById('mesh-input-area'); const meshSeparator = document.getElementById('mesh-input-separator'); if (!mInput || !nInput || !meshInputArea) { console.error("Mesh input fields or area not found!"); alert("Error: Cannot find mesh input UI elements."); return; } const M = parseInt(mInput.value, 10); const N = parseInt(nInput.value, 10); console.log("Read M:", M, "Read N:", N); if (isNaN(M) || isNaN(N) || M <= 0 || N <= 0) { alert("Invalid divisions. Both M and N must be positive integers."); updateStatus("Invalid mesh divisions entered."); return; } meshInputArea.hidden = true; if (meshSeparator) meshSeparator.hidden = true; performMeshing(M, N); }
         function performMeshing(M, N) { if (selectedMembranes.length === 0) { console.log("No membranes selected for meshing."); updateStatus("No membranes selected to mesh."); return; } console.log(`Attempting to mesh ${selectedMembranes.length} selected membranes with ${M}x${N} divisions.`); updateStatus(`Meshing selected membranes (${M}x${N})...`); let meshedCount = 0; let skippedCount = 0; let nonQuadCount = 0; selectedMembranes.forEach(membraneId => { const membrane = findMembraneById(membraneId); if (!membrane) { console.warn(`Selected membrane ID ${membraneId} not found.`); skippedCount++; return; } if (membrane.nodeIds.length !== 4) { console.log(`Skipping membrane ${membrane.id}: Not 4-sided.`); nonQuadCount++; return; } if (membrane.isMeshed) { console.log(`Skipping membrane ${membrane.id}: Already meshed.`); skippedCount++; return; } generateStructuredMesh(membrane, M, N); meshedCount++; }); drawMesh(); let meshStatus = `Meshing complete. Meshed: ${meshedCount}.`; if (nonQuadCount > 0) meshStatus += ` Skipped ${nonQuadCount} (not 4-sided).`; if (skippedCount > 0) meshStatus += ` Skipped ${skippedCount} (already meshed/not found).`; updateStatus(meshStatus); console.log(meshStatus); }
         function clearMeshForAffectedMembranes(movedNodeId) { console.log(`Checking for meshes affected by moved node ${movedNodeId}`); const affectedMembranes = membranes.filter(m => m.nodeIds.includes(movedNodeId) && m.isMeshed); if (affectedMembranes.length === 0) { console.log("No currently meshed membranes affected."); return; } console.log(`Found ${affectedMembranes.length} affected meshed membranes:`, affectedMembranes.map(m => m.id)); const feNodesToRemove = new Set(); const feElementsToRemove = new Set(); const feSpringsToRemove = new Set(); affectedMembranes.forEach(membrane => { feNodes.forEach(feN => { if (feN.membraneId === membrane.id) { feNodesToRemove.add(feN.id); } }); feElements.forEach(feE => { if (feE.membraneId === membrane.id) { feElementsToRemove.add(feE.id); } }); membrane.isMeshed = false; console.log(`Marked membrane ${membrane.id} as not meshed.`); }); if (feNodesToRemove.size > 0) { feSprings.forEach(feS => { if (feNodesToRemove.has(feS.feNodeId1) || feNodesToRemove.has(feS.feNodeId2)) { feSpringsToRemove.add(feS.id); } }); } const originalNodeCount = feNodes.length; const originalElementCount = feElements.length; const originalSpringCount = feSprings.length; feNodes = feNodes.filter(feN => !feNodesToRemove.has(feN.id)); feElements = feElements.filter(feE => !feElementsToRemove.has(feE.id)); feSprings = feSprings.filter(feS => !feSpringsToRemove.has(feS.id)); console.log(`Removed ${originalNodeCount - feNodes.length} FE nodes.`); console.log(`Removed ${originalElementCount - feElements.length} FE elements.`); console.log(`Removed ${originalSpringCount - feSprings.length} FE springs.`); }
-        function clearMeshData() { feNodes = []; feElements = []; feSprings = []; membranes.forEach(m => m.isMeshed = false); if (meshLayer) { meshLayer.destroyChildren(); meshLayer.batchDraw(); } if (springLayer) { springLayer.destroyChildren(); springLayer.batchDraw(); } if (stressLayer) { stressLayer.destroyChildren(); stressLayer.batchDraw(); } clearFeSelection(); console.log("Cleared ALL existing FE mesh, spring, and stress data."); }
+        function clearMeshData() { feNodes = []; feElements = []; feSprings = []; membranes.forEach(m => m.isMeshed = false); if (meshLayer) { meshLayer.destroyChildren(); meshLayer.batchDraw(); } if (springLayer) { springLayer.destroyChildren(); springLayer.batchDraw(); } if (stressLayer) { stressLayer.destroyChildren(); stressLayer.batchDraw(); } if (reactionLayer) { reactionLayer.destroyChildren(); reactionLayer.batchDraw(); } clearFeSelection(); clearSpringSelection(); console.log("Cleared ALL existing FE mesh, spring, and stress data."); }
         function generateStructuredMesh(membrane, M, N) {
             console.log(`Generating mesh for membrane ${membrane.id}`);
             const cornerNodeIds = membrane.nodeIds;
@@ -1254,8 +1783,10 @@
                     const node_tl = gridFeNodeIds[i]?.[j + 1];
 
                     // Basic check for valid node IDs before creating element
-                    if (node_bl === null || node_br === null || node_tr === null || node_tl === null ||
-                        node_bl === undefined || node_br === undefined || node_tr === undefined || node_tl === undefined) {
+                    if (node_bl === null || node_bl === undefined ||
+                        node_br === null || node_br === undefined ||
+                        node_tr === null || node_tr === undefined ||
+                        node_tl === null || node_tl === undefined) {
                         console.error(`Error creating element (${i},${j}) for membrane ${membrane.id}: Missing node ID.`);
                         continue; // Skip this element if node IDs are invalid
                     }
@@ -1281,25 +1812,51 @@
             const selectedFeSet = new Set(selectedFeNodes);
 
             feElements.forEach(element => {
+                const membrane = findMembraneById(element.membraneId);
+                if (membrane && membrane.visible === false) {
+                    return; // Skip drawing elements of hidden membranes
+                }
+
                 if (element.type === 'quad' && element.nodeIds.length === 4) {
                     const elementNodes = element.nodeIds.map(nodeId => findFeNodeById(nodeId));
                     if (elementNodes.every(n => n)) {
                         const points = elementNodes.flatMap(n => [n.x, n.y]);
                         const meshLine = new Konva.Line({
                             points: points,
-                            stroke: MESH_LINE_COLOR,
-                            strokeWidth: LINE_STROKE_WIDTH_TARGET_PX, // Target pixel width
+                            stroke: isElementSelected(element.id) ? 'orange' : MESH_LINE_COLOR,
+                            strokeWidth: isElementSelected(element.id) ? LINE_STROKE_WIDTH_TARGET_PX * 2 : LINE_STROKE_WIDTH_TARGET_PX, // Target pixel width
                             strokeScaleEnabled: false, // Keep constant pixel width
                             closed: true,
-                            listening: false
+                            listening: true, // ENABLE LISTENING for click events/hover
+                            id: `element-${element.id}` // Add ID for finding it later if needed (Konva id)
                         });
+
+                        // Add hover pointer
+                        meshLine.on('mouseenter', () => { if (currentMode === 'select-element' || currentMode === 'delete-item') stage.container().style.cursor = 'pointer'; });
+                        meshLine.on('mouseleave', () => { if (currentMode === 'select-element' || currentMode === 'delete-item') stage.container().style.cursor = 'default'; });
+
+                        // Add click handler
+                        meshLine.on('click tap', (e) => {
+                            if (currentMode === 'select-element' || currentMode === 'delete-item') {
+                                e.cancelBubble = true; // Prevent stage click only in these modes
+                                handleElementClick(element);
+                            }
+                            // Otherwise let it bubble to stage/membrane
+                        });
+
                         meshLayer.add(meshLine);
                     } else { console.warn(`Skipping drawing element ${element.id}, missing node data.`); }
                 }
             });
 
             feNodes.forEach(node => {
+                const membrane = findMembraneById(node.membraneId);
+                if (membrane && membrane.visible === false) {
+                    return; // Skip drawing nodes of hidden membranes
+                }
+
                 const isSelected = selectedFeSet.has(node.id);
+
                 // --- Calculate scaled radius ---
                 const radiusPx = isSelected ? FE_NODE_SELECTED_RADIUS_TARGET_PX : FE_NODE_RADIUS_TARGET_PX;
                 const radius = radiusPx / scale;
@@ -1363,7 +1920,7 @@
                     const arrowX = new Konva.Arrow({
                         points: [x + signX * symbolOffset / 1.5, y, x + signX * (symbolOffset + symbolSize), y], // Adjusted start point slightly
                         pointerLength: pointerLength, pointerWidth: pointerWidth,
-                        fill: color, stroke: color, strokeWidth: strokeWidth, strokeScaleEnabled: false, // Constant pixel stroke
+                        fill: color, stroke: color, strokeWidth: strokeWidth, strokeScaleEnabled: false, // Constant pixel pixel stroke
                         listening: false
                     });
                     meshLayer.add(arrowX);
@@ -1381,36 +1938,212 @@
                 }
             }
         }
-        function requestSpringInput() { console.log("Create Springs button clicked. Requesting input."); if (feNodes.length === 0) { alert("Please mesh the membranes first before creating springs."); updateStatus("Mesh required before creating springs."); return; } if (geometricSpringNodes.length === 0) { alert("Please mark geometric nodes as spring connection points first (purple nodes)."); updateStatus("No spring connection points marked."); return; } const springInputArea = document.getElementById('spring-input-area'); if (springInputArea) { springInputArea.hidden = false; updateStatus("Enter spring stiffness (k) and click Confirm."); } else { console.error("Spring input area not found!"); updateStatus("Error: UI component missing."); } }
+        function requestSpringInput() {
+            console.log("Create Springs button clicked. Requesting input.");
+            if (feNodes.length === 0) {
+                alert("Please mesh the membranes first before creating springs.");
+                updateStatus("Mesh required before creating springs.");
+                return;
+            }
+            // --- UPDATED: Check for Spring Groups instead of old marked nodes ---
+            if (springPointGroups.length === 0) {
+                alert("Please create a Spring Grid Group first.");
+                updateStatus("No spring groups found.");
+                return;
+            }
+            // Optional: Warn if no group is selected?
+            if (!springPointGroups.some(g => g.isSelected)) {
+                alert("Please select a Spring Group from the Model Explorer first.");
+                updateStatus("No spring group selected.");
+                return;
+            }
+
+            const springInputArea = document.getElementById('spring-input-area');
+            if (springInputArea) {
+                springInputArea.hidden = false;
+                updateStatus("Enter spring stiffness (k) and click Confirm.");
+            } else {
+                console.error("Spring input area not found!");
+                updateStatus("Error: UI component missing.");
+            }
+        }
         function handleConfirmSprings() { console.log("Confirm Springs button clicked."); const kInput = document.getElementById('spring-k-input'); const springInputArea = document.getElementById('spring-input-area'); if (!kInput || !springInputArea) { console.error("Spring input field or area not found!"); alert("Error: Cannot find spring input UI elements."); return; } const stiffness = parseFloat(kInput.value); if (isNaN(stiffness) || stiffness <= 0) { alert("Invalid stiffness. Please enter a positive number."); updateStatus("Invalid spring stiffness entered."); return; } springInputArea.hidden = true; performSpringCreation(stiffness); }
-        function performSpringCreation(stiffness) { console.log("Creating springs using closest node approach. Stiffness k =", stiffness); feSprings = []; if (springLayer) springLayer.destroyChildren(); feSpringIdCounter = 1; let springsCreatedCount = 0; geometricSpringNodes.forEach(geoNodeId => { console.log(`Processing marked geometric node ${geoNodeId}...`); const targetNode = findNodeDataById(geoNodeId); if (!targetNode) { console.warn(`Marked geometric node ${geoNodeId} not found.`); return; } const targetX = targetNode.x; const targetY = targetNode.y; console.log(`Target coordinates: (${targetX.toFixed(1)}, ${targetY.toFixed(1)})`); const nearbyMembraneNodes = []; membranes.filter(m => m.isMeshed).forEach(membrane => { let minDistSq = Infinity; let closestNodeId = null; feNodes.filter(feN => feN.membraneId === membrane.id).forEach(feN => { const distSq = (feN.x - targetX) ** 2 + (feN.y - targetY) ** 2; if (distSq < minDistSq) { minDistSq = distSq; closestNodeId = feN.id; } }); if (closestNodeId !== null && minDistSq < SPRING_CONN_TOLERANCE_SQ) { nearbyMembraneNodes.push({ membraneId: membrane.id, feNodeId: closestNodeId }); console.log(`Mem ${membrane.id}: Closest FE node ${closestNodeId} is within tolerance (Dist^2: ${minDistSq.toFixed(2)})`); } else if (closestNodeId !== null) { console.log(`Mem ${membrane.id}: Closest FE node ${closestNodeId} is too far (Dist^2: ${minDistSq.toFixed(2)})`); } else { console.warn(`Could not find any FE nodes for Mem ${membrane.id}.`); } }); console.log(`Found ${nearbyMembraneNodes.length} membranes with FE nodes near GeoNode ${geoNodeId}.`); if (nearbyMembraneNodes.length >= 2) { console.log(`Creating springs...`); for (let i = 0; i < nearbyMembraneNodes.length; i++) { for (let j = i + 1; j < nearbyMembraneNodes.length; j++) { const nodeInfoA = nearbyMembraneNodes[i]; const nodeInfoB = nearbyMembraneNodes[j]; if (nodeInfoA.membraneId !== nodeInfoB.membraneId) { const springId = feSpringIdCounter++; feSprings.push({ id: springId, feNodeId1: nodeInfoA.feNodeId, feNodeId2: nodeInfoB.feNodeId, stiffness: stiffness }); springsCreatedCount++; console.log(`Created spring ${springId} between FE Node ${nodeInfoA.feNodeId} (Mem ${nodeInfoA.membraneId}) and FE Node ${nodeInfoB.feNodeId} (Mem ${nodeInfoB.membraneId})`); } } } } else { console.log(`Not enough membranes (${nearbyMembraneNodes.length}) with nearby FE nodes found at GeoNode ${geoNodeId} to create springs.`); } }); drawSprings(); updateStatus(`Created ${springsCreatedCount} spring elements using closest nodes.`); console.log(`Finished creating springs. Total springs: ${feSprings.length}`); }
+        // --- UPDATED: Spring Creation (Append Mode, Check Duplicates) ---
+        function performSpringCreation(stiffness) {
+            console.log("Creating springs using closest node approach. Stiffness k =", stiffness);
+            // feSprings = []; // REMOVED: Do not clear existing springs
+            // if (springLayer) springLayer.destroyChildren(); // REMOVED: Do not destroy visuals yet
+
+            // Ensure counter continues correctly
+            if (feSprings.length > 0) {
+                feSpringIdCounter = Math.max(...feSprings.map(s => s.id)) + 1;
+            } else {
+                feSpringIdCounter = 1;
+            }
+
+            let springsCreatedCount = 0;
+
+            const selectedGroup = springPointGroups.find(g => g.isSelected);
+            if (!selectedGroup) {
+                alert("Please select a Spring Group first.");
+                return;
+            }
+            const nodesToProcess = selectedGroup.nodeIds;
+            console.log(`Processing selected Spring Group: ${selectedGroup.name} (${nodesToProcess.length} nodes)`);
+
+            nodesToProcess.forEach(geoNodeId => {
+                const targetNode = findNodeDataById(geoNodeId);
+                if (!targetNode) return;
+
+                const targetX = targetNode.x;
+                const targetY = targetNode.y;
+
+                const nearbyMembraneNodes = [];
+                // Iterate all meshed membranes
+                membranes.filter(m => m.isMeshed).forEach(membrane => {
+                    let minDistSq = Infinity;
+                    let closestNodeId = null;
+                    feNodes.filter(feN => feN.membraneId === membrane.id).forEach(feN => {
+                        const distSq = (feN.x - targetX) ** 2 + (feN.y - targetY) ** 2;
+                        if (distSq < minDistSq) { minDistSq = distSq; closestNodeId = feN.id; }
+                    });
+                    if (closestNodeId !== null && minDistSq < SPRING_CONN_TOLERANCE_SQ) {
+                        nearbyMembraneNodes.push({ membraneId: membrane.id, feNodeId: closestNodeId });
+                    }
+                });
+
+                if (nearbyMembraneNodes.length >= 2) {
+                    for (let i = 0; i < nearbyMembraneNodes.length; i++) {
+                        for (let j = i + 1; j < nearbyMembraneNodes.length; j++) {
+                            const nodeInfoA = nearbyMembraneNodes[i];
+                            const nodeInfoB = nearbyMembraneNodes[j];
+
+                            if (nodeInfoA.membraneId !== nodeInfoB.membraneId) {
+                                // Check for duplicate spring
+                                const exists = feSprings.some(s =>
+                                    (s.feNodeId1 === nodeInfoA.feNodeId && s.feNodeId2 === nodeInfoB.feNodeId) ||
+                                    (s.feNodeId1 === nodeInfoB.feNodeId && s.feNodeId2 === nodeInfoA.feNodeId)
+                                );
+
+                                if (!exists) {
+                                    // --- NEW: Sanity Check for Spring Length ---
+                                    // Theoretically, if both are within TOL radius of P, they cannot be further than 2*TOL apart.
+                                    const nodeA = findFeNodeById(nodeInfoA.feNodeId);
+                                    const nodeB = findFeNodeById(nodeInfoB.feNodeId);
+                                    if (nodeA && nodeB) {
+                                        const springLenSq = (nodeA.x - nodeB.x) ** 2 + (nodeA.y - nodeB.y) ** 2;
+
+                                        // STRICTER CHECK
+                                        const MAX_SPRING_LEN_SQ = 0.1; // Ensure that tolerance of 0.1" is not violated
+
+                                        if (springLenSq <= MAX_SPRING_LEN_SQ) {
+                                            const springId = feSpringIdCounter++;
+                                            feSprings.push({ id: springId, feNodeId1: nodeInfoA.feNodeId, feNodeId2: nodeInfoB.feNodeId, stiffness: stiffness });
+                                            springsCreatedCount++;
+                                        } else {
+                                            console.warn(`Skipped spurious long spring between Mem ${nodeInfoA.membraneId} and Mem ${nodeInfoB.membraneId} (LenSq: ${springLenSq.toFixed(1)})`);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            drawSprings(); // Redraws all springs (new + old)
+            updateStatus(`Created ${springsCreatedCount} new springs for group "${selectedGroup.name}". (Total: ${feSprings.length})`);
+            console.log(`Finished creating springs. Total: ${feSprings.length}`);
+        }
+
+        // --- NEW: Highlight Selected Spring Group Nodes ---
+        function updateSpringGroupHighlights() {
+            if (!stage) return;
+            const scale = stage.scaleX();
+            const selectedGroup = springPointGroups.find(g => g.isSelected);
+            const selectedNodeIds = selectedGroup ? new Set(selectedGroup.nodeIds) : new Set();
+
+            nodes.forEach(node => {
+                if (node.konvaCircle) {
+                    // Apply scale to base radius
+                    let radius = NODE_RADIUS_TARGET_PX / scale;
+
+                    if (selectedNodeIds.has(node.id)) {
+                        // Highlight color (e.g., Bright Green or Magenta)
+                        node.konvaCircle.fill('#00FF00'); // Green for selected group
+                        node.konvaCircle.stroke('black');
+                        radius *= 1.5; // Larger
+                        node.isSpringGroupSelected = true; // Flag for zoom updates
+                    } else {
+                        node.isSpringGroupSelected = false; // Reset flag
+                        // Default logic (check if it's in ANY group? or just reset)
+                        const isInAnyGroup = springPointGroups.some(g => g.nodeIds.includes(node.id));
+                        if (isInAnyGroup) {
+                            node.konvaCircle.fill('purple'); // Default for spring nodes
+                        } else {
+                            node.konvaCircle.fill('black'); // Regular nodes
+                        }
+                        node.konvaCircle.stroke(null);
+                    }
+                    node.konvaCircle.radius(radius);
+                }
+            });
+            if (geometryLayer) geometryLayer.batchDraw();
+        }
         function drawSprings() {
             // console.log("--- drawSprings() CALLED ---"); // Keep logs minimal if needed
             if (!springLayer || !stage) { return; }
             springLayer.destroyChildren();
             const scale = stage.scaleX(); // Get scale ONLY for calculating initial world offset
+            const isFilterOn = document.getElementById('chk-filter-results')?.checked || false;
 
             feSprings.forEach(spring => {
                 const node1 = findFeNodeById(spring.feNodeId1);
                 const node2 = findFeNodeById(spring.feNodeId2);
 
                 if (node1 && node2) {
-                    // --- Draw the Spring Line --- (No changes needed)
-                    const springLine = new Konva.Line({
+                    let shouldDraw = true;
+                    if (isFilterOn && selectedMembranes.length > 0) {
+                        const m1 = node1.membraneId;
+                        const m2 = node2.membraneId;
+                        // A spring is drawn if at least one of its connected FE nodes belongs to a selected membrane.
+                        shouldDraw = (m1 && selectedMembranes.includes(m1)) || (m2 && selectedMembranes.includes(m2));
+                    }
+
+                    if (!shouldDraw) return; // Skip drawing this spring if filtered out
+
+                    const isSelected = selectedFeSprings.includes(spring.id);
+
+                    const line = new Konva.Line({
                         points: [node1.x, node1.y, node2.x, node2.y],
-                        stroke: SPRING_LINE_COLOR,
-                        strokeWidth: LINE_STROKE_WIDTH_TARGET_PX,
+                        stroke: isSelected ? SPRING_SELECTED_COLOR : SPRING_LINE_COLOR,
+                        strokeWidth: isSelected ? SPRING_SELECTED_WIDTH_PX : LINE_STROKE_WIDTH_TARGET_PX,
                         strokeScaleEnabled: false,
-                        dash: [8 / scale, 4 / scale], // Dash appearance still scales with world
-                        listening: false,
+                        dash: isSelected ? [] : [8 / scale, 4 / scale], // No dash for selected springs
+                        listening: true, // Enable listening for clicks
                         name: `spring-line-${spring.id}`
                     });
-                    springLayer.add(springLine);
+
+                    // Add hover pointer
+                    line.on('mouseenter', () => { if (currentMode === 'select-springs-box' || currentMode === 'delete-item') stage.container().style.cursor = 'pointer'; });
+                    line.on('mouseleave', () => { if (currentMode === 'select-springs-box' || currentMode === 'delete-item') stage.container().style.cursor = 'default'; });
+
+                    // Add click handler
+                    line.on('click tap', (e) => {
+                        if (currentMode === 'select-springs-box' || currentMode === 'delete-item') {
+                            e.cancelBubble = true; // Prevent stage click only in these modes
+                            handleSpringClick(spring);
+                        }
+                    });
+
+                    // Add to layer
+                    springLayer.add(line);
 
                     // --- Check for and Prepare Spring Label Text ---
                     const springResult = resultsSpringLoads?.find(r => r.id === spring.id);
-                    let labelText;
-                    let labelName;
+                    let labelTextContent;
+                    let labelFillColor = isSelected ? SPRING_SELECTED_COLOR : SPRING_LABEL_COLOR;
+
                     if (springResult && springResult.fx !== undefined && springResult.fy !== undefined) {
                         // Get numerical values first
                         const fxNum = Number(springResult.fx);
@@ -1425,36 +2158,36 @@
                         const frFormatted = frNum.toFixed(2); // Format FR
 
                         // Create the 3-line label text including FR
-                        labelText = `Fx: ${fxFormatted}\nFy: ${fyFormatted}\nFR: ${frFormatted}`;
-                        labelName = `spring-result-${spring.id}`;
+                        labelTextContent = `Fx: ${fxFormatted}\nFy: ${fyFormatted}\nFR: ${frFormatted}`;
                     } else {
-                        labelText = `S${spring.id}`;
-                        labelName = `spring-id-${spring.id}`;
+                        labelTextContent = `S${spring.id}\nk=${spring.stiffness}`;
                     }
 
-                    // --- Calculate Initial World Position based on Screen Offset ---
-                    // Convert fixed screen pixel offset to world coordinate offset
-                    const worldOffsetX = SPRING_LABEL_SCREEN_OFFSET_X / scale;
-                    // Subtract screen Y offset because Konva Y increases downwards
-                    const worldOffsetY = SPRING_LABEL_SCREEN_OFFSET_Y / scale;
+                    // Calculate midpoint for label positioning
+                    const midX = (node1.x + node2.x) / 2;
+                    const midY = (node1.y + node2.y) / 2;
+
+                    // Calculate perpendicular offset for label
+                    const dx = node2.x - node1.x;
+                    const dy = node2.y - node1.y;
+                    const len = Math.sqrt(dx * dx + dy * dy);
+                    const perpX = -dy / (len || 1);
+                    const perpY = dx / (len || 1);
 
                     // --- Create the Label with Fixed Font Size and Counter-Scaling ---
                     const labelToShow = new Konva.Text({
-                        x: node1.x + worldOffsetX,           // Initial world X position
-                        y: node1.y - worldOffsetY,           // Initial world Y position
-                        text: labelText,
+                        x: midX + perpX * (SPRING_RESULT_LABEL_OFFSET_PX / scale),
+                        y: midY + perpY * (SPRING_RESULT_LABEL_OFFSET_PX / scale),
+                        text: labelTextContent,
                         fontSize: SPRING_LABEL_FIXED_FONT_SIZE, // Use FIXED pixel font size
-                        fill: SPRING_LABEL_COLOR,
+                        fill: labelFillColor,
                         listening: false,
-                        name: labelName,
                         scaleX: 1 / scale,                    // Apply initial counter-scaling
                         scaleY: 1 / scale,                    // Apply initial counter-scaling
-                        verticalAlign: 'bottom',             // Adjust alignment for better positioning when scaled
-                        // align: 'left'
+                        verticalAlign: 'middle',             // Center vertically
+                        align: 'center'
                     });
 
-                    // Store the associated node ID for position updates during zoom
-                    labelToShow.setAttr('node1Id', node1.id);
                     springLayer.add(labelToShow);
 
                 } // end if(node1 && node2)
@@ -1506,6 +2239,146 @@
             updateStatus(`Applied properties to ${updatedCount} selected membranes.`);
         }
 
+        // --- NEW: Element Selection Helpers ---
+        function isElementSelected(id) {
+            return selectedFeElements.includes(id);
+        }
+
+        function toggleElementSelection(element) {
+            if (!element) return;
+            const index = selectedFeElements.indexOf(element.id);
+            if (index > -1) {
+                selectedFeElements.splice(index, 1);
+                console.log(`Deselected Element ${element.id}`);
+            } else {
+                if (currentMode === 'select-element') {
+                    // For now multi-select allowed? Or singular? Let's allow multi for bulk delete, maybe singular for properties to avoid confusion initially.
+                    // For property editing, usually singular is safer OR bulk apply.
+                    // Let's allow multi-select.
+                    selectedFeElements.push(element.id);
+                    console.log(`Selected Element ${element.id}`);
+                }
+            }
+            updateElementSelectionInfo();
+            updateElementPropertyDisplay(); // Show/Hide panel
+            drawMesh(); // Redraw to update highlight
+        }
+
+        function clearFeElementSelection() {
+            selectedFeElements = [];
+            updateElementSelectionInfo();
+            updateElementPropertyDisplay();
+            drawMesh();
+        }
+
+        function handleElementClick(element) {
+            console.log(`Clicked Element ${element.id} in mode ${currentMode}`);
+            if (currentMode === 'select-element') {
+                toggleElementSelection(element);
+            } else if (currentMode === 'delete-item') {
+                if (confirm(`Delete Element ${element.id}?`)) {
+                    deleteElement(element.id);
+                }
+            }
+        }
+
+        function deleteElement(id) {
+            console.log(`Deleting Element ${id}`);
+            const idx = feElements.findIndex(e => e.id === id);
+            if (idx > -1) {
+                feElements.splice(idx, 1);
+                // Also should remove it from selection if present
+                const selIdx = selectedFeElements.indexOf(id);
+                if (selIdx > -1) selectedFeElements.splice(selIdx, 1);
+
+                // Note: We are NOT removing the nodes, just the element connectivity.
+                // This creates a hole in the mesh.
+
+                updateElementSelectionInfo();
+                updateElementPropertyDisplay();
+                cleanupOrphanFeNodes(); // Clean up orphans
+                drawMesh(); // Redraw after cleanup
+                updateStatus(`Element ${id} deleted.`);
+            }
+        }
+
+        // --- New Spring Bulk Operations ---
+        function deleteSelectedSprings() {
+            if (selectedFeSprings.length === 0) return;
+            if (!confirm(`Delete ${selectedFeSprings.length} selected springs?`)) return;
+
+            const initialCount = feSprings.length;
+            feSprings = feSprings.filter(s => !selectedFeSprings.includes(s.id));
+            const deletedCount = initialCount - feSprings.length;
+
+            console.log(`Deleted ${deletedCount} springs.`);
+            updateStatus(`Deleted ${deletedCount} springs.`);
+
+            clearSpringSelection();
+            // drawSprings(); // handled by clearSpringSelection
+        }
+
+        function updateSelectedSpringsStiffness() {
+            if (selectedFeSprings.length === 0) return;
+            const kVal = parseFloat(document.getElementById('spring-prop-k').value);
+            if (isNaN(kVal)) { alert("Invalid Stiffness K"); return; }
+
+            let count = 0;
+            feSprings.forEach(s => {
+                if (selectedFeSprings.includes(s.id)) {
+                    s.stiffness = kVal;
+                    count++;
+                }
+            });
+
+            updateStatus(`Updated stiffness for ${count} springs to k=${kVal}.`);
+            drawSprings(); // Redraw (labels might show K)
+        }
+
+        function clearFeElementSelection() {
+            selectedFeElements = [];
+            updateElementSelectionInfo();
+            updateElementPropertyDisplay();
+            drawMesh();
+        }
+
+        function clearSpringSelection() {
+            selectedFeSprings = [];
+            updateSpringSelectionInfo();
+            document.getElementById('spring-properties-area').hidden = true;
+            drawSprings();
+        }
+
+        function updateSpringSelectionInfo() {
+            // Show/Hide panel, update count
+            const countSpan = document.getElementById('spring-sel-count');
+            const panel = document.getElementById('spring-properties-area');
+            if (countSpan) countSpan.textContent = selectedFeSprings.length;
+
+            if (selectedFeSprings.length > 0) {
+                panel.hidden = false;
+            } else {
+                panel.hidden = true;
+            }
+        }
+
+        // Note: updateElementSelectionInfo and updateElementPropertyDisplay might be duplicated if I'm not careful.
+        // Step 503 showed updateElementSelectionInfo WAS found? 
+        // Wait, Step 503 result for updateElementSelectionInfo says "ContentType: raw_content" and shows the content!
+        // So updateElementSelectionInfo EXISTS?
+        // Let's check Step 503 again.
+        // Yes! "NodePath":"updateElementSelectionInfo","ContextType":"Function","Content":"function updateElementSelectionInfo() {..."
+        // So `updateElementSelectionInfo` IS defined.
+        // And `updateElementPropertyDisplay`? Step 503 has snippet: "NodePath":"updateElementPropertyDisplay.getCommonValue"... that's weird.
+        // Ah, `updateElementPropertyDisplay` might exist too.
+        // But `deleteSelectedSprings` was searched and NOT found.
+        // So I only need to insert `deleteSelectedSprings`, `updateSelectedSpringsStiffness`, `clearSpringSelection`, `updateSpringSelectionInfo`.
+        // `clearFeElementSelection` was also found in Step 499 (line 2266).
+
+        // So I ONLY insert the SPRING functions.
+
+
+
         // --- FEA Calculations ---
         function zeros(rows, cols) { return Array(rows).fill(0).map(() => Array(cols).fill(0)); }
         function matrixMultiply(A, B) { const A_rows = A.length; const A_cols = A[0]?.length || 0; const B_rows = B.length; const B_cols = B[0]?.length || 0; if (A_cols !== B_rows) { console.error("Incompatible matrices for multiplication", A_cols, B_rows); return null; } const C = zeros(A_rows, B_cols); for (let i = 0; i < A_rows; i++) { for (let j = 0; j < B_cols; j++) { for (let k = 0; k < A_cols; k++) { C[i][j] += (A[i]?.[k] || 0) * (B[k]?.[j] || 0); } } } return C; }
@@ -1554,12 +2427,12 @@
                     if (elementNodes.every(n => n)) {
                         const membrane = findMembraneById(element.membraneId);
                         if (!membrane) { console.error(`Membrane ${element.membraneId} not found for element ${element.id}. Skipping.`); return; }
-                        const E = membrane.materialE ?? DEFAULT_MATERIAL_E;
-                        const nu = membrane.materialNu ?? DEFAULT_MATERIAL_NU;
-                        const t = membrane.materialT ?? DEFAULT_MATERIAL_T;
+                        const E = element.propE !== undefined ? element.propE : (membrane.materialE ?? DEFAULT_MATERIAL_E);
+                        const nu = element.propNu !== undefined ? element.propNu : (membrane.materialNu ?? DEFAULT_MATERIAL_NU);
+                        const t = element.propT !== undefined ? element.propT : (membrane.materialT ?? DEFAULT_MATERIAL_T);
                         if (isNaN(E) || isNaN(nu) || isNaN(t) || E <= 0 || t <= 0 || nu < 0 || nu >= 0.5) {
                             console.error(`Invalid material for membrane ${membrane.id}, element ${element.id}. Skipping.`);
-                            updateStatus(`Error: Invalid material on Membrane ${membrane.id}.`);
+                            updateStatus(`Error: Invalid material on Membrane ${membrane.id}`);
                             throw new Error(`Invalid material on Membrane ${membrane.id}`); // Halt assembly
                         }
                         const Ke = calculateQuadElementStiffness(elementNodes, E, nu, t); // Ke is standard JS array
@@ -1740,7 +2613,7 @@
                 } else if (error.message && error.message.toLowerCase().includes("dimension mismatch")) {
                     alert(`Analysis failed: Dimension mismatch during solve. K(${K_modified.size().join(',')}), F(${F_modified.size().join(',')})`);
                 } else {
-                    alert(`Error solving system: ${error.message}. Check BCs/mesh.`);
+                    alert(`Analysis failed: ${error.message}. Check BCs/mesh.`);
                 }
                 updateStatus("Analysis failed: Solver error.");
                 return null;
@@ -1850,13 +2723,13 @@
                             let reportX = (node.bc.type === 'fixed' && node.bc.value.fixX) || (node.bc.type === 'enforced' && node.bc.value.dx !== null);
                             let reportY = (node.bc.type === 'fixed' && node.bc.value.fixY) || (node.bc.type === 'enforced' && node.bc.value.dy !== null);
 
-                            if (reportX) rx = (R_vec[dofX] !== undefined) ? Number(R_vec[dofX]).toExponential(3) : 'N/A';
-                            if (reportY) ry = (R_vec[dofY] !== undefined) ? Number(R_vec[dofY]).toExponential(3) : 'N/A';
+                            if (reportX) rx = (R_vec[dofX] !== undefined) ? Number(R_vec[dofX]).toExponential(3) : '0.000e+0';
+                            if (reportY) ry = (R_vec[dofY] !== undefined) ? Number(R_vec[dofY]).toExponential(3) : '0.000e+0';
 
                             const tolerance = 1e-6;
                             if (reportX || reportY) {
                                 if (Math.abs(Number(rx)) > tolerance || Math.abs(Number(ry)) > tolerance || node.bc.type === 'enforced') {
-                                    resultsReactions.push({ feNodeId: node.id, rx: reportX ? rx : '0.000e+0', ry: reportY ? ry : '0.000e+0' });
+                                    resultsReactions.push({ feNodeId: node.id, rx: rx, ry: ry });
                                 }
                             }
                         }
@@ -1884,8 +2757,8 @@
                     if (!elementNodes.every(n => n)) { console.warn(`Skipping stress for element ${element.id}, missing node data.`); return; }
                     const membrane = findMembraneById(element.membraneId);
                     if (!membrane) { console.warn(`Membrane ${element.membraneId} not found for stress calc, elem ${element.id}.`); return; }
-                    const E = membrane.materialE ?? DEFAULT_MATERIAL_E;
-                    const nu = membrane.materialNu ?? DEFAULT_MATERIAL_NU;
+                    const E = element.propE !== undefined ? element.propE : (membrane.materialE ?? DEFAULT_MATERIAL_E);
+                    const nu = element.propNu !== undefined ? element.propNu : (membrane.materialNu ?? DEFAULT_MATERIAL_NU);
                     if (isNaN(E) || isNaN(nu) || E <= 0 || nu < 0 || nu >= 0.5) { console.warn(`Invalid material for membrane ${membrane.id} during stress calc, elem ${element.id}.`); return; }
                     const D_element = zeros(3, 3);
                     const E_factor_element = E / (1.0 - nu * nu);
@@ -2025,6 +2898,7 @@
             // Pass standard JS array d to drawDeformedMesh
             drawDeformedMesh(d, scaleFactor);
             drawSprings();
+            drawReactions(); // NEW Call
             drawStressResults(resultsElementStresses);
             handleResultsViewChange(); // Set initial visibility based on radio buttons
             console.timeEnd("DrawResults");
@@ -2053,6 +2927,7 @@
                     nodes: simplifiedNodes,
                     membranes: simplifiedMembranes,
                     geometricSpringNodes: geometricSpringNodes,
+                    springPointGroups: springPointGroups, // NEW: Save Spring Groups
                     feNodes: simplifiedFeNodes,
                     feElements: simplifiedFeElements,
                     feSprings: simplifiedFeSprings,
@@ -2062,7 +2937,8 @@
                         membrane: nextMembraneId,
                         feNode: feNodeIdCounter,
                         feElement: feElementIdCounter,
-                        feSpring: feSpringIdCounter
+                        feSpring: feSpringIdCounter,
+                        springGroup: nextSpringGroupId // NEW: Save counter
                     }
                 };
 
@@ -2146,6 +3022,16 @@
                 geometricSpringNodes = loadedData.geometricSpringNodes;
                 console.log(`Restored ${geometricSpringNodes.length} marked spring points.`);
 
+                // --- NEW: Restore Spring Groups ---
+                if (loadedData.springPointGroups && Array.isArray(loadedData.springPointGroups)) {
+                    springPointGroups = loadedData.springPointGroups;
+                    nextSpringGroupId = (loadedData.nextCounters && loadedData.nextCounters.springGroup) ? loadedData.nextCounters.springGroup : (Math.max(...springPointGroups.map(g => g.id), 0) + 1);
+                    console.log(`Restored ${springPointGroups.length} Spring Groups. Next ID: ${nextSpringGroupId}`);
+                } else {
+                    springPointGroups = [];
+                    nextSpringGroupId = 1;
+                }
+
                 // --- Restore FE Data ---
                 feNodes = loadedData.feNodes;
                 feElements = loadedData.feElements;
@@ -2175,27 +3061,31 @@
 
                 console.log("Drawing loaded FE data...");
 
-                drawMesh();    // Draw mesh based on loaded feNodes/feElements
-                drawSprings(); // Draw springs based on loaded feSprings
-
-                console.log("Batch drawing loaded geometry and membranes...");
-                geometryLayer?.batchDraw();     // Redraw layer with loaded nodes added by addNode
-                membraneFillLayer?.batchDraw(); // Redraw layer with loaded membranes added by createMembraneFromData
-
-                // --- Batch draw layers that were populated ---
-                console.log("Batch drawing loaded model...");
-                geometryLayer?.batchDraw();
                 membraneFillLayer?.batchDraw();
                 meshLayer?.batchDraw();
                 springLayer?.batchDraw();
                 stressLayer?.visible(false); // Ensure stress layer is hidden initially
                 stressLayer?.batchDraw();
+                reactionLayer?.visible(false); // Ensure reaction layer is hidden initially
+                reactionLayer?.batchDraw();
                 updateSpringPointsInfo();
                 updateMembraneSelectionInfo();
                 updateFeSelectionInfo();
+                updateSpringSelectionInfo(); // NEW
                 updateResultsDisplay(); // Clear old results display
                 textArea.value = '';
                 updateStatus(`Model loaded successfully. ${nodes.length} nodes, ${membranes.length} membranes, ${feElements.length} elements.`);
+
+                // Update UI Trees
+                updateModelTree();
+                updateSpringGroupTree();
+
+                // Full redraw (handles geometry, mesh, springs, layers)
+                redrawAll();
+
+                // Sanity Check Highlights
+                selectedMembranes = [];
+                updateMembraneSelectionInfo();
 
             } catch (error) {
                 console.error("Error loading model:", error);
@@ -2207,6 +3097,7 @@
                 meshLayer?.batchDraw();
                 springLayer?.batchDraw();
                 stressLayer?.batchDraw();
+                reactionLayer?.batchDraw();
             }
         }
 
@@ -2217,6 +3108,8 @@
             geometricSpringNodes = [];
             selectedNodes = [];
             selectedMembranes = [];
+            selectedFeSprings = []; // NEW
+            selectedFeElements = []; // NEW
             // Clear results
             resultsDisplacements = null;
             resultsSpringLoads = [];
@@ -2238,6 +3131,7 @@
             meshLayer?.destroyChildren(); // Included in clearMeshData, but safe to repeat
             springLayer?.destroyChildren(); // Included in clearMeshData, but safe to repeat
             stressLayer?.destroyChildren(); // Included in clearMeshData, but safe to repeat
+            reactionLayer?.destroyChildren(); // NEW: Clear reaction layer
             selectionLayer?.destroyChildren();
 
             // Redraw background
@@ -2251,6 +3145,7 @@
             meshLayer?.batchDraw();
             springLayer?.batchDraw();
             stressLayer?.batchDraw();
+            reactionLayer?.batchDraw(); // NEW: Batch draw reaction layer
             selectionLayer?.batchDraw();
             backgroundLayer?.batchDraw();
 
@@ -2259,6 +3154,8 @@
             updateMembraneSelectionInfo();
             updateFeSelectionInfo();
             updateSpringPointsInfo();
+            updateSpringSelectionInfo(); // NEW
+            updateElementSelectionInfo(); // NEW
             updateResultsDisplay();
             setMode('add-node'); // Reset mode
             updateStatus("Model cleared.");
@@ -2272,7 +3169,18 @@
 
             let membraneFillShape;
             try {
-                membraneFillShape = new Konva.Line({ /* ... properties ... */ });
+                membraneFillShape = new Konva.Line({
+                    points: points,
+                    fill: 'rgba(173, 216, 230, 0.5)',
+                    stroke: MEMBRANE_DEFAULT_STROKE,
+                    strokeWidth: MEMBRANE_DEFAULT_STROKE_WIDTH,
+                    strokeScaleEnabled: false,
+                    closed: true,
+                    listening: false,
+                    draggable: false,
+                    opacity: MEMBRANE_DEFAULT_OPACITY,
+                    name: 'membrane'
+                });
                 // --- ADD THIS LINE: ---
                 if (membraneFillLayer) {
                     membraneFillLayer.add(membraneFillShape); // Add the shape to the layer here
@@ -2281,7 +3189,7 @@
                     // Optional: throw an error or return null earlier if layer doesn't exist
                 }
                 // --- END ADDED LINE ---
-            } catch (error) { /* ... */ return null; }
+            } catch (error) { console.error("Error creating Konva.Line for membrane fill from data:", error); return null; }
 
             const newMembrane = {
                 id: id,
@@ -2309,11 +3217,20 @@
             meshLayer?.destroyChildren();
             springLayer?.destroyChildren();
             stressLayer?.destroyChildren();
+            reactionLayer?.destroyChildren(); // NEW: Clear reaction layer
+
+            // --- CRITICAL: Reset Konva references in data objects ---
+            // Since we destroyed the children, the old references are invalid.
+            nodes.forEach(n => n.konvaCircle = null);
+            membranes.forEach(m => m.konvaShape = null);
+            feElements.forEach(e => e.konvaShape = null); // Used for stress plotting
+            // feSprings/feNodes generally recreate anyway in drawSprings/drawMesh, but good practice if safe.
+            // feNodes.forEach(n => n.konvaCircle = null); // drawMesh handles this internally usually?
+            // drawMesh does: const circle = new Konva.Circle... it re-creates.
 
             // 2. Redraw Geometry Nodes
             nodes.forEach(node => {
-                if (!node.konvaCircle) { // Should not happen if addNode worked, but safety check
-                    console.warn(`Node ${node.id} missing konvaCircle on redraw.`);
+                if (!node.konvaCircle) { // Will always be true now
                     // Try to recreate if necessary (optional)
                     const konvaCircle = new Konva.Circle({
                         x: node.x, y: node.y,
@@ -2326,9 +3243,6 @@
                     node.konvaCircle = konvaCircle;
                     konvaCircle.on('click tap', (e) => { e.cancelBubble = true; handleNodeClick(node); });
                     konvaCircle.on('dragend', () => { /* Add drag logic back if needed */ });
-                } else {
-                    // Update radius of existing circle
-                    node.konvaCircle.radius(NODE_RADIUS_TARGET_PX / scale);
                 }
                 const isMarked = geometricSpringNodes.includes(node.id);
                 node.konvaCircle.fill(isMarked ? SPRING_NODE_COLOR : DEFAULT_NODE_COLOR);
@@ -2337,8 +3251,7 @@
 
             // 3. Redraw Membranes
             membranes.forEach(membrane => {
-                if (!membrane.konvaShape) {
-                    console.warn(`Membrane ${membrane.id} missing konvaShape on redraw.`);
+                if (!membrane.konvaShape) { // Will always be true
                     // Try to recreate
                     const points = membrane.nodeIds.map(nid => findNodeDataById(nid)).flatMap(n => [n.x, n.y]);
                     membrane.konvaShape = new Konva.Line({
@@ -2358,13 +3271,18 @@
             // 5. Redraw Springs
             drawSprings(); // This function already handles drawing based on global feSprings
 
-            // 6. Batch Draw All Layers
+            // 6. Redraw Reactions (if any results exist)
+            drawReactions(); // NEW: Call drawReactions
+
+            // 7. Batch Draw All Layers
             geometryLayer?.batchDraw();
             membraneFillLayer?.batchDraw();
             meshLayer?.batchDraw();
             springLayer?.batchDraw();
             stressLayer?.visible(false); // Hide stress layer initially after load
             stressLayer?.batchDraw();
+            reactionLayer?.visible(false); // Hide reaction layer initially after load
+            reactionLayer?.batchDraw();
 
             console.log("Finished redrawing full model state.");
         }
@@ -2384,6 +3302,11 @@
             feNodes.forEach((node, index) => nodeIndexMap.set(node.id, index));
 
             feElements.forEach(element => {
+                const membrane = findMembraneById(element.membraneId);
+                if (membrane && membrane.visible === false) {
+                    return; // Skip drawing deformed elements of hidden membranes
+                }
+
                 if (element.type === 'quad' && element.nodeIds.length === 4) {
                     const deformedPoints = [];
                     let geometryValid = true;
@@ -2419,9 +3342,9 @@
         }
 
         // --- ADDED: drawStressResults --- MOVE THIS UP
-        function drawStressResults(stressData) {
+        function drawStressResults(elementStresses) {
             console.log("Drawing stress results...");
-            if (!stressLayer || !stressData || stressData.length === 0) {
+            if (!stressLayer || !elementStresses || elementStresses.length === 0) {
                 console.log("No stress data to draw or stress layer missing.");
                 stressLayer?.destroyChildren(); // Clear if no data
                 stressLayer?.visible(false);
@@ -2431,40 +3354,69 @@
             stressLayer.destroyChildren(); // Clear previous stress results
 
             let maxStress = 0;
-            stressData.forEach(s => { if (s.sigmaVM > maxStress) maxStress = s.sigmaVM; });
+            elementStresses.forEach(s => { if (s.sigmaVM > maxStress) maxStress = s.sigmaVM; });
             console.log("Max Von Mises Stress:", maxStress.toExponential(3));
             if (maxStress <= 0) maxStress = 1; // Avoid division by zero
 
-            stressData.forEach(data => {
-                const element = findFeElementById(data.elementId);
-                if (element && element.type === 'quad' && element.nodeIds.length === 4) {
-                    const nodeCoords = element.nodeIds.map(id => findFeNodeById(id)).filter(n => n).map(n => ({ x: n.x, y: n.y }));
-                    if (nodeCoords.length === 4) {
-                        const stressRatio = Math.min(1, Math.max(0, data.sigmaVM / maxStress));
-                        const stressColor = `hsl(${240 * (1 - stressRatio)}, 100%, 50%)`; // Blue (low) to Red (high)
+            // Helper to get color based on normalized stress
+            function getColorForValue(normalizedValue) {
+                // normalizedValue from 0 to 1
+                // Blue (low) to Red (high)
+                const hue = 240 * (1 - normalizedValue); // 240 (blue) to 0 (red)
+                return `hsl(${hue}, 100%, 50%)`;
+            }
 
-                        const elementPolygon = new Konva.Line({
-                            points: nodeCoords.flatMap(p => [p.x, p.y]),
-                            fill: stressColor,
-                            strokeWidth: LINE_STROKE_WIDTH_TARGET_PX, // Target pixel width
-                            strokeScaleEnabled: false, // Keep constant pixel width
-                            stroke: '#cccccc', // Faint stroke
-                            closed: true,
-                            listening: false
-                        });
-                        stressLayer.add(elementPolygon);
-                    } else { console.warn(`Could not get all node coordinates for stress plot element ${data.elementId}`); }
-                } else { console.warn(`Could not find element ${data.elementId} for stress plot.`); }
+            const isFilterOn = document.getElementById('chk-filter-results')?.checked || false;
+
+            // Re-implement loop to handle visibility correctly
+            feElements.forEach(element => {
+                // Check visibility
+                const mem = findMembraneById(element.membraneId);
+                if (mem && mem.visible === false) return; // Skip hidden membranes
+
+                const result = elementStresses.find(r => r.elementId === element.id);
+                const nodeCoords = element.nodeIds.map(id => findFeNodeById(id));
+
+                if (nodeCoords.some(n => !n)) return;
+
+                // Create or reuse shape
+                if (!element.konvaShape) {
+                    element.konvaShape = new Konva.Line({
+                        points: [], // Set below
+                        fill: '#cccccc',
+                        strokeWidth: 0, // No stroke for stress map usually, or thin
+                        strokeScaleEnabled: false,
+                        closed: true,
+                        listening: false,
+                        name: `stress-element-${element.id}`
+                    });
+                    stressLayer.add(element.konvaShape);
+                }
+
+                // Update shape
+                const points = nodeCoords.flatMap(n => [n.x, n.y]);
+                element.konvaShape.points(points);
+                element.konvaShape.visible(true);
+
+                if (result) {
+                    const normalizedSigma = (result.sigmaVM / maxStress);
+                    const color = getColorForValue(normalizedSigma);
+                    element.konvaShape.fill(color);
+                } else {
+                    element.konvaShape.fill('#cccccc');
+                }
             });
 
             stressLayer.visible(true); // Make sure layer is visible
             stressLayer.batchDraw();
-            console.log(`Stress results drawn for ${stressData.length} elements.`);
+            console.log(`Stress results drawn for ${elementStresses.length} elements.`);
         }
 
         // --- ADDED: handleResultsViewChange --- MOVE THIS UP
+        // --- ADDED: handleResultsViewChange --- MOVE THIS UP
         function handleResultsViewChange(event) {
-            const selectedValue = event ? event.target.value : document.querySelector('input[name="results-view"]:checked')?.value || 'springs';
+            // FIX: event.target.value might differ if called manually or via click
+            const selectedValue = document.querySelector('input[name="results-view"]:checked')?.value || 'springs';
             console.log("Results view changed to:", selectedValue);
 
             document.getElementById('results-springs').hidden = (selectedValue !== 'springs');
@@ -2473,9 +3425,14 @@
 
             // Toggle visibility of Konva layers
             if (stressLayer) stressLayer.visible(selectedValue === 'stress');
-            // Other layers (like mesh, springs) might remain visible or be toggled based on design
-            // For now, only explicitly control stress layer visibility here
+            if (reactionLayer) reactionLayer.visible(selectedValue === 'reactions');
+
+            // VISIBILITY FIX: Toggle springLayer based on view
+            if (springLayer) springLayer.visible(selectedValue === 'springs');
+
             stressLayer?.batchDraw();
+            reactionLayer?.batchDraw();
+            springLayer?.batchDraw();
         }
 
         // --- Delete Functions ---
@@ -2611,30 +3568,169 @@
             const reactionsDiv = document.getElementById('results-reactions')?.querySelector('pre');
             const stressDiv = document.getElementById('results-stress')?.querySelector('pre');
 
+            const isFilterOn = document.getElementById('chk-filter-results')?.checked || false;
+
             if (springsDiv) {
                 if (resultsSpringLoads === null || resultsSpringLoads.length === 0) {
                     springsDiv.textContent = "Not run yet or no springs.";
                 } else {
-                    springsDiv.textContent = resultsSpringLoads.map(r => `Spring ${r.id}: Fx=${r.fx}, Fy=${r.fy}`).join('\n');
+                    // Apply filtering if needed? Springs usually connect 2 nodes.
+                    // If filtering by membrane, maybe show only springs connected to selected membrane nodes?
+                    let filteredSprings = resultsSpringLoads;
+                    if (isFilterOn && selectedMembranes.length > 0) {
+                        filteredSprings = resultsSpringLoads.filter(r => {
+                            const s = findFeSpringById(r.id);
+                            if (!s) return false;
+                            // Check if either node belongs to a selected membrane?
+                            // Or check if spring "belongs" to it (e.g. geometric spring on node).
+                            // Nodes don't explicitly store "membraneId" list easily, but we know FE nodes have `membraneId` if generated from one?
+                            // Actually `feNodes` store `membraneId`.
+                            const n1 = findFeNodeById(s.feNodeId1);
+                            const n2 = findFeNodeById(s.feNodeId2);
+                            const m1 = n1?.membraneId;
+                            const m2 = n2?.membraneId;
+                            return (m1 && selectedMembranes.includes(m1)) || (m2 && selectedMembranes.includes(m2));
+                        });
+                    }
+                    springsDiv.textContent = filteredSprings.map(r => `Spring ${r.id}: Fx=${r.fx}, Fy=${r.fy}`).join('\n');
                 }
             }
             if (reactionsDiv) {
                 if (resultsReactions === null || resultsReactions.length === 0) {
-                    reactionsDiv.textContent = "Not run yet or no reactions.";
+                    reactionsDiv.textContent = "Not run yet or no fixed/enforced BCs.";
                 } else {
-                    reactionsDiv.textContent = resultsReactions.map(r => `Node ${r.feNodeId}: Rx=${r.rx}, Ry=${r.ry}`).join('\n');
+                    let filteredReactions = resultsReactions;
+                    if (isFilterOn && selectedMembranes.length > 0) {
+                        filteredReactions = resultsReactions.filter(r => {
+                            const n = findFeNodeById(r.feNodeId);
+                            return n && selectedMembranes.includes(n.membraneId);
+                        });
+                    }
+
+                    // Recalculate Summation for filtered view
+                    let sumRx = 0, sumRy = 0;
+                    filteredReactions.forEach(r => {
+                        const rxVal = parseFloat(r.rx);
+                        const ryVal = parseFloat(r.ry);
+                        if (!isNaN(rxVal)) sumRx += rxVal;
+                        if (!isNaN(ryVal)) sumRy += ryVal;
+                    });
+
+                    const header = isFilterOn ? `[FILTERED] Total Rx: ${sumRx.toExponential(3)}\n[FILTERED] Total Ry: ${sumRy.toExponential(3)}\n-------------------\n`
+                        : `Total Rx: ${sumRx.toExponential(3)}\nTotal Ry: ${sumRy.toExponential(3)}\n-------------------\n`;
+                    reactionsDiv.textContent = header + filteredReactions.map(r => `Node ${r.feNodeId}: Rx=${r.rx}, Ry=${r.ry}`).join('\n');
                 }
             }
             if (stressDiv) {
                 if (resultsElementStresses === null || resultsElementStresses.length === 0) {
                     stressDiv.textContent = "Not run yet or no elements.";
                 } else {
+                    let filteredStresses = resultsElementStresses;
+                    if (isFilterOn && selectedMembranes.length > 0) {
+                        filteredStresses = resultsElementStresses.filter(r => {
+                            const el = findFeElementById(r.elementId);
+                            return el && selectedMembranes.includes(el.membraneId);
+                        });
+                    }
                     // Display only Von Mises for brevity in the preview
-                    stressDiv.textContent = resultsElementStresses.map(r => `Elem ${r.elementId}: VM=${Number(r.sigmaVM).toExponential(3)}`).join('\n');
+                    stressDiv.textContent = filteredStresses.map(r => `Elem ${r.elementId}: VM=${Number(r.sigmaVM).toExponential(3)}`).join('\n');
                 }
             }
         }
 
+        // --- NEW: drawReactions Function ---
+        function drawReactions() {
+            if (!reactionLayer || !stage) return;
+            reactionLayer.destroyChildren();
+
+            if (!resultsReactions || resultsReactions.length === 0) {
+                reactionLayer.batchDraw();
+                return;
+            }
+
+            const scale = stage.scaleX();
+            const arrowLengthPixels = 40; // Target visual length for arrows
+            const labelOffsetPixels = 5; // Offset for labels from arrow tip
+
+            resultsReactions.forEach(r => {
+                const node = findFeNodeById(r.feNodeId);
+                if (!node) return;
+
+                const rx = parseFloat(r.rx);
+                const ry = parseFloat(r.ry);
+
+                if (isNaN(rx) || isNaN(ry)) return;
+
+                const arrowLengthWorld = arrowLengthPixels / scale;
+                const pointerSizeWorld = 6 / scale;
+                const strokeWidthWorld = 2 / scale;
+                const fontSizeWorld = 10 / scale;
+                const labelOffsetWorld = labelOffsetPixels / scale;
+
+                // Draw Arrow for Rx
+                if (Math.abs(rx) > 1e-9) {
+                    const dir = rx > 0 ? 1 : -1;
+                    const arrow = new Konva.Arrow({
+                        points: [node.x, node.y, node.x + dir * arrowLengthWorld, node.y],
+                        pointerLength: pointerSizeWorld,
+                        pointerWidth: pointerSizeWorld,
+                        fill: 'red',
+                        stroke: 'red',
+                        strokeWidth: strokeWidthWorld,
+                        listening: false
+                    });
+                    reactionLayer.add(arrow);
+
+                    // Label
+                    const label = new Konva.Text({
+                        x: node.x + dir * (arrowLengthWorld + labelOffsetWorld),
+                        y: node.y,
+                        text: `Rx:${r.rx}`,
+                        fontSize: fontSizeWorld,
+                        fill: 'red',
+                        listening: false,
+                        align: dir > 0 ? 'left' : 'right',
+                        offsetY: fontSizeWorld / 2 // Center vertically
+                    });
+                    reactionLayer.add(label);
+                }
+
+                // Draw Arrow for Ry
+                if (Math.abs(ry) > 1e-9) {
+                    // Konva Y increases downwards. If Ry is positive (upwards in engineering),
+                    // then the arrow should point towards smaller Y values in Konva.
+                    // If Ry is positive (downwards in Konva), arrow points towards larger Y values.
+                    const dir = ry > 0 ? 1 : -1; // +1 for positive Ry (down), -1 for negative Ry (up)
+
+                    const arrow = new Konva.Arrow({
+                        points: [node.x, node.y, node.x, node.y + dir * arrowLengthWorld],
+                        pointerLength: pointerSizeWorld,
+                        pointerWidth: pointerSizeWorld,
+                        fill: 'red',
+                        stroke: 'red',
+                        strokeWidth: strokeWidthWorld,
+                        listening: false
+                    });
+                    reactionLayer.add(arrow);
+
+                    // Label
+                    const label = new Konva.Text({
+                        x: node.x,
+                        y: node.y + dir * (arrowLengthWorld + labelOffsetWorld),
+                        text: `Ry:${r.ry}`,
+                        fontSize: fontSizeWorld,
+                        fill: 'red',
+                        listening: false,
+                        align: 'center',
+                        offsetX: fontSizeWorld * 2, // Adjust horizontally
+                        offsetY: dir > 0 ? 0 : fontSizeWorld // Adjust vertically based on direction
+                    });
+                    reactionLayer.add(label);
+                }
+            });
+
+            reactionLayer.batchDraw();
+        }
         // --- FEA Calculations ---
         function zeros(rows, cols) { return Array(rows).fill(0).map(() => Array(cols).fill(0)); }
 
