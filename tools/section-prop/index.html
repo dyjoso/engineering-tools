@@ -1,713 +1,420 @@
 <!DOCTYPE html>
-
 <html lang="en">
-
 
 <head>
 
     <meta charset="UTF-8">
-
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <title>Section Property and Beam Stress Calculator</title>
-
     <!-- Include Chart.js library for plotting -->
-
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
     <style>
         :root {
-
             --primary-color: #0068c9;
-
             --bg-color: #f0f0f0;
-
             --card-bg-color: #ffffff;
-
             --text-color: #333;
-
             --border-color: #ccc;
-
             --box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-
             --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-
             --orange-btn: #fa9e61;
-
             --green-btn: #B4CEA1;
-
             --result-bg: #d5e2ca;
-
             --danger-btn: #f44336;
-
         }
-
 
         body {
-
             font-family: var(--font-family);
-
             background-color: var(--bg-color);
-
             color: var(--text-color);
-
             margin: 0;
-
             padding: 0.5rem;
-
             display: flex;
-
             justify-content: center;
-
             font-size: 14px;
-
         }
-
 
         .app-container {
-
             width: 100%;
-
             max-width: 950px;
-
             background-color: var(--card-bg-color);
-
             padding: 15px;
-
             border-radius: 8px;
-
             box-shadow: var(--box-shadow);
-
             border: 1px solid var(--border-color);
-
         }
-
 
         h1 {
-
             text-align: center;
-
             font-size: 1.4em;
-
             margin-top: 0;
-
             margin-bottom: 15px;
-
             color: var(--primary-color);
-
         }
-
 
         h2 {
-
             font-size: 1.0em;
-
             margin-top: 0;
-
             margin-bottom: 8px;
-
         }
-
 
         .card {
-
             border: 1px solid var(--border-color);
-
             padding: 10px;
-
             border-radius: 5px;
-
             margin-bottom: 10px;
-
         }
-
 
         .main-layout-grid {
-
             display: grid;
-
             grid-template-columns: 420px 1fr;
-
             gap: 20px;
-
         }
-
 
         .block-input-header {
-
             display: grid;
-
-            grid-template-columns: 1fr 1fr 1fr 1fr 1.5fr 0.5fr;
-
+            grid-template-columns: 1fr 1fr 1fr 1fr 1.5fr 0.8fr 0.5fr;
             gap: 5px;
-
             font-weight: bold;
-
             text-align: center;
-
             margin-bottom: 5px;
-
         }
-
 
         .block-definition {
-
             display: grid;
-
-            grid-template-columns: 1fr 1fr 1fr 1fr 1.5fr 0.5fr;
-
+            grid-template-columns: 1fr 1fr 1fr 1fr 1.5fr 0.8fr 0.5fr;
             gap: 5px;
-
             margin-bottom: 4px;
-
             align-items: center;
-
         }
-
 
         input::-webkit-outer-spin-button,
-
         input::-webkit-inner-spin-button {
-
             -webkit-appearance: none;
-
             margin: 0;
-
         }
-
 
         input[type=number] {
-
             -moz-appearance: textfield;
-
         }
-
 
         input[type="number"],
-
         input[type="text"] {
-
             width: 100%;
-
             padding: 4px;
-
             border-radius: 4px;
-
             border: 1px solid var(--border-color);
-
             box-sizing: border-box;
-
             text-align: center;
-
         }
-
 
         .button-group {
-
             display: flex;
-
             gap: 10px;
-
             margin-bottom: 10px;
-
         }
-
 
         .button {
-
             flex: 1;
-
             padding: 8px;
-
             border: 1px solid #999;
-
             border-radius: 4px;
-
             font-size: 0.9em;
-
             cursor: pointer;
-
             background-color: #e7e7e7;
-
             transition: background-color 0.2s, color 0.2s;
-
         }
-
 
         .button:hover {
-
             background-color: #dcdcdc;
-
         }
-
 
         .button.orange {
-
             background-color: var(--orange-btn);
-
             border-color: #e08e51;
-
             color: white;
-
         }
-
 
         .button.orange:hover {
-
             background-color: #e08e51;
-
         }
-
 
         .button.green {
-
             background-color: var(--green-btn);
-
             border-color: #a0b991;
-
         }
-
 
         .button.green:hover {
-
             background-color: #a0b991;
-
         }
-
 
         .button.snapping-active {
-
             background-color: var(--primary-color);
-
             color: white;
-
             border-color: #0056b3;
-
         }
-
 
         .remove-block-btn {
-
             background-color: var(--danger-btn);
-
             color: white;
-
             border: none;
-
             border-radius: 4px;
-
             cursor: pointer;
-
             font-weight: bold;
-
             padding: 4px 0;
-
             line-height: 1;
-
             height: 100%;
-
         }
-
 
         .remove-block-btn:hover {
-
             background-color: #d32f2f;
-
         }
-
 
 
         .side-by-side-cards {
-
             display: grid;
-
             grid-template-columns: 1fr 1fr;
-
             gap: 10px;
-
         }
-
 
         .results-column .card {
-
             display: grid;
-
             grid-template-columns: 1fr 1fr;
-
             gap: 5px 8px;
-
             align-items: center;
-
         }
-
 
         .results-column h2 {
-
             grid-column: 1 / -1;
-
         }
-
 
         .results-column label {
-
             font-weight: bold;
-
             text-align: right;
-
         }
-
 
         .results-column .result-value,
-
         .results-column input {
-
             background-color: var(--result-bg);
-
             padding: 4px;
-
             border-radius: 4px;
-
             text-align: center;
-
             font-family: monospace;
-
             cursor: crosshair;
-
         }
-
 
         #snap-status {
-
             text-align: center;
-
             font-weight: bold;
-
             color: var(--primary-color);
-
             height: 1.2em;
-
             margin-top: 5px;
-
         }
-
 
         .modal-overlay {
-
             display: none;
-
             position: fixed;
-
             z-index: 1000;
-
             left: 0;
-
             top: 0;
-
             width: 100%;
-
             height: 100%;
-
             background-color: rgba(0, 0, 0, 0.5);
-
             justify-content: center;
-
             align-items: center;
-
         }
-
 
         .modal-content {
-
             background-color: #fff;
-
             padding: 20px;
-
             border-radius: 8px;
-
             width: 90%;
-
             max-width: 400px;
-
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-
             position: relative;
-
         }
-
 
         .modal-close-btn {
-
             position: absolute;
-
             top: 10px;
-
             right: 15px;
-
             color: #aaa;
-
             font-size: 28px;
-
             font-weight: bold;
-
             cursor: pointer;
-
         }
-
 
         #modal-body {
-
             display: grid;
-
             grid-template-columns: 1fr 1fr;
-
             gap: 10px;
-
             align-items: center;
-
         }
-
 
         #modal-body label {
-
             font-weight: bold;
-
             text-align: right;
-
         }
-
 
         #modal-body span {
-
             font-family: monospace;
-
         }
-
 
         @media (max-width: 880px) {
-
             .main-layout-grid {
-
                 grid-template-columns: 1fr;
-
             }
-
         }
     </style>
-
 </head>
 
-
 <body>
-
     <div class="app-container">
-
         <h1>SCT-005 Section Property and Beam Stress Calculator</h1>
 
-
         <div class="main-layout-grid">
-
             <div class="left-column">
-
                 <div class="card">
-
                     <h2>Enter block element dimensions</h2>
-
                     <div class="button-group">
-
                         <button id="save-btn" class="button">Save</button>
-
                         <input type="file" id="file-uploader" style="display:none;">
-
                         <button id="open-btn" class="button">Open</button>
-
                     </div>
-
                     <div class="block-input-header">
-
                         <span>y0</span>
-
                         <span>z0</span>
-
                         <span>Ly</span>
-
                         <span>Lz</span>
-
                         <span>Element Label</span>
-
+                        <span>Rel E</span>
                         <span></span>
-
                     </div>
-
                     <div id="blocks-container">
-
                         <!-- JS will populate this -->
-
                     </div>
+                    <details style="margin-top: 10px; font-size: 0.9em; margin-bottom: 5px;">
+                        <summary
+                            style="cursor: pointer; color: var(--primary-color); font-weight: bold; font-size: 0.9em;">
+                            User Guide (Click to expand)</summary>
+                        <div
+                            style="font-size: 0.9em; color: #555; margin: 5px 0 0 0; line-height: 1.4; padding: 10px; background: #f9f9f9; border-radius: 4px; border: 1px solid #eee;">
+                            <p style="margin-top: 0;"><strong>1. Create Geometry:</strong> Add rectangular blocks by
+                                defining their origin (y0, z0) and dimensions (Ly, Lz), as illustrated below.</p>
 
+                            <p><strong>2. Standard Sections:</strong> Use the "Standard Section" button to quickly
+                                generate common shapes like I-beams or Z-sections.</p>
+
+                            <p><strong>3. Snapping:</strong> Click "Add by Snapping" then click on any existing corner
+                                in the plot to start a new block from that point.</p>
+
+                            <p><strong>4. Transformed Sections (Rel E):</strong></p>
+                            <p style="margin-bottom: 5px;">
+                                Use "Rel E" (Relative Stiffness) to model composite materials (e.g. Steel + Aluminum).
+                                Define a reference material (Rel E = 1) and scale others relative to it (e.g., <em>Rel E
+                                    = E<sub>mat</sub> / E<sub>ref</sub></em>).
+                                The calculated "Max/Min &sigma;xx" will be the <strong>actual</strong> stress in each
+                                material.
+                            </p>
+                            <img src="../../assets/images/SCT-005 definition.jpg" alt="Rel E Definition"
+                                style="width: 100%; max-width: 100%; border-radius: 4px; border: 1px solid #ddd; margin-bottom: 8px;">
+
+                            <p style="margin-bottom: 0;"><strong>5. Stress Analysis:</strong> Apply Moments (Myy, Mzz)
+                                and Axial Force (Fxx) to calculate stresses. Use the "Stress at a point" tool to probe
+                                specific locations (remember to set the correct Rel E for the probe point).</p>
+                        </div>
+                    </details>
                 </div>
 
-
                 <div class="button-group">
-
                     <button id="add-block-btn" class="button orange">Add Block</button>
-
                     <button id="add-std-btn" class="button orange">Standard Section</button>
-
                     <button id="add-snap-btn" class="button orange">Add by Snapping</button>
-
                 </div>
 
                 <div id="snap-status"></div>
 
-
                 <div class="results-column">
-
                     <div class="side-by-side-cards">
-
                         <div class="card">
-
                             <h2>Properties about Neutral Axis:</h2>
-
                             <label>Izz =</label><span id="res-izz" class="result-value">n/a</span>
-
                             <label>Iyy =</label><span id="res-iyy" class="result-value">n/a</span>
-
                             <label>Iyz =</label><span id="res-iyz" class="result-value">n/a</span>
-
                             <label>A =</label><span id="res-area" class="result-value">n/a</span>
-
                             <label>y_min =</label><span id="res-ymin" class="result-value">n/a</span>
-
                             <label>y_max =</label><span id="res-ymax" class="result-value">n/a</span>
-
                             <label>z_min =</label><span id="res-zmin" class="result-value">n/a</span>
-
                             <label>z_max =</label><span id="res-zmax" class="result-value">n/a</span>
-
                         </div>
 
                         <div class="card">
-
                             <h2>Applied bending and axial:</h2>
-
                             <label>Myy:</label><input type="number" id="myy" value="0">
-
                             <label>Mzz:</label><input type="number" id="mzz" value="0">
-
                             <label>Fxx:</label><input type="number" id="fxx" value="0">
-
                             <label>Max σxx =</label><span id="res-sxx-max" class="result-value">n/a</span>
-
                             <label>Min σxx =</label><span id="res-sxx-min" class="result-value">n/a</span>
-
                             <h2 style="margin-top: 10px;">Stress at a point:</h2>
-
                             <label>y-coord:</label><input type="number" id="py" value="0">
-
                             <label>z-coord:</label><input type="number" id="pz" value="0">
-
+                            <label>Rel E:</label><input type="number" id="point-rele" value="1">
                             <label>σxx =</label><span id="res-sxx-point" class="result-value">n/a</span>
-
                         </div>
 
                     </div>
 
                     <div class="button-group">
-
                         <button id="principal-btn" class="button green">Properties about Principal Axes</button>
-
                         <button id="plastic-btn" class="button green">Plastic Shape Factors</button>
-
                     </div>
-
                 </div>
-
             </div>
 
             <div class="right-column">
-
                 <div class="plot-container card">
-
                     <canvas id="section-plot"></canvas>
-
                 </div>
-
             </div>
-
         </div>
-
     </div>
-
 
     <!-- Modal Structure -->
 
     <div id="modal" class="modal-overlay">
-
         <div class="modal-content">
-
             <span class="modal-close-btn">&times;</span>
-
             <h2 id="modal-title"></h2>
-
             <div id="modal-body"></div>
-
         </div>
-
     </div>
-
-
 
     <!-- Standard Section Modal -->
-
     <div id="std-modal" class="modal-overlay">
-
         <div class="modal-content" style="max-width: 500px;">
-
             <span class="std-modal-close-btn modal-close-btn">&times;</span>
-
             <h2>Generate Standard Section</h2>
-
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: center;">
-
                 <label>Section Type:</label>
-
                 <select id="std-type" style="padding: 5px;">
-
                     <option value="I">I-Section</option>
-
                     <option value="Z">Z-Section</option>
-
                 </select>
 
-
                 <label>Origin y0:</label><input type="number" id="std-y0" value="0">
-
                 <label>Origin z0:</label><input type="number" id="std-z0" value="0">
-
-
                 <label>Total Height (H):</label><input type="number" id="std-h" value="10">
-
                 <label>Top Flange Width (B_top):</label><input type="number" id="std-bt" value="5">
-
                 <label>Bottom Flange Width (B_bot):</label><input type="number" id="std-bb" value="5">
-
                 <label>Web Thickness (tw):</label><input type="number" id="std-tw" value="0.5">
-
                 <label>Flange Thickness (tf):</label><input type="number" id="std-tf" value="0.5">
 
-
                 <div style="grid-column: 1 / -1; margin-top: 10px;">
-
                     <button id="generate-std-btn" class="button orange" style="width: 100%;">Generate</button>
-
                 </div>
-
             </div>
-
         </div>
-
     </div>
-
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
@@ -775,6 +482,7 @@
                 <input type="number" class="block-ly" value="${data.ly !== undefined ? data.ly : 0}">
                 <input type="number" class="block-lz" value="${data.lz !== undefined ? data.lz : 0}">
                 <input type="text" class="block-label" value="${data.label || `Block ${blockId}`}">
+                <input type="number" class="block-rele" value="${data.rele !== undefined ? data.rele : 1}">
                 <button class="remove-block-btn">X</button>
             `;
                 blocksContainer.appendChild(blockDiv);
@@ -787,6 +495,7 @@
                     ly: parseFloat(div.querySelector('.block-ly').value) || 0,
                     lz: parseFloat(div.querySelector('.block-lz').value) || 0,
                     label: div.querySelector('.block-label').value,
+                    rele: parseFloat(div.querySelector('.block-rele').value) || 1,
                 }));
 
                 const loads = {
@@ -794,7 +503,8 @@
                     Mzz: parseFloat(document.getElementById('mzz').value) || 0,
                     Fxx: parseFloat(document.getElementById('fxx').value) || 0,
                     py: parseFloat(document.getElementById('py').value) || 0,
-                    pz: parseFloat(document.getElementById('pz').value) || 0
+                    pz: parseFloat(document.getElementById('pz').value) || 0,
+                    pointRele: parseFloat(document.getElementById('point-rele').value) || 1
                 };
                 return {
                     blocks,
@@ -839,7 +549,7 @@
                         const bWidth = axis === 'z' ? (b.y_max - b.y_min) : (b.z_max - b.z_min);
 
                         if (bStart <= start && bEnd >= end) {
-                            effectiveWidth += bWidth;
+                            effectiveWidth += bWidth * b.rel_e;
                         }
                     });
 
@@ -873,12 +583,12 @@
                     // Case 1: Entire block is "below" (or left of) PNA
                     if (end <= pna) {
                         const dist = pna - centroid;
-                        Zp += (mainDim * transDim) * dist;
+                        Zp += (mainDim * transDim * b.rel_e) * dist;
                     }
                     // Case 2: Entire block is "above" (or right of) PNA
                     else if (start >= pna) {
                         const dist = centroid - pna;
-                        Zp += (mainDim * transDim) * dist;
+                        Zp += (mainDim * transDim * b.rel_e) * dist;
                     }
                     // Case 3: PNA cuts through the block
                     else {
@@ -888,11 +598,11 @@
 
                         // Moment of lower part
                         const distBelow = pna - (start + belowHeight / 2);
-                        Zp += (belowHeight * transDim) * distBelow;
+                        Zp += (belowHeight * transDim * b.rel_e) * distBelow;
 
                         // Moment of upper part
                         const distAbove = (pna + aboveHeight / 2) - pna;
-                        Zp += (aboveHeight * transDim) * distAbove;
+                        Zp += (aboveHeight * transDim * b.rel_e) * distAbove;
                     }
                 });
                 return Zp;
@@ -919,6 +629,7 @@
                         y_max: Math.max(b.y0, b.y0 + b.ly),
                         z_min: Math.min(b.z0, b.z0 + b.lz),
                         z_max: Math.max(b.z0, b.z0 + b.lz),
+                        rel_e: b.rele,
                         orig: b
                     };
                 });
@@ -934,7 +645,7 @@
                     const height = b.z_max - b.z_min;
                     const current_ybar = b.y_min + width / 2;
                     const current_zbar = b.z_min + height / 2;
-                    const current_A = width * height;
+                    const current_A = width * height * b.rel_e;
 
                     // For Snapping
                     snapPoints.push({ x: b.y_min, y: b.z_min });
@@ -948,8 +659,8 @@
                     yA.push(current_A * current_ybar);
                     y2A.push(current_A * current_ybar * current_ybar);
 
-                    Iyy.push(width * Math.pow(height, 3) / 12); // I about local horizontal centroidal axis
-                    Izz.push(height * Math.pow(width, 3) / 12); // I about local vertical centroidal axis
+                    Iyy.push(width * Math.pow(height, 3) / 12 * b.rel_e); // I about local horizontal centroidal axis
+                    Izz.push(height * Math.pow(width, 3) / 12 * b.rel_e); // I about local vertical centroidal axis
 
                     zA.push(current_A * current_zbar);
                     z2A.push(current_A * current_zbar * current_zbar);
@@ -1014,15 +725,16 @@
 
                 // Check stress at all corners
                 const corners = normBlocks.flatMap(b => [
-                    { y: b.y_min - ybar_o, z: b.z_min - zbar_o },
-                    { y: b.y_max - ybar_o, z: b.z_min - zbar_o },
-                    { y: b.y_min - ybar_o, z: b.z_max - zbar_o },
-                    { y: b.y_max - ybar_o, z: b.z_max - zbar_o }
+                    { y: b.y_min - ybar_o, z: b.z_min - zbar_o, n: b.rel_e },
+                    { y: b.y_max - ybar_o, z: b.z_min - zbar_o, n: b.rel_e },
+                    { y: b.y_min - ybar_o, z: b.z_max - zbar_o, n: b.rel_e },
+                    { y: b.y_max - ybar_o, z: b.z_max - zbar_o, n: b.rel_e }
                 ]);
 
                 if (denominator !== 0) {
                     corners.forEach(p => {
-                        const s = (-(loads.Mzz * Iyy_na + loads.Myy * Iyz_na) * p.y + (loads.Myy * Izz_na + loads.Mzz * Iyz_na) * p.z) / denominator + loads.Fxx / total_A;
+                        let s = (-(loads.Mzz * Iyy_na + loads.Myy * Iyz_na) * p.y + (loads.Myy * Izz_na + loads.Mzz * Iyz_na) * p.z) / denominator + loads.Fxx / total_A;
+                        s *= p.n;
                         if (s > Sxx_max) Sxx_max = s;
                         if (s < Sxx_min) Sxx_min = s;
                     });
@@ -1030,7 +742,7 @@
                     Sxx_max = 0; Sxx_min = 0;
                 }
 
-                const Sxx_at_point = denominator !== 0 ? (-(loads.Mzz * Iyy_na + loads.Myy * Iyz_na) * (loads.py - ybar_o) + (loads.Myy * Izz_na + loads.Mzz * Iyz_na) * (loads.pz - zbar_o)) / denominator + loads.Fxx / total_A : 0;
+                const Sxx_at_point = denominator !== 0 ? ((-(loads.Mzz * Iyy_na + loads.Myy * Iyz_na) * (loads.py - ybar_o) + (loads.Myy * Izz_na + loads.Mzz * Iyz_na) * (loads.pz - zbar_o)) / denominator + loads.Fxx / total_A) * loads.pointRele : 0;
 
                 // --- PLASTIC CALCULATION ---
                 const plasticProps = calculatePlasticProperties(normBlocks, total_A);
@@ -1269,7 +981,8 @@
                             z0: parseFloat(p[1]),
                             ly: parseFloat(p[2]),
                             lz: parseFloat(p[3]),
-                            label: p[4]
+                            label: p[4],
+                            rele: p.length > 5 ? parseFloat(p[5]) : 1
                         });
                     }
                     runFullCalculation();
@@ -1430,7 +1143,7 @@
                     blocks
                 } = collectInputs();
                 let c = `${blocks.length}\n`;
-                c += blocks.map(b => `${b.y0},${b.z0},${b.ly},${b.lz},${b.label}`).join('\n');
+                c += blocks.map(b => `${b.y0},${b.z0},${b.ly},${b.lz},${b.label},${b.rele}`).join('\n');
                 const blob = new Blob([c], {
                     type: 'text/csv;charset=utf-8,'
                 });
@@ -1461,6 +1174,9 @@
                     return;
                 }
                 modalTitle.textContent = 'Plastic Properties';
+                const hasRelE = Array.from(document.querySelectorAll('.block-rele')).some(input => parseFloat(input.value) !== 1);
+                const note = hasRelE ? '<p style="grid-column: 1/-1; margin-top: 15px; font-style: italic; color: #555;">Note: Relative E factors are treated as scaling the material yield stress (effective width/area approach).</p>' : '';
+
                 modalBody.innerHTML = `
                 <h3 style="grid-column: 1/-1; margin: 5px 0 0 0; font-size: 1.1em; border-bottom:1px solid #ccc;">Bending about Y-axis (Vertical Bending)</h3>
                 <label>Shape Factor (fy) =</label><span>${lastResults.fy.toFixed(3)}</span>
@@ -1471,6 +1187,7 @@
                 <label>Shape Factor (fz) =</label><span>${lastResults.fz.toFixed(3)}</span>
                 <label>Z_plastic (Zpz) =</label><span>${lastResults.Zpz_plastic.toExponential(3)}</span>
                 <label>PNA loc (y) =</label><span>${lastResults.y_pna.toFixed(3)}</span>
+                ${note}
             `;
                 openModal();
             });
