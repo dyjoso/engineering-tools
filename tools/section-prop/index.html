@@ -399,15 +399,36 @@
                 <select id="std-type" style="padding: 5px;">
                     <option value="I">I-Section</option>
                     <option value="Z">Z-Section</option>
+                    <option value="C">C-Section</option>
+                    <option value="Hollow">Hollow Rect</option>
+                    <option value="L">L-Section</option>
+                    <option value="T">T-Section</option>
                 </select>
 
-                <label>Origin y0:</label><input type="number" id="std-y0" value="0">
-                <label>Origin z0:</label><input type="number" id="std-z0" value="0">
-                <label>Total Height (H):</label><input type="number" id="std-h" value="10">
-                <label>Top Flange Width (B_top):</label><input type="number" id="std-bt" value="5">
-                <label>Bottom Flange Width (B_bot):</label><input type="number" id="std-bb" value="5">
-                <label>Web Thickness (tw):</label><input type="number" id="std-tw" value="0.5">
-                <label>Flange Thickness (tf):</label><input type="number" id="std-tf" value="0.5">
+                <div style="display:contents" id="grp-y0">
+                    <label>Origin y0:</label><input type="number" id="std-y0" value="0">
+                </div>
+                <div style="display:contents" id="grp-z0">
+                    <label>Origin z0:</label><input type="number" id="std-z0" value="0">
+                </div>
+                <div style="display:contents" id="grp-h">
+                    <label>Total Height (H):</label><input type="number" id="std-h" value="10">
+                </div>
+                <div style="display:contents" id="grp-bt">
+                    <label>Top Flange Width (B_top):</label><input type="number" id="std-bt" value="5">
+                </div>
+                <div style="display:contents" id="grp-bb">
+                    <label>Bottom Flange Width (B_bot):</label><input type="number" id="std-bb" value="5">
+                </div>
+                <div style="display:contents" id="grp-tw">
+                    <label>Web Thickness (tw):</label><input type="number" id="std-tw" value="0.5">
+                </div>
+                <div style="display:contents" id="grp-tft">
+                    <label>Top Flange Thk (tf_top):</label><input type="number" id="std-tft" value="0.5">
+                </div>
+                <div style="display:contents" id="grp-tfb">
+                    <label>Bot Flange Thk (tf_bot):</label><input type="number" id="std-tfb" value="0.5">
+                </div>
 
                 <div style="grid-column: 1 / -1; margin-top: 10px;">
                     <button id="generate-std-btn" class="button orange" style="width: 100%;">Generate</button>
@@ -995,8 +1016,42 @@
             const openModal = () => modal.style.display = 'flex';
             const closeModal = () => modal.style.display = 'none';
 
-            const openStdModal = () => stdModal.style.display = 'flex';
+            const openStdModal = () => {
+                stdModal.style.display = 'flex';
+                updateStdInputs();
+            };
             const closeStdModal = () => stdModal.style.display = 'none';
+
+            const updateStdInputs = () => {
+                const type = document.getElementById('std-type').value;
+                const setDisplay = (id, show) => {
+                    document.getElementById(id).style.display = show ? 'contents' : 'none';
+                }
+
+                // Show All First
+                ['grp-y0', 'grp-z0', 'grp-h', 'grp-bt', 'grp-bb', 'grp-tw', 'grp-tft', 'grp-tfb'].forEach(id => setDisplay(id, true));
+
+                if (type === 'Hollow') {
+                    // Uses: H, B_top (Width), tw (Side), tft (Top), tfb (Bot)
+                    // Hide: B_bot
+                    setDisplay('grp-bb', false);
+                    // Rename labels if needed?
+                    // For simplicity, we just rely on "Top Flange Width" ~ Width
+                } else if (type === 'L') {
+                    // Uses: H, B_bot (Width), tw (Vert), tfb (Horiz)
+                    // Hide: B_top, tft
+                    setDisplay('grp-bt', false);
+                    setDisplay('grp-tft', false);
+                } else if (type === 'T') {
+                    // Uses: H, B_top (Width), tw (Web), tft (Flange)
+                    // Hide: B_bot, tfb
+                    setDisplay('grp-bb', false);
+                    setDisplay('grp-tfb', false);
+                }
+                // I, Z, C use all inputs.
+            };
+
+            document.getElementById('std-type').addEventListener('change', updateStdInputs);
 
             const generateStandardSection = () => {
                 const type = document.getElementById('std-type').value;
@@ -1006,65 +1061,77 @@
                 const Bt = parseFloat(document.getElementById('std-bt').value) || 0;
                 const Bb = parseFloat(document.getElementById('std-bb').value) || 0;
                 const tw = parseFloat(document.getElementById('std-tw').value) || 0;
-                const tf = parseFloat(document.getElementById('std-tf').value) || 0;
+                const tft = parseFloat(document.getElementById('std-tft').value) || 0;
+                const tfb = parseFloat(document.getElementById('std-tfb').value) || 0;
 
-                if (H <= 0 || Bt <= 0 || Bb <= 0 || tw <= 0 || tf <= 0) {
-                    alert("Dimensions must be positive.");
+                if (H <= 0 || tw <= 0) {
+                    alert("Height and Web Thickness must be positive.");
                     return;
                 }
 
-                const h_web = H - 2 * tf;
-
                 if (type === 'I') {
+                    if (tft <= 0 || tfb <= 0 || Bt <= 0 || Bb <= 0) { alert("Flange dimensions must be positive."); return; }
+                    const h_web = H - tft - tfb;
                     // Bottom Flange
-                    addBlock({
-                        y0: y0 - Bb / 2,
-                        z0: z0,
-                        ly: Bb,
-                        lz: tf,
-                        label: 'Bot Flange'
-                    });
+                    addBlock({ y0: y0 - Bb / 2, z0: z0, ly: Bb, lz: tfb, label: 'Bot Flange' });
                     // Web
-                    addBlock({
-                        y0: y0 - tw / 2,
-                        z0: z0 + tf,
-                        ly: tw,
-                        lz: h_web,
-                        label: 'Web'
-                    });
+                    addBlock({ y0: y0 - tw / 2, z0: z0 + tfb, ly: tw, lz: h_web, label: 'Web' });
                     // Top Flange
-                    addBlock({
-                        y0: y0 - Bt / 2,
-                        z0: z0 + H - tf,
-                        ly: Bt,
-                        lz: tf,
-                        label: 'Top Flange'
-                    });
+                    addBlock({ y0: y0 - Bt / 2, z0: z0 + H - tft, ly: Bt, lz: tft, label: 'Top Flange' });
+
                 } else if (type === 'Z') {
-                    // Bot Flange (Left) - aligned to right edge of web
-                    addBlock({
-                        y0: y0 + tw / 2 - Bb,
-                        z0: z0,
-                        ly: Bb,
-                        lz: tf,
-                        label: 'Bot Flange'
-                    });
+                    if (tft <= 0 || tfb <= 0 || Bt <= 0 || Bb <= 0) { alert("Flange dimensions must be positive."); return; }
+                    const h_web = H - tft - tfb;
+                    // Bot Flange (Left)
+                    addBlock({ y0: y0 + tw / 2 - Bb, z0: z0, ly: Bb, lz: tfb, label: 'Bot Flange' });
                     // Web
-                    addBlock({
-                        y0: y0 - tw / 2,
-                        z0: z0 + tf,
-                        ly: tw,
-                        lz: h_web,
-                        label: 'Web'
-                    });
-                    // Top Flange (Right) - aligned to left edge of web
-                    addBlock({
-                        y0: y0 - tw / 2,
-                        z0: z0 + H - tf,
-                        ly: Bt,
-                        lz: tf,
-                        label: 'Top Flange'
-                    });
+                    addBlock({ y0: y0 - tw / 2, z0: z0 + tfb, ly: tw, lz: h_web, label: 'Web' });
+                    // Top Flange (Right)
+                    addBlock({ y0: y0 - tw / 2, z0: z0 + H - tft, ly: Bt, lz: tft, label: 'Top Flange' });
+
+                } else if (type === 'C') {
+                    if (tft <= 0 || tfb <= 0 || Bt <= 0 || Bb <= 0) { alert("Flange dimensions must be positive."); return; }
+                    const h_web = H - tft - tfb;
+                    // Bot Flange
+                    addBlock({ y0: y0, z0: z0, ly: Bb, lz: tfb, label: 'Bot Flange' });
+                    // Web
+                    addBlock({ y0: y0, z0: z0 + tfb, ly: tw, lz: h_web, label: 'Web' });
+                    // Top Flange
+                    addBlock({ y0: y0, z0: z0 + H - tft, ly: Bt, lz: tft, label: 'Top Flange' });
+
+                } else if (type === 'Hollow') {
+                    // Uses H, B_top (as Width), tw (Side thk), tft (Top thk), tfb (Bot thk)
+                    // If tfb is 0, imply symmetric top/bot? Let's just require inputs.
+                    if (Bt <= 0 || tft <= 0) { alert("Width (B_top) and Top Thickness must be positive."); return; }
+                    // Use tfb if provided, else use tft
+                    const t_bot = tfb > 0 ? tfb : tft;
+                    const h_inner = H - tft - t_bot;
+
+                    // Bot Flange
+                    addBlock({ y0: y0 - Bt / 2, z0: z0, ly: Bt, lz: t_bot, label: 'Bot Flange' });
+                    // Top Flange
+                    addBlock({ y0: y0 - Bt / 2, z0: z0 + H - tft, ly: Bt, lz: tft, label: 'Top Flange' });
+                    // Left Web
+                    addBlock({ y0: y0 - Bt / 2, z0: z0 + t_bot, ly: tw, lz: h_inner, label: 'Left Web' });
+                    // Right Web
+                    addBlock({ y0: y0 + Bt / 2 - tw, z0: z0 + t_bot, ly: tw, lz: h_inner, label: 'Right Web' });
+
+                } else if (type === 'L') {
+                    // L-Section: H (Total Height), B_bot (Total Width), tw (Vert Leg Thk), tfb (Horiz Leg Thk)
+                    if (Bb <= 0 || tfb <= 0) { alert("Width (B_bot) and Thickness (tf_bot) required for L-section."); return; }
+                    // Vertical Leg (full height)
+                    addBlock({ y0: y0, z0: z0, ly: tw, lz: H, label: 'Vert Leg' });
+                    // Horizontal Leg (remaining width)
+                    addBlock({ y0: y0 + tw, z0: z0, ly: Bb - tw, lz: tfb, label: 'Horiz Leg' });
+
+                } else if (type === 'T') {
+                    // T-Section: H (Total Height), B_top (Flange Width), tw (Web Thk), tft (Flange Thk)
+                    if (Bt <= 0 || tft <= 0) { alert("Flange Width (B_top) and Thickness (tf_top) required for T-section."); return; }
+                    const h_web = H - tft;
+                    // Flange (Top)
+                    addBlock({ y0: y0 - Bt / 2, z0: z0 + H - tft, ly: Bt, lz: tft, label: 'Flange' });
+                    // Web
+                    addBlock({ y0: y0 - tw / 2, z0: z0, ly: tw, lz: h_web, label: 'Web' });
                 }
 
                 closeStdModal();
