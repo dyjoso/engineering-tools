@@ -293,7 +293,16 @@
                     </div>
 
                     <div id="el-stress-display" class="mt-3 pt-2 border-t border-blue-200 text-xs text-blue-800" hidden>
-                        <strong>Stress (Von Mises):</strong> <span id="el-stress-val">N/A</span>
+                        <strong>Stresses:</strong><br>
+                        <span class="inline-block w-16">SX:</span> <span id="el-stress-sx"
+                            class="font-mono">N/A</span><br>
+                        <span class="inline-block w-16">SY:</span> <span id="el-stress-sy"
+                            class="font-mono">N/A</span><br>
+                        <span class="inline-block w-16">SXY:</span> <span id="el-stress-sxy"
+                            class="font-mono">N/A</span><br>
+                        <span class="inline-block w-16">SE (VM):</span> <span id="el-stress-vm"
+                            class="font-mono">N/A</span>
+                        <div id="el-stress-note" class="text-gray-500 italic mt-1" hidden></div>
                     </div>
 
                     <button id="btn-apply-element-props"
@@ -393,6 +402,7 @@
                             <option value="sigmaVM">Von Mises (SE)</option>
                             <option value="sxx">Stress X (SX)</option>
                             <option value="syy">Stress Y (SY)</option>
+                            <option value="sxy">Shear XY (SXY)</option>
                         </select>
                     </label>
                 </div>
@@ -422,7 +432,7 @@
             <div id="stress-legend"
                 class="absolute top-4 right-4 bg-white/90 p-2 rounded shadow border border-gray-300 pointer-events-none"
                 hidden>
-                <h4 id="legend-title" class="text-xs font-bold text-center mb-1">Stress (Pa)</h4>
+                <h4 id="legend-title" class="text-xs font-bold text-center mb-1">Stress (psi)</h4>
                 <div class="flex flex-row items-center gap-2">
                     <!-- Gradient Bar -->
                     <div id="legend-gradient" class="w-4 h-32 border border-gray-400"
@@ -721,7 +731,11 @@
             const inputNu = document.getElementById('el-prop-nu');
             const inputT = document.getElementById('el-prop-t');
             const stressDisplay = document.getElementById('el-stress-display');
-            const stressVal = document.getElementById('el-stress-val');
+            const stressSxSpan = document.getElementById('el-stress-sx');
+            const stressSySpan = document.getElementById('el-stress-sy');
+            const stressSxySpan = document.getElementById('el-stress-sxy');
+            const stressVmSpan = document.getElementById('el-stress-vm');
+            const stressNote = document.getElementById('el-stress-note');
 
             if (!elPropArea) return;
 
@@ -731,17 +745,48 @@
                 // Display ID info
                 if (selectedFeElements.length === 1) {
                     noteSpan.textContent = selectedFeElements[0];
-                    // Stress for single element
-                    const result = resultsElementStresses.find(r => r.elementId === selectedFeElements[0]);
-                    if (result) {
-                        stressDisplay.hidden = false;
-                        stressVal.textContent = result.sigmaVM.toFixed(2) + " Pa";
-                    } else {
-                        stressDisplay.hidden = true;
-                    }
                 } else {
                     noteSpan.textContent = `${selectedFeElements.length} elements selected (Bulk Edit)`;
-                    stressDisplay.hidden = true; // Hide stress for multiple
+                }
+
+                // Calculate stresses for selected elements
+                const stressData = selectedFeElements.map(id =>
+                    resultsElementStresses.find(r => r.elementId === id)
+                ).filter(r => r !== undefined);
+
+                if (stressData.length > 0) {
+                    stressDisplay.hidden = false;
+
+                    // Parse stress values (they may be stored as exponential strings)
+                    const getSxValue = (r) => parseFloat(r.sxx) || 0;
+                    const getSyValue = (r) => parseFloat(r.syy) || 0;
+                    const getSxyValue = (r) => parseFloat(r.sxy) || 0;
+                    const getVmValue = (r) => (typeof r.sigmaVM === 'number') ? r.sigmaVM : parseFloat(r.sigmaVM) || 0;
+
+                    if (stressData.length === 1) {
+                        // Single element - show exact values
+                        const result = stressData[0];
+                        stressSxSpan.textContent = getSxValue(result).toExponential(3) + " psi";
+                        stressSySpan.textContent = getSyValue(result).toExponential(3) + " psi";
+                        stressSxySpan.textContent = getSxyValue(result).toExponential(3) + " psi";
+                        stressVmSpan.textContent = getVmValue(result).toExponential(3) + " psi";
+                        stressNote.hidden = true;
+                    } else {
+                        // Multiple elements - show averaged values
+                        const avgSx = stressData.reduce((sum, r) => sum + getSxValue(r), 0) / stressData.length;
+                        const avgSy = stressData.reduce((sum, r) => sum + getSyValue(r), 0) / stressData.length;
+                        const avgSxy = stressData.reduce((sum, r) => sum + getSxyValue(r), 0) / stressData.length;
+                        const avgVm = stressData.reduce((sum, r) => sum + getVmValue(r), 0) / stressData.length;
+
+                        stressSxSpan.textContent = avgSx.toExponential(3) + " psi";
+                        stressSySpan.textContent = avgSy.toExponential(3) + " psi";
+                        stressSxySpan.textContent = avgSxy.toExponential(3) + " psi";
+                        stressVmSpan.textContent = avgVm.toExponential(3) + " psi";
+                        stressNote.textContent = `(Avg of ${stressData.length} elements)`;
+                        stressNote.hidden = false;
+                    }
+                } else {
+                    stressDisplay.hidden = true;
                 }
 
                 // Helper to determine common value
@@ -2960,99 +3005,499 @@
             console.log("Results calculation finished (math.js).");
         }
 
-        // --- Revert runAnalysis Orchestration ---
-        // --- Update runAnalysis Orchestration for math.js ---
+        // --- Web Worker Instance ---
+        let solverWorker = null;
+        let solverWorkerBlobUrl = null;
+
+        // Inline worker code as a string (to work from file:// origin)
+        const SOLVER_WORKER_CODE = `
+// Import math.js for sparse matrix operations
+importScripts('https://cdnjs.cloudflare.com/ajax/libs/mathjs/12.4.1/math.min.js');
+
+const DEFAULT_MATERIAL_E = 10.5e6;
+const DEFAULT_MATERIAL_NU = 0.3;
+const DEFAULT_MATERIAL_T = 0.05;
+
+function zeros(rows, cols) { return Array(rows).fill(0).map(() => Array(cols).fill(0)); }
+function matrixMultiply(A, B) { const A_rows = A.length, A_cols = A[0]?.length || 0, B_rows = B.length, B_cols = B[0]?.length || 0; if (A_cols !== B_rows) return null; const C = zeros(A_rows, B_cols); for (let i = 0; i < A_rows; i++) for (let j = 0; j < B_cols; j++) for (let k = 0; k < A_cols; k++) C[i][j] += (A[i]?.[k] || 0) * (B[k]?.[j] || 0); return C; }
+function matrixTranspose(A) { const A_rows = A.length, A_cols = A[0]?.length || 0, C = zeros(A_cols, A_rows); for (let i = 0; i < A_rows; i++) for (let j = 0; j < A_cols; j++) C[j][i] = A[i][j]; return C; }
+function scalarMultiply(scalar, A) { const A_rows = A.length, A_cols = A[0]?.length || 0, C = zeros(A_rows, A_cols); for (let i = 0; i < A_rows; i++) for (let j = 0; j < A_cols; j++) C[i][j] = scalar * (A[i]?.[j] || 0); return C; }
+function matrixVectorMultiply(A, v) { const A_rows = A.length, A_cols = A[0]?.length || 0; if (A_cols !== v.length) return null; const C = Array(A_rows).fill(0); for (let i = 0; i < A_rows; i++) for (let k = 0; k < A_cols; k++) C[i] += (A[i]?.[k] || 0) * (v[k] || 0); return C; }
+
+function calculateQuadElementStiffness(elementNodes, E, nu, t) {
+    const Ke = zeros(8, 8), coords = elementNodes.map(n => ({ x: n.x, y: n.y }));
+    const D = zeros(3, 3), E_factor = E / (1.0 - nu * nu);
+    D[0][0] = E_factor; D[0][1] = E_factor * nu; D[1][0] = E_factor * nu; D[1][1] = E_factor; D[2][2] = E_factor * (1.0 - nu) / 2.0;
+    const gpVal = 1.0 / Math.sqrt(3.0);
+    const gaussPoints = [{ xi: -gpVal, eta: -gpVal }, { xi: gpVal, eta: -gpVal }, { xi: gpVal, eta: gpVal }, { xi: -gpVal, eta: gpVal }];
+    for (let gp = 0; gp < gaussPoints.length; gp++) {
+        const xi = gaussPoints[gp].xi, eta = gaussPoints[gp].eta;
+        const dNdXiEta = [[-0.25 * (1 - eta), 0.25 * (1 - eta), 0.25 * (1 + eta), -0.25 * (1 + eta)], [-0.25 * (1 - xi), -0.25 * (1 + xi), 0.25 * (1 + xi), 0.25 * (1 - xi)]];
+        const J = zeros(2, 2);
+        for (let i = 0; i < 4; i++) { J[0][0] += dNdXiEta[0][i] * coords[i].x; J[0][1] += dNdXiEta[0][i] * coords[i].y; J[1][0] += dNdXiEta[1][i] * coords[i].x; J[1][1] += dNdXiEta[1][i] * coords[i].y; }
+        const detJ = J[0][0] * J[1][1] - J[0][1] * J[1][0];
+        if (detJ <= 1e-9) continue;
+        const invDetJ = 1.0 / detJ, invJ = [[invDetJ * J[1][1], -invDetJ * J[0][1]], [-invDetJ * J[1][0], invDetJ * J[0][0]]];
+        const dNdXY = zeros(4, 2);
+        for (let i = 0; i < 4; i++) { dNdXY[i][0] = invJ[0][0] * dNdXiEta[0][i] + invJ[0][1] * dNdXiEta[1][i]; dNdXY[i][1] = invJ[1][0] * dNdXiEta[0][i] + invJ[1][1] * dNdXiEta[1][i]; }
+        const B = zeros(3, 8);
+        for (let i = 0; i < 4; i++) { B[0][2 * i] = dNdXY[i][0]; B[1][2 * i + 1] = dNdXY[i][1]; B[2][2 * i] = dNdXY[i][1]; B[2][2 * i + 1] = dNdXY[i][0]; }
+        const B_T = matrixTranspose(B), D_B = matrixMultiply(D, B), B_T_D_B = matrixMultiply(B_T, D_B);
+        if (B_T_D_B) { const scalarFactor = t * detJ, Ke_gp = scalarMultiply(scalarFactor, B_T_D_B); for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) Ke[r][c] += Ke_gp[r][c]; }
+    }
+    return Ke;
+}
+
+function calculateSpringElementStiffness(k) { return [[k, 0, -k, 0], [0, k, 0, -k], [-k, 0, k, 0], [0, -k, 0, k]]; }
+
+function assembleGlobalMatricesCOO(feNodes, feElements, feSprings, membranes) {
+    const numNodes = feNodes.length, N_DOF = numNodes * 2;
+    self.postMessage({ type: 'progress', message: 'Assembling: ' + numNodes + ' nodes, ' + N_DOF + ' DOFs, ' + feElements.length + ' elements...' });
+    const nodeIndexMap = new Map(), feNodeMap = new Map();
+    feNodes.forEach((node, index) => { nodeIndexMap.set(node.id, index); feNodeMap.set(node.id, node); });
+    const membraneMap = new Map();
+    membranes.forEach(m => membraneMap.set(m.id, m));
+    const triplets = [];
+    feElements.forEach(element => {
+        if (element.type === 'quad' && element.nodeIds.length === 4) {
+            const elementNodes = element.nodeIds.map(id => feNodeMap.get(id));
+            if (!elementNodes.every(n => n)) return;
+            const membrane = membraneMap.get(element.membraneId);
+            if (!membrane) return;
+            const E = element.propE !== undefined ? element.propE : (membrane.materialE ?? DEFAULT_MATERIAL_E);
+            const nu = element.propNu !== undefined ? element.propNu : (membrane.materialNu ?? DEFAULT_MATERIAL_NU);
+            const t = element.propT !== undefined ? element.propT : (membrane.materialT ?? DEFAULT_MATERIAL_T);
+            if (isNaN(E) || isNaN(nu) || isNaN(t) || E <= 0 || t <= 0 || nu < 0 || nu >= 0.5) throw new Error('Invalid material on Membrane ' + membrane.id);
+            const Ke = calculateQuadElementStiffness(elementNodes, E, nu, t);
+            element.nodeIds.forEach((nodeId_i, i) => {
+                const globalRowIndex = nodeIndexMap.get(nodeId_i);
+                if (globalRowIndex === undefined) return;
+                element.nodeIds.forEach((nodeId_j, j) => {
+                    const globalColIndex = nodeIndexMap.get(nodeId_j);
+                    if (globalColIndex === undefined) return;
+                    const r0 = 2 * globalRowIndex, c0 = 2 * globalColIndex;
+                    if (Math.abs(Ke[2 * i][2 * j]) > 1e-15) triplets.push([r0, c0, Ke[2 * i][2 * j]]);
+                    if (Math.abs(Ke[2 * i][2 * j + 1]) > 1e-15) triplets.push([r0, c0 + 1, Ke[2 * i][2 * j + 1]]);
+                    if (Math.abs(Ke[2 * i + 1][2 * j]) > 1e-15) triplets.push([r0 + 1, c0, Ke[2 * i + 1][2 * j]]);
+                    if (Math.abs(Ke[2 * i + 1][2 * j + 1]) > 1e-15) triplets.push([r0 + 1, c0 + 1, Ke[2 * i + 1][2 * j + 1]]);
+                });
+            });
+        }
+    });
+    feSprings.forEach(spring => {
+        const node1 = feNodeMap.get(spring.feNodeId1), node2 = feNodeMap.get(spring.feNodeId2);
+        if (!node1 || !node2) return;
+        const Ks = calculateSpringElementStiffness(spring.stiffness);
+        const globalIndex1 = nodeIndexMap.get(node1.id), globalIndex2 = nodeIndexMap.get(node2.id);
+        if (globalIndex1 !== undefined && globalIndex2 !== undefined) {
+            const dofMap = [2 * globalIndex1, 2 * globalIndex1 + 1, 2 * globalIndex2, 2 * globalIndex2 + 1];
+            for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) if (Math.abs(Ks[i][j]) > 1e-15) triplets.push([dofMap[i], dofMap[j], Ks[i][j]]);
+        }
+    });
+    self.postMessage({ type: 'progress', message: 'Sorting ' + triplets.length + ' matrix entries...' });
+    triplets.sort((a, b) => a[0] !== b[0] ? a[0] - b[0] : a[1] - b[1]);
+    const condensedTriplets = [];
+    for (let i = 0; i < triplets.length; i++) {
+        const [r, c, v] = triplets[i];
+        if (condensedTriplets.length > 0 && condensedTriplets[condensedTriplets.length - 1][0] === r && condensedTriplets[condensedTriplets.length - 1][1] === c) {
+            condensedTriplets[condensedTriplets.length - 1][2] += v;
+        } else { condensedTriplets.push([r, c, v]); }
+    }
+    self.postMessage({ type: 'progress', message: 'Building sparse matrix: ' + condensedTriplets.length + ' unique entries...' });
+    let K_global = math.sparse();
+    condensedTriplets.forEach(([r, c, v]) => { K_global.set([r, c], v); });
+    const F_array = new Array(N_DOF).fill(0);
+    feNodes.forEach(node => {
+        if (node.bc && node.bc.type === 'load') {
+            const globalIndex = nodeIndexMap.get(node.id);
+            if (globalIndex !== undefined) { F_array[2 * globalIndex] += (node.bc.value.fx ?? 0); F_array[2 * globalIndex + 1] += (node.bc.value.fy ?? 0); }
+        }
+    });
+    const F_global = math.matrix(F_array);
+    console.log('[Worker] Global matrix: ' + N_DOF + 'x' + N_DOF + ', ' + condensedTriplets.length + ' non-zeros');
+    return { K_global, F_global, nodeIndexMap, N_DOF, feNodeMap };
+}
+
+function applyBoundaryConditions(K_global, F_global, feNodes, nodeIndexMap, N_DOF) {
+    console.log("[Worker] Applying boundary conditions...");
+    const K_modified = math.clone(K_global);
+    let F_modified = math.clone(F_global);
+    const PENALTY = 1e10;
+    feNodes.forEach(node => {
+        if (!node.bc || (node.bc.type !== 'fixed' && node.bc.type !== 'enforced')) return;
+        const globalIndex = nodeIndexMap.get(node.id);
+        if (globalIndex === undefined) return;
+        const dofX = 2 * globalIndex, dofY = 2 * globalIndex + 1;
+        if (node.bc.type === 'fixed') {
+            if (node.bc.value.fixX) {
+                for (let j = 0; j < N_DOF; j++) if (j !== dofX) K_modified.set([dofX, j], 0);
+                for (let i = 0; i < N_DOF; i++) if (i !== dofX) K_modified.set([i, dofX], 0);
+                K_modified.set([dofX, dofX], 1);
+                F_modified = math.subset(F_modified, math.index(dofX), 0);
+            }
+            if (node.bc.value.fixY) {
+                for (let j = 0; j < N_DOF; j++) if (j !== dofY) K_modified.set([dofY, j], 0);
+                for (let i = 0; i < N_DOF; i++) if (i !== dofY) K_modified.set([i, dofY], 0);
+                K_modified.set([dofY, dofY], 1);
+                F_modified = math.subset(F_modified, math.index(dofY), 0);
+            }
+        } else if (node.bc.type === 'enforced') {
+            const dx = node.bc.value.dx, dy = node.bc.value.dy;
+            if (dx !== null) { const currentDiag = K_modified.get([dofX, dofX]) || 0; K_modified.set([dofX, dofX], currentDiag + PENALTY); const currentF = math.subset(F_modified, math.index(dofX)) || 0; F_modified = math.subset(F_modified, math.index(dofX), currentF + PENALTY * dx); }
+            if (dy !== null) { const currentDiag = K_modified.get([dofY, dofY]) || 0; K_modified.set([dofY, dofY], currentDiag + PENALTY); const currentF = math.subset(F_modified, math.index(dofY)) || 0; F_modified = math.subset(F_modified, math.index(dofY), currentF + PENALTY * dy); }
+        }
+    });
+    return { K_modified, F_modified };
+}
+
+function solveSystem(K_modified, F_modified, N_DOF) {
+    self.postMessage({ type: 'progress', message: 'Solving ' + N_DOF + 'x' + N_DOF + ' system (LU decomposition)...' });
+    try {
+        let F_col = F_modified;
+        if (F_modified.size().length === 1) F_col = math.reshape(F_modified, [N_DOF, 1]);
+        const d_matrix = math.lusolve(K_modified, F_col);
+        const d_vec = d_matrix.toArray().flat();
+        console.log("[Worker] System solved successfully");
+        return d_vec;
+    } catch (error) {
+        console.error("[Worker] Solve failed:", error.message);
+        throw error;
+    }
+}
+
+function calculateResults(d, K_original, F_original, feNodes, feSprings, feElements, membranes, nodeIndexMap, N_DOF) {
+    console.log("[Worker] Calculating results...");
+    const feNodeMap = new Map();
+    feNodes.forEach(n => feNodeMap.set(n.id, n));
+    const membraneMap = new Map();
+    membranes.forEach(m => membraneMap.set(m.id, m));
+    const springLoads = [];
+    feSprings.forEach(spring => {
+        const idx1 = nodeIndexMap.get(spring.feNodeId1), idx2 = nodeIndexMap.get(spring.feNodeId2);
+        if (idx1 !== undefined && idx2 !== undefined) {
+            const dx1 = d[2 * idx1], dy1 = d[2 * idx1 + 1], dx2 = d[2 * idx2], dy2 = d[2 * idx2 + 1];
+            const forceX = spring.stiffness * (dx2 - dx1), forceY = spring.stiffness * (dy2 - dy1);
+            springLoads.push({ id: spring.id, fx: forceX.toExponential(3), fy: forceY.toExponential(3) });
+        }
+    });
+    const reactions = [];
+    try {
+        const d_matrix = math.matrix(d);
+        let F_orig = F_original;
+        if (F_original.size().length === 1) F_orig = math.reshape(F_original, [N_DOF, 1]);
+        const K_d = math.multiply(K_original, d_matrix);
+        const R_matrix = math.subtract(K_d, F_orig);
+        const R_vec = R_matrix.toArray().flat();
+        feNodes.forEach(node => {
+            if (node.bc && (node.bc.type === 'fixed' || node.bc.type === 'enforced')) {
+                const globalIndex = nodeIndexMap.get(node.id);
+                if (globalIndex !== undefined) {
+                    const dofX = 2 * globalIndex, dofY = 2 * globalIndex + 1;
+                    let rx = 0, ry = 0;
+                    const reportX = (node.bc.type === 'fixed' && node.bc.value.fixX) || (node.bc.type === 'enforced' && node.bc.value.dx !== null);
+                    const reportY = (node.bc.type === 'fixed' && node.bc.value.fixY) || (node.bc.type === 'enforced' && node.bc.value.dy !== null);
+                    if (reportX) rx = Number(R_vec[dofX]).toExponential(3);
+                    if (reportY) ry = Number(R_vec[dofY]).toExponential(3);
+                    if (reportX || reportY) reactions.push({ feNodeId: node.id, rx, ry });
+                }
+            }
+        });
+    } catch (e) { console.error("[Worker] Reaction calculation failed:", e); }
+    const elementStresses = [];
+    feElements.forEach(element => {
+        if (element.type !== 'quad' || element.nodeIds.length !== 4) return;
+        const elementNodes = element.nodeIds.map(id => feNodeMap.get(id));
+        if (!elementNodes.every(n => n)) return;
+        const membrane = membraneMap.get(element.membraneId);
+        if (!membrane) return;
+        const E = element.propE !== undefined ? element.propE : (membrane.materialE ?? DEFAULT_MATERIAL_E);
+        const nu = element.propNu !== undefined ? element.propNu : (membrane.materialNu ?? DEFAULT_MATERIAL_NU);
+        const D = zeros(3, 3);
+        const E_factor = E / (1.0 - nu * nu);
+        D[0][0] = E_factor; D[0][1] = E_factor * nu; D[1][0] = E_factor * nu; D[1][1] = E_factor; D[2][2] = E_factor * (1.0 - nu) / 2.0;
+        const coords = elementNodes.map(n => ({ x: n.x, y: n.y }));
+        const elemDisp = [];
+        let valid = true;
+        element.nodeIds.forEach(nodeId => { const idx = nodeIndexMap.get(nodeId); if (idx === undefined) { valid = false; return; } elemDisp.push(d[2 * idx], d[2 * idx + 1]); });
+        if (!valid) return;
+        const xi = 0, eta = 0;
+        const dNdXiEta = [[-0.25 * (1 - eta), 0.25 * (1 - eta), 0.25 * (1 + eta), -0.25 * (1 + eta)], [-0.25 * (1 - xi), -0.25 * (1 + xi), 0.25 * (1 + xi), 0.25 * (1 - xi)]];
+        const J = zeros(2, 2);
+        for (let i = 0; i < 4; i++) { J[0][0] += dNdXiEta[0][i] * coords[i].x; J[0][1] += dNdXiEta[0][i] * coords[i].y; J[1][0] += dNdXiEta[1][i] * coords[i].x; J[1][1] += dNdXiEta[1][i] * coords[i].y; }
+        const detJ = J[0][0] * J[1][1] - J[0][1] * J[1][0];
+        if (detJ <= 1e-9) return;
+        const invDetJ = 1.0 / detJ, invJ = [[invDetJ * J[1][1], -invDetJ * J[0][1]], [-invDetJ * J[1][0], invDetJ * J[0][0]]];
+        const dNdXY = zeros(4, 2);
+        for (let i = 0; i < 4; i++) { dNdXY[i][0] = invJ[0][0] * dNdXiEta[0][i] + invJ[0][1] * dNdXiEta[1][i]; dNdXY[i][1] = invJ[1][0] * dNdXiEta[0][i] + invJ[1][1] * dNdXiEta[1][i]; }
+        const B = zeros(3, 8);
+        for (let i = 0; i < 4; i++) { B[0][2 * i] = dNdXY[i][0]; B[1][2 * i + 1] = dNdXY[i][1]; B[2][2 * i] = dNdXY[i][1]; B[2][2 * i + 1] = dNdXY[i][0]; }
+        const epsilon = matrixVectorMultiply(B, elemDisp);
+        if (!epsilon) return;
+        const sigma = matrixVectorMultiply(D, epsilon);
+        if (!sigma) return;
+        const sxx = sigma[0], syy = sigma[1], sxy = sigma[2];
+        const sigmaVM = Math.sqrt(Math.max(0, sxx ** 2 - sxx * syy + syy ** 2 + 3 * sxy ** 2));
+        elementStresses.push({ elementId: element.id, sxx: sxx.toExponential(3), syy: syy.toExponential(3), sxy: sxy.toExponential(3), sigmaVM });
+    });
+    return { springLoads, reactions, elementStresses, displacements: d };
+}
+
+self.onmessage = function(e) {
+    const { type, data } = e.data;
+    console.log("[Worker] Received message:", type);
+    if (type === 'solve') {
+        try {
+            const { feNodes, feElements, feSprings, membranes } = data;
+            self.postMessage({ type: 'progress', message: 'Starting analysis... (' + feNodes.length + ' nodes, ' + feElements.length + ' elements)' });
+            const assembly = assembleGlobalMatricesCOO(feNodes, feElements, feSprings, membranes);
+            const { K_global, F_global, nodeIndexMap, N_DOF } = assembly;
+            const K_original = math.clone(K_global), F_original = math.clone(F_global);
+            self.postMessage({ type: 'progress', message: 'Applying boundary conditions (' + N_DOF + ' DOFs)...' });
+            const { K_modified, F_modified } = applyBoundaryConditions(K_global, F_global, feNodes, nodeIndexMap, N_DOF);
+            const d = solveSystem(K_modified, F_modified, N_DOF);
+            self.postMessage({ type: 'progress', message: 'Computing stresses, reactions, spring loads...' });
+            const results = calculateResults(d, K_original, F_original, feNodes, feSprings, feElements, membranes, nodeIndexMap, N_DOF);
+            self.postMessage({ type: 'done', results: results });
+        } catch (error) {
+            self.postMessage({ type: 'error', message: error.message });
+        }
+    }
+};
+console.log("[Worker] Solver worker initialized");
+`;
+
+        function initSolverWorker() {
+            if (solverWorker) {
+                solverWorker.terminate();
+            }
+            if (solverWorkerBlobUrl) {
+                URL.revokeObjectURL(solverWorkerBlobUrl);
+            }
+            try {
+                // Create Blob from inline code
+                const blob = new Blob([SOLVER_WORKER_CODE], { type: 'application/javascript' });
+                solverWorkerBlobUrl = URL.createObjectURL(blob);
+                solverWorker = new Worker(solverWorkerBlobUrl);
+                solverWorker.onmessage = handleWorkerMessage;
+                solverWorker.onerror = (e) => {
+                    console.error("Worker error:", e);
+                    updateStatus(`Worker error: ${e.message}`);
+                    alert(`Analysis failed: Worker error - ${e.message}`);
+                    document.getElementById('btn-solve').disabled = false;
+                };
+                console.log("Solver Worker initialized (Blob URL).");
+            } catch (e) {
+                console.error("Failed to create Web Worker:", e);
+                solverWorker = null;
+            }
+        }
+
+        function handleWorkerMessage(e) {
+            const { type, message, results } = e.data;
+            console.log("[Main] Worker message:", type);
+
+            if (type === 'progress') {
+                updateStatus(message);
+            } else if (type === 'done') {
+                console.log("[Main] Analysis complete from worker");
+
+                // Store results globally
+                resultsSpringLoads = results.springLoads || [];
+                resultsReactions = results.reactions || [];
+                resultsElementStresses = results.elementStresses || [];
+                resultsDisplacements = results.displacements;
+
+                const d = results.displacements;
+
+                // Calculate scale factor for deformed mesh
+                let maxDisp = 0;
+                for (let i = 0; i < d.length; i += 2) {
+                    const dispMag = Math.sqrt((d[i] ** 2) + (d[i + 1] ** 2));
+                    if (dispMag > maxDisp) maxDisp = dispMag;
+                }
+                console.log("Maximum displacement:", maxDisp);
+
+                let avgElementSideLength = 50;
+                if (feElements.length > 0 && feElements[0].nodeIds.length >= 2) {
+                    const nodeA = findFeNodeById(feElements[0].nodeIds[0]);
+                    const nodeB = findFeNodeById(feElements[0].nodeIds[1]);
+                    if (nodeA && nodeB) {
+                        avgElementSideLength = Math.sqrt((nodeA.x - nodeB.x) ** 2 + (nodeA.y - nodeB.y) ** 2);
+                    }
+                }
+
+                const DISP_TOL = 1e-9;
+                let scaleFactor = 1;
+                if (maxDisp > DISP_TOL) {
+                    scaleFactor = avgElementSideLength / maxDisp;
+                    scaleFactor = Math.min(scaleFactor, 500);
+                    scaleFactor = Math.max(scaleFactor, 1);
+                }
+                console.log("Deformation scale factor:", scaleFactor);
+
+                updateStatus("Analysis complete. Updating display...");
+                console.time("DrawResults");
+                updateResultsDisplay();
+                drawDeformedMesh(d, scaleFactor);
+                drawSprings();
+                drawReactions();
+                drawStressResults(resultsElementStresses);
+                handleResultsViewChange();
+                console.timeEnd("DrawResults");
+
+                document.getElementById('btn-solve').disabled = false;
+                console.log("--- Analysis Finished (Web Worker) ---");
+
+            } else if (type === 'error') {
+                console.error("[Main] Worker error:", message);
+                updateStatus(`Analysis failed: ${message}`);
+                alert(`Analysis failed: ${message}`);
+                document.getElementById('btn-solve').disabled = false;
+            }
+        }
+
+        // --- runAnalysis using Web Worker ---
         function runAnalysis() {
-            console.log("--- Starting Analysis (math.js Sparse) ---");
+            console.log("--- Starting Analysis (Web Worker) ---");
             updateStatus("Running analysis...");
-            // --- Checks remain the same ---
-            if (feNodes.length === 0 || feElements.length === 0) { alert("Mesh required."); updateStatus("Analysis failed: Mesh required."); return; }
+
+            // --- Validation checks ---
+            if (feNodes.length === 0 || feElements.length === 0) {
+                alert("Mesh required.");
+                updateStatus("Analysis failed: Mesh required.");
+                return;
+            }
+
             const hasBCs = feNodes.some(n => n.bc && n.bc.type === 'fixed');
-            if (!hasBCs) { alert("Warning: No fixed BCs found."); console.warn("No fixed BCs found."); }
+            if (!hasBCs) {
+                alert("Warning: No fixed BCs found.");
+                console.warn("No fixed BCs found.");
+            }
 
             let allMaterialsValid = true;
             membranes.forEach(membrane => {
-                if (membrane.isMeshed && (isNaN(membrane.materialE) || isNaN(membrane.materialNu) || isNaN(membrane.materialT) || membrane.materialE <= 0 || membrane.materialT <= 0 || membrane.materialNu < 0 || membrane.materialNu >= 0.5)) {
-                    console.error(`Membrane ${membrane.id} is meshed but has invalid material properties: E=${membrane.materialE}, nu=${membrane.materialNu}, t=${membrane.materialT}`);
+                if (membrane.isMeshed && (isNaN(membrane.materialE) || isNaN(membrane.materialNu) || isNaN(membrane.materialT) ||
+                    membrane.materialE <= 0 || membrane.materialT <= 0 || membrane.materialNu < 0 || membrane.materialNu >= 0.5)) {
+                    console.error(`Membrane ${membrane.id} has invalid material properties`);
                     allMaterialsValid = false;
                 }
             });
             if (!allMaterialsValid) {
-                updateStatus("Analysis failed: One or more meshed membranes have invalid material properties.");
+                updateStatus("Analysis failed: Invalid material properties.");
                 alert("Analysis failed: Check material properties for all meshed membranes.");
                 return;
             }
-            // --- End Material Check ---
 
-            updateStatus("Assembling global matrices (math.js Sparse)...");
-            console.time("TotalAssembly");
-            let assemblyResult;
-            try {
-                assemblyResult = assembleGlobalMatrices();
-            } catch (error) {
-                console.error("Error during sparse matrix assembly:", error);
-                updateStatus(`Analysis failed: ${error.message}`);
-                alert(`Analysis failed during assembly: ${error.message}`);
+            // Disable solve button during analysis
+            document.getElementById('btn-solve').disabled = true;
+
+            // Initialize worker if needed
+            if (!solverWorker) {
+                initSolverWorker();
+            }
+
+            if (!solverWorker) {
+                // Fallback to inline solver if worker failed to load
+                console.warn("Web Worker unavailable, falling back to inline solver");
+                runAnalysisInline();
                 return;
             }
-            console.timeEnd("TotalAssembly");
-            console.log("Assembly Result:", assemblyResult ? "OK" : "Failed");
-            if (!assemblyResult) { updateStatus("Analysis failed: Matrix assembly error."); return; }
 
-            // Destructure assembly results (K_global is math.js sparse, F_global is math.js dense)
-            const { K_global, F_global, nodeIndexMap, N_DOF } = assemblyResult;
+            // Prepare data for worker (strip Konva objects, keep only plain data)
+            const workerData = {
+                feNodes: feNodes.map(n => ({
+                    id: n.id,
+                    x: n.x,
+                    y: n.y,
+                    bc: n.bc,
+                    membraneId: n.membraneId
+                })),
+                feElements: feElements.map(e => ({
+                    id: e.id,
+                    type: e.type,
+                    nodeIds: e.nodeIds,
+                    membraneId: e.membraneId,
+                    propE: e.propE,
+                    propNu: e.propNu,
+                    propT: e.propT
+                })),
+                feSprings: feSprings.map(s => ({
+                    id: s.id,
+                    feNodeId1: s.feNodeId1,
+                    feNodeId2: s.feNodeId2,
+                    stiffness: s.stiffness
+                })),
+                membranes: membranes.map(m => ({
+                    id: m.id,
+                    materialE: m.materialE ?? DEFAULT_MATERIAL_E,
+                    materialNu: m.materialNu ?? DEFAULT_MATERIAL_NU,
+                    materialT: m.materialT ?? DEFAULT_MATERIAL_T
+                }))
+            };
 
-            // --- Store original K and F (math.js objects) ---
-            const K_original = math.clone(K_global);
-            const F_original = math.clone(F_global);
-            // --- End store original ---
+            console.log("[Main] Sending data to worker:", {
+                nodes: workerData.feNodes.length,
+                elements: workerData.feElements.length,
+                springs: workerData.feSprings.length
+            });
 
-            updateStatus("Applying boundary conditions (math.js Sparse)...");
-            console.time("ApplyBCs");
-            // Pass the math.js objects to applyBoundaryConditions
-            const bcResult = applyBoundaryConditions(K_global, F_global, nodeIndexMap, N_DOF);
-            console.timeEnd("ApplyBCs");
-            console.log("BC Result:", bcResult ? "OK" : "Failed");
-            if (!bcResult) { updateStatus("Analysis failed: Error applying BCs."); return; }
-            // Destructure modified math.js objects
-            const { K_modified, F_modified } = bcResult;
+            solverWorker.postMessage({ type: 'solve', data: workerData });
+        }
 
-            updateStatus("Solving system (math.js Sparse)...");
-            console.time("TotalSolve");
-            // Pass math.js objects to solveSystem
-            const d = solveSystem(K_modified, F_modified, N_DOF); // d is returned as a standard JS array
-            console.timeEnd("TotalSolve");
-            console.log("Solver Result (d):", d ? `Array[${d.length}]` : "Failed");
-            if (!d) { updateStatus("Analysis failed: System solve error."); return; } // d is null if solve failed
+        // --- Fallback inline solver (legacy code path) ---
+        function runAnalysisInline() {
+            console.log("--- Starting Analysis (Inline Fallback) ---");
+            // This is the original runAnalysis code, kept as fallback
+            try {
+                updateStatus("Assembling global matrices...");
+                const assemblyResult = assembleGlobalMatrices();
+                if (!assemblyResult) { updateStatus("Analysis failed: Matrix assembly error."); document.getElementById('btn-solve').disabled = false; return; }
 
-            // Displacement and scale factor calculation (uses d - standard JS array)
-            let maxDisp = 0;
-            for (let i = 0; i < d.length; i += 2) { const dispMag = Math.sqrt((d[i] ** 2) + (d[i + 1] ** 2)); if (dispMag > maxDisp) { maxDisp = dispMag; } }
-            console.log("Maximum displacement:", maxDisp);
-            let avgElementSideLength = 50;
-            if (feElements.length > 0 && feElements[0].nodeIds.length >= 2) { const nodeA = findFeNodeById(feElements[0].nodeIds[0]); const nodeB = findFeNodeById(feElements[0].nodeIds[1]); if (nodeA && nodeB) { avgElementSideLength = Math.sqrt((nodeA.x - nodeB.x) ** 2 + (nodeA.y - nodeB.y) ** 2); } }
-            console.log("Avg element side:", avgElementSideLength);
-            const DISP_TOL = 1e-9; let scaleFactor = 1;
-            if (maxDisp > DISP_TOL) { scaleFactor = avgElementSideLength / maxDisp; scaleFactor = Math.min(scaleFactor, 500); scaleFactor = Math.max(scaleFactor, 1); }
-            console.log("Deformation scale factor:", scaleFactor);
+                const { K_global, F_global, nodeIndexMap, N_DOF } = assemblyResult;
+                const K_original = math.clone(K_global);
+                const F_original = math.clone(F_global);
 
-            updateStatus("Calculating results (math.js Sparse)...");
-            console.time("CalculateResults");
-            // --- Pass original math.js K/F objects and standard JS array d ---
-            calculateResults(d, K_original, F_original, nodeIndexMap, N_DOF);
-            console.timeEnd("CalculateResults");
+                updateStatus("Applying boundary conditions...");
+                const bcResult = applyBoundaryConditions(K_global, F_global, nodeIndexMap, N_DOF);
+                if (!bcResult) { updateStatus("Analysis failed: Error applying BCs."); document.getElementById('btn-solve').disabled = false; return; }
+                const { K_modified, F_modified } = bcResult;
 
-            updateStatus("Analysis complete. Updating display...");
-            console.time("DrawResults");
-            updateResultsDisplay();
-            // Pass standard JS array d to drawDeformedMesh
-            drawDeformedMesh(d, scaleFactor);
-            drawSprings();
-            drawReactions(); // NEW Call
-            drawStressResults(resultsElementStresses);
-            handleResultsViewChange(); // Set initial visibility based on radio buttons
-            console.timeEnd("DrawResults");
-            console.log("--- Analysis Finished (math.js Sparse) ---");
+                updateStatus("Solving system...");
+                const d = solveSystem(K_modified, F_modified, N_DOF);
+                if (!d) { updateStatus("Analysis failed: System solve error."); document.getElementById('btn-solve').disabled = false; return; }
+
+                let maxDisp = 0;
+                for (let i = 0; i < d.length; i += 2) {
+                    const dispMag = Math.sqrt((d[i] ** 2) + (d[i + 1] ** 2));
+                    if (dispMag > maxDisp) maxDisp = dispMag;
+                }
+                let avgElementSideLength = 50;
+                if (feElements.length > 0 && feElements[0].nodeIds.length >= 2) {
+                    const nodeA = findFeNodeById(feElements[0].nodeIds[0]);
+                    const nodeB = findFeNodeById(feElements[0].nodeIds[1]);
+                    if (nodeA && nodeB) { avgElementSideLength = Math.sqrt((nodeA.x - nodeB.x) ** 2 + (nodeA.y - nodeB.y) ** 2); }
+                }
+                const DISP_TOL = 1e-9; let scaleFactor = 1;
+                if (maxDisp > DISP_TOL) { scaleFactor = avgElementSideLength / maxDisp; scaleFactor = Math.min(scaleFactor, 500); scaleFactor = Math.max(scaleFactor, 1); }
+
+                updateStatus("Calculating results...");
+                calculateResults(d, K_original, F_original, nodeIndexMap, N_DOF);
+
+                updateStatus("Analysis complete. Updating display...");
+                updateResultsDisplay();
+                drawDeformedMesh(d, scaleFactor);
+                drawSprings();
+                drawReactions();
+                drawStressResults(resultsElementStresses);
+                handleResultsViewChange();
+                document.getElementById('btn-solve').disabled = false;
+                console.log("--- Analysis Finished (Inline Fallback) ---");
+            } catch (error) {
+                console.error("Inline analysis error:", error);
+                updateStatus(`Analysis failed: ${error.message}`);
+                alert(`Analysis failed: ${error.message}`);
+                document.getElementById('btn-solve').disabled = false;
+            }
         }
 
         // --- Save/Load Functions ---
@@ -3545,7 +3990,7 @@
 
             // Handle range edge case (flat stress)
             if (minVal === maxVal) {
-                maxVal = minVal + (minVal === 0 ? 1.0 : Math.abs(minVal) * 0.1);
+                maxVal = minVal + (minVal === 0 ? 1.0 : Math.abs(minVal) * 0.0001);
             }
             const range = maxVal - minVal;
 
@@ -3559,11 +4004,12 @@
                 if (propKey === 'sigmaVM') titleText = "Von Mises (SE)";
                 else if (propKey === 'sxx') titleText = "Stress X (SX)";
                 else if (propKey === 'syy') titleText = "Stress Y (SY)";
+                else if (propKey === 'sxy') titleText = "Shear XY (SXY)";
 
-                document.getElementById('legend-title').textContent = titleText + " (Pa)";
-                document.getElementById('legend-max').textContent = maxVal.toExponential(2);
-                document.getElementById('legend-min').textContent = minVal.toExponential(2);
-                document.getElementById('legend-mid').textContent = ((minVal + maxVal) / 2).toExponential(2);
+                document.getElementById('legend-title').textContent = titleText + " (psi)";
+                document.getElementById('legend-max').textContent = maxVal.toExponential(3);
+                document.getElementById('legend-min').textContent = minVal.toExponential(3);
+                document.getElementById('legend-mid').textContent = ((minVal + maxVal) / 2).toExponential(3);
 
                 const gradientDiv = document.getElementById('legend-gradient');
                 if (gradientDiv) {
@@ -3838,8 +4284,10 @@
                 if (resultsElementStresses === null || resultsElementStresses.length === 0) {
                     stressDiv.textContent = "Not run yet or no elements.";
                 } else {
-                    // Display only Von Mises for brevity in the preview
-                    stressDiv.textContent = resultsElementStresses.map(r => `Elem ${r.elementId}: VM=${Number(r.sigmaVM).toExponential(3)}`).join('\n');
+                    // Display all stress components: SX, SY, SXY, SE (von Mises)
+                    stressDiv.textContent = resultsElementStresses.map(r =>
+                        `Elem ${r.elementId}: SX=${r.sxx} SY=${r.syy} SXY=${r.sxy} SE=${Number(r.sigmaVM).toExponential(3)}`
+                    ).join('\n');
                 }
             }
         }
