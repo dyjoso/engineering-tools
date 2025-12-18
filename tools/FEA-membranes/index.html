@@ -5,14 +5,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=20.0">
     <title>2D Membrane FEA Tool</title>
-    <!-- Add defer attribute to library scripts -->
     <script defer src="https://cdn.jsdelivr.net/npm/konva@9.3.6/konva.min.js"
         onerror="console.error('FATAL: Failed to load Konva!')"></script>
-    <!-- RE-ADD math.js script tag -->
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/12.4.1/math.min.js"
         onerror="console.error('FATAL: Failed to load Math.js!')"></script>
-
-    <!-- Tailwind might not need defer, but can add for consistency -->
     <script defer src="https://cdn.tailwindcss.com" onerror="console.error('FATAL: Failed to load Tailwind!')"></script>
     <style>
         /* Basic styling */
@@ -33,32 +29,29 @@
             <h2 class="text-lg font-semibold mb-3 border-b pb-2">Controls - Modes</h2>
             <!-- Modified Controls Section -->
 
-            <!-- Membrane Creation Panel -->
+            <!-- General Quad Input Panel -->
             <div class="mb-4 border-b pb-4">
-                <h3 class="text-sm font-semibold mb-2 text-gray-700">New Membrane</h3>
-                <div class="grid grid-cols-2 gap-2 mb-2">
-                    <div>
-                        <label class="block text-xs text-gray-600">Origin X</label>
-                        <input type="number" id="new-mem-x" value="0" class="w-full border rounded px-1 py-0.5 text-sm">
-                    </div>
-                    <div>
-                        <label class="block text-xs text-gray-600">Origin Y</label>
-                        <input type="number" id="new-mem-y" value="0" class="w-full border rounded px-1 py-0.5 text-sm">
-                    </div>
-                    <div>
-                        <label class="block text-xs text-gray-600">Length (X)</label>
-                        <input type="number" id="new-mem-w" value="100"
-                            class="w-full border rounded px-1 py-0.5 text-sm">
-                    </div>
-                    <div>
-                        <label class="block text-xs text-gray-600">Width (Y)</label>
-                        <input type="number" id="new-mem-h" value="50"
-                            class="w-full border rounded px-1 py-0.5 text-sm">
-                    </div>
+                <h3 class="text-sm font-semibold mb-2 text-gray-700">New General Quad</h3>
+                <div class="grid grid-cols-4 gap-1 mb-2 text-xs">
+                    <div class="col-span-4 font-bold text-gray-500 mt-1">Corner 1 (Bottom-Left)</div>
+                    <input type="number" id="gen-p1-x" placeholder="X" value="0" class="border rounded px-1 py-0.5">
+                    <input type="number" id="gen-p1-y" placeholder="Y" value="100" class="border rounded px-1 py-0.5">
+
+                    <div class="col-span-4 font-bold text-gray-500 mt-1">Corner 2 (Bottom-Right)</div>
+                    <input type="number" id="gen-p2-x" placeholder="X" value="100" class="border rounded px-1 py-0.5">
+                    <input type="number" id="gen-p2-y" placeholder="Y" value="100" class="border rounded px-1 py-0.5">
+
+                    <div class="col-span-4 font-bold text-gray-500 mt-1">Corner 3 (Top-Right)</div>
+                    <input type="number" id="gen-p3-x" placeholder="X" value="100" class="border rounded px-1 py-0.5">
+                    <input type="number" id="gen-p3-y" placeholder="Y" value="0" class="border rounded px-1 py-0.5">
+
+                    <div class="col-span-4 font-bold text-gray-500 mt-1">Corner 4 (Top-Left)</div>
+                    <input type="number" id="gen-p4-x" placeholder="X" value="0" class="border rounded px-1 py-0.5">
+                    <input type="number" id="gen-p4-y" placeholder="Y" value="0" class="border rounded px-1 py-0.5">
                 </div>
-                <button id="btn-create-parametric-membrane"
+                <button id="btn-create-general-membrane"
                     class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-1.5 px-3 rounded text-sm shadow-sm transition">
-                    Create Membrane
+                    Create Quad
                 </button>
             </div>
 
@@ -105,12 +98,14 @@
 
             <!-- Selection Modes -->
             <h3 class="text-sm font-semibold mb-2 text-gray-700">Selection / Edit</h3>
-            <!-- Moved Select Geo Node out or kept? Prompt: "Remove the ability to define individual grid points". Selecting them for MEMBRANE definition is gone. Selecting them for DELETION? Maybe. -->
-            <!-- Prompt says "Selection of membranes for meshing should be left as it is" -->
 
             <button id="btn-select-membrane"
                 class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-1.5 px-3 rounded-lg shadow-sm hover:shadow transition duration-150 ease-in-out mb-2 w-full text-left disabled:opacity-50 disabled:cursor-not-allowed">Mode:
                 Select Membrane</button>
+            <button id="btn-mode-curve-edge"
+                class="bg-purple-500 hover:bg-purple-600 text-white font-semibold py-1.5 px-3 rounded-lg shadow-sm hover:shadow transition duration-150 ease-in-out mb-2 w-full text-left">
+                Mode: Curve Edge
+            </button>
             <button id="btn-mode-select-fe-box"
                 class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-1.5 px-3 rounded-lg shadow-sm hover:shadow transition duration-150 ease-in-out mb-2 w-full text-left">Mode:
                 Select Nodes (Box)</button>
@@ -146,7 +141,6 @@
                     class="mt-3 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-1.5 px-3 rounded-lg shadow-sm hover:shadow">Apply
                     Coordinates</button>
             </div>
-            <!-- End parent div for mode buttons (removed premature close) -->
             <hr class="my-3 border-gray-300">
 
             <!-- Model Tree -->
@@ -166,7 +160,6 @@
 
             <h2 class="text-lg font-semibold mb-3 border-b pb-2">Process</h2>
             <div class="space-y-2">
-                <!-- Removed btn-add-membrane (replaced by parametric input above) -->
                 <button id="btn-mesh-membranes"
                     class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-1.5 px-3 rounded-lg shadow-sm hover:shadow transition duration-150 ease-in-out mb-2 w-full text-left disabled:opacity-50 disabled:cursor-not-allowed">Mesh
                     Selected Membranes</button>
@@ -239,7 +232,6 @@
                         BC to Selected</button> <!-- Input Area Button Style -->
                 </div>
                 <hr class="my-2 border-gray-300">
-                <!-- ADDED New Per-Membrane Material Properties Area (initially hidden) -->
                 <div id="membrane-material-input-area" class="p-3 my-2 border border-gray-200 rounded bg-gray-50"
                     hidden>
                     <h4 class="text-md font-semibold mb-2">Material Properties (Selected Membranes)</h4>
@@ -261,7 +253,7 @@
                         Properties to Selected</button>
                 </div>
 
-                <!-- NEW: Element Property Area -->
+                <!-- Element Property Area -->
                 <div id="element-properties-area" class="p-3 my-2 border border-blue-200 rounded bg-blue-50" hidden>
                     <h4 class="text-md font-semibold mb-2 text-blue-900">Element Properties</h4>
                     <p id="element-note" class="text-xs text-gray-600 mb-2 italic">ID: <span id="el-prop-id"></span></p>
@@ -333,6 +325,19 @@
                         class="mt-4 w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-1.5 px-3 rounded-lg shadow-sm hover:shadow">Delete
                         Selected</button>
                 </div>
+            </div>
+
+            <!-- Coincident Constraint Section -->
+            <div id="coincident-constraint-area" class="p-3 my-2 border border-blue-200 rounded bg-blue-50">
+                <h4 class="text-md font-semibold mb-2 text-blue-900 text-sm">Coincident Constraints</h4>
+                <label for="coincidence-tolerance" class="block text-xs font-medium text-gray-700 mb-1">Coincidence Tol
+                    (in):</label>
+                <input type="number" id="coincidence-tolerance" step="0.01" value="0.1"
+                    class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-xs py-1 px-2 font-mono mb-2">
+                <button id="btn-constrain-coincident"
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-1 px-3 rounded text-xs shadow-sm transition duration-150">
+                    Constrain Coincident Nodes
+                </button>
             </div>
 
             <hr class="my-2 border-gray-300">
@@ -485,6 +490,8 @@
         const DEFAULT_MATERIAL_T = 0.05;
 
         const DEFAULT_NODE_COLOR = 'red', SPRING_NODE_COLOR = 'purple', FE_NODE_COLOR = 'blue', FE_NODE_SELECTED_COLOR = 'orange';
+        const CONTROL_NODE_COLOR = '#D4AC0D';
+        const CONTROL_NODE_RADIUS_PX = 4;
         // --- Define Target Pixel Sizes ---
         const NODE_RADIUS_TARGET_PX = 6;
         const NODE_STROKE_WIDTH_TARGET_PX = 1;
@@ -1088,14 +1095,17 @@
                 safeAddListener('btn-clear-el-nu', 'click', () => handleClearElementProp('nu'));
                 safeAddListener('btn-clear-el-t', 'click', () => handleClearElementProp('t'));
 
-                // Wire up new buttons
+                safeAddListener('btn-delete-springs', 'click', deleteSelectedSprings);
+                safeAddListener('btn-constrain-coincident', 'click', handleConstrainCoincidentNodes);
+                safeAddListener('btn-update-springs', 'click', updateSelectedSpringsStiffness);
+
+                // Wire up mode buttons
+                safeAddListener('btn-select-membrane', 'click', () => setMode('select-membrane'));
+                safeAddListener('btn-mode-curve-edge', 'click', () => setMode('curve-edge'));
                 safeAddListener('btn-mode-select-fe-box', 'click', () => setMode('select-fe-nodes-box'));
                 safeAddListener('btn-mode-select-element-box', 'click', () => setMode('select-element-box'));
                 safeAddListener('btn-mode-select-springs-box', 'click', () => setMode('select-springs-box'));
-                safeAddListener('btn-mode-select-fe-element', 'click', () => setMode('select-element')); // Keep support if needed
-
-                safeAddListener('btn-delete-springs', 'click', deleteSelectedSprings);
-                safeAddListener('btn-update-springs', 'click', updateSelectedSpringsStiffness);
+                safeAddListener('btn-mode-edit-node', 'click', () => setMode('edit-node-coords'));
 
                 // Wire up Element Property Listeners for Bulk Edit?
                 // If we want bulk edit for elements, we need a button or handle change.
@@ -1143,6 +1153,9 @@
                 handleResultsViewChange();
                 // Filtering removed
                 drawStressResults(resultsElementStresses); // Simply draw results if available
+
+                document.getElementById('btn-create-general-membrane')?.addEventListener('click', handleCreateGeneralMembrane);
+                document.getElementById('btn-mode-curve-edge')?.addEventListener('click', () => setMode('curve-edge'));
 
             } catch (error) { console.error("Error during Konva initialization or listener binding:", error, error.message, error.stack); updateStatus(`Initialization Error: ${error.message}`); }
         }
@@ -1246,6 +1259,8 @@
                     activeButton.classList.add('bg-purple-600', 'hover:bg-purple-700', 'shadow');
                 } else if (newMode === 'select-springs-box') { // New mode for springs
                     activeButton.classList.add('bg-pink-600', 'hover:bg-pink-700', 'shadow'); // Using pink for springs
+                } else if (newMode === 'curve-edge') {
+                    activeButton.classList.add('bg-purple-600', 'hover:bg-purple-700', 'shadow');
                 }
             }
 
@@ -1279,7 +1294,6 @@
             const scale = stage.scaleX();
             const clickPos = { x: (pos.x - stagePos.x) / scale, y: (pos.y - stagePos.y) / scale };
 
-            // --- Standard Modes ---
             if (currentMode === 'select-membrane' || currentMode === 'delete-item') {
                 // Check if click is inside any membrane
                 const overlappingMembranes = membranes.filter(m => {
@@ -1307,11 +1321,9 @@
                                 const nextMembraneToSelect = overlappingMembranes[nextIndex];
                                 if (currentSelectedMembrane) { toggleMembraneSelection(currentSelectedMembrane); } // Deselect current
                                 toggleMembraneSelection(nextMembraneToSelect); // Select next
-                                console.log(`Cycled selection from Mem ${selectedOverlappingId} to Mem ${nextMembraneToSelect.id}`);
                             } else {
                                 // Select the first one found
                                 toggleMembraneSelection(overlappingMembranes[0]);
-                                console.log(`Selected first overlapping Mem ${overlappingMembranes[0].id}`);
                             }
                         }
                     } else if (currentMode === 'delete-item') {
@@ -1326,10 +1338,25 @@
                     // Click was on background, clear selections
                     if (e.target === stage || e.target === backgroundLayer.findOne('Rect')) {
                         if (currentMode === 'select-membrane') clearMembraneSelection();
-                        // Removed select-geo-node clearing
                         if (currentMode === 'select-fe-nodes-box') clearFeSelection();
-                        if (currentMode === 'select-springs-box') clearSpringSelection(); // NEW
-                        if (currentMode === 'select-element-box') clearFeElementSelection(); // NEW
+                        if (currentMode === 'select-springs-box') clearSpringSelection();
+                        if (currentMode === 'select-element-box') clearFeElementSelection();
+                    }
+                }
+            } else if (currentMode === 'curve-edge') {
+                // Find if an edge of any membrane was clicked
+                for (const membrane of membranes) {
+                    if (membrane.nodeIds.length < 3) continue;
+                    for (let i = 0; i < membrane.nodeIds.length; i++) {
+                        const n1 = findNodeDataById(membrane.nodeIds[i]);
+                        const n2 = findNodeDataById(membrane.nodeIds[(i + 1) % membrane.nodeIds.length]);
+                        if (!n1 || !n2) continue;
+
+                        const dist = getDistanceToSegment(clickPos, n1, n2);
+                        if (dist < 10 / scale) {
+                            setEdgeRadius(membrane, i);
+                            return; // One edge at a time
+                        }
                     }
                 }
             }
@@ -1409,6 +1436,122 @@
                 updateSpringSelectionInfo();
                 drawSprings();
             }
+        }
+
+        // --- NEW: General Quad Creation Logic ---
+        function handleCreateGeneralMembrane() {
+            console.log("handleCreateGeneralMembrane called");
+            const coords = [
+                { x: parseFloat(document.getElementById('gen-p1-x').value), y: parseFloat(document.getElementById('gen-p1-y').value) },
+                { x: parseFloat(document.getElementById('gen-p2-x').value), y: parseFloat(document.getElementById('gen-p2-y').value) },
+                { x: parseFloat(document.getElementById('gen-p3-x').value), y: parseFloat(document.getElementById('gen-p3-y').value) },
+                { x: parseFloat(document.getElementById('gen-p4-x').value), y: parseFloat(document.getElementById('gen-p4-y').value) }
+            ];
+
+            if (coords.some(p => isNaN(p.x) || isNaN(p.y))) {
+                alert("Please enter valid numerical coordinates for all 4 corners.");
+                return;
+            }
+
+            const createdNodes = coords.map(p => addNode(p.x, p.y));
+            if (createdNodes.every(n => n)) {
+                const success = createMembraneWithNodes(createdNodes);
+                if (success) {
+                    updateStatus("General Quad created successfully.");
+                }
+            } else {
+                updateStatus("Failed to create nodes for General Quad.");
+            }
+        }
+
+        function getDistanceToSegment(p, v, w) {
+            const l2 = (v.x - w.x) ** 2 + (v.y - w.y) ** 2;
+            if (l2 === 0) return Math.sqrt((p.x - v.x) ** 2 + (p.y - v.y) ** 2);
+            let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
+            t = Math.max(0, Math.min(1, t));
+            return Math.sqrt((p.x - (v.x + t * (w.x - v.x))) ** 2 + (p.y - (v.y + t * (w.y - v.y))) ** 2);
+        }
+
+        function setEdgeRadius(membrane, edgeIndex) {
+            const currentRadius = (membrane.edgeRadii && membrane.edgeRadii[edgeIndex]) || 0;
+            const input = prompt(`Enter radius for Mem ${membrane.id}, Edge ${edgeIndex} (positive=convex, negative=concave, 0=straight):`, currentRadius);
+            if (input !== null) {
+                const val = parseFloat(input);
+                if (!isNaN(val)) {
+                    if (val === 0) {
+                        if (!membrane.edgeRadii) membrane.edgeRadii = [0, 0, 0, 0];
+                        membrane.edgeRadii[edgeIndex] = 0;
+                    } else {
+                        // Validation: R >= L/2
+                        const n1 = findNodeDataById(membrane.nodeIds[edgeIndex]);
+                        const n2 = findNodeDataById(membrane.nodeIds[(edgeIndex + 1) % membrane.nodeIds.length]);
+                        if (n1 && n2) {
+                            const L = Math.sqrt((n2.x - n1.x) ** 2 + (n2.y - n1.y) ** 2);
+                            const minR = L / 2;
+                            if (Math.abs(val) < minR) {
+                                alert(`Radius ${val} is too small for chord length ${L.toFixed(2)}. Minimum radius is ${minR.toFixed(2)}. Clamping to semi-circle.`);
+                                if (!membrane.edgeRadii) membrane.edgeRadii = [0, 0, 0, 0];
+                                membrane.edgeRadii[edgeIndex] = (val < 0) ? -minR : minR;
+                            } else {
+                                if (!membrane.edgeRadii) membrane.edgeRadii = [0, 0, 0, 0];
+                                membrane.edgeRadii[edgeIndex] = val;
+                            }
+                        }
+                    }
+                    updateConnectedMembranes(membrane.nodeIds[edgeIndex]);
+                    updateStatus(`Set radius ${membrane.edgeRadii[edgeIndex]} for Mem ${membrane.id} edge ${edgeIndex}.`);
+                }
+            }
+        }
+
+        function getArcPoint(p0, p1, R, t) {
+            if (R === 0 || !isFinite(R)) {
+                return { x: p0.x + t * (p1.x - p0.x), y: p0.y + t * (p1.y - p0.y) };
+            }
+            const dx = p1.x - p0.x;
+            const dy = p1.y - p0.y;
+            const L = Math.sqrt(dx * dx + dy * dy);
+            const absR = Math.abs(R);
+            if (absR < L / 2) R = (R < 0 ? -1 : 1) * L / 2; // Clamp
+
+            // Midpoint
+            const mx = (p0.x + p1.x) / 2;
+            const my = (p0.y + p1.y) / 2;
+
+            // Perpendicular distance to center
+            const h = Math.sqrt(absR * absR - (L / 2) * (L / 2));
+
+            // Normal vector (outward for CCW)
+            const nx = dy / L;
+            const ny = -dx / L;
+
+            // Center C
+            // If R > 0 (convex), center is "inside" (opposite to normal)
+            // If R < 0 (concave), center is "outside" (along normal)
+            const cx = mx - (R > 0 ? h : -h) * nx;
+            const cy = my - (R > 0 ? h : -h) * ny;
+
+            const startAngle = Math.atan2(p0.y - cy, p0.x - cx);
+            let endAngle = Math.atan2(p1.y - cy, p1.x - cx);
+
+            // Ensure we take the shorter arc
+            // Sweep direction depends on convexity
+            // Convex (R>0) is CW sweep in our CCW node ordering? 
+            // Let's normalize difference.
+            let diff = endAngle - startAngle;
+            if (R > 0) { // Convex -> CW sweep -> diff should be negative?
+                while (diff > 0) diff -= 2 * Math.PI;
+                while (diff < -Math.PI) diff += 2 * Math.PI;
+            } else { // Concave -> CCW sweep -> diff should be positive?
+                while (diff < 0) diff += 2 * Math.PI;
+                while (diff > Math.PI) diff -= 2 * Math.PI;
+            }
+
+            const angle = startAngle + t * diff;
+            return {
+                x: cx + absR * Math.cos(angle),
+                y: cy + absR * Math.sin(angle)
+            };
         }
 
         function handleStageMouseDown(e) {
@@ -1755,7 +1898,37 @@
         function findFeNodeById(id) { return feNodes.find(n => n.id === id); }
         function findFeElementById(id) { return feElements.find(el => el.id === id); }
         function findMembraneById(id) { return membranes.find(m => m.id === id); }
-        function updateConnectedMembranes(nodeId) { membranes.forEach(mem => { if (mem.nodeIds.includes(nodeId)) { const points = []; let geometryIsValid = true; mem.nodeIds.forEach(nId => { const nodeData = findNodeDataById(nId); if (nodeData && nodeData.konvaCircle) { points.push(nodeData.konvaCircle.x(), nodeData.konvaCircle.y()); } else { geometryIsValid = false; } }); if (geometryIsValid && mem.konvaShape && points.length === mem.nodeIds.length * 2) { mem.konvaShape.points(points); } else { console.warn(`Membrane ${mem.id} fill shape could not be updated.`); } } }); if (membraneFillLayer) membraneFillLayer.batchDraw(); }
+        function updateConnectedMembranes(nodeId) {
+            membranes.forEach(m => {
+                if (m.nodeIds.includes(nodeId) || (m.edgeControlIds && m.edgeControlIds.includes(nodeId))) {
+                    const nodesData = m.nodeIds.map(nid => findNodeDataById(nid));
+                    if (nodesData.some(n => !n)) return;
+
+                    let pathData = `M ${nodesData[0].x} ${nodesData[0].y}`;
+                    for (let i = 0; i < m.nodeIds.length; i++) {
+                        const startNode = nodesData[i];
+                        const endNode = nodesData[(i + 1) % m.nodeIds.length];
+                        const R = m.edgeRadii ? m.edgeRadii[i] : 0;
+
+                        if (R !== 0 && isFinite(R)) {
+                            const absR = Math.abs(R);
+                            // SVG Arc: A rx ry x-axis-rotation large-arc-flag sweep-flag x y
+                            // sweep: 1 if R > 0 (convex), 0 if R < 0 (concave)
+                            const sweep = (R > 0) ? 1 : 0;
+                            pathData += ` A ${absR} ${absR} 0 0 ${sweep} ${endNode.x} ${endNode.y}`;
+                        } else {
+                            pathData += ` L ${endNode.x} ${endNode.y}`;
+                        }
+                    }
+                    pathData += " Z";
+
+                    if (m.konvaShape) {
+                        m.konvaShape.data(pathData);
+                    }
+                }
+            });
+            if (membraneFillLayer) membraneFillLayer.batchDraw();
+        }
         function toggleNodeSelection(nodeData) { if (!nodeData || !nodeData.konvaCircle) { console.error("Invalid node data passed to toggleNodeSelection:", nodeData); return; } const index = selectedNodes.findIndex(n => n.id === nodeData.id); if (index > -1) { selectedNodes.splice(index, 1); nodeData.konvaCircle.stroke('black'); nodeData.konvaCircle.strokeWidth(1); console.log(`Node ${nodeData.id} deselected.`); } else { selectedNodes.push(nodeData); nodeData.konvaCircle.stroke('#007bff'); nodeData.konvaCircle.strokeWidth(3); console.log(`Node ${nodeData.id} selected.`); } if (geometryLayer) geometryLayer.batchDraw(); updateSelectionInfo(); }
         function clearSelection(clearData = true) { selectedNodes.forEach(nodeData => { if (nodeData && nodeData.konvaCircle) { nodeData.konvaCircle.stroke('black'); nodeData.konvaCircle.strokeWidth(1); } }); if (clearData) { selectedNodes = []; console.log("Selection data cleared."); } if (geometryLayer) geometryLayer.batchDraw(); updateSelectionInfo(); console.log("Selection visual cleared."); }
         function toggleSpringPointMarking(nodeData) { if (!nodeData || !nodeData.konvaCircle) return; const index = geometricSpringNodes.indexOf(nodeData.id); if (index > -1) { geometricSpringNodes.splice(index, 1); nodeData.konvaCircle.fill(DEFAULT_NODE_COLOR); updateStatus(`Unmarked node ${nodeData.id} as spring point.`); console.log(`Unmarked node ${nodeData.id} for springs.`); } else { geometricSpringNodes.push(nodeData.id); nodeData.konvaCircle.fill(SPRING_NODE_COLOR); updateStatus(`Marked node ${nodeData.id} as spring point.`); console.log(`Marked node ${nodeData.id} for springs.`); } if (geometryLayer) geometryLayer.batchDraw(); updateSpringPointsInfo(); }
@@ -1808,7 +1981,6 @@
             }
         }
 
-        // --- NEW: Helper to sync Membrane Fill visibility ---
         function drawMembraneFill() {
             membranes.forEach(m => {
                 if (m.konvaShape) {
@@ -1818,6 +1990,19 @@
             if (membraneFillLayer) membraneFillLayer.batchDraw();
         }
 
+        // --- NEW: Helper to sort 4 nodes CCW for consistent edge indexing ---
+        function sortNodesCCW(nodesArray) {
+            if (nodesArray.length !== 4) return [...nodesArray];
+            // Calculate centroid
+            const cx = nodesArray.reduce((sum, n) => sum + n.x, 0) / 4;
+            const cy = nodesArray.reduce((sum, n) => sum + n.y, 0) / 4;
+            // Sort by angle from centroid (clockwise in canvas Y-down, but results in consistent order)
+            // atan2(y-cy, x-cx) gives angle.
+            return [...nodesArray].sort((a, b) => {
+                return Math.atan2(a.y - cy, a.x - cx) - Math.atan2(b.y - cy, b.x - cx);
+            });
+        }
+
         // --- REFACTORED: createMembrane to accept node data array ---
         function createMembraneWithNodes(nodesDataArray) {
             if (!nodesDataArray || nodesDataArray.length < 3) {
@@ -1825,15 +2010,18 @@
                 updateStatus("Error: Invalid nodes for membrane creation.");
                 return false; // Indicate failure
             }
-            console.log(`Attempting to create ${nodesDataArray.length}-sided membrane with nodes: ${nodesDataArray.map(n => n.id).join(',')}`);
+
+            // --- ADDED: Sort CCW at the very start for consistent edge indexing ---
+            const sortedNodes = sortNodesCCW(nodesDataArray);
+            console.log(`Attempting to create ${sortedNodes.length}-sided membrane with nodes: ${sortedNodes.map(n => n.id).join(',')}`);
 
             let nodesAreValid = true;
             const nodeIds = [];
             const points = [];
             const uniqueNodeIds = new Set();
 
-            for (const nodeData of nodesDataArray) {
-                if (!nodeData || !nodeData.id || typeof nodeData.x !== 'number' || typeof nodeData.x !== 'number') {
+            for (const nodeData of sortedNodes) {
+                if (!nodeData || !nodeData.id || typeof nodeData.x !== 'number' || typeof nodeData.y !== 'number') {
                     console.error("Invalid node data found in array:", nodeData);
                     nodesAreValid = false;
                     break;
@@ -1863,12 +2051,12 @@
 
             let membraneFillShape;
             try {
-                membraneFillShape = new Konva.Line({
-                    points: points,
+                membraneFillShape = new Konva.Path({
+                    data: '', // Will be set by updateConnectedMembranes
                     fill: 'rgba(173, 216, 230, 0.5)',
                     stroke: MEMBRANE_DEFAULT_STROKE,
-                    strokeWidth: MEMBRANE_DEFAULT_STROKE_WIDTH, // Use base pixel width
-                    strokeScaleEnabled: false, // <--- ADD THIS LINE
+                    strokeWidth: MEMBRANE_DEFAULT_STROKE_WIDTH,
+                    strokeScaleEnabled: false,
                     closed: true,
                     listening: false,
                     draggable: false,
@@ -1876,8 +2064,8 @@
                     name: 'membrane'
                 });
             } catch (error) {
-                console.error("Error creating Konva.Line for membrane fill:", error);
-                return false; // Indicate failure
+                console.error("Error creating Konva.Path for membrane fill:", error);
+                return false;
             }
 
             const membraneId = nextMembraneId++;
@@ -1889,7 +2077,8 @@
                 // Initialize with default material properties
                 materialE: DEFAULT_MATERIAL_E,
                 materialNu: DEFAULT_MATERIAL_NU,
-                materialT: DEFAULT_MATERIAL_T
+                materialT: DEFAULT_MATERIAL_T,
+                edgeRadii: [0, 0, 0, 0] // [bottom, right, top, left]
             };
             membranes.push(newMembrane);
 
@@ -1905,14 +2094,112 @@
             console.log(`Membrane ${membraneId} created (${nodeIds.length} nodes: ${nodeIds.join(', ')})`);
             updateStatus(`Membrane ${membraneId} created.`);
             updateModelTree(); // Update Model Tree
+
+            // --- ADDED: Ensure it is plotted immediately ---
+            updateConnectedMembranes(nodeIds[0]);
+
             return true; // Indicate success
         }
         // --- End Refactored Function ---
 
         function requestMeshInput() { console.log("Mesh button clicked. Requesting input."); const meshInputArea = document.getElementById('mesh-input-area'); const meshSeparator = document.getElementById('mesh-input-separator'); if (selectedMembranes.length === 0) { alert("Please select one or more membranes first using 'Select Membrane' mode."); updateStatus("Select membranes before meshing."); return; } if (meshInputArea) { meshInputArea.hidden = false; if (meshSeparator) meshSeparator.hidden = false; updateStatus("Enter M(X-dir) x N(Y-dir) divisions and click Confirm."); } else { console.error("Mesh input area not found!"); updateStatus("Error: UI component missing."); } }
         function handleConfirmMesh() { console.log("Confirm Mesh button clicked."); const mInput = document.getElementById('mesh-m-input'); const nInput = document.getElementById('mesh-n-input'); const meshInputArea = document.getElementById('mesh-input-area'); const meshSeparator = document.getElementById('mesh-input-separator'); if (!mInput || !nInput || !meshInputArea) { console.error("Mesh input fields or area not found!"); alert("Error: Cannot find mesh input UI elements."); return; } const M = parseInt(mInput.value, 10); const N = parseInt(nInput.value, 10); console.log("Read M:", M, "Read N:", N); if (isNaN(M) || isNaN(N) || M <= 0 || N <= 0) { alert("Invalid divisions. Both M and N must be positive integers."); updateStatus("Invalid mesh divisions entered."); return; } meshInputArea.hidden = true; if (meshSeparator) meshSeparator.hidden = true; performMeshing(M, N); }
-        function performMeshing(M, N) { if (selectedMembranes.length === 0) { console.log("No membranes selected for meshing."); updateStatus("No membranes selected to mesh."); return; } console.log(`Attempting to mesh ${selectedMembranes.length} selected membranes with ${M}x${N} divisions.`); updateStatus(`Meshing selected membranes (${M}x${N})...`); let meshedCount = 0; let skippedCount = 0; let nonQuadCount = 0; selectedMembranes.forEach(membraneId => { const membrane = findMembraneById(membraneId); if (!membrane) { console.warn(`Selected membrane ID ${membraneId} not found.`); skippedCount++; return; } if (membrane.nodeIds.length !== 4) { console.log(`Skipping membrane ${membrane.id}: Not 4-sided.`); nonQuadCount++; return; } if (membrane.isMeshed) { console.log(`Skipping membrane ${membrane.id}: Already meshed.`); skippedCount++; return; } generateStructuredMesh(membrane, M, N); meshedCount++; }); drawMesh(); let meshStatus = `Meshing complete. Meshed: ${meshedCount}.`; if (nonQuadCount > 0) meshStatus += ` Skipped ${nonQuadCount} (not 4-sided).`; if (skippedCount > 0) meshStatus += ` Skipped ${skippedCount} (already meshed/not found).`; updateStatus(meshStatus); console.log(meshStatus); }
-        function clearMeshForAffectedMembranes(movedNodeId) { console.log(`Checking for meshes affected by moved node ${movedNodeId}`); const affectedMembranes = membranes.filter(m => m.nodeIds.includes(movedNodeId) && m.isMeshed); if (affectedMembranes.length === 0) { console.log("No currently meshed membranes affected."); return; } console.log(`Found ${affectedMembranes.length} affected meshed membranes:`, affectedMembranes.map(m => m.id)); const feNodesToRemove = new Set(); const feElementsToRemove = new Set(); const feSpringsToRemove = new Set(); affectedMembranes.forEach(membrane => { feNodes.forEach(feN => { if (feN.membraneId === membrane.id) { feNodesToRemove.add(feN.id); } }); feElements.forEach(feE => { if (feE.membraneId === membrane.id) { feElementsToRemove.add(feE.id); } }); membrane.isMeshed = false; console.log(`Marked membrane ${membrane.id} as not meshed.`); }); if (feNodesToRemove.size > 0) { feSprings.forEach(feS => { if (feNodesToRemove.has(feS.feNodeId1) || feNodesToRemove.has(feS.feNodeId2)) { feSpringsToRemove.add(feS.id); } }); } const originalNodeCount = feNodes.length; const originalElementCount = feElements.length; const originalSpringCount = feSprings.length; feNodes = feNodes.filter(feN => !feNodesToRemove.has(feN.id)); feElements = feElements.filter(feE => !feElementsToRemove.has(feE.id)); feSprings = feSprings.filter(feS => !feSpringsToRemove.has(feS.id)); console.log(`Removed ${originalNodeCount - feNodes.length} FE nodes.`); console.log(`Removed ${originalElementCount - feElements.length} FE elements.`); console.log(`Removed ${originalSpringCount - feSprings.length} FE springs.`); }
+        function performMeshing(M, N) {
+            if (selectedMembranes.length === 0) {
+                console.log("No membranes selected for meshing.");
+                updateStatus("No membranes selected to mesh.");
+                return;
+            }
+            console.log(`Attempting to mesh ${selectedMembranes.length} selected membranes with ${M}x${N} divisions.`);
+            updateStatus(`Meshing selected membranes (${M}x${N})...`);
+            let meshedCount = 0;
+            let skippedCount = 0;
+            let nonQuadCount = 0;
+
+            selectedMembranes.forEach(membraneId => {
+                const membrane = findMembraneById(membraneId);
+                if (!membrane) {
+                    console.warn(`Selected membrane ID ${membraneId} not found.`);
+                    skippedCount++;
+                    return;
+                }
+                if (membrane.nodeIds.length !== 4) {
+                    console.log(`Skipping membrane ${membrane.id}: Not 4-sided.`);
+                    nonQuadCount++;
+                    return;
+                }
+                if (membrane.isMeshed) {
+                    console.log(`Membrane ${membrane.id} is already meshed. Deleting existing mesh before re-meshing.`);
+                    deleteMeshForMembrane(membrane.id);
+                }
+                generateStructuredMesh(membrane, M, N);
+                meshedCount++;
+            });
+            drawMesh();
+            let meshStatus = `Meshing complete. Meshed: ${meshedCount}.`;
+            if (nonQuadCount > 0) meshStatus += ` Skipped ${nonQuadCount} (not 4-sided).`;
+            if (skippedCount > 0) meshStatus += ` Skipped ${skippedCount} (not found).`;
+            updateStatus(meshStatus);
+            console.log(meshStatus);
+        }
+        function deleteMeshForMembrane(membraneId) {
+            console.log(`Deleting mesh for membrane ${membraneId}`);
+            const membrane = findMembraneById(membraneId);
+            if (!membrane) return;
+
+            const feNodesToRemove = new Set();
+            const feElementsToRemove = new Set();
+            const feSpringsToRemove = new Set();
+
+            // Identify FE nodes and elements belonging to this membrane
+            feNodes.forEach(feN => {
+                if (feN.membraneId === membraneId) {
+                    feNodesToRemove.add(feN.id);
+                }
+            });
+            feElements.forEach(feE => {
+                if (feE.membraneId === membraneId) {
+                    feElementsToRemove.add(feE.id);
+                }
+            });
+
+            // Identify FE springs connected to the nodes being removed
+            if (feNodesToRemove.size > 0) {
+                feSprings.forEach(feS => {
+                    if (feNodesToRemove.has(feS.feNodeId1) || feNodesToRemove.has(feS.feNodeId2)) {
+                        feSpringsToRemove.add(feS.id);
+                    }
+                });
+            }
+
+            const originalNodeCount = feNodes.length;
+            const originalElementCount = feElements.length;
+            const originalSpringCount = feSprings.length;
+
+            feNodes = feNodes.filter(feN => !feNodesToRemove.has(feN.id));
+            feElements = feElements.filter(feE => !feElementsToRemove.has(feE.id));
+            feSprings = feSprings.filter(feS => !feSpringsToRemove.has(feS.id));
+
+            membrane.isMeshed = false;
+
+            console.log(`Deleted mesh for Membrane ${membraneId}:`);
+            console.log(`- Removed ${originalNodeCount - feNodes.length} FE nodes.`);
+            console.log(`- Removed ${originalElementCount - feElements.length} FE elements.`);
+            console.log(`- Removed ${originalSpringCount - feSprings.length} FE springs.`);
+        }
+        function clearMeshForAffectedMembranes(movedNodeId) {
+            console.log(`Checking for meshes affected by moved node ${movedNodeId}`);
+            const affectedMembranes = membranes.filter(m => m.nodeIds.includes(movedNodeId) && m.isMeshed);
+            if (affectedMembranes.length === 0) {
+                console.log("No currently meshed membranes affected.");
+                return;
+            }
+            console.log(`Found ${affectedMembranes.length} affected meshed membranes:`, affectedMembranes.map(m => m.id));
+
+            affectedMembranes.forEach(membrane => {
+                deleteMeshForMembrane(membrane.id);
+            });
+        }
         function clearMeshData() { feNodes = []; feElements = []; feSprings = []; membranes.forEach(m => m.isMeshed = false); if (meshLayer) { meshLayer.destroyChildren(); meshLayer.batchDraw(); } if (springLayer) { springLayer.destroyChildren(); springLayer.batchDraw(); } if (stressLayer) { stressLayer.destroyChildren(); stressLayer.batchDraw(); } if (reactionLayer) { reactionLayer.destroyChildren(); reactionLayer.batchDraw(); } clearFeSelection(); clearSpringSelection(); console.log("Cleared ALL existing FE mesh, spring, and stress data."); }
         function generateStructuredMesh(membrane, M, N) {
             console.log(`Generating mesh for membrane ${membrane.id}`);
@@ -1925,44 +2212,73 @@
                 return; // Stop meshing this membrane
             }
 
-            // --- ADDED: Ensure cornerNodes are sorted Counter-Clockwise (CCW) ---
-            if (cornerNodes.length === 4) {
-                // 1. Calculate centroid
-                let cx = 0, cy = 0;
-                cornerNodes.forEach(n => { cx += n.x; cy += n.y; });
-                cx /= 4;
-                cy /= 4;
+            // --- REMOVED internal sorting: We now rely on creation CCW sorting ---
+            // p1, p2, p3, p4 are now consistent with CCW membrane.nodeIds
+            const p1 = cornerNodes[0];
+            const p2 = cornerNodes[1];
+            const p3 = cornerNodes[2];
+            const p4 = cornerNodes[3];
+            // The previous sorting logic was removed because `createMembraneWithNodes` now ensures CCW order.
+            // --- End Removed Section ---
 
-                // 2. Calculate angle for each node relative to centroid
-                cornerNodes.forEach(n => {
-                    n.angle = Math.atan2(n.y - cy, n.x - cx);
-                });
-
-                // 3. Sort nodes by angle
-                cornerNodes.sort((a, b) => a.angle - b.angle);
-                console.log(`Membrane ${membrane.id}: Reordered corner nodes to CCW order: ${cornerNodes.map(n => n.id).join(', ')}`);
-            } else {
-                console.warn(`Membrane ${membrane.id} is not a quadrilateral. Mesh generation assumes quadrilateral.`);
-                // Proceeding anyway, but Jacobians might still be problematic if not quad.
-            }
-            // --- End Added Section ---
-
-            // Use the (potentially reordered) cornerNodes for mapping
-            const [p1, p2, p3, p4] = cornerNodes;
-
-            // The rest of the function remains the same...
             const gridFeNodeIds = Array(M + 1).fill(null).map(() => Array(N + 1).fill(null));
-            // ... loop to create feNodes ...
+
+            // Coons Patch needs boundaries evaluated as functions of u and v
+            // edgeControlIds: [bottom, right, top, left]
+            // p1 (0,0) -> p2 (1,0) [edge 0: bottom]
+            // p2 (1,0) -> p3 (1,1) [edge 1: right]
+            // p3 (1,1) -> p4 (0,1) [edge 2: top]
+            // p4 (0,1) -> p1 (0,0) [edge 3: left]
+
+            const getBoundaryPoint = (edgeIdx, t) => {
+                const nStart = cornerNodes[edgeIdx];
+                const nEnd = cornerNodes[(edgeIdx + 1) % 4];
+                const R = membrane.edgeRadii ? membrane.edgeRadii[edgeIdx] : 0;
+                return getArcPoint(nStart, nEnd, R, t);
+            };
+
             for (let i = 0; i <= M; i++) {
                 for (let j = 0; j <= N; j++) {
                     const u = i / M;
                     const v = j / N;
-                    // Ensure mapping uses the potentially reordered p1, p2, p3, p4
-                    const x = (1 - u) * (1 - v) * p1.x + u * (1 - v) * p2.x + u * v * p3.x + (1 - u) * v * p4.x;
-                    const y = (1 - u) * (1 - v) * p1.y + u * (1 - v) * p2.y + u * v * p3.y + (1 - u) * v * p4.y;
+
+                    // Coons Patch Formula: P(u,v) = S_c1(u,v) + S_c2(u,v) - S_b(u,v)
+                    // Boundaries
+                    const c1 = getBoundaryPoint(0, u); // bottom (v=0)
+                    const c2 = getBoundaryPoint(2, 1 - u); // top (v=1) - reverse u for top
+                    const d1 = getBoundaryPoint(3, 1 - v); // left (u=0) - reverse v for left
+                    const d2 = getBoundaryPoint(1, v); // right (u=1)
+
+                    // S_c1(u,v) = (1-v)c1(u) + v*c2(u)
+                    const Sc1 = {
+                        x: (1 - v) * c1.x + v * c2.x,
+                        y: (1 - v) * c1.y + v * c2.y
+                    };
+
+                    // S_c2(u,v) = (1-u)d1(v) + u*d2(v)
+                    const Sc2 = {
+                        x: (1 - u) * d1.x + u * d2.x,
+                        y: (1 - u) * d1.y + u * d2.y
+                    };
+
+                    // S_b(u,v) = (1-u)(1-v)P(0,0) + u(1-v)P(1,0) + uvP(1,1) + (1-u)vP(0,1)
+                    const Sb = {
+                        x: (1 - u) * (1 - v) * cornerNodes[0].x + u * (1 - v) * cornerNodes[1].x + u * v * cornerNodes[2].x + (1 - u) * v * cornerNodes[3].x,
+                        y: (1 - u) * (1 - v) * cornerNodes[0].y + u * (1 - v) * cornerNodes[1].y + u * v * cornerNodes[2].y + (1 - u) * v * cornerNodes[3].y
+                    };
+
+                    const x = Sc1.x + Sc2.x - Sb.x;
+                    const y = Sc1.y + Sc2.y - Sb.y;
+
                     const feNodeId = feNodeIdCounter++;
-                    // ... rest of node creation ...
-                    feNodes.push({ id: feNodeId, x: x, y: y, isBoundary: (i === 0 || i === M || j === 0 || j === N), isSpringConnectionPoint: false, originatingGeometricNodeId: null, membraneId: membrane.id, bc: null }); // Simplified for brevity
+                    feNodes.push({
+                        id: feNodeId, x: x, y: y,
+                        isBoundary: (i === 0 || i === M || j === 0 || j === N),
+                        isSpringConnectionPoint: false,
+                        originatingGeometricNodeId: null,
+                        membraneId: membrane.id,
+                        bc: null
+                    });
                     gridFeNodeIds[i][j] = feNodeId;
                 }
             }
@@ -2266,6 +2582,90 @@
             drawSprings(); // Redraws all springs (new + old)
             updateStatus(`Created ${springsCreatedCount} new springs for group "${selectedGroup.name}". (Total: ${feSprings.length})`);
             console.log(`Finished creating springs. Total: ${feSprings.length}`);
+        }
+
+        function handleConstrainCoincidentNodes() {
+            const tolInput = document.getElementById('coincidence-tolerance');
+            if (!tolInput) return;
+            const tolerance = parseFloat(tolInput.value);
+            if (isNaN(tolerance) || tolerance < 0) {
+                alert("Please enter a valid tolerance.");
+                return;
+            }
+
+            console.log(`Searching for coincident FE nodes with tolerance ${tolerance}...`);
+            const tolSq = tolerance * tolerance;
+            let springsCreatedCount = 0;
+
+            // Ensure spring counter is correct
+            if (feSprings.length > 0) {
+                feSpringIdCounter = Math.max(...feSprings.map(s => s.id)) + 1;
+            } else {
+                feSpringIdCounter = 1;
+            }
+
+            // Find or create "Coincident Constraints" spring group
+            let constraintGroup = springPointGroups.find(g => g.name === "Coincident Constraints");
+            if (!constraintGroup) {
+                constraintGroup = {
+                    id: nextSpringGroupId++,
+                    name: "Coincident Constraints",
+                    nodeIds: [],
+                    isSelected: true
+                };
+                springPointGroups.forEach(g => g.isSelected = false);
+                springPointGroups.push(constraintGroup);
+            } else {
+                constraintGroup.isSelected = true;
+                springPointGroups.forEach(g => { if (g !== constraintGroup) g.isSelected = false; });
+            }
+
+            const constrainedGeoNodeIds = new Set(constraintGroup.nodeIds);
+
+            // N^2 check for feNodes pairs
+            for (let i = 0; i < feNodes.length; i++) {
+                for (let j = i + 1; j < feNodes.length; j++) {
+                    const n1 = feNodes[i];
+                    const n2 = feNodes[j];
+
+                    if (n1.membraneId === n2.membraneId) continue;
+
+                    const dx = n1.x - n2.x;
+                    const dy = n1.y - n2.y;
+                    const dSq = dx * dx + dy * dy;
+
+                    if (dSq <= tolSq) {
+                        const exists = feSprings.some(s =>
+                            (s.feNodeId1 === n1.id && s.feNodeId2 === n2.id) ||
+                            (s.feNodeId1 === n2.id && s.feNodeId2 === n1.id)
+                        );
+
+                        if (!exists) {
+                            const springId = feSpringIdCounter++;
+                            feSprings.push({
+                                id: springId,
+                                feNodeId1: n1.id,
+                                feNodeId2: n2.id,
+                                stiffness: 1e9 // High stiffness as physical connection
+                            });
+                            springsCreatedCount++;
+
+                            if (n1.originatingGeometricNodeId !== null) {
+                                constrainedGeoNodeIds.add(n1.originatingGeometricNodeId);
+                            }
+                            if (n2.originatingGeometricNodeId !== null) {
+                                constrainedGeoNodeIds.add(n2.originatingGeometricNodeId);
+                            }
+                        }
+                    }
+                }
+            }
+
+            constraintGroup.nodeIds = Array.from(constrainedGeoNodeIds);
+            updateSpringGroupTree();
+            updateSpringGroupHighlights();
+            drawSprings();
+            updateStatus(`Created ${springsCreatedCount} coincident constraints (1e9 stiffness) in group "${constraintGroup.name}".`);
         }
 
         // --- NEW: Highlight Selected Spring Group Nodes ---
@@ -3786,6 +4186,7 @@ console.log("[Worker] Solver worker initialized");
                 nodeIds: nodeIds,
                 konvaShape: membraneFillShape,
                 isMeshed: false,
+                edgeCurvatures: [0, 0, 0, 0], // Initialize with zero curvature
                 materialE: matE ?? DEFAULT_MATERIAL_E,
                 materialNu: matNu ?? DEFAULT_MATERIAL_NU,
                 materialT: matT ?? DEFAULT_MATERIAL_T
@@ -3809,25 +4210,20 @@ console.log("[Worker] Solver worker initialized");
             stressLayer?.destroyChildren();
             reactionLayer?.destroyChildren(); // NEW: Clear reaction layer
 
-            // --- CRITICAL: Reset Konva references in data objects ---
-            // Since we destroyed the children, the old references are invalid.
             nodes.forEach(n => n.konvaCircle = null);
             membranes.forEach(m => m.konvaShape = null);
             feElements.forEach(e => e.konvaShape = null); // Used for stress plotting
-            // feSprings/feNodes generally recreate anyway in drawSprings/drawMesh, but good practice if safe.
-            // feNodes.forEach(n => n.konvaCircle = null); // drawMesh handles this internally usually?
-            // drawMesh does: const circle = new Konva.Circle... it re-creates.
 
             // 2. Redraw Geometry Nodes
             nodes.forEach(node => {
                 if (!node.konvaCircle) { // Will always be true now
-                    // Try to recreate if necessary (optional)
                     const konvaCircle = new Konva.Circle({
                         x: node.x, y: node.y,
-                        radius: NODE_RADIUS_TARGET_PX / scale, // Use scaled radius
+                        radius: NODE_RADIUS_TARGET_PX / scale,
+                        fill: DEFAULT_NODE_COLOR,
                         stroke: 'black',
-                        strokeWidth: NODE_STROKE_WIDTH_TARGET_PX, // Target pixel width
-                        strokeScaleEnabled: false, // Keep stroke constant
+                        strokeWidth: NODE_STROKE_WIDTH_TARGET_PX,
+                        strokeScaleEnabled: false,
                         draggable: true, id: `node-${node.id}`
                     });
                     node.konvaCircle = konvaCircle;
@@ -3840,19 +4236,19 @@ console.log("[Worker] Solver worker initialized");
             });
 
             // 3. Redraw Membranes
-            membranes.forEach(membrane => {
-                if (!membrane.konvaShape) { // Will always be true
-                    // Try to recreate
-                    const points = membrane.nodeIds.map(nid => findNodeDataById(nid)).flatMap(n => [n.x, n.y]);
-                    membrane.konvaShape = new Konva.Line({
-                        points: points, fill: 'rgba(173, 216, 230, 0.5)',
+            membranes.forEach(m => {
+                if (!m.konvaShape) { // Will always be true
+                    m.konvaShape = new Konva.Path({
+                        data: '', // Will be updated
+                        fill: 'rgba(173, 216, 230, 0.5)',
                         stroke: MEMBRANE_DEFAULT_STROKE,
-                        strokeWidth: MEMBRANE_DEFAULT_STROKE_WIDTH, // Target pixel width
-                        strokeScaleEnabled: false, // Keep stroke constant
+                        strokeWidth: MEMBRANE_DEFAULT_STROKE_WIDTH,
+                        strokeScaleEnabled: false,
                         closed: true, listening: false, draggable: false, opacity: MEMBRANE_DEFAULT_OPACITY, name: 'membrane'
                     });
                 }
-                membraneFillLayer.add(membrane.konvaShape);
+                membraneFillLayer.add(m.konvaShape);
+                updateConnectedMembranes(m.nodeIds[0]); // Force update path data
             });
 
             // 4. Redraw Mesh (FE Nodes, Elements, BCs)

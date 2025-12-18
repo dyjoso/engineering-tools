@@ -191,6 +191,45 @@
       return { s: s_coords, p: p_values };
     };
 
+    const calculateCompositeProperties = (E_lower, t_lower, E_adh, t_adh, E_upper, t_upper, eta = 1.0) => {
+      // Datum is bottom of lower sheet (y=0)
+
+      // Layer 1: Lower Skin
+      const A1 = t_lower * 1.0;
+      const y1 = t_lower / 2;
+      const I1_local = (1.0 * Math.pow(t_lower, 3)) / 12;
+
+      // Layer 2: Adhesive
+      const A2 = t_adh * 1.0;
+      const y2 = t_lower + t_adh / 2;
+      const I2_local = (1.0 * Math.pow(t_adh, 3)) / 12;
+
+      // Layer 3: Upper Skin
+      const A3 = t_upper * 1.0;
+      const y3 = t_lower + t_adh + t_upper / 2;
+      const I3_local = (1.0 * Math.pow(t_upper, 3)) / 12;
+
+      // Calculate Neutral Axis (y_bar) - Assumes full area is active for specific gravity
+      const sum_EA = (E_lower * A1) + (E_adh * A2) + (E_upper * A3);
+      if (sum_EA === 0) return { EI_eff: 0, y_bar: 0 };
+
+      const sum_EAy = (E_lower * A1 * y1) + (E_adh * A2 * y2) + (E_upper * A3 * y3);
+      const y_bar = sum_EAy / sum_EA;
+
+      // Parallel Axis Theorem with Shear Efficiency
+      // EI_eff = EI_local + eta * EI_transport
+
+      const EI_local = (E_lower * I1_local) + (E_adh * I2_local) + (E_upper * I3_local);
+
+      const EI_transport = (E_lower * A1 * Math.pow(y1 - y_bar, 2)) +
+        (E_adh * A2 * Math.pow(y2 - y_bar, 2)) +
+        (E_upper * A3 * Math.pow(y3 - y_bar, 2));
+
+      const EI_eff = EI_local + (eta * EI_transport);
+
+      return { EI_eff, y_bar };
+    };
+
     // --- Charting Utilities ---
     const createChartOptions = (title, xLabel, yLabel, aspectRatio = null) => ({
       responsive: true,
@@ -227,6 +266,23 @@
       },
     });
 
+    // --- Shear Efficiency Estimator ---
+    // Estimates partial composite action based on adhesive shear stiffness
+    const calculateDefaultShearEfficiency = (G_adh, t_adh, E_skin, t_skin, L_overlap) => {
+      // Simplified Volkersen lag factor approximation
+      // lambda^2 = (G * b) / (t_adh) * (1/EA_1 + 1/EA_2)
+      // Assuming unit width b=1, symmetric skins
+      const EA = E_skin * t_skin;
+      const lambda = Math.sqrt((G_adh / t_adh) * (2 / EA));
+      // Efficiency eta = tanh(lambda * L/2) / (lambda * L/2)
+      // Using a characteristic overlap length (e.g. fastener pitch approx 1.0" or simplified)
+      // If L is large, efficiency drops. Let's assume a characteristic length of 1.0 inch for local stiffness.
+      const L_char = 1.0;
+      const arg = lambda * L_char / 2;
+      if (arg === 0) return 1.0;
+      return Math.tanh(arg) / arg;
+    };
+
     // --- Main Hook ---
     const useBeamSolver = () => {
       // Restored original inputs
@@ -235,7 +291,7 @@
         l: '6',
         pMax: '700',
         tLower: '0.063',
-        tUpper: '0.063', // Restored
+        tUpper: '0.063',
         fasteners: '3, 0.35\n4, 0.30\n5, 0.35',
         nNodes: '200',
         numSteps: '1',
@@ -243,12 +299,29 @@
         stiffnessTransitionOffset: '0.38',
         fixRotation: false,
         logToConsole: false,
+        shearEfficiency: '0.90', // Default placeholder
       });
 
       const [results, setResults] = useState(getInitialResults());
       const [logs, setLogs] = useState(['Welcome to the Non-Linear Beam Solver.']);
       const [isLoading, setIsLoading] = useState(false);
       const [stressRatio, setStressRatio] = useState(null);
+
+      // Initialize Shear Efficiency based on hardcoded constants on mount
+      useEffect(() => {
+        const E_adh = 14000;
+        const t_adh = 0.001; // Restored
+        const nu_adh = 0.3;
+        const G_adh = E_adh / (2 * (1 + nu_adh));
+        const E_skin = 10.5e6;
+        const t_skin = 0.063;
+
+        const calculatedEta = calculateDefaultShearEfficiency(G_adh, t_adh, E_skin, t_skin, 1.0);
+        // We only set this if the user hasn't touched it (simplification: just set initial state logic or log it)
+        // For now, let's just make the default state value match this calculation approx?
+        // Or better, set it once.
+        setInputs(prev => ({ ...prev, shearEfficiency: calculatedEta.toFixed(3) }));
+      }, []);
 
       const logStatus = (message) => {
         if (inputs.logToConsole) console.log(message);
@@ -267,18 +340,29 @@
           const N = parseInt(inputs.nNodes, 10);
           const num_steps = parseInt(inputs.numSteps, 10);
           const t_lower = parseFloat(inputs.tLower);
-          const t_upper = parseFloat(inputs.tUpper); // Restored
+          const t_upper = parseFloat(inputs.tUpper);
+
+          // Hardcoded Adhesive Properties
+          const E_adh = 14000;
+          const t_adh = 0.001;
+          const nu_adh = 0.3;
+
+
           const stress_calc_offset = parseFloat(inputs.stressCalcOffset);
           const stiffness_transition_offset = parseFloat(inputs.stiffnessTransitionOffset);
+          const shear_efficiency = parseFloat(inputs.shearEfficiency);
 
-          if ([E, L, P_max, N, num_steps, t_lower, t_upper, stress_calc_offset].some(isNaN) || N <= 2 || num_steps <= 0) {
+          if ([E, L, P_max, N, num_steps, t_lower, t_upper, stress_calc_offset, shear_efficiency].some(isNaN) || N <= 2 || num_steps <= 0) {
             throw new Error("Invalid input. Please check all numerical fields.");
           }
 
           const I_lower = Math.pow(t_lower, 3) / 12;
-          const I_upper = Math.pow(t_upper, 3) / 12;
           const ei_lower = E * I_lower;
-          const ei_upper = E * I_upper; // Used for stiffness fraction
+
+          // Calculate Composite Properties
+          const compositeProps = calculateCompositeProperties(E, t_lower, E_adh, t_adh, E, t_upper, shear_efficiency);
+          const ei_composite = compositeProps.EI_eff;
+          const y_bar_composite = compositeProps.y_bar;
 
           const ds = L / N;
           const max_nr_iter = 20;
@@ -297,7 +381,7 @@
           for (let i = 0; i < N; i++) {
             const s_node = (i + 1) * ds;
             if (s_node >= stiffnessTransitionS) {
-              EI_array.push(ei_lower + ei_upper);  // Combined stiffness
+              EI_array.push(ei_composite);  // Composite stiffness
             } else {
               EI_array.push(ei_lower);  // Lower sheet only
             }
@@ -325,9 +409,16 @@
             // Build m_array (Restored Eccentricity Logic)
             for (const fastener of parsedFasteners) {
               const P_f = fastener.pFraction * P_current;
-              const M_total_arm = (t_lower + t_upper) / 2;
-              const totalStiffness = ei_lower + ei_upper;
-              const stiffness_fraction = totalStiffness > 0 ? (ei_lower / totalStiffness) : 0;
+              // Eccentricity is distance between centroids of upper and lower skins
+              const M_total_arm = (t_lower + t_upper) / 2 + t_adh;
+
+              const stiffness_fraction = ei_composite > 0 ? (ei_lower / ei_composite) : 0;
+              // Note: This logic assumes moment partition is proportional to stiffness.
+              // In a bonded joint, the transfer is complex, but this ratio approximates the load share
+              // staying in the lower sheet vs transferring to the composite section.
+              // However, strictly "M_fastener" is the moment introduced by the step in neutral axis.
+              // For simplicity, we keep the existing logic but update the arm.
+
               const M_fastener = P_f * M_total_arm * stiffness_fraction;
 
               const node_index = Math.round(fastener.s / ds) - 1;
@@ -408,14 +499,41 @@
             const s_critical = critical_node_index * ds;
 
             if (critical_node_index >= 0 && critical_node_index < internalMomentData.m.length) {
-              const M_critical = internalMomentData.m[critical_node_index];
+              let M_critical = internalMomentData.m[critical_node_index];
               const P_critical = findStepValue(s_critical, axialLoadData.s, axialLoadData.p);
 
+              // Check if stress point lies in combined stiffness region
+              // If so, calculate stress using composite beam theory
+              let bending_stress = 0;
+
+              if (s_critical >= stiffnessTransitionS) {
+                // In composite region:
+                // Sigma = M * y / I
+                // y is distance from neutral axis to bottom fiber (where we want stress)
+                // y_bar is from bottom (datum), so distance is just y_bar (for tension at bottom)
+                // Note: formula is M*y/I. 
+
+                // Corrected Stress Calculation:
+                // We want the stress at the UPPER surface of the LOWER layer.
+                // Distance = |y_bar - t_lower|
+                // where y_bar is from bottom (0) to neutral axis.
+
+                logStatus(`Stress point @ s=${s_critical.toFixed(3)} is in COMPOSITE region.`);
+                logStatus(`Composite EI: ${ei_composite.toFixed(0)}, y_bar: ${y_bar_composite.toFixed(4)}`);
+
+                const dist_to_upper_surface_lower_layer = Math.abs(y_bar_composite - t_lower);
+                bending_stress = (Math.abs(M_critical) * dist_to_upper_surface_lower_layer * E) / ei_composite;
+
+              } else {
+                // In simple lower-skin region
+                bending_stress = (6 * Math.abs(M_critical)) / Math.pow(t_lower, 2);
+              }
+
               if (!isNaN(M_critical) && !isNaN(P_critical) && t_lower > 0) {
-                const bending_stress = (6 * Math.abs(M_critical)) / Math.pow(t_lower, 2);
+                // bending_stress calculated above
                 const direct_stress = P_critical / t_lower;
                 logStatus(`Critical Check @ s=${s_critical.toFixed(3)} (Offset ${stress_calc_offset}")`);
-                logStatus(`M: ${M_critical.toFixed(3)}, P: ${P_critical.toFixed(3)}`);
+                logStatus(`M_lower: ${M_critical.toFixed(3)}, P: ${P_critical.toFixed(3)}`);
 
                 if (direct_stress !== 0) {
                   setStressRatio(bending_stress / direct_stress);
@@ -558,7 +676,11 @@
                 <InputField label="Steps" id="numSteps" value={inputs.numSteps} onChange={handleInputChange} />
               </div>
               <InputField label="Stress Offset" id="stressCalcOffset" value={inputs.stressCalcOffset} onChange={handleInputChange} />
-              <InputField label="Stiffness Transition Offset (before 1st fastener)" id="stiffnessTransitionOffset" value={inputs.stiffnessTransitionOffset} onChange={handleInputChange} />
+              <InputField label="Stiffness Transition Offset" id="stiffnessTransitionOffset" value={inputs.stiffnessTransitionOffset} onChange={handleInputChange} />
+              <div className="pt-2 border-t border-slate-700 mt-2">
+                <label className="text-sm font-semibold text-slate-400">Composite Action</label>
+                <InputField label="Shear Efficiency (0-1)" id="shearEfficiency" value={inputs.shearEfficiency} onChange={handleInputChange} />
+              </div>
 
               <div className="pt-2 space-y-3">
                 <CheckboxField label="Fix Rotation at s=L (Symmetry)" id="fixRotation" checked={inputs.fixRotation} onChange={handleInputChange} />

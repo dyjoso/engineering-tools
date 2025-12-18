@@ -7,16 +7,288 @@ const MATERIALS = {
 
 // --- Global Variables ---
 let model = {
-    nodes: [],
+    nodes: [],                    // Layer nodes: { id, x, y, u, F, isFixed, prescribedU, layer, nodeColIndex, fastenerIndex }
+    fastenerNodes: [],            // Fastener shadow nodes: { id, x, y, u, theta, correspondingLayerNodeId, layerId, fastenerId }
     layers: [],
     fasteners: [],
     layerElements: [],
-    fastenerElements: [],
+    beamElements: [],             // Timoshenko beam elements connecting fastener nodes vertically
+    contactSpringElements: [],    // Shear springs connecting layer node to fastener node
+    rotationalSpringElements: [], // Grounded rotational springs at each fastener node
     numLayers: 0,
     numFasteners: 0,
-    defaultSegmentLength: 4.0, // inches
+    defaultSegmentLength: 4.0,    // inches
     fastenerMaterialName: "Steel", // Default fastener material
 };
+
+// ============================================
+// DEBUG AND VALIDATION MODULE
+// ============================================
+const DEBUG = {
+    enabled: true,  // Set to false to disable all debug output
+    logLevel: 'all', // 'all', 'errors', 'summary'
+
+    log: function (message, level = 'info') {
+        if (!this.enabled) return;
+        if (this.logLevel === 'errors' && level !== 'error') return;
+        const prefix = level === 'error' ? '❌ ERROR: ' : level === 'warn' ? '⚠️ WARN: ' : '📊 ';
+        console.log(prefix + message);
+    },
+
+    // Format number for display
+    fmt: function (value, decimals = 4) {
+        if (value === undefined || value === null) return 'N/A';
+        if (isNaN(value)) return 'NaN';
+        if (!isFinite(value)) return value > 0 ? '+Inf' : '-Inf';
+        if (Math.abs(value) < 1e-10) return '0';
+        if (Math.abs(value) > 1e6 || Math.abs(value) < 1e-3) {
+            return value.toExponential(decimals);
+        }
+        return value.toFixed(decimals);
+    }
+};
+
+/**
+ * Comprehensive solver validation - call after solve() completes
+ * Checks equilibrium, traces load paths, and identifies issues
+ */
+function debugSolverValidation() {
+    if (!DEBUG.enabled) return;
+
+    console.log('\n' + '='.repeat(60));
+    console.log('🔍 SOLVER VALIDATION REPORT');
+    console.log('='.repeat(60));
+
+    // 1. GLOBAL SUMMARY
+    console.log('\n📋 MODEL SUMMARY:');
+    console.log(`   Layer nodes: ${model.nodes.length}`);
+    console.log(`   Fastener nodes: ${model.fastenerNodes.length}`);
+    console.log(`   Layer elements: ${model.layerElements.length}`);
+    console.log(`   Beam elements: ${model.beamElements.length}`);
+    console.log(`   Contact springs: ${model.contactSpringElements.length}`);
+    console.log(`   Rotational springs: ${model.rotationalSpringElements.length}`);
+
+    // 2. APPLIED LOADS AND BCS
+    console.log('\n📌 BOUNDARY CONDITIONS & LOADS:');
+    const fixedNodes = model.nodes.filter(n => n.isFixed);
+    const loadedNodes = model.nodes.filter(n => n.F !== 0 && n.prescribedU === null);
+    const dispNodes = model.nodes.filter(n => n.prescribedU !== null);
+
+    console.log(`   Fixed nodes: ${fixedNodes.map(n => `L${n.layer}_N${n.id}`).join(', ') || 'None'}`);
+    loadedNodes.forEach(n => {
+        console.log(`   Load on L${n.layer}_N${n.id}: ${DEBUG.fmt(n.F)} lbf`);
+    });
+    dispNodes.forEach(n => {
+        console.log(`   Prescribed disp on L${n.layer}_N${n.id}: ${DEBUG.fmt(n.prescribedU)} in`);
+    });
+
+    const totalAppliedLoad = loadedNodes.reduce((sum, n) => sum + n.F, 0);
+    console.log(`   TOTAL APPLIED LOAD: ${DEBUG.fmt(totalAppliedLoad)} lbf`);
+
+    // 3. DISPLACEMENTS
+    console.log('\n📏 DISPLACEMENTS:');
+    console.log('   Layer Nodes:');
+    model.nodes.forEach(n => {
+        console.log(`     L${n.layer}_N${n.id}: u = ${DEBUG.fmt(n.u)} in`);
+    });
+    console.log('   Fastener Nodes:');
+    model.fastenerNodes.forEach(fn => {
+        console.log(`     F${fn.fastenerId}_L${fn.layerId}: u = ${DEBUG.fmt(fn.u)} in, θ = ${DEBUG.fmt(fn.theta)} rad (${DEBUG.fmt(fn.theta * 180 / Math.PI)}°)`);
+    });
+
+    // 4. ELEMENT FORCES
+    console.log('\n⚡ ELEMENT FORCES:');
+
+    // Layer elements
+    console.log('   Layer Elements:');
+    model.layerElements.forEach(el => {
+        const n1 = getNode(el.node1Id);
+        const n2 = getNode(el.node2Id);
+        console.log(`     LE${el.id} (L${el.layerId}): k=${DEBUG.fmt(el.stiffness)} lbf/in, F=${DEBUG.fmt(el.force)} lbf, Δu=${DEBUG.fmt((n2?.u || 0) - (n1?.u || 0))} in`);
+    });
+
+    // Beam elements
+    console.log('   Beam Elements (Fastener Shank):');
+    let totalBeamForce = 0;
+    model.beamElements.forEach(el => {
+        const fn1 = getFastenerNode(el.node1Id);
+        const fn2 = getFastenerNode(el.node2Id);
+        const deltaU = (fn2?.u || 0) - (fn1?.u || 0);
+        const deltaTheta = (fn2?.theta || 0) - (fn1?.theta || 0);
+        console.log(`     BE${el.id} (F${el.fastenerId}): F=${DEBUG.fmt(el.force)} lbf, Δu=${DEBUG.fmt(deltaU)} in, Δθ=${DEBUG.fmt(deltaTheta)} rad`);
+        totalBeamForce += Math.abs(el.force || 0);
+    });
+    console.log(`   ➤ Sum |Beam Forces|: ${DEBUG.fmt(totalBeamForce)} lbf`);
+
+    // Contact springs
+    console.log('   Contact Springs:');
+    let totalContactForce = 0;
+    model.contactSpringElements.forEach(el => {
+        const ln = getNode(el.layerNodeId);
+        const fn = getFastenerNode(el.fastenerNodeId);
+        const deltaU = (fn?.u || 0) - (ln?.u || 0);
+        console.log(`     CS${el.id} (L${el.layerId}, F${el.fastenerId}): k=${DEBUG.fmt(el.stiffness)} lbf/in, F=${DEBUG.fmt(el.force)} lbf, Δu=${DEBUG.fmt(deltaU)} in`);
+        totalContactForce += el.force || 0;
+    });
+    console.log(`   ➤ Sum Contact Forces: ${DEBUG.fmt(totalContactForce)} lbf`);
+
+    // Rotational springs
+    console.log('   Rotational Springs:');
+    model.rotationalSpringElements.forEach(el => {
+        const fn = getFastenerNode(el.fastenerNodeId);
+        console.log(`     RS${el.id} (L${el.layerId}, F${el.fastenerId}): k=${DEBUG.fmt(el.stiffness)} lb-in/rad, M=${DEBUG.fmt(el.moment)} lb-in, θ=${DEBUG.fmt(fn?.theta)} rad`);
+    });
+
+    // 5. NODE EQUILIBRIUM CHECK
+    console.log('\n⚖️ NODE EQUILIBRIUM CHECK:');
+    let maxImbalance = 0;
+    let totalReaction = 0;
+
+    // Check each layer node
+    model.nodes.forEach(node => {
+        let sumForces = 0;
+        let contributions = [];
+
+        // Applied load
+        if (node.F !== 0 && node.prescribedU === null) {
+            sumForces += node.F;
+            contributions.push(`Applied: ${DEBUG.fmt(node.F)}`);
+        }
+
+        // Layer elements connected to this node
+        model.layerElements.forEach(le => {
+            if (le.node1Id === node.id) {
+                // Node is at left end of element - force = -F (reaction)
+                sumForces -= le.force || 0;
+                contributions.push(`LE${le.id}(left): ${DEBUG.fmt(-(le.force || 0))}`);
+            }
+            if (le.node2Id === node.id) {
+                // Node is at right end of element - force = +F
+                sumForces += le.force || 0;
+                contributions.push(`LE${le.id}(right): ${DEBUG.fmt(le.force || 0)}`);
+            }
+        });
+
+        // Contact springs connected to this layer node
+        model.contactSpringElements.forEach(cs => {
+            if (cs.layerNodeId === node.id) {
+                // Force on layer node from contact spring = -k*(u_f - u_L) = -F_contact
+                sumForces -= cs.force || 0;
+                contributions.push(`CS${cs.id}: ${DEBUG.fmt(-(cs.force || 0))}`);
+            }
+        });
+
+        // Fixed node reaction
+        if (node.isFixed) {
+            totalReaction += sumForces;  // The imbalance IS the reaction
+            contributions.push(`REACTION: ${DEBUG.fmt(-sumForces)}`);
+        }
+
+        const imbalance = node.isFixed ? 0 : sumForces;
+        if (Math.abs(imbalance) > 1e-6) {
+            maxImbalance = Math.max(maxImbalance, Math.abs(imbalance));
+            console.log(`   ⚠️ L${node.layer}_N${node.id}: Σ = ${DEBUG.fmt(imbalance)} lbf [${contributions.join(', ')}]`);
+        }
+    });
+
+    // Check each fastener node
+    model.fastenerNodes.forEach(fNode => {
+        let sumForces = 0;
+        let sumMoments = 0;
+        let contributions = [];
+
+        // Contact spring connected to this fastener node
+        model.contactSpringElements.forEach(cs => {
+            if (cs.fastenerNodeId === fNode.id) {
+                sumForces += cs.force || 0;
+                contributions.push(`CS${cs.id}: ${DEBUG.fmt(cs.force || 0)}`);
+            }
+        });
+
+        // Beam elements connected to this fastener node
+        model.beamElements.forEach(be => {
+            if (be.node1Id === fNode.id) {
+                // This node is at the "bottom" of the beam
+                sumForces -= be.force || 0;
+                contributions.push(`BE${be.id}(n1): ${DEBUG.fmt(-(be.force || 0))}`);
+            }
+            if (be.node2Id === fNode.id) {
+                // This node is at the "top" of the beam
+                sumForces += be.force || 0;
+                contributions.push(`BE${be.id}(n2): ${DEBUG.fmt(be.force || 0)}`);
+            }
+        });
+
+        // Rotational spring (grounded)
+        model.rotationalSpringElements.forEach(rs => {
+            if (rs.fastenerNodeId === fNode.id) {
+                sumMoments -= rs.moment || 0;  // Grounded spring provides reaction
+            }
+        });
+
+        if (Math.abs(sumForces) > 1e-6) {
+            maxImbalance = Math.max(maxImbalance, Math.abs(sumForces));
+            console.log(`   ⚠️ F${fNode.fastenerId}_L${fNode.layerId}: ΣF = ${DEBUG.fmt(sumForces)} lbf [${contributions.join(', ')}]`);
+        }
+    });
+
+    // 6. GLOBAL EQUILIBRIUM
+    console.log('\n🌐 GLOBAL EQUILIBRIUM:');
+    console.log(`   Total Applied Load: ${DEBUG.fmt(totalAppliedLoad)} lbf`);
+    console.log(`   Total Reaction (at fixed nodes): ${DEBUG.fmt(totalReaction)} lbf`);
+    console.log(`   Imbalance: ${DEBUG.fmt(totalAppliedLoad + totalReaction)} lbf`);
+
+    // 7. LOAD PATH TRACE (for each fastener column)
+    console.log('\n🔄 LOAD PATH TRACE (per fastener):');
+    for (let fIdx = 0; fIdx < model.numFasteners; fIdx++) {
+        console.log(`   Fastener ${fIdx}:`);
+        const fNodes = model.fastenerNodes.filter(fn => fn.fastenerId === fIdx);
+        const beams = model.beamElements.filter(be => be.fastenerId === fIdx);
+        const contacts = model.contactSpringElements.filter(cs => cs.fastenerId === fIdx);
+
+        fNodes.forEach(fn => {
+            const cs = contacts.find(c => c.fastenerNodeId === fn.id);
+            const layer = getLayer(fn.layerId);
+            console.log(`     Layer ${layer?.name || fn.layerId}: CS_force=${DEBUG.fmt(cs?.force)} lbf`);
+        });
+        beams.forEach(be => {
+            console.log(`     Beam ${be.id}: shear=${DEBUG.fmt(be.force)} lbf`);
+        });
+    }
+
+    // 8. VALIDATION SUMMARY
+    console.log('\n' + '='.repeat(60));
+    if (maxImbalance < 1e-6) {
+        console.log('✅ VALIDATION PASSED - All nodes in equilibrium');
+    } else {
+        console.log(`❌ VALIDATION FAILED - Max node imbalance: ${DEBUG.fmt(maxImbalance)} lbf`);
+        console.log('   Possible causes:');
+        console.log('   1. Beam force calculation may be incorrect');
+        console.log('   2. Sign convention mismatch between element types');
+        console.log('   3. Double-counting of forces');
+    }
+    console.log('='.repeat(60) + '\n');
+
+    return { maxImbalance, totalAppliedLoad, totalReaction };
+}
+
+/**
+ * Debug function to print stiffness matrix structure
+ */
+function debugStiffnessMatrix(K, dofMap, label = 'K') {
+    if (!DEBUG.enabled) return;
+    console.log(`\n📦 ${label} Matrix Structure:`);
+    const size = K.size()[0];
+    console.log(`   Size: ${size} x ${size}`);
+
+    // Print diagonal terms
+    console.log('   Diagonal terms:');
+    for (let i = 0; i < Math.min(size, 20); i++) {
+        const val = math.subset(K, math.index(i, i));
+        console.log(`     K[${i},${i}] = ${DEBUG.fmt(val)}`);
+    }
+}
+
 let selectedElement = null;
 
 // --- DOM Elements ---
@@ -225,6 +497,290 @@ function calculateFastenerElementStiffness(fastenerElement) {
     return stiffness;
 }
 
+// --- NEW: Beam + Contact Spring Stiffness Functions ---
+
+/**
+ * Get fastener node by ID
+ */
+function getFastenerNode(id) {
+    return model.fastenerNodes.find(n => n.id === id) || null;
+}
+
+/**
+ * Calculate the Tate & Rosenfeld flexibility for an interface between two layers
+ * @param {number} t1 - Thickness of layer 1
+ * @param {number} t2 - Thickness of layer 2
+ * @param {number} E1 - Modulus of layer 1
+ * @param {number} E2 - Modulus of layer 2
+ * @param {number} d - Fastener diameter
+ * @param {number} Ef - Fastener modulus
+ * @param {number} nu_f - Fastener Poisson's ratio
+ * @returns {number} Total flexibility C_TR
+ */
+function calculateTateRosenfeldFlexibility(t1, t2, E1, E2, d, Ef, nu_f) {
+    const safeTerm = (val) => (isFinite(val) && val >= 0 ? val : 0);
+    const term1 = safeTerm(1 / (Ef * t1));      // Fastener bearing in layer 1
+    const term2 = safeTerm(1 / (Ef * t2));      // Fastener bearing in layer 2
+    const term3 = safeTerm(1 / (E1 * t1));      // Plate bearing in layer 1
+    const term4 = safeTerm(1 / (E2 * t2));      // Plate bearing in layer 2
+    const term5_coeff_denom = 9 * Ef * Math.PI * d ** 2;
+    const term5_coeff = term5_coeff_denom !== 0 ? 32 / term5_coeff_denom : 0;
+    const term5 = safeTerm(term5_coeff * (1 + nu_f) * (t1 + t2));  // Shear deformation
+    const term6_coeff_denom = 5 * Ef * Math.PI * d ** 4;
+    const term6_coeff = term6_coeff_denom !== 0 ? 8 / term6_coeff_denom : 0;
+    const term6 = safeTerm(term6_coeff * (t1 ** 3 + 5 * t1 ** 2 * t2 + 5 * t1 * t2 ** 2 + t2 ** 3)); // Bending
+
+    return term1 + term2 + term3 + term4 + term5 + term6;
+}
+
+/**
+ * Calculate the beam flexibility for a segment of length L
+ * Uses guided boundary conditions (theta=0 at ends) for the flexibility extraction
+ * @param {number} L - Beam segment length
+ * @param {number} d - Fastener diameter
+ * @param {number} Ef - Fastener modulus
+ * @param {number} nu_f - Fastener Poisson's ratio
+ * @returns {number} Beam flexibility C_beam
+ */
+function calculateBeamFlexibility(L, d, Ef, nu_f) {
+    const I = Math.PI * Math.pow(d, 4) / 64;    // Moment of inertia
+    const A = Math.PI * Math.pow(d, 2) / 4;     // Cross-sectional area
+    const kappa = 0.9;                           // Shear correction factor for circular section
+    const As = kappa * A;                        // Shear area
+    const Gf = Ef / (2 * (1 + nu_f));           // Shear modulus
+
+    // Flexibility = bending + shear (for guided boundary conditions)
+    const C_bending = Math.pow(L, 3) / (12 * Ef * I);
+    const C_shear = L / (Gf * As);
+
+    return C_bending + C_shear;
+}
+
+/**
+ * Calculate the 4x4 Timoshenko beam element stiffness matrix
+ * DOF order: [u_i, theta_i, u_j, theta_j] where u is shear displacement, theta is rotation
+ * @param {Object} beamElement - The beam element
+ * @returns {Object} { matrix: 4x4 stiffness matrix, Ef, I, L, Phi } or null on error
+ */
+function calculateBeamElementStiffnessMatrix(beamElement) {
+    if (!beamElement) return null;
+
+    const fastenerNode1 = getFastenerNode(beamElement.node1Id);
+    const fastenerNode2 = getFastenerNode(beamElement.node2Id);
+    const fastener = getFastener(beamElement.fastenerId);
+
+    if (!fastenerNode1 || !fastenerNode2 || !fastener || fastener.diameter <= 0) {
+        console.warn(`Invalid properties for beam element ${beamElement.id}`);
+        return null;
+    }
+
+    // Get layer thicknesses from adjacent layer elements
+    const layerNode1 = getNode(fastenerNode1.correspondingLayerNodeId);
+    const layerNode2 = getNode(fastenerNode2.correspondingLayerNodeId);
+    if (!layerNode1 || !layerNode2) {
+        console.warn(`Could not find corresponding layer nodes for beam element ${beamElement.id}`);
+        return null;
+    }
+
+    // Find layer element at each layer to get thickness
+    const layerEl1 = model.layerElements.find(el => el.node1Id === layerNode1.id || el.node2Id === layerNode1.id);
+    const layerEl2 = model.layerElements.find(el => el.node1Id === layerNode2.id || el.node2Id === layerNode2.id);
+
+    if (!layerEl1 || !layerEl2) {
+        console.warn(`Could not find layer elements for beam element ${beamElement.id}`);
+        return null;
+    }
+
+    const t1 = layerEl1.t;
+    const t2 = layerEl2.t;
+    const d = fastener.diameter;
+
+    const fastenerMaterialProps = MATERIALS[model.fastenerMaterialName];
+    if (!fastenerMaterialProps) {
+        console.warn(`Invalid fastener material: ${model.fastenerMaterialName}`);
+        return null;
+    }
+
+    const Ef = fastenerMaterialProps.E;
+    const nu_f = fastenerMaterialProps.nu;
+
+    // Beam length = distance between layer mid-planes
+    const L = (t1 + t2) / 2;
+
+    // Beam properties
+    const I = Math.PI * Math.pow(d, 4) / 64;
+    const A = Math.PI * Math.pow(d, 2) / 4;
+    const kappa = 0.9;
+    const Gf = Ef / (2 * (1 + nu_f));
+
+    // Shear deformation parameter
+    const Phi = (12 * Ef * I) / (kappa * A * Gf * L * L);
+
+    // Timoshenko beam stiffness matrix coefficients
+    const coeff = Ef * I / (Math.pow(L, 3) * (1 + Phi));
+
+    // 4x4 stiffness matrix: [u_i, theta_i, u_j, theta_j]
+    const k = [
+        [12 * coeff, 6 * L * coeff, -12 * coeff, 6 * L * coeff],
+        [6 * L * coeff, 4 * L * L * coeff * (1 + Phi / 4), -6 * L * coeff, 2 * L * L * coeff * (1 - Phi / 2)],
+        [-12 * coeff, -6 * L * coeff, 12 * coeff, -6 * L * coeff],
+        [6 * L * coeff, 2 * L * L * coeff * (1 - Phi / 2), -6 * L * coeff, 4 * L * L * coeff * (1 + Phi / 4)]
+    ];
+
+    // Store properties on the element for later use
+    beamElement.length = L;
+    beamElement.stiffnessMatrix = k;
+
+    console.log(`DEBUG: Beam Element ${beamElement.id} L=${L.toFixed(4)} in, k[0,0]=${k[0][0].toExponential(3)}`);
+
+    return { matrix: k, Ef, I, L, Phi, t1, t2 };
+}
+
+/**
+ * Calculate contact spring stiffness (residual flexibility after beam)
+ * @param {Object} contactSpring - The contact spring element
+ * @returns {number} Stiffness k_contact
+ */
+function calculateContactSpringStiffness(contactSpring) {
+    if (!contactSpring) return 0;
+
+    const fastenerNode = getFastenerNode(contactSpring.fastenerNodeId);
+    const layerNode = getNode(contactSpring.layerNodeId);
+
+    if (!fastenerNode || !layerNode) {
+        console.warn(`Invalid nodes for contact spring ${contactSpring.id}`);
+        return 1e12; // Very stiff as fallback
+    }
+
+    const fastener = getFastener(fastenerNode.fastenerId);
+    if (!fastener || fastener.diameter <= 0) {
+        console.warn(`Invalid fastener for contact spring ${contactSpring.id}`);
+        return 1e12;
+    }
+
+    // Find adjacent beam element to get the interface properties
+    const beamElement = model.beamElements.find(be =>
+        be.node1Id === fastenerNode.id || be.node2Id === fastenerNode.id
+    );
+
+    if (!beamElement) {
+        // This is a fastener node at the end (top or bottom layer) - no beam above/below
+        // Use single-layer flexibility approximation
+        const layerEl = model.layerElements.find(el =>
+            el.node1Id === layerNode.id || el.node2Id === layerNode.id
+        );
+        if (!layerEl) return 1e12;
+
+        const t = layerEl.t;
+        const E_layer = MATERIALS[layerEl.materialName]?.E || 10e6;
+        const d = fastener.diameter;
+        const fastenerMat = MATERIALS[model.fastenerMaterialName];
+        const Ef = fastenerMat?.E || 29e6;
+        const nu_f = fastenerMat?.nu || 0.3;
+
+        // Simple bearing flexibility for single layer
+        const C_bearing = 1 / (E_layer * t) + 1 / (Ef * t);
+        return 1 / C_bearing;
+    }
+
+    // Get beam properties to calculate C_beam
+    const beamProps = calculateBeamElementStiffnessMatrix(beamElement);
+    if (!beamProps) return 1e12;
+
+    const { t1, t2, L, Ef, Phi } = beamProps;
+    const d = fastener.diameter;
+    const nu_f = MATERIALS[model.fastenerMaterialName]?.nu || 0.3;
+
+    // Find layer properties
+    const layerEl = model.layerElements.find(el =>
+        el.node1Id === layerNode.id || el.node2Id === layerNode.id
+    );
+    const otherFastenerNodeId = beamElement.node1Id === fastenerNode.id ? beamElement.node2Id : beamElement.node1Id;
+    const otherFastenerNode = getFastenerNode(otherFastenerNodeId);
+    const otherLayerNode = otherFastenerNode ? getNode(otherFastenerNode.correspondingLayerNodeId) : null;
+    const otherLayerEl = otherLayerNode ? model.layerElements.find(el =>
+        el.node1Id === otherLayerNode.id || el.node2Id === otherLayerNode.id
+    ) : null;
+
+    if (!layerEl || !otherLayerEl) return 1e12;
+
+    const E1 = MATERIALS[layerEl.materialName]?.E || 10e6;
+    const E2 = MATERIALS[otherLayerEl.materialName]?.E || 10e6;
+    const t_this = layerEl.t;
+    const t_other = otherLayerEl.t;
+
+    // Calculate T&R total flexibility
+    const C_TR = calculateTateRosenfeldFlexibility(t_this, t_other, E1, E2, d, Ef, nu_f);
+
+    // Calculate beam flexibility
+    const C_beam = calculateBeamFlexibility(L, d, Ef, nu_f);
+
+    // Residual flexibility
+    const C_resid = C_TR - C_beam;
+
+    if (C_resid <= 0) {
+        console.warn(`Contact spring ${contactSpring.id}: C_resid <= 0, using very stiff spring`);
+        return 1e12;
+    }
+
+    // Split residual between two contact springs (one at each end of beam)
+    const k_node = 2 / C_resid;
+
+    contactSpring.stiffness = k_node;
+    console.log(`DEBUG: Contact Spring ${contactSpring.id} k=${k_node.toExponential(3)} lbf/in`);
+
+    return k_node;
+}
+
+/**
+ * Calculate rotational spring stiffness (grounded, representing plate bore restraint)
+ * k_theta = C_rot * E_layer * t^3 / d
+ * @param {Object} rotSpring - The rotational spring element
+ * @returns {number} Rotational stiffness k_theta (moment per radian)
+ */
+function calculateRotationalSpringStiffness(rotSpring) {
+    if (!rotSpring) return 0;
+
+    const fastenerNode = getFastenerNode(rotSpring.fastenerNodeId);
+    if (!fastenerNode) {
+        console.warn(`Invalid fastener node for rotational spring ${rotSpring.id}`);
+        return 0;
+    }
+
+    const layerNode = getNode(fastenerNode.correspondingLayerNodeId);
+    const fastener = getFastener(fastenerNode.fastenerId);
+
+    if (!layerNode || !fastener) {
+        console.warn(`Invalid layer node or fastener for rotational spring ${rotSpring.id}`);
+        return 0;
+    }
+
+    // Find layer element to get material and thickness
+    const layerEl = model.layerElements.find(el =>
+        el.node1Id === layerNode.id || el.node2Id === layerNode.id
+    );
+
+    if (!layerEl) {
+        console.warn(`Could not find layer element for rotational spring ${rotSpring.id}`);
+        return 0;
+    }
+
+    const E_layer = MATERIALS[layerEl.materialName]?.E || 10e6;
+    const t = layerEl.t;
+    const d = fastener.diameter;
+
+    // Empirical constant for rotational restraint (can be tuned)
+    const C_rot = 1.0;
+
+    // k_theta = C_rot * E * t^3 / d
+    // Units: (psi * in^3) / in = lb-in / rad
+    const k_theta = C_rot * E_layer * Math.pow(t, 3) / d;
+
+    rotSpring.stiffness = k_theta;
+    console.log(`DEBUG: Rotational Spring ${rotSpring.id} k_theta=${k_theta.toExponential(3)} lb-in/rad`);
+
+    return k_theta;
+}
 
 // --- Model Generation ---
 function generateInitialModel() {
@@ -244,10 +800,13 @@ function generateInitialModel() {
         }
 
         model.nodes = [];
+        model.fastenerNodes = [];
         model.layers = [];
         model.fasteners = [];
         model.layerElements = [];
-        model.fastenerElements = [];
+        model.beamElements = [];
+        model.contactSpringElements = [];
+        model.rotationalSpringElements = [];
 
         const globalLayerMatName = globalLayerMaterialSelect.value;
         const globalW_in = parseFloat(globalLayerWInput.value);
@@ -310,24 +869,81 @@ function generateInitialModel() {
             }
         }
 
-        let fastenerElementId = 0;
+        // --- NEW: Create fastener nodes, beam elements, contact springs, rotational springs ---
+        let fastenerNodeId = 0;
+        let beamElementId = 0;
+        let contactSpringId = 0;
+        let rotationalSpringId = 0;
+
         for (let j = 0; j < model.numFasteners; j++) {
-            for (let i = 0; i < model.numLayers - 1; i++) {
-                const nodeColIndex = j + 1;
-                const node1Id = i * numNodeCols + nodeColIndex;
-                const node2Id = (i + 1) * numNodeCols + nodeColIndex;
-                model.fastenerElements.push({
-                    id: fastenerElementId++,
-                    node1Id: node1Id,
-                    node2Id: node2Id,
+            const nodeColIndex = j + 1; // Fastener columns are 1, 2, ... numFasteners
+
+            // Create fastener nodes at each layer for this fastener column
+            const fastenerNodesInColumn = [];
+            for (let i = 0; i < model.numLayers; i++) {
+                // Find corresponding layer node
+                const layerNode = model.nodes.find(n => n.layer === i && n.nodeColIndex === nodeColIndex);
+                if (!layerNode) continue;
+
+                const fNode = {
+                    id: fastenerNodeId++,
+                    x: layerNode.x,  // Coincident with layer node
+                    y: layerNode.y,
+                    u: 0,            // Translation DOF
+                    theta: 0,        // Rotation DOF
+                    correspondingLayerNodeId: layerNode.id,
+                    layerId: i,
+                    fastenerId: j
+                };
+                model.fastenerNodes.push(fNode);
+                fastenerNodesInColumn.push(fNode);
+
+                // Create contact spring connecting layer node to fastener node
+                model.contactSpringElements.push({
+                    id: contactSpringId++,
+                    layerNodeId: layerNode.id,
+                    fastenerNodeId: fNode.id,
                     fastenerId: j,
+                    layerId: i,
                     stiffness: 0,
+                    force: 0
+                });
+
+                // Create rotational spring at this fastener node (grounded)
+                model.rotationalSpringElements.push({
+                    id: rotationalSpringId++,
+                    fastenerNodeId: fNode.id,
+                    fastenerId: j,
+                    layerId: i,
+                    stiffness: 0,
+                    moment: 0
+                });
+            }
+
+            // Create beam elements connecting adjacent fastener nodes vertically
+            for (let i = 0; i < fastenerNodesInColumn.length - 1; i++) {
+                const fNode1 = fastenerNodesInColumn[i];
+                const fNode2 = fastenerNodesInColumn[i + 1];
+                model.beamElements.push({
+                    id: beamElementId++,
+                    node1Id: fNode1.id,
+                    node2Id: fNode2.id,
+                    fastenerId: j,
+                    stiffnessMatrix: null,  // Will be computed during solve
+                    length: 0,
                     force: 0
                 });
             }
         }
 
         console.log("Model generated:", model);
+        console.log(`  Layer nodes: ${model.nodes.length}`);
+        console.log(`  Fastener nodes: ${model.fastenerNodes.length}`);
+        console.log(`  Layer elements: ${model.layerElements.length}`);
+        console.log(`  Beam elements: ${model.beamElements.length}`);
+        console.log(`  Contact springs: ${model.contactSpringElements.length}`);
+        console.log(`  Rotational springs: ${model.rotationalSpringElements.length}`);
+
         updateVisualization();
         updateLayerSelectors();
         updateDisplays();
@@ -350,7 +966,8 @@ function generateInitialModel() {
         showMessage(`Error generating model: ${error.message}`);
         console.error("Model Generation Error:", error);
         resultsSummaryDiv.innerHTML = `<p class="text-red-600">Model generation failed: ${error.message}</p>`;
-        model.nodes = []; model.layers = []; model.fasteners = []; model.layerElements = []; model.fastenerElements = [];
+        model.nodes = []; model.fastenerNodes = []; model.layers = []; model.fasteners = [];
+        model.layerElements = []; model.beamElements = []; model.contactSpringElements = []; model.rotationalSpringElements = [];
         updateVisualization(); updateLayerSelectors(); updateDisplays();
     }
 }
@@ -483,37 +1100,67 @@ function updateVisualization(showForces = false) {
         }
     });
 
-    model.fastenerElements.forEach(el => {
-        const node1 = getNode(el.node1Id);
-        const node2 = getNode(el.node2Id);
-        if (!node1 || !node2) { console.warn(`Nodes not found for Fastener El ${el.id}`); return; }
+    // Update fastener node positions to match their corresponding layer nodes
+    model.fastenerNodes.forEach(fNode => {
+        const layerNode = getNode(fNode.correspondingLayerNodeId);
+        if (layerNode) {
+            fNode.x = layerNode.x + 8; // Slight offset for visibility
+            fNode.y = layerNode.y;
+        }
+    });
+
+    // Draw beam elements (fastener shank segments)
+    model.beamElements.forEach(el => {
+        const fNode1 = getFastenerNode(el.node1Id);
+        const fNode2 = getFastenerNode(el.node2Id);
+        if (!fNode1 || !fNode2) { console.warn(`Fastener nodes not found for Beam El ${el.id}`); return; }
 
         const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-        line.setAttribute('x1', node1.x); line.setAttribute('y1', node1.y);
-        line.setAttribute('x2', node2.x); line.setAttribute('y2', node2.y);
-        line.setAttribute('class', 'fastener-element');
+        line.setAttribute('x1', fNode1.x); line.setAttribute('y1', fNode1.y);
+        line.setAttribute('x2', fNode2.x); line.setAttribute('y2', fNode2.y);
+        line.setAttribute('class', 'beam-element');
+        line.setAttribute('stroke', '#22c55e');  // Green
+        line.setAttribute('stroke-width', '4');
         visualizationSVG.appendChild(line);
 
         const clickTargetLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-        clickTargetLine.setAttribute('x1', node1.x); clickTargetLine.setAttribute('y1', node1.y);
-        clickTargetLine.setAttribute('x2', node2.x); clickTargetLine.setAttribute('y2', node2.y);
+        clickTargetLine.setAttribute('x1', fNode1.x); clickTargetLine.setAttribute('y1', fNode1.y);
+        clickTargetLine.setAttribute('x2', fNode2.x); clickTargetLine.setAttribute('y2', fNode2.y);
         clickTargetLine.setAttribute('class', 'click-target');
-        clickTargetLine.dataset.elementType = 'fastenerElement';
+        clickTargetLine.dataset.elementType = 'beamElement';
         clickTargetLine.dataset.elementId = el.id;
         clickTargetLine.addEventListener('click', handleElementSelect);
         visualizationSVG.appendChild(clickTargetLine);
 
-        if (selectedElement && selectedElement.type === 'fastenerElement' && selectedElement.id === el.id) {
+        if (selectedElement && selectedElement.type === 'beamElement' && selectedElement.id === el.id) {
             line.classList.add('selected');
         }
 
         if (showForces && el.force !== undefined && !isNaN(el.force)) {
             const forceLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            forceLabel.setAttribute('x', node1.x + 5); forceLabel.setAttribute('y', (node1.y + node2.y) / 2);
+            forceLabel.setAttribute('x', fNode1.x + 10);
+            forceLabel.setAttribute('y', (fNode1.y + fNode2.y) / 2);
             forceLabel.setAttribute('class', 'force-label');
+            forceLabel.setAttribute('fill', '#22c55e');
             forceLabel.textContent = `${el.force.toFixed(1)} lbf`;
             visualizationSVG.appendChild(forceLabel);
         }
+    });
+
+    // Draw contact springs (layer node to fastener node connections)
+    model.contactSpringElements.forEach(el => {
+        const layerNode = getNode(el.layerNodeId);
+        const fNode = getFastenerNode(el.fastenerNodeId);
+        if (!layerNode || !fNode) { console.warn(`Nodes not found for Contact Spring ${el.id}`); return; }
+
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', layerNode.x); line.setAttribute('y1', layerNode.y);
+        line.setAttribute('x2', fNode.x); line.setAttribute('y2', fNode.y);
+        line.setAttribute('class', 'contact-spring');
+        line.setAttribute('stroke', '#f59e0b');  // Amber/orange
+        line.setAttribute('stroke-width', '2');
+        line.setAttribute('stroke-dasharray', '3,2');
+        visualizationSVG.appendChild(line);
     });
 
     const actualRightmostNodeX = Math.max(...model.nodes.map(n => n.x));
@@ -573,6 +1220,18 @@ function updateVisualization(showForces = false) {
                 visualizationSVG.appendChild(loadLabel);
             }
         }
+        visualizationSVG.appendChild(circle);
+    });
+
+    // Draw fastener nodes (purple circles, slightly offset)
+    model.fastenerNodes.forEach(fNode => {
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('cx', fNode.x);
+        circle.setAttribute('cy', fNode.y);
+        circle.setAttribute('class', 'fastener-node');
+        circle.setAttribute('fill', '#9333ea');  // Purple
+        circle.setAttribute('r', '4');
+        circle.dataset.fastenerNodeId = fNode.id;
         visualizationSVG.appendChild(circle);
     });
 
@@ -1234,7 +1893,7 @@ function updateDisplays() {
 
 // --- Solver ---
 function solve() {
-    console.log("Starting solver...");
+    console.log("Starting solver with beam + contact spring topology...");
     resultsSummaryDiv.innerHTML = '<p>Solving...</p>';
     updateVisualization(false);
 
@@ -1244,204 +1903,276 @@ function solve() {
             if (model.nodes.length === 0) throw new Error("No nodes in model to solve.");
 
             // 1. Assign Degrees of Freedom (DOF)
+            // Layer nodes: 1 DOF each (u - translation)
+            // Fastener nodes: 2 DOFs each (u - translation, theta - rotation)
             let dofCounter = 0;
-            const nodeIdToIndexMap = new Map();
+            const layerNodeDofMap = new Map();  // nodeId -> { u_dof }
+            const fastenerNodeDofMap = new Map();  // nodeId -> { u_dof, theta_dof }
+
             model.nodes.forEach(node => {
-                nodeIdToIndexMap.set(node.id, dofCounter++);
+                layerNodeDofMap.set(node.id, { u_dof: dofCounter++ });
             });
+
+            model.fastenerNodes.forEach(fNode => {
+                fastenerNodeDofMap.set(fNode.id, {
+                    u_dof: dofCounter++,
+                    theta_dof: dofCounter++
+                });
+            });
+
             const N_solve = dofCounter;
-            console.log(`System DOF: ${N_solve}`);
+            console.log(`System DOF: ${N_solve} (${model.nodes.length} layer nodes + ${model.fastenerNodes.length} fastener nodes × 2)`);
 
             // 2. Initialize Global Stiffness Matrix (K) and Force Vector (F)
-            // Using math.js sparse matrices for efficiency
             let K_global = math.zeros(N_solve, N_solve, 'sparse');
             let F_global = math.zeros(N_solve);
+
+            // Helper function to add to sparse matrix
+            const addToK = (i, j, val) => {
+                if (i < 0 || j < 0 || i >= N_solve || j >= N_solve) return;
+                const current = math.subset(K_global, math.index(i, j));
+                K_global = math.subset(K_global, math.index(i, j), (current || 0) + val);
+            };
 
             // 3. Assemble Stiffness Matrix
             console.log("Assembling Global Stiffness Matrix K...");
 
+            // 3a. Layer elements (axial springs between layer nodes)
             model.layerElements.forEach(el => {
-                const i_idx = nodeIdToIndexMap.get(el.node1Id);
-                const j_idx = nodeIdToIndexMap.get(el.node2Id);
+                const dof1 = layerNodeDofMap.get(el.node1Id);
+                const dof2 = layerNodeDofMap.get(el.node2Id);
+                if (!dof1 || !dof2) {
+                    throw new Error(`DOF not found for Layer Element ${el.id}.`);
+                }
+
                 const k = calculateLayerElementStiffness(el);
                 el.stiffness = k;
 
-                if (i_idx === undefined || j_idx === undefined) {
-                    throw new Error(`Node index not found for Layer Element ${el.id}.`);
-                }
                 if (isNaN(k) || !isFinite(k)) {
-                    throw new Error(`Invalid stiffness calculated for Layer Element ${el.id} (k=${k}). Check properties.`);
+                    throw new Error(`Invalid stiffness for Layer Element ${el.id} (k=${k}).`);
                 }
 
-                const currentKi = math.subset(K_global, math.index(i_idx, i_idx));
-                const currentKj = math.subset(K_global, math.index(j_idx, j_idx));
-                const currentKij = math.subset(K_global, math.index(i_idx, j_idx));
-                const currentKji = math.subset(K_global, math.index(j_idx, i_idx));
-
-                K_global = math.subset(K_global, math.index(i_idx, i_idx), math.add(currentKi === undefined ? 0 : currentKi, k));
-                K_global = math.subset(K_global, math.index(j_idx, j_idx), math.add(currentKj === undefined ? 0 : currentKj, k));
-                K_global = math.subset(K_global, math.index(i_idx, j_idx), math.subtract(currentKij === undefined ? 0 : currentKij, k));
-                K_global = math.subset(K_global, math.index(j_idx, i_idx), math.subtract(currentKji === undefined ? 0 : currentKji, k));
+                const i = dof1.u_dof;
+                const j = dof2.u_dof;
+                addToK(i, i, k);
+                addToK(j, j, k);
+                addToK(i, j, -k);
+                addToK(j, i, -k);
             });
 
-            model.fastenerElements.forEach(el => {
-                const i_idx = nodeIdToIndexMap.get(el.node1Id);
-                const j_idx = nodeIdToIndexMap.get(el.node2Id);
-                const k = calculateFastenerElementStiffness(el);
+            // 3b. Beam elements (Timoshenko beams between fastener nodes)
+            model.beamElements.forEach(el => {
+                const dof1 = fastenerNodeDofMap.get(el.node1Id);
+                const dof2 = fastenerNodeDofMap.get(el.node2Id);
+                if (!dof1 || !dof2) {
+                    throw new Error(`DOF not found for Beam Element ${el.id}.`);
+                }
+
+                const beamResult = calculateBeamElementStiffnessMatrix(el);
+                if (!beamResult || !beamResult.matrix) {
+                    console.warn(`Could not calculate beam stiffness for Element ${el.id}, skipping`);
+                    return;  // Skip this element
+                }
+
+                const kMatrix = beamResult.matrix;
+                // DOF order: [u_i, theta_i, u_j, theta_j]
+                const dofs = [dof1.u_dof, dof1.theta_dof, dof2.u_dof, dof2.theta_dof];
+
+                for (let r = 0; r < 4; r++) {
+                    for (let c = 0; c < 4; c++) {
+                        addToK(dofs[r], dofs[c], kMatrix[r][c]);
+                    }
+                }
+            });
+
+            // 3c. Contact springs (shear springs between layer node and fastener node)
+            model.contactSpringElements.forEach(el => {
+                const layerDof = layerNodeDofMap.get(el.layerNodeId);
+                const fastenerDof = fastenerNodeDofMap.get(el.fastenerNodeId);
+                if (!layerDof || !fastenerDof) {
+                    throw new Error(`DOF not found for Contact Spring ${el.id}.`);
+                }
+
+                const k = calculateContactSpringStiffness(el);
                 el.stiffness = k;
 
-                if (i_idx === undefined || j_idx === undefined) {
-                    throw new Error(`Node index not found for Fastener Element ${el.id}.`);
-                }
-                if (isNaN(k) || k <= 0 || !isFinite(k)) {
-                    throw new Error(`Invalid stiffness calculated for Fastener Element ${el.id} (k=${k}). Check properties.`);
+                if (isNaN(k) || !isFinite(k) || k <= 0) {
+                    console.warn(`Invalid contact spring stiffness for ${el.id}, using 1e12`);
+                    el.stiffness = 1e12;
                 }
 
-                const currentKi = math.subset(K_global, math.index(i_idx, i_idx));
-                const currentKj = math.subset(K_global, math.index(j_idx, j_idx));
-                const currentKij = math.subset(K_global, math.index(i_idx, j_idx));
-                const currentKji = math.subset(K_global, math.index(j_idx, i_idx));
-
-                K_global = math.subset(K_global, math.index(i_idx, i_idx), math.add(currentKi === undefined ? 0 : currentKi, k));
-                K_global = math.subset(K_global, math.index(j_idx, j_idx), math.add(currentKj === undefined ? 0 : currentKj, k));
-                K_global = math.subset(K_global, math.index(i_idx, j_idx), math.subtract(currentKij === undefined ? 0 : currentKij, k));
-                K_global = math.subset(K_global, math.index(j_idx, i_idx), math.subtract(currentKji === undefined ? 0 : currentKji, k));
+                const i = layerDof.u_dof;
+                const j = fastenerDof.u_dof;
+                addToK(i, i, el.stiffness);
+                addToK(j, j, el.stiffness);
+                addToK(i, j, -el.stiffness);
+                addToK(j, i, -el.stiffness);
             });
 
+            // 3d. Rotational springs (grounded at each fastener node theta DOF)
+            model.rotationalSpringElements.forEach(el => {
+                const fastenerDof = fastenerNodeDofMap.get(el.fastenerNodeId);
+                if (!fastenerDof) {
+                    throw new Error(`DOF not found for Rotational Spring ${el.id}.`);
+                }
+
+                const k_theta = calculateRotationalSpringStiffness(el);
+                el.stiffness = k_theta;
+
+                if (isNaN(k_theta) || !isFinite(k_theta) || k_theta < 0) {
+                    console.warn(`Invalid rotational spring stiffness for ${el.id}, using 0`);
+                    el.stiffness = 0;
+                }
+
+                // Grounded spring: only adds to diagonal of theta DOF
+                const theta_idx = fastenerDof.theta_dof;
+                addToK(theta_idx, theta_idx, el.stiffness);
+            });
+
+            // 4. Assemble Force Vector
             console.log("Assembling Global Force Vector F (lbf)...");
             model.nodes.forEach(node => {
                 if (node.F !== 0 && node.prescribedU === null) {
-                    const node_idx = nodeIdToIndexMap.get(node.id);
-                    if (node_idx === undefined) {
-                        throw new Error(`Node index not found in map for Force application at Node ${node.id}.`);
+                    const dof = layerNodeDofMap.get(node.id);
+                    if (!dof) {
+                        throw new Error(`DOF not found for Force application at Node ${node.id}.`);
                     }
-                    const currentF = math.subset(F_global, math.index(node_idx));
-                    F_global = math.subset(F_global, math.index(node_idx), math.add(currentF === undefined ? 0 : currentF, node.F));
+                    const currentF = math.subset(F_global, math.index(dof.u_dof));
+                    F_global = math.subset(F_global, math.index(dof.u_dof), (currentF || 0) + node.F);
                 }
             });
 
+            // 5. Apply Boundary Conditions (Penalty Method)
             console.log("Applying Boundary Conditions (Penalty Method)...");
             let max_diag = 0;
             for (let i = 0; i < N_solve; i++) {
                 const diagVal = math.subset(K_global, math.index(i, i));
                 if (typeof diagVal === 'number' && isFinite(diagVal)) {
                     max_diag = Math.max(max_diag, Math.abs(diagVal));
-                } else if (diagVal !== undefined) {
-                    console.warn(`Non-numeric or infinite diagonal value found at K[${i},${i}]:`, diagVal);
                 }
             }
             const penaltyStiffness = max_diag > 1e-9 ? max_diag * 1e8 : 1e8;
-            if (!isFinite(penaltyStiffness)) {
-                throw new Error("Calculated invalid penalty stiffness (Infinite or NaN). Check K matrix diagonals.");
-            }
             console.log("Penalty Stiffness:", penaltyStiffness.toExponential(3));
 
-            let constrainedIndicesInfo = [];
+            let constrainedCount = 0;
             model.nodes.forEach(node => {
+                const dof = layerNodeDofMap.get(node.id);
+                if (!dof) return;
+
                 let applyPenalty = false;
                 let prescribedDisp = 0;
-                const node_idx = nodeIdToIndexMap.get(node.id);
-
-                if (node_idx === undefined) {
-                    throw new Error(`Node index not found in map during BC application at Node ${node.id}.`);
-                }
 
                 if (node.isFixed) {
                     applyPenalty = true;
                     prescribedDisp = 0;
-                    constrainedIndicesInfo.push({ id: node.id, index: node_idx, type: 'Fixed' });
+                    constrainedCount++;
                 } else if (node.prescribedU !== null) {
                     applyPenalty = true;
                     prescribedDisp = node.prescribedU;
-                    if (isNaN(prescribedDisp) || !isFinite(prescribedDisp)) {
-                        throw new Error(`Invalid prescribed displacement value (${prescribedDisp}) for Node ${node.id}.`);
-                    }
-                    constrainedIndicesInfo.push({ id: node.id, index: node_idx, type: 'Disp', value: prescribedDisp });
+                    constrainedCount++;
                 }
 
                 if (applyPenalty) {
-                    const currentKValue = math.subset(K_global, math.index(node_idx, node_idx));
-                    const newKValue = math.add(currentKValue === undefined ? 0 : currentKValue, penaltyStiffness);
-                    K_global = math.subset(K_global, math.index(node_idx, node_idx), newKValue);
-
-                    const currentFValue = math.subset(F_global, math.index(node_idx));
-                    const penaltyForce = penaltyStiffness * prescribedDisp;
-                    const newFValue = math.add(currentFValue === undefined ? 0 : currentFValue, penaltyForce);
-                    F_global = math.subset(F_global, math.index(node_idx), newFValue);
+                    const idx = dof.u_dof;
+                    addToK(idx, idx, penaltyStiffness);
+                    const currentF = math.subset(F_global, math.index(idx));
+                    F_global = math.subset(F_global, math.index(idx), (currentF || 0) + penaltyStiffness * prescribedDisp);
                 }
             });
-            if (constrainedIndicesInfo.length === 0) {
-                throw new Error("Solver Error: No boundary conditions were identified for application on remaining nodes.");
+
+            if (constrainedCount === 0) {
+                throw new Error("Solver Error: No boundary conditions applied.");
             }
-            console.log("Applied BCs to nodes (ID/Index):", constrainedIndicesInfo);
+            console.log(`Applied BCs to ${constrainedCount} nodes.`);
 
-
+            // 6. Solve KU = F
             console.log("Solving KU=F using LU decomposition...");
             const F_col_vector = math.reshape(F_global, [N_solve, 1]);
             const U_solution_matrix = math.lusolve(K_global, F_col_vector);
             console.log("Solver finished.");
 
-            model.nodes.forEach((node) => {
-                const node_idx = nodeIdToIndexMap.get(node.id);
-                if (node_idx !== undefined) {
-                    const displacement = U_solution_matrix.get([node_idx, 0]);
-                    if (isNaN(displacement) || !isFinite(displacement)) {
-                        console.warn(`Invalid displacement calculated for node ${node.id} (index ${node_idx}). Setting to 0.`);
-                        node.u = 0;
-                    } else {
-                        node.u = displacement;
-                    }
-                } else {
-                    console.warn(`Node ${node.id} not found in index map during post-processing.`);
-                    node.u = 0;
+            // 7. Extract displacements
+            model.nodes.forEach(node => {
+                const dof = layerNodeDofMap.get(node.id);
+                if (dof) {
+                    const displacement = U_solution_matrix.get([dof.u_dof, 0]);
+                    node.u = isFinite(displacement) ? displacement : 0;
                 }
             });
 
+            model.fastenerNodes.forEach(fNode => {
+                const dof = fastenerNodeDofMap.get(fNode.id);
+                if (dof) {
+                    const u = U_solution_matrix.get([dof.u_dof, 0]);
+                    const theta = U_solution_matrix.get([dof.theta_dof, 0]);
+                    fNode.u = isFinite(u) ? u : 0;
+                    fNode.theta = isFinite(theta) ? theta : 0;
+                }
+            });
+
+            // 8. Calculate element forces
             model.layerElements.forEach(el => {
                 const n1 = getNode(el.node1Id);
                 const n2 = getNode(el.node2Id);
                 if (n1 && n2) {
                     el.force = el.stiffness * (n2.u - n1.u);
-                    if (isNaN(el.force) || !isFinite(el.force)) {
-                        console.warn(`NaN/Infinite force calculated for Layer El ${el.id}.`);
-                        el.force = NaN;
-                    }
                 } else {
-                    console.warn(`Nodes ${el.node1Id} or ${el.node2Id} not found for Layer El ${el.id} during force calculation.`);
                     el.force = NaN;
                 }
             });
 
-            model.fastenerElements.forEach(el => {
-                const n1 = getNode(el.node1Id);
-                const n2 = getNode(el.node2Id);
-                if (n1 && n2) {
-                    el.force = el.stiffness * (n2.u - n1.u);
-                    if (isNaN(el.force) || !isFinite(el.force)) {
-                        console.warn(`NaN/Infinite force calculated for Fastener El ${el.id}.`);
-                        el.force = NaN;
-                    }
+            model.contactSpringElements.forEach(el => {
+                const layerNode = getNode(el.layerNodeId);
+                const fastenerNode = getFastenerNode(el.fastenerNodeId);
+                if (layerNode && fastenerNode) {
+                    el.force = el.stiffness * (fastenerNode.u - layerNode.u);
                 } else {
-                    console.warn(`Nodes ${el.node1Id} or ${el.node2Id} not found for Fastener El ${el.id} during force calculation.`);
                     el.force = NaN;
+                }
+            });
+
+            // Beam element forces (shear force = k_shear * (u2 - u1) approximately)
+            model.beamElements.forEach(el => {
+                const fNode1 = getFastenerNode(el.node1Id);
+                const fNode2 = getFastenerNode(el.node2Id);
+                if (fNode1 && fNode2 && el.stiffnessMatrix) {
+                    // Approximate shear force using the (0,0) term of the stiffness matrix
+                    el.force = el.stiffnessMatrix[0][0] * (fNode2.u - fNode1.u);
+                } else {
+                    el.force = NaN;
+                }
+            });
+
+            // Rotational spring moments
+            model.rotationalSpringElements.forEach(el => {
+                const fNode = getFastenerNode(el.fastenerNodeId);
+                if (fNode) {
+                    el.moment = el.stiffness * fNode.theta;
+                } else {
+                    el.moment = NaN;
                 }
             });
 
             displayResults();
             updateVisualization(true);
+
+            // Run debug validation
+            debugSolverValidation();
+
             showMessage("Solution successful!", false);
 
         } catch (error) {
-            let errorMessage = error.message;
-            if (error.data && error.data.category === 'tooFewArgs' && error.data.fn === 'add') {
-                errorMessage = `math.add error during BC application (likely sparse matrix issue): ${error.message}`;
-            }
-            showMessage(`Solver Error: ${errorMessage}`);
+            showMessage(`Solver Error: ${error.message}`);
             console.error("Solver Error Details:", error);
-            resultsSummaryDiv.innerHTML = `<p class="text-red-600">Solver failed: ${errorMessage}. Check console for details.</p>`;
+            resultsSummaryDiv.innerHTML = `<p class="text-red-600">Solver failed: ${error.message}. Check console for details.</p>`;
+
+            // Reset displacements
             model.nodes.forEach(node => node.u = 0);
+            model.fastenerNodes.forEach(fNode => { fNode.u = 0; fNode.theta = 0; });
             model.layerElements.forEach(el => el.force = 0);
-            model.fastenerElements.forEach(el => el.force = 0);
+            model.beamElements.forEach(el => el.force = 0);
+            model.contactSpringElements.forEach(el => el.force = 0);
+            model.rotationalSpringElements.forEach(el => el.moment = 0);
             updateVisualization(false);
         }
     }, 100);
@@ -1451,6 +2182,7 @@ function solve() {
 function displayResults() {
     let html = '<div class="space-y-4">';
 
+    // Layer Element Forces
     html += '<div class="bg-gray-50 p-3 rounded border border-gray-200">';
     html += '<h4 class="font-semibold text-sm text-gray-700 mb-2">Layer Element Forces (lbf)</h4>';
     html += '<div class="max-h-40 overflow-y-auto custom-scrollbar pr-2"><ul class="text-xs space-y-1">';
@@ -1461,11 +2193,37 @@ function displayResults() {
     });
     html += '</ul></div></div>';
 
-    html += '<div class="bg-gray-50 p-3 rounded border border-gray-200">';
-    html += '<h4 class="font-semibold text-sm text-gray-700 mb-2">Fastener Element Forces (lbf)</h4>';
+    // Beam Element Forces (Fastener Shank Transfer)
+    html += '<div class="bg-green-50 p-3 rounded border border-green-200">';
+    html += '<h4 class="font-semibold text-sm text-green-700 mb-2">Fastener Beam Forces (lbf)</h4>';
     html += '<div class="max-h-40 overflow-y-auto custom-scrollbar pr-2"><ul class="text-xs space-y-1">';
-    model.fastenerElements.forEach(el => {
-        html += `<li class="flex justify-between"><span>El ${el.id} (Col ${el.fastenerId}):</span> <span class="font-mono">${isNaN(el.force) ? 'NaN' : el.force.toFixed(2)}</span></li>`;
+    model.beamElements.forEach(el => {
+        const fastener = getFastener(el.fastenerId);
+        const fastenerLabel = fastener ? `Fastener ${el.fastenerId}` : `F${el.fastenerId}`;
+        html += `<li class="flex justify-between"><span>Beam ${el.id} (${fastenerLabel}):</span> <span class="font-mono">${isNaN(el.force) ? 'NaN' : el.force.toFixed(2)}</span></li>`;
+    });
+    html += '</ul></div></div>';
+
+    // Contact Spring Forces
+    html += '<div class="bg-amber-50 p-3 rounded border border-amber-200">';
+    html += '<h4 class="font-semibold text-sm text-amber-700 mb-2">Contact Spring Forces (lbf)</h4>';
+    html += '<div class="max-h-32 overflow-y-auto custom-scrollbar pr-2"><ul class="text-xs space-y-1">';
+    model.contactSpringElements.forEach(el => {
+        const layer = getLayer(el.layerId);
+        const layerName = layer ? layer.name : `L${el.layerId}`;
+        html += `<li class="flex justify-between"><span>CS ${el.id} (${layerName}, F${el.fastenerId}):</span> <span class="font-mono">${isNaN(el.force) ? 'NaN' : el.force.toFixed(2)}</span></li>`;
+    });
+    html += '</ul></div></div>';
+
+    // Fastener Rotations
+    html += '<div class="bg-purple-50 p-3 rounded border border-purple-200">';
+    html += '<h4 class="font-semibold text-sm text-purple-700 mb-2">Fastener Rotations (rad)</h4>';
+    html += '<div class="max-h-32 overflow-y-auto custom-scrollbar pr-2"><ul class="text-xs space-y-1">';
+    model.fastenerNodes.forEach(fNode => {
+        const layer = getLayer(fNode.layerId);
+        const layerName = layer ? layer.name : `L${fNode.layerId}`;
+        const thetaDeg = (fNode.theta * 180 / Math.PI).toFixed(4);
+        html += `<li class="flex justify-between"><span>F${fNode.fastenerId} @ ${layerName}:</span> <span class="font-mono">${fNode.theta.toExponential(3)} (${thetaDeg}°)</span></li>`;
     });
     html += '</ul></div></div>';
 
