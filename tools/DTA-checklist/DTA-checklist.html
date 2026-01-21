@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DT Analysis Checklist Manager</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- React and ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel for JSX transpilation -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+
+            .print-only {
+                display: block !important;
+            }
+
+            body {
+                background: white;
+            }
+
+            .flex-1 {
+                overflow: visible !important;
+                height: auto !important;
+            }
+
+            header {
+                box-shadow: none !important;
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-slate-50 text-slate-800">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // Lucide Icons setup
+        const icons = {
+            Plus: (props) => <i data-lucide="plus" {...props}></i>,
+            Check: (props) => <i data-lucide="check" {...props}></i>,
+            Trash2: (props) => <i data-lucide="trash-2" {...props}></i>,
+            FileText: (props) => <i data-lucide="file-text" {...props}></i>,
+            Briefcase: (props) => <i data-lucide="briefcase" {...props}></i>,
+            BookOpen: (props) => <i data-lucide="book-open" {...props}></i>,
+            ChevronRight: (props) => <i data-lucide="chevron-right" {...props}></i>,
+        };
+
+        // Simplified Icon component to trigger Lucide refresh
+        const Icon = ({ name, className }) => {
+            const Ref = icons[name] || (() => null);
+            return <Ref className={className} />;
+        };
+
+        // --- Default Data ---
+        const DEFAULT_FACTORS = [
+            {
+                id: "default",
+                title: "Documentation",
+                isSelected: true,
+                items: [
+                    {
+                        id: "def-1",
+                        text: "References are current",
+                        reference: "N/A",
+                        isChecked: false
+                    },
+                    {
+                        id: "def-2",
+                        text: "Front page data and footer are correct",
+                        reference: "N/A",
+                        isChecked: false
+                    },
+                    {
+                        id: "def-3",
+                        text: "All details in all FCBS have been addressed",
+                        reference: "N/A",
+                        isChecked: false
+                    }
+                ]
+            },
+            {
+                id: "static-amoc",
+                title: "Static AMOC",
+                isSelected: false,
+                items: [
+                    {
+                        id: "sa-1",
+                        text: "Static AMOC is referenced in the summary and relevant AD section (note: depending on the AD wording, the static AMOC paragraphs might need to be referenced for the DT AMOC)",
+                        reference: "Section 1.5.1",
+                        isChecked: false
+                    }
+                ]
+            },
+            {
+                id: "relative-analysis",
+                title: "Relative Analysis",
+                isSelected: false,
+                items: [
+                    {
+                        id: "ra-1",
+                        text: "25.571 amdt level for AD/SB or SRM baseline meets current requirements (e.g. an AD-mandated SB issued prior to 2008 is not valid for relative analysis because it pre-dates the Aging Aircraft Safety Rule)",
+                        reference: "Section 1.5.5",
+                        isChecked: false
+                    },
+                    {
+                        id: "ra-2",
+                        text: "The ICA clearly specifies which inspections are the alternative ones covered by the AMOC",
+                        reference: "Section 1.5.5",
+                        isChecked: false
+                    }
+                ]
+            },
+            {
+                id: "absolute-analysis",
+                title: "Absolute Analysis",
+                isSelected: false,
+                items: [
+                    {
+                        id: "aa-1",
+                        text: "The calculated stress has been validated considering; (a) SRM repairs, (b) ADs, (c) reverse-engineered from ultimate material or fastener capability",
+                        reference: "Section 2.1",
+                        isChecked: false
+                    }
+                ]
+            },
+            {
+                id: "crack-growth-geometry",
+                title: "Crack Growth & Geometry",
+                isSelected: false,
+                items: [
+                    {
+                        id: "cg-1",
+                        text: "Secondary bending is accounted for in both SF and crack growth stress (add 50% of secondary bending stress) calculations",
+                        reference: "Section 2.4.6",
+                        isChecked: false
+                    },
+                    {
+                        id: "cg-2",
+                        text: "The repair doubler itself has been checked for criticality (may be the case if it is thinner than base layer or has countersunk fasteners)",
+                        reference: "N/A",
+                        isChecked: false
+                    }
+                ]
+            },
+            {
+                id: "25-96",
+                title: "25.571 amendment 25-96 or later?",
+                isSelected: false,
+                items: [
+                    {
+                        id: "25-96-1",
+                        text: "Consider WFD",
+                        reference: "Section 1.4"
+                    }
+                ]
+            },
+            {
+                id: "mmpds",
+                title: "MMPDS Fatigue Data?",
+                isSelected: false,
+                items: [
+                    {
+                        id: "mmpds-1",
+                        text: "Converted to net section stress",
+                        reference: "Section 2.3.2"
+                    },
+                    {
+                        id: "mmpds-2",
+                        text: "Factor the stress upwards, rather than factoring Ktn upwards (conservative), but do not use 'unnotched' data",
+                        reference: "Section 2.3.2"
+                    },
+                    {
+                        id: "mmpds-3",
+                        text: "Applied Method 1 or 2 to get from 50-50 data to 95-95?",
+                        reference: "Section 2.3.2"
+                    }
+                ]
+            },
+            {
+                id: "optimize-intervals",
+                title: "Want to optimize inspection intervals?",
+                isSelected: false,
+                items: [
+                    {
+                        id: "optimize-1",
+                        text: "For absolute analysis - improve threshold by doing relative analysis to nearby OEM/AD/SRM fatigue details using LOV as fatigue life.",
+                        reference: "Section 2.1"
+                    },
+                    {
+                        id: "optimize-2",
+                        text: "Increase Kc based on width",
+                        reference: "Section 2.4.8"
+                    },
+                    {
+                        id: "optimize-3",
+                        text: "Consider a corner crack rather than through crack (e.g. CC17 instead of CG3)",
+                        reference: "N/A"
+                    },
+                    {
+                        id: "optimize-4",
+                        text: "Revise stress calculation methodology",
+                        reference: "N/A"
+                    }
+                ]
+            },
+            {
+                id: "ica",
+                title: "ICA",
+                isSelected: false,
+                items: [
+                    {
+                        id: "ica-1",
+                        text: "Are there CRES parts that would affect inspectability by HFEC or LFEC?",
+                        reference: "Section 2.4.11.3"
+                    }
+                ]
+            },
+            {
+                id: "dtr-form-data",
+                title: "DTR Form Data",
+                isSelected: false,
+                items: [
+                    {
+                        id: "dtr-1",
+                        text: "Applied fleet factor of 50%?",
+                        reference: "Section 3.1.3"
+                    }
+                ]
+            }
+        ];
+
+        function DTChecklistApp() {
+            const [jobs, setJobs] = useState([]);
+            const [masterFactors, setMasterFactors] = useState([]);
+            const [activeJobId, setActiveJobId] = useState(null);
+            const [newJobName, setNewJobName] = useState('');
+            const [newItemText, setNewItemText] = useState('');
+            const [newItemRef, setNewItemRef] = useState('');
+            const [newItemFactorId, setNewItemFactorId] = useState('');
+            const [newFactorTitle, setNewFactorTitle] = useState('');
+
+            // Initialize Lucide icons
+            useEffect(() => {
+                lucide.createIcons();
+            });
+
+            // Load from local storage on mount
+            useEffect(() => {
+                // 1. Load and Migrate Jobs
+                const savedJobs = localStorage.getItem('dt_checklist_jobs');
+                let migratedJobs = [];
+                if (savedJobs) {
+                    try {
+                        const parsedJobs = JSON.parse(savedJobs);
+                        migratedJobs = parsedJobs.map(job => {
+                            if (!job.selectedFactorIds) job.selectedFactorIds = [];
+                            if (!job.checkedItemIds) job.checkedItemIds = [];
+
+                            if (job.factors && job.selectedFactorIds.length === 0) {
+                                job.selectedFactorIds = job.factors.filter(f => f.isSelected).map(f => f.id);
+                                job.checkedItemIds = [];
+                                job.factors.forEach(f => {
+                                    if (f.items) f.items.forEach(i => { if (i.isChecked) job.checkedItemIds.push(i.id); });
+                                });
+                                delete job.factors;
+                            }
+                            return job;
+                        });
+                        setJobs(migratedJobs);
+                    } catch (e) { console.error("Failed to parse jobs", e); }
+                }
+
+                // 2. Load and Merge Master Factors
+                const savedFactors = localStorage.getItem('dt_checklist_master_factors');
+                let currentMaster = [];
+                if (savedFactors) {
+                    try { currentMaster = JSON.parse(savedFactors); } catch (e) { console.error("Failed to parse factors", e); }
+                }
+
+                if (!currentMaster || currentMaster.length === 0) {
+                    currentMaster = JSON.parse(JSON.stringify(DEFAULT_FACTORS));
+                } else {
+                    DEFAULT_FACTORS.forEach(def => {
+                        if (!currentMaster.find(f => f.id === def.id)) {
+                            currentMaster.push(JSON.parse(JSON.stringify(def)));
+                        }
+                    });
+                }
+                setMasterFactors(currentMaster);
+
+                if (migratedJobs.length > 0 && !activeJobId) setActiveJobId(migratedJobs[0].id);
+            }, []);
+
+            // Save to local storage whenever state changes
+            useEffect(() => {
+                localStorage.setItem('dt_checklist_jobs', JSON.stringify(jobs));
+                localStorage.setItem('dt_checklist_master_factors', JSON.stringify(masterFactors));
+                lucide.createIcons(); // Re-render icons on state change
+            }, [jobs, masterFactors]);
+
+            const activeJob = jobs.find(j => j.id === activeJobId);
+
+            const createJob = () => {
+                if (!newJobName.trim()) return;
+                const newJob = {
+                    id: Date.now().toString(),
+                    name: newJobName,
+                    createdAt: new Date().toLocaleDateString(),
+                    selectedFactorIds: [], // Store IDs of selected factors
+                    checkedItemIds: []     // Store IDs of checked items
+                };
+                setJobs([...jobs, newJob]);
+                setActiveJobId(newJob.id);
+                setNewJobName('');
+            };
+
+            const toggleFactor = (factorId) => {
+                if (!activeJob) return;
+                const updatedJob = { ...activeJob };
+                if (!updatedJob.selectedFactorIds) updatedJob.selectedFactorIds = [];
+                if (updatedJob.selectedFactorIds.includes(factorId)) {
+                    updatedJob.selectedFactorIds = updatedJob.selectedFactorIds.filter(id => id !== factorId);
+                } else {
+                    updatedJob.selectedFactorIds.push(factorId);
+                }
+                setJobs(jobs.map(j => j.id === activeJob.id ? updatedJob : j));
+            };
+
+            const addFactor = () => {
+                if (!newFactorTitle.trim()) return;
+                const newFactor = {
+                    id: 'factor-' + Date.now().toString(),
+                    title: newFactorTitle,
+                    items: []
+                };
+                setMasterFactors([...masterFactors, newFactor]);
+                // Automatically select for active job if exists
+                if (activeJob) {
+                    const updatedJob = { ...activeJob };
+                    updatedJob.selectedFactorIds.push(newFactor.id);
+                    setJobs(jobs.map(j => j.id === activeJob.id ? updatedJob : j));
+                }
+                setNewFactorTitle('');
+            };
+
+            const deleteFactor = (factorId) => {
+                if (!window.confirm('Delete this factor globally from all reports?')) return;
+                setMasterFactors(masterFactors.filter(f => f.id !== factorId));
+                // Clean up references in jobs
+                setJobs(jobs.map(j => ({
+                    ...j,
+                    selectedFactorIds: j.selectedFactorIds.filter(id => id !== factorId)
+                })));
+            };
+
+            const deleteJob = (id, e) => {
+                e.stopPropagation();
+                if (window.confirm('Are you sure you want to delete this job report?')) {
+                    const newJobs = jobs.filter(j => j.id !== id);
+                    setJobs(newJobs);
+                    if (activeJobId === id) setActiveJobId(null);
+                }
+            };
+
+            const toggleItem = (itemId) => {
+                if (!activeJob) return;
+                const updatedJob = { ...activeJob };
+                if (!updatedJob.checkedItemIds) updatedJob.checkedItemIds = [];
+                if (updatedJob.checkedItemIds.includes(itemId)) {
+                    updatedJob.checkedItemIds = updatedJob.checkedItemIds.filter(id => id !== itemId);
+                } else {
+                    updatedJob.checkedItemIds.push(itemId);
+                }
+                setJobs(jobs.map(j => j.id === activeJob.id ? updatedJob : j));
+            };
+
+            const addItem = () => {
+                const targetFactorId = newItemFactorId || (masterFactors.find(f => activeJob?.selectedFactorIds?.includes(f.id))?.id);
+                if (!newItemText.trim() || !targetFactorId) return;
+
+                const newMasterFactors = [...masterFactors];
+                const factor = newMasterFactors.find(f => f.id === targetFactorId);
+
+                if (factor) {
+                    factor.items.push({
+                        id: 'item-' + Date.now().toString(),
+                        text: newItemText,
+                        reference: newItemRef || 'User Added'
+                    });
+                    setMasterFactors(newMasterFactors);
+                }
+                setNewItemText('');
+                setNewItemRef('');
+            };
+
+            const deleteItem = (itemId) => {
+                if (!window.confirm('Delete this question globally?')) return;
+                setMasterFactors(masterFactors.map(f => ({
+                    ...f,
+                    items: (f.items || []).filter(i => i.id !== itemId)
+                })));
+                // Clean up references in jobs
+                setJobs(jobs.map(j => ({
+                    ...j,
+                    checkedItemIds: (j.checkedItemIds || []).filter(id => id !== itemId)
+                })));
+            };
+
+            const resetToDefaults = () => {
+                if (window.confirm('Reset global checklist factors and items to factory defaults? This will NOT delete your jobs, but may affect their progress display if factors change.')) {
+                    setMasterFactors(JSON.parse(JSON.stringify(DEFAULT_FACTORS)));
+                }
+            };
+
+            const getProgress = (job) => {
+                if (!job || !job.selectedFactorIds || !job.checkedItemIds) return 0;
+                let total = 0;
+                let checked = 0;
+                masterFactors.forEach(f => {
+                    if (job.selectedFactorIds && job.selectedFactorIds.includes(f.id)) {
+                        f.items.forEach(i => {
+                            total++;
+                            if (job.checkedItemIds && job.checkedItemIds.includes(i.id)) checked++;
+                        });
+                    }
+                });
+                return total === 0 ? 0 : Math.round((checked / total) * 100);
+            };
+
+            return (
+                <div className="flex h-screen bg-slate-50 font-sans text-slate-800 overflow-hidden">
+                    {/* Sidebar - Job List */}
+                    <div className="w-80 bg-slate-900 text-slate-100 flex flex-col shadow-lg no-print">
+                        <div className="p-6 border-b border-slate-700">
+                            <h1 className="text-xl font-bold flex items-center gap-2">
+                                <Icon name="Briefcase" className="w-6 h-6 text-blue-400" />
+                                DT Analysis Manager
+                            </h1>
+                            <p className="text-xs text-slate-400 mt-1">Checklist Compliance Tool</p>
+                        </div>
+
+                        <div className="p-4 space-y-4 flex-1 overflow-y-auto">
+                            <div>
+                                <label className="block text-xs uppercase tracking-wider text-slate-500 font-semibold mb-2">Create New Report</label>
+                                <div className="flex gap-2">
+                                    <input type="text" placeholder="Job Number / Title"
+                                        className="bg-slate-800 border border-slate-700 text-sm rounded px-3 py-2 w-full focus:outline-none focus:border-blue-500"
+                                        value={newJobName} onChange={(e) => setNewJobName(e.target.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && createJob()}
+                                    />
+                                    <button onClick={createJob}
+                                        className="bg-blue-600 hover:bg-blue-500 p-2 rounded text-white transition-colors disabled:opacity-50"
+                                        disabled={!newJobName}>
+                                        <Icon name="Plus" className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="mt-6">
+                                <label className="block text-xs uppercase tracking-wider text-slate-500 font-semibold mb-2">Active Jobs</label>
+                                <div className="space-y-2">
+                                    {jobs.length === 0 && (
+                                        <div className="text-sm text-slate-500 italic">No active jobs. Create one to start.</div>
+                                    )}
+                                    {jobs.map(job => (
+                                        <div key={job.id} onClick={() => setActiveJobId(job.id)}
+                                            className={`group relative p-3 rounded cursor-pointer border transition-all
+                                            ${activeJobId === job.id ? 'bg-blue-900/40 border-blue-500' : 'bg-slate-800 border-transparent hover:bg-slate-800/80'}`}
+                                        >
+                                            <div className="flex justify-between items-start">
+                                                <div>
+                                                    <div className="font-medium text-sm">{job.name}</div>
+                                                    <div className="text-xs text-slate-400 mt-1">Created: {job.createdAt}</div>
+                                                </div>
+                                                <button onClick={(e) => deleteJob(job.id, e)}
+                                                    className="text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                >
+                                                    <Icon name="Trash2" className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                            <div className="w-full bg-slate-700 h-1 mt-3 rounded-full overflow-hidden">
+                                                <div className="bg-blue-400 h-full transition-all duration-500" style={{ width: `${getProgress(job)}%` }} />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Main Content */}
+                    <div className="flex-1 flex flex-col h-screen overflow-hidden">
+                        {activeJob ? (
+                            <>
+                                {/* Header */}
+                                <header className="bg-white border-b border-slate-200 p-6 flex justify-between items-center shadow-sm z-10">
+                                    <div>
+                                        <h2 className="text-2xl font-bold text-slate-800">{activeJob.name}</h2>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <span className={`px-2 py-0.5 rounded text-xs font-semibold
+                                                ${getProgress(activeJob) === 100 ? 'bg-green-100 text-green-700' : 'bg-blue-50 text-blue-700'}`}>
+                                                {getProgress(activeJob)}% Complete
+                                            </span>
+                                            <span className="text-xs text-slate-400">| Standard: F&DT Mini Manual</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-2 no-print">
+                                        <button onClick={() => window.print()}
+                                            className="flex items-center gap-2 px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded border border-slate-200"
+                                        >
+                                            <Icon name="FileText" className="w-4 h-4" />
+                                            Print / PDF
+                                        </button>
+                                    </div>
+                                </header>
+
+                                {/* Checklist Area */}
+                                <div className="flex-1 overflow-y-auto p-8 space-y-8 bg-slate-50">
+                                    {/* Factor Selection Grid */}
+                                    <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200 no-print">
+                                        <div className="flex justify-between items-center mb-4">
+                                            <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Relevant Report Factors (Global List)</h3>
+                                            <button onClick={resetToDefaults} className="text-[10px] text-slate-400 hover:text-blue-500 uppercase font-bold tracking-tighter">
+                                                Reset to Defaults
+                                            </button>
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                            {masterFactors.map(factor => {
+                                                const isSelected = activeJob.selectedFactorIds?.includes(factor.id) || false;
+                                                return (
+                                                    <div key={factor.id}
+                                                        onClick={() => toggleFactor(factor.id)}
+                                                        className={`p-4 rounded-lg border-2 cursor-pointer transition-all flex items-center justify-between group
+                                                            ${isSelected
+                                                                ? 'bg-blue-50 border-blue-500 shadow-sm'
+                                                                : 'bg-white border-slate-100 hover:border-slate-300'}`}
+                                                    >
+                                                        <div className="flex items-center gap-3">
+                                                            <div className={`w-5 h-5 rounded border flex items-center justify-center transition-all ${isSelected ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-300 text-transparent group-hover:border-blue-400'}`}>
+                                                                <Icon name="Check" className="w-3.5 h-3.5" />
+                                                            </div>
+                                                            <span className={`font-semibold text-sm ${isSelected ? 'text-blue-900' : 'text-slate-600'}`}>
+                                                                {factor.title}
+                                                            </span>
+                                                        </div>
+                                                        <button onClick={(e) => { e.stopPropagation(); deleteFactor(factor.id); }}
+                                                            className="text-slate-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                            title="Delete Factor Globally"
+                                                        >
+                                                            <Icon name="Trash2" className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                );
+                                            })}
+
+                                            {/* Add New Factor */}
+                                            <div className="p-2 rounded-lg border-2 border-dashed border-slate-200 bg-slate-50 flex items-center gap-2">
+                                                <input type="text" placeholder="New Global Factor..."
+                                                    className="flex-1 bg-transparent border-none text-sm px-2 py-1 focus:outline-none"
+                                                    value={newFactorTitle} onChange={(e) => setNewFactorTitle(e.target.value)}
+                                                    onKeyDown={(e) => e.key === 'Enter' && addFactor()}
+                                                />
+                                                <button onClick={addFactor}
+                                                    className="p-1.5 bg-slate-200 hover:bg-blue-600 hover:text-white rounded transition-colors"
+                                                    disabled={!newFactorTitle.trim()}
+                                                >
+                                                    <Icon name="Plus" className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Add New Item */}
+                                    <div className="bg-white p-4 rounded-lg shadow-sm border border-slate-200 no-print">
+                                        <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                                            <Icon name="Plus" className="w-4 h-4" /> Add Custom Global Check
+                                        </h3>
+                                        <div className="flex gap-3 flex-wrap">
+                                            <select value={newItemFactorId} onChange={(e) => setNewItemFactorId(e.target.value)}
+                                                className="bg-slate-50 border border-slate-300 text-sm rounded px-3 py-2 focus:outline-none focus:border-blue-500"
+                                            >
+                                                <option value="">Select Factor...</option>
+                                                {masterFactors.map(f => (
+                                                    <option key={f.id} value={f.id}>{f.title}</option>
+                                                ))}
+                                            </select>
+                                            <input type="text" placeholder="Checklist item description..."
+                                                className="flex-1 bg-slate-50 border border-slate-300 text-sm rounded px-3 py-2 focus:outline-none focus:border-blue-500 min-w-[300px]"
+                                                value={newItemText} onChange={(e) => setNewItemText(e.target.value)}
+                                                onKeyDown={(e) => e.key === 'Enter' && addItem()}
+                                            />
+                                            <input type="text" placeholder="Reference (optional)"
+                                                className="w-40 bg-slate-50 border border-slate-300 text-sm rounded px-3 py-2 focus:outline-none focus:border-blue-500"
+                                                value={newItemRef} onChange={(e) => setNewItemRef(e.target.value)}
+                                                onKeyDown={(e) => e.key === 'Enter' && addItem()}
+                                            />
+                                            <button onClick={addItem}
+                                                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-medium transition-colors"
+                                                disabled={!newItemText.trim()}>
+                                                Add
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Factors & Questions */}
+                                    {masterFactors.filter(f => activeJob.selectedFactorIds?.includes(f.id)).map(factor => (
+                                        <div key={factor.id} className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden break-inside-avoid">
+                                            <div className="bg-slate-100 px-6 py-3 border-b border-slate-200 flex items-center justify-between">
+                                                <h3 className="font-bold text-slate-700 flex items-center gap-2">
+                                                    <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                                                    {factor.title}
+                                                </h3>
+                                                <span className="text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded-full">
+                                                    {(factor.items || []).filter(i => activeJob.checkedItemIds?.includes(i.id)).length} / {(factor.items || []).length}
+                                                </span>
+                                            </div>
+
+                                            <div className="divide-y divide-slate-100">
+                                                {(!factor.items || factor.items.length === 0) ? (
+                                                    <div className="p-6 text-center text-slate-400 italic text-sm">No checks defined for this factor yet.</div>
+                                                ) : (
+                                                    factor.items.map(item => {
+                                                        const isChecked = activeJob.checkedItemIds?.includes(item.id) || false;
+                                                        return (
+                                                            <div key={item.id} className={`p-4 flex gap-4 items-start group transition-colors
+                                                                ${isChecked ? 'bg-blue-50/30' : 'hover:bg-slate-50'}`}>
+                                                                <div className="pt-0.5 no-print">
+                                                                    <button onClick={() => toggleItem(item.id)}
+                                                                        className={`w-5 h-5 rounded border flex items-center justify-center transition-all ${isChecked ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-300 text-transparent hover:border-blue-400'
+                                                                            }`}
+                                                                    >
+                                                                        <Icon name="Check" className="w-3.5 h-3.5" />
+                                                                    </button>
+                                                                </div>
+
+                                                                <div className="flex-1">
+                                                                    <div className={`text-sm leading-relaxed cursor-pointer ${isChecked ? 'text-slate-500' : 'text-slate-800'}`}
+                                                                        onClick={() => toggleItem(item.id)}
+                                                                    >
+                                                                        {isChecked && <span className="print-only text-green-600 font-bold mr-2">✓</span>}
+                                                                        {item.text}
+                                                                    </div>
+                                                                    {item.reference && (
+                                                                        <div className="flex items-center gap-1 mt-1.5 text-xs text-blue-600 font-medium">
+                                                                            <Icon name="BookOpen" className="w-3 h-3" />
+                                                                            {item.reference}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+
+                                                                <button onClick={() => deleteItem(item.id)}
+                                                                    className="text-slate-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity no-print"
+                                                                    title="Remove globally"
+                                                                >
+                                                                    <Icon name="Trash2" className="w-4 h-4" />
+                                                                </button>
+                                                            </div>
+                                                        );
+                                                    })
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+
+                                    {(activeJob.selectedFactorIds || []).length === 0 && (
+                                        <div className="bg-blue-50 border border-blue-100 p-12 text-center rounded-xl">
+                                            <Icon name="BookOpen" className="w-12 h-12 text-blue-200 mx-auto mb-4" />
+                                            <h3 className="text-lg font-bold text-blue-900 mb-2">No Factors Selected</h3>
+                                            <p className="text-blue-700 max-w-sm mx-auto">Select the relevant report factors above to display the appropriate checklist questions for this analysis.</p>
+                                        </div>
+                                    )}
+
+                                    {/* Completion Banner */}
+                                    {getProgress(activeJob) === 100 && (
+                                        <div className="bg-green-100 border border-green-200 text-green-800 p-6 rounded-lg text-center shadow-sm">
+                                            <div className="flex justify-center mb-2">
+                                                <Icon name="Check" className="w-8 h-8 text-green-600" />
+                                            </div>
+                                            <h3 className="text-lg font-bold">Analysis Ready for Sign-off</h3>
+                                            <p className="text-sm mt-1">All checklist items have been verified.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </>
+                        ) : (
+                            <div className="flex-1 flex flex-col items-center justify-center text-slate-400 bg-slate-50">
+                                <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center max-w-md text-center">
+                                    <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4 text-blue-600">
+                                        <Icon name="Briefcase" className="w-8 h-8" />
+                                    </div>
+                                    <h2 className="text-xl font-bold text-slate-800 mb-2">No Job Selected</h2>
+                                    <p className="text-sm mb-6">Select an active job from the sidebar or create a new one to start your DT Analysis checklist.</p>
+                                    <div className="text-xs text-slate-400 bg-slate-100 p-3 rounded w-full">
+                                        <strong>Tip:</strong> New jobs are automatically populated with compliance checks from the F&DT Mini Manual.
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<DTChecklistApp />);
+    </script>
+</body>
+
+</html>
