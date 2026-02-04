@@ -164,9 +164,9 @@ function debugSolverValidation() {
         // Contact springs connected to this layer node
         model.contactSpringElements.forEach(cs => {
             if (cs.layerNodeId === node.id) {
-                // Force on layer node from contact spring = -k*(u_f - u_L) = -F_contact
-                sumForces -= cs.force || 0;
-                contributions.push(`CS${cs.id}: ${DEBUG.fmt(-(cs.force || 0))}`);
+                // Force on layer node from contact spring = k*(u_f - u_L) = +F_contact
+                sumForces += cs.force || 0;
+                contributions.push(`CS${cs.id}: ${DEBUG.fmt(cs.force || 0)}`);
             }
         });
 
@@ -192,8 +192,9 @@ function debugSolverValidation() {
         // Contact spring connected to this fastener node
         model.contactSpringElements.forEach(cs => {
             if (cs.fastenerNodeId === fNode.id) {
+                // Force on fastener node = -k*(u_f - u_L) = -F_contact
                 sumForces += cs.force || 0;
-                contributions.push(`CS${cs.id}: ${DEBUG.fmt(cs.force || 0)}`);
+                contributions.push(`CS${cs.id}: ${DEBUG.fmt(-(cs.force || 0))}`);
             }
         });
 
@@ -222,8 +223,8 @@ function debugSolverValidation() {
     // 6. GLOBAL EQUILIBRIUM
     console.log('\n🌐 GLOBAL EQUILIBRIUM:');
     console.log(`   Total Applied Load: ${DEBUG.fmt(totalAppliedLoad)} lbf`);
-    console.log(`   Total Reaction (at fixed nodes): ${DEBUG.fmt(totalReaction)} lbf`);
-    console.log(`   Imbalance: ${DEBUG.fmt(totalAppliedLoad + totalReaction)} lbf`);
+    console.log(`   Total Reaction (at fixed nodes): ${DEBUG.fmt(-totalReaction)} lbf`);
+    console.log(`   Imbalance: ${DEBUG.fmt(totalAppliedLoad - totalReaction)} lbf`);
 
     // 7. LOAD PATH TRACE (for each fastener column)
     console.log('\n🔄 LOAD PATH TRACE (per fastener):');
@@ -1062,6 +1063,15 @@ function updateVisualization(showForces = false) {
         line.setAttribute('stroke-width', '2');
         line.setAttribute('stroke-dasharray', '3,2');
         visualizationSVG.appendChild(line);
+
+        const clickTargetLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        clickTargetLine.setAttribute('x1', layerNode.x); clickTargetLine.setAttribute('y1', layerNode.y);
+        clickTargetLine.setAttribute('x2', fNode.x); clickTargetLine.setAttribute('y2', fNode.y);
+        clickTargetLine.setAttribute('class', 'click-target');
+        clickTargetLine.dataset.elementType = 'contactSpringElement';
+        clickTargetLine.dataset.elementId = el.id;
+        clickTargetLine.addEventListener('click', handleElementSelect);
+        visualizationSVG.appendChild(clickTargetLine);
     });
 
     // Draw direct fastener elements (shear springs) if in spring mode
@@ -1262,9 +1272,7 @@ function populateEditor() {
                     <input type='checkbox' id='edit-apply-to-layer' checked class='mt-1 mr-2 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500'>
                     <label for='edit-apply-to-layer' class='text-xs text-gray-600 leading-tight'>Apply Material, W, t to entire Layer?</label>
                     </div>
-                    <div class='mt-2 p-2 bg-yellow-100 rounded text-xs text-yellow-800'>
-                    <p>k = ${(element.stiffness / 1000).toFixed(2)} kip/in</p>
-                    <p class='opacity-75 text-[10px] mt-0.5'>Length change applies to column.</p>
+                    <div class='opacity-75 text-[10px] mt-0.5'>Length change applies to column.</div>
                     </div>`;
                 break;
 
@@ -1292,7 +1300,7 @@ function populateEditor() {
                     </div>
                     <div class='mt-2 p-2 bg-yellow-100 rounded text-xs text-yellow-800'>
                     <p>k = ${(element.stiffness / 1000).toFixed(2)} kip/in</p>
-                    <p class='opacity-75 text-[10px] mt-0.5'>Updates entire fastener column.</p>
+                    <button onclick='deleteFastenerColumn(${element.fastenerId})' class='btn-danger w-full text-[10px] mt-2 py-0.5'>Delete Entire Fastener</button>
                     </div>`;
                 break;
 
@@ -1320,7 +1328,25 @@ function populateEditor() {
                     </div>
                     <div class='mt-2 p-2 bg-yellow-100 rounded text-xs text-yellow-800'>
                     <p>V = ${element.force.toFixed(2)} lbf</p>
-                    <p class='opacity-75 text-[10px] mt-0.5'>Updates entire fastener column.</p>
+                    <button onclick='deleteFastenerColumn(${element.fastenerId})' class='btn-danger w-full text-[10px] mt-2 py-0.5'>Delete Entire Fastener</button>
+                    </div>`;
+                break;
+
+            case 'contactSpringElement':
+                element = model.contactSpringElements.find(el => el.id === selectedElement.id);
+                if (!element) throw new Error(`Contact Spring ${selectedElement.id} not found.`);
+                fastener = getFastener(element.fastenerId);
+                layer = getLayer(element.layerId);
+
+                editorTitle.textContent = `Edit Contact Spring ${element.id} (${layer?.name}, F${element.fastenerId})`;
+                editorContent.innerHTML = `
+                    <div class='text-xs text-gray-600'>
+                        <p>This spring connects Layer <b>${layer?.name}</b> to Fastener <b>${element.fastenerId}</b>.</p>
+                        <p class='mt-1'>Deleting this connection will disconnect the fastener from this layer at this location.</p>
+                    </div>
+                    <div class='mt-2 p-2 bg-yellow-100 rounded text-xs text-yellow-800'>
+                        <p>F = ${element.force.toFixed(2)} lbf</p>
+                        <button onclick='deleteFastenerColumn(${element.fastenerId})' class='btn-danger w-full text-[10px] mt-2 py-0.5'>Delete Entire Fastener</button>
                     </div>`;
                 break;
 
@@ -1434,6 +1460,10 @@ function updateElementProperties() {
                 }
                 break;
             }
+            case 'contactSpringElement': {
+                showMessage("Contact spring properties are derived from layer and fastener. No individual properties to update.", false);
+                break;
+            }
             default:
                 throw new Error(`Unknown element type: ${selectedElement.type}`);
         }
@@ -1453,41 +1483,101 @@ function updateElementProperties() {
 }
 
 function cleanupOrphanedNodes() {
-    console.log("DEBUG: Starting orphan node cleanup...");
-    if (model.nodes.length === 0) {
-        console.log("DEBUG: No nodes to clean up.");
-        return false;
-    }
+    console.log("DEBUG: Starting orphan node and element cleanup...");
 
-    const connectedNodeIds = new Set();
-    model.layerElements.forEach(el => {
-        connectedNodeIds.add(el.node1Id);
-        connectedNodeIds.add(el.node2Id);
-    });
-    model.fastenerElements.forEach(el => {
-        connectedNodeIds.add(el.node1Id);
-        connectedNodeIds.add(el.node2Id);
-    });
-    console.log("DEBUG: Connected Node IDs:", connectedNodeIds);
+    let changed = false;
+    let iteration = 0;
+    const maxIterations = 5; // Prevent infinite loops just in case
 
-    const originalNodeCount = model.nodes.length;
-    model.nodes = model.nodes.filter(node => {
-        const isConnected = connectedNodeIds.has(node.id);
-        if (!isConnected) {
-            console.log(`DEBUG: Removing orphaned node ${node.id} (Layer ${node.layer})`);
+    do {
+        changed = false;
+        iteration++;
+        console.log(`DEBUG: Cleanup iteration ${iteration}`);
+
+        // 1. Identify connected nodes
+        const connectedLayerNodeIds = new Set();
+        const connectedFastenerNodeIds = new Set();
+
+        model.layerElements.forEach(el => {
+            connectedLayerNodeIds.add(el.node1Id);
+            connectedLayerNodeIds.add(el.node2Id);
+        });
+
+        model.fastenerElements.forEach(el => {
+            connectedLayerNodeIds.add(el.node1Id);
+            connectedLayerNodeIds.add(el.node2Id);
+        });
+
+        model.beamElements.forEach(el => {
+            connectedFastenerNodeIds.add(el.node1Id);
+            connectedFastenerNodeIds.add(el.node2Id);
+        });
+
+        model.contactSpringElements.forEach(el => {
+            connectedLayerNodeIds.add(el.layerNodeId);
+            connectedFastenerNodeIds.add(el.fastenerNodeId);
+        });
+
+        // 2. Remove orphaned fastener nodes
+        const originalFastenerNodeCount = model.fastenerNodes.length;
+        model.fastenerNodes = model.fastenerNodes.filter(fn => connectedFastenerNodeIds.has(fn.id));
+        if (model.fastenerNodes.length < originalFastenerNodeCount) {
+            console.log(`DEBUG: Removed ${originalFastenerNodeCount - model.fastenerNodes.length} orphaned fastener nodes.`);
+            changed = true;
         }
-        return isConnected;
-    });
-    const removedCount = originalNodeCount - model.nodes.length;
-    if (removedCount > 0) {
-        console.log(`DEBUG: Removed ${removedCount} orphaned node(s).`);
-        showMessage(`Removed ${removedCount} unconnected node(s).`, false);
-        updateDisplays();
-        return true;
-    } else {
-        console.log("DEBUG: No orphaned nodes found to remove.");
-        return false;
-    }
+
+        // 3. Remove orphaned layer nodes
+        const originalLayerNodeCount = model.nodes.length;
+        model.nodes = model.nodes.filter(n => connectedLayerNodeIds.has(n.id));
+        if (model.nodes.length < originalLayerNodeCount) {
+            console.log(`DEBUG: Removed ${originalLayerNodeCount - model.nodes.length} orphaned layer nodes.`);
+            changed = true;
+        }
+
+        // 4. Remove elements referencing deleted fastener nodes
+        const activeFastenerNodeIds = new Set(model.fastenerNodes.map(fn => fn.id));
+
+        const originalBeamCount = model.beamElements.length;
+        model.beamElements = model.beamElements.filter(el =>
+            activeFastenerNodeIds.has(el.node1Id) && activeFastenerNodeIds.has(el.node2Id)
+        );
+        if (model.beamElements.length < originalBeamCount) {
+            console.log(`DEBUG: Removed ${originalBeamCount - model.beamElements.length} beam elements due to missing nodes.`);
+            changed = true;
+        }
+
+        const originalContactCount = model.contactSpringElements.length;
+        model.contactSpringElements = model.contactSpringElements.filter(el =>
+            activeFastenerNodeIds.has(el.fastenerNodeId)
+        );
+        if (model.contactSpringElements.length < originalContactCount) {
+            console.log(`DEBUG: Removed ${originalContactCount - model.contactSpringElements.length} contact springs due to missing nodes.`);
+            changed = true;
+        }
+
+    } while (changed && iteration < maxIterations);
+
+    updateVisualization();
+    updateDisplays();
+    updateLayerSelectors();
+    return iteration > 1; // Return true if we did more than one pass or found changes
+}
+
+/**
+ * Delete all elements associated with a fastener ID
+ */
+function deleteFastenerColumn(fastenerId) {
+    if (!window.confirm(`Delete entire fastener column ${fastenerId}?`)) return;
+
+    console.log(`DEBUG: Deleting all elements for Fastener ${fastenerId}`);
+
+    model.beamElements = model.beamElements.filter(el => el.fastenerId !== fastenerId);
+    model.contactSpringElements = model.contactSpringElements.filter(el => el.fastenerId !== fastenerId);
+    model.fastenerElements = model.fastenerElements.filter(el => el.fastenerId !== fastenerId);
+
+    cleanupOrphanedNodes();
+    deselectElement();
+    showMessage(`Fastener col ${fastenerId} deleted.`, false);
 }
 
 function handleDeleteElement() {
@@ -1518,6 +1608,10 @@ function handleDeleteElement() {
             arrayToModify = model.layerElements;
         } else if (type === 'fastenerElement') {
             arrayToModify = model.fastenerElements;
+        } else if (type === 'beamElement') {
+            arrayToModify = model.beamElements;
+        } else if (type === 'contactSpringElement') {
+            arrayToModify = model.contactSpringElements;
         } else {
             throw new Error("Cannot delete this type of element.");
         }
@@ -1608,8 +1702,9 @@ function applyGlobalFastenerProperties() {
         }
 
         model.fasteners.forEach(fastener => {
-            if (fastener.diameter !== globalDiameter_in) {
+            if (fastener.diameter !== globalDiameter_in || fastener.materialName !== globalFastenerMatName) {
                 fastener.diameter = globalDiameter_in;
+                fastener.materialName = globalFastenerMatName;
                 propsChanged = true;
             }
         });
@@ -2092,15 +2187,14 @@ function solve() {
                     const headNode = fNodesColumn[0];
                     const tailNode = fNodesColumn[fNodesColumn.length - 1];
 
-                    [headNode, tailNode].forEach(node => {
+                    [headNode, tailNode].forEach((node, idx) => {
                         const dof = fastenerNodeDofMap.get(node.id);
                         if (dof) {
                             const thetaIdx = dof.theta_dof;
                             addToK(thetaIdx, thetaIdx, penaltyStiffness);
-                            // M = k * theta_target, theta_target = 0
+                            console.log(`DEBUG: Fixed rotation for Fastener ${j} ${idx === 0 ? 'head' : 'tail'} at Layer ${node.layerId} (Node ${node.id})`);
                         }
                     });
-                    console.log(`Constrained Head/Tail rotation for Fastener ${j}`);
                 }
             }
 
