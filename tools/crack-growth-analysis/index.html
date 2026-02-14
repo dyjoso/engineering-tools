@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SCT-CGA — Crack Growth Analysis</title>
+    <meta name="description"
+        content="Fatigue crack growth analysis tool using the NASGRO equation. TC01: Through crack at center of plate.">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    <div class="app-container">
+
+        <!-- ── Header ── -->
+        <header class="app-header">
+            <h1>SCT-CGA <span class="subtitle">Crack Growth Analysis</span></h1>
+            <span class="header-badge">SOUTHWARD CONSULTING</span>
+        </header>
+
+        <!-- ── Sidebar ── -->
+        <aside class="sidebar">
+            <button class="btn-primary" id="run-btn" onclick="runAnalysis()" style="margin-bottom: 20px;">Run
+                Analysis</button>
+            <div id="error-msg" class="error-msg" style="margin-bottom: 10px;"></div>
+
+            <!-- Geometry Selection -->
+            <div class="card">
+                <div class="card-title">Geometry Case</div>
+                <div class="input-group">
+                    <select id="geometry-select"></select>
+                </div>
+                <div id="geom-fields"></div>
+            </div>
+
+            <!-- Loading -->
+            <div class="card">
+                <div class="card-title">Loading (S0 — Tension)</div>
+                <div class="input-group">
+                    <label>Max Stress, σ<sub>max</sub> <span class="unit">(ksi)</span></label>
+                    <input type="number" id="sigma-max" value="15" step="0.5" min="0">
+                </div>
+                <div class="input-group">
+                    <label>Stress Ratio, R</label>
+                    <input type="number" id="R-ratio" value="0" step="0.05" min="-2" max="0.99">
+                </div>
+            </div>
+
+            <!-- Material -->
+            <div class="card">
+                <div class="collapse-header open" onclick="toggleCollapse(this)">
+                    <div class="card-title">Material Properties</div>
+                    <span class="collapse-arrow">▼</span>
+                </div>
+                <div class="collapse-body open">
+                    <div class="input-group">
+                        <label>Preset</label>
+                        <select id="material-select"></select>
+                    </div>
+                    <hr style="border: 0; border-top: 1px solid rgba(100,116,139,0.2); margin: 14px 0;">
+
+                    <!-- NASGRO equation params -->
+                    <div class="input-row">
+                        <div class="input-group">
+                            <label>C</label>
+                            <input type="text" id="mat-C" value="8e-9">
+                        </div>
+                        <div class="input-group">
+                            <label>n</label>
+                            <input type="number" id="mat-n" value="3.2" step="0.1">
+                        </div>
+                    </div>
+                    <div class="input-row">
+                        <div class="input-group">
+                            <label>p</label>
+                            <input type="number" id="mat-p" value="0.25" step="0.05">
+                        </div>
+                        <div class="input-group">
+                            <label>q</label>
+                            <input type="number" id="mat-q" value="1.0" step="0.1">
+                        </div>
+                    </div>
+
+                    <hr style="border: 0; border-top: 1px solid rgba(100,116,139,0.15); margin: 10px 0;">
+
+                    <div class="input-group">
+                        <label>ΔK₁ (threshold at high R) <span class="unit">(ksi√in)</span></label>
+                        <input type="number" id="mat-DK1" value="1.2" step="0.1">
+                    </div>
+                    <div class="input-row">
+                        <div class="input-group">
+                            <label>Cth+</label>
+                            <input type="number" id="mat-Cth-plus" value="2.0" step="0.1">
+                        </div>
+                        <div class="input-group">
+                            <label>Cth−</label>
+                            <input type="number" id="mat-Cth-minus" value="0.1" step="0.05">
+                        </div>
+                    </div>
+
+                    <hr style="border: 0; border-top: 1px solid rgba(100,116,139,0.15); margin: 10px 0;">
+
+                    <div class="input-row">
+                        <div class="input-group">
+                            <label>K<sub>Ie</sub> <span class="unit">(ksi√in)</span></label>
+                            <input type="number" id="mat-K1e" value="42" step="1">
+                        </div>
+                        <div class="input-group">
+                            <label>K<sub>IC</sub> <span class="unit">(ksi√in)</span></label>
+                            <input type="number" id="mat-K1c" value="30" step="1">
+                        </div>
+                    </div>
+                    <div class="input-row">
+                        <div class="input-group">
+                            <label>A<sub>k</sub></label>
+                            <input type="number" id="mat-Ak" value="1.0" step="0.1">
+                        </div>
+                        <div class="input-group">
+                            <label>B<sub>k</sub></label>
+                            <input type="number" id="mat-Bk" value="1.5" step="0.1">
+                        </div>
+                    </div>
+
+                    <hr style="border: 0; border-top: 1px solid rgba(100,116,139,0.15); margin: 10px 0;">
+
+                    <div class="input-row">
+                        <div class="input-group">
+                            <label>σ<sub>ys</sub> <span class="unit">(ksi)</span></label>
+                            <input type="number" id="mat-Yield" value="53" step="1">
+                        </div>
+                        <div class="input-group">
+                            <label>σ<sub>ult</sub> <span class="unit">(ksi)</span></label>
+                            <input type="number" id="mat-UTS" value="70" step="1">
+                        </div>
+                    </div>
+                    <div class="input-row">
+                        <div class="input-group">
+                            <label>α (constraint)</label>
+                            <input type="number" id="mat-alpha" value="2.0" step="0.5" min="1" max="3">
+                        </div>
+                        <div class="input-group">
+                            <label>S<sub>max</sub>/σ₀</label>
+                            <input type="number" id="mat-Smax-S0" value="0.3" step="0.05">
+                        </div>
+                    </div>
+                    <div class="input-row">
+                        <div class="input-group">
+                            <label>α<sub>th</sub></label>
+                            <input type="number" id="mat-alpha-th" value="2.0" step="0.5" min="1" max="3">
+                        </div>
+                        <div class="input-group">
+                            <label>S<sub>max</sub>/σ₀ (th)</label>
+                            <input type="number" id="mat-Smax-S0-th" value="0.3" step="0.05">
+                        </div>
+                    </div>
+
+                    <hr style="border: 0; border-top: 1px solid rgba(100,116,139,0.15); margin: 10px 0;">
+
+                    <div class="input-group readonly">
+                        <label>Calc. K<sub>c</sub> (at t) <span class="unit">(ksi√in)</span></label>
+                        <input type="text" id="mat-Kc-calc" value="—" readonly>
+                    </div>
+                    <div class="input-group readonly">
+                        <label>Calc. ΔK<sub>th</sub> (at R) <span class="unit">(ksi√in)</span></label>
+                        <input type="text" id="mat-DKth-calc" value="—" readonly>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analysis Options -->
+            <div class="card">
+                <div class="collapse-header" onclick="toggleCollapse(this)">
+                    <div class="card-title">Options</div>
+                    <span class="collapse-arrow">▼</span>
+                </div>
+                <div class="collapse-body">
+                    <div class="input-group">
+                        <label>Max Cycles</label>
+                        <input type="text" id="max-cycles" value="1e7">
+                    </div>
+                </div>
+            </div>
+
+            <!-- (Run button moved to top) -->
+        </aside>
+
+        <!-- ── Main Results ── -->
+        <main class="main-content">
+
+            <!-- Summary Stats -->
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-label">Final Crack (2a)</div>
+                    <div class="stat-value" id="res-final-a">—</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Total Cycles</div>
+                    <div class="stat-value" id="res-cycles">—</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Failure Mode</div>
+                    <div class="stat-value" id="res-mode">—</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">K<sub>c</sub> (at t)</div>
+                    <div class="stat-value" id="res-kc">—</div>
+                </div>
+            </div>
+
+            <!-- Charts -->
+            <div class="charts-row">
+                <div class="chart-card">
+                    <h3>Crack Length vs Cycles</h3>
+                    <div class="chart-container">
+                        <canvas id="chart-a-vs-N"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <h3>da/dN vs ΔK</h3>
+                    <div class="chart-container">
+                        <canvas id="chart-dadN-vs-dK"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Diagram + Log -->
+            <div class="bottom-row">
+                <div class="diagram-card">
+                    <h3>Geometry</h3>
+                    <canvas id="geom-canvas" width="280" height="200"></canvas>
+                </div>
+                <div class="log-card">
+                    <h3>Analysis Log</h3>
+                    <pre id="analysis-log">Run an analysis to see results...</pre>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Scripts: load in dependency order -->
+    <script src="js/materials.js"></script>
+    <script src="js/geometry/base.js"></script>
+    <script src="js/geometry/tc01.js"></script>
+    <script src="js/geometry/tc23-phi1-table.js"></script>
+    <script src="js/geometry/tc23.js"></script>
+    <script src="js/nasgro.js"></script>
+    <script src="js/engine.js"></script>
+    <script src="js/app.js"></script>
+</body>
+
+</html>
