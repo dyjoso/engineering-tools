@@ -71,8 +71,9 @@ const CrackGrowthEngine = {
             }
 
             const sigmaNet = geom.getNetSectionStress(a, sigmaMax, config.geomParams);
-            if (sigmaNet >= mat.Yield) {
-                failureMode = 'Net Section Yield';
+            const sigma_flow_nsy = (mat.Yield + mat.UTS) / 2.0;  // flow stress (NASGRO App. B)
+            if (sigmaNet >= sigma_flow_nsy) {
+                failureMode = 'Net Section Yield (σ_net ≥ σ_flow)';
                 logEntries.push(this._logEntry(N, a, Kmax, 0, 0, beta, 'NSY'));
                 break;
             }
@@ -197,7 +198,9 @@ const CrackGrowthEngine = {
             let K2 = calcK(c2, 'right');
 
             // Irwin plastic zone correction (2 iterations)
-            // r_y = (K / σ_flow)² / (2·α·π)
+            // r_y = K² / (2·α·π·σ_flow²)
+            // mat.alpha is the Newman constraint factor (also used as the plastic zone
+            // constraint factor, per standard NASGRO practice — NASGRO Elastic-Plastic §2).
             // Guard: if effective crack exceeds geometry limits, keep uncorrected K
             const sigma_flow = (mat.Yield + mat.UTS) / 2.0;
             const alpha_pz = mat.alpha || 1.5;
@@ -361,9 +364,12 @@ const CrackGrowthEngine = {
         const S3 = config.geomParams.S3 || 0;
 
         // Freeze c2 at the right ligament width (for data continuity)
+        // m = right margin = distance from right plate edge to hole centre
         const R_hole = config.geomParams.D / 2;
-        const e0 = config.geomParams.e0 || 0;
-        const c2_frozen = config.geomParams.W / 2 - e0 - R_hole;
+        const m = config.geomParams.m !== undefined
+            ? config.geomParams.m
+            : config.geomParams.W / 2;   // default: centred hole
+        const c2_frozen = m - R_hole;
 
         let c1 = c1_start;
         let aEdge = geom.getEdgeCrackLength(c1, config.geomParams);

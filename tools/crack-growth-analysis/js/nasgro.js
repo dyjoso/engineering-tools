@@ -37,28 +37,38 @@ const NasgroEquation = {
             const fPoly = A0 + A1 * R + A2 * R * R + A3 * R * R * R;
             return Math.max(R, fPoly);
         } else {
-            // For R < 0, use linear relation (clamped at A0 as lower bound)
-            return Math.max(A0 + A1 * R, 0);
+            // For R < 0, use linear relation f = A0 + A1·R (NASGRO §3, no lower bound)
+            // A negative f means Kop < 0, i.e. the crack is always open — physically valid.
+            return A0 + A1 * R;
         }
     },
 
     /**
      * R-dependent threshold stress intensity factor range.
-     * 
+     *
      * ΔKth = ΔK1 · [ (1-f) / (1-A0) ]^(1 + Cth·R)
      * where Cth = Cth+ for R ≥ 0, Cth- for R < 0
-     * 
+     *
+     * Per NASGRO, the threshold closure function f and the A0 denominator term
+     * use the threshold-specific constraint parameters (alpha_th, Smax_S0_th),
+     * which may differ from the crack-growth parameters (alpha, Smax_S0).
+     * Falls back to growth-rate parameters if threshold parameters are absent.
+     *
      * @param {number} R    - Stress ratio
      * @param {object} mat  - Material properties
      * @returns {number} ΔKth [ksi√in]
      */
     thresholdDK(R, mat) {
-        const f = this.newmanClosure(R, mat.alpha, mat.Smax_S0);
+        // Use threshold-specific closure parameters (NASGRO §3)
+        const alpha_th   = mat.alpha_th   !== undefined ? mat.alpha_th   : mat.alpha;
+        const Smax_S0_th = mat.Smax_S0_th !== undefined ? mat.Smax_S0_th : mat.Smax_S0;
 
-        // Compute A0 for the denominator
-        const piTerm = Math.cos((Math.PI * mat.Smax_S0) / 2);
-        const A0 = (0.825 - 0.34 * mat.alpha + 0.05 * mat.alpha * mat.alpha) *
-            Math.pow(piTerm, 1.0 / mat.alpha);
+        const f = this.newmanClosure(R, alpha_th, Smax_S0_th);
+
+        // Compute A0 for the denominator using threshold parameters
+        const piTerm = Math.cos((Math.PI * Smax_S0_th) / 2);
+        const A0 = (0.825 - 0.34 * alpha_th + 0.05 * alpha_th * alpha_th) *
+            Math.pow(piTerm, 1.0 / alpha_th);
 
         const Cth = (R >= 0) ? mat.Cth_plus : mat.Cth_minus;
 
