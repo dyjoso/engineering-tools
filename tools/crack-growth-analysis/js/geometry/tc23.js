@@ -4,7 +4,7 @@
  * NASGRO Crack Case TC23 (Ref: NASGRO Reference Manual, Appendix C)
  *
  * Supports:
- *   - Central or offset hole (eccentricity e₀)
+ *   - Central or offset hole (right-margin m)
  *   - Equal or unequal crack lengths (c₁, c₂)
  *   - Dual-crack growth (each tip tracked independently)
  *
@@ -17,8 +17,12 @@
  *   A2: Finite-width correction for crack-to-edge interaction (φ₁/φ₂)
  *   A3: Finite-width correction for hole-to-edge interaction (φ₁/φ₂)
  *
+ * Hole offset convention (aligns with NASGRO):
+ *   m  = distance from right plate edge to hole centre  [user input]
+ *   B  = W − m               (hole centre to left plate edge)
+ *   e  = W/2 − B = m − W/2   (eccentricity; negative when hole is left of centre)
+ *
  * Derived dimensions:
- *   B  = W/2 + e₀          (hole center to left plate edge)
  *   c₀ = (c₁ + D + c₂)/2   (half crack from tip-to-tip center)
  *   b  = B + (c₂ - c₁)/2   (flaw center to left plate edge)
  *
@@ -378,8 +382,6 @@ class TC23Geometry extends CrackGeometry {
      * λ₁ = πc₀/(2ω),  λ₁₂ = (4/7)λ₁ + (3/7)λ₂
      */
     _betaC2_4(c0, b, W, side) {
-        const omega = (side === 'left' && b <= W / 2) || (side === 'right' && b > W / 2)
-            ? b : W - b;
         const eff_b = (b <= W / 2.0) ? b : W - b;
 
         const lam1 = Math.PI * c0 / (2.0 * eff_b);
@@ -416,8 +418,8 @@ class TC23Geometry extends CrackGeometry {
     getBetaB(c, params, side) {
         const R = params.D / 2;
         const W = params.W;
-        const e0 = params.e0 || 0;
-        const B = W / 2.0 + e0;
+        const m = params.m !== undefined ? params.m : W / 2;  // right margin → hole centre
+        const B = W - m;                                       // hole centre from left edge
 
         let c1, c2;
         if (side === 'left') {
@@ -452,9 +454,9 @@ class TC23Geometry extends CrackGeometry {
     getBetaC(c, params, side) {
         const R = params.D / 2;
         const W = params.W;
-        const e0 = params.e0 || 0;
-        const B = W / 2.0 + e0;       // hole center to left edge
-        const e = W / 2.0 - B;        // eccentricity from plate center (= -e0)
+        const m = params.m !== undefined ? params.m : W / 2;  // right margin → hole centre
+        const B = W - m;                                       // hole centre from left edge
+        const e = W / 2.0 - B;        // eccentricity from plate centre (= m − W/2; negative when hole is left of centre)
 
         let c1, c2;
         if (side === 'left') {
@@ -598,8 +600,8 @@ class TC23Geometry extends CrackGeometry {
      */
     getEdgeCrackLength(c1, params) {
         const R = params.D / 2;
-        const e0 = params.e0 || 0;
-        const rightLigament = params.W / 2.0 - e0 - R;
+        const m = params.m !== undefined ? params.m : params.W / 2;  // right margin → hole centre
+        const rightLigament = m - R;   // = distance from right hole edge to right plate edge
         return c1 + params.D + rightLigament;
     }
 
@@ -663,8 +665,8 @@ class TC23Geometry extends CrackGeometry {
         if (c <= 0) return -1;
         const R = params.D / 2;
         const W = params.W;
-        const e0 = params.e0 || 0;
-        const B = W / 2.0 + e0;         // Hole center to left plate edge
+        const m = params.m !== undefined ? params.m : W / 2;  // right margin → hole centre
+        const B = W - m;                                       // hole centre from left plate edge
 
         // Determine both crack lengths
         let c1, c2;
@@ -722,13 +724,14 @@ class TC23Geometry extends CrackGeometry {
      */
     getMaxCrack(params, side) {
         const r = params.D / 2;
-        const e0 = params.e0 || 0;
+        const m = params.m !== undefined ? params.m : params.W / 2;  // right margin → hole centre
+        const B = params.W - m;   // hole centre from left edge
         if (side === 'left') {
             // Left ligament: from left plate edge to left hole edge
-            return 0.95 * (params.W / 2 + e0 - r);
+            return 0.95 * (B - r);
         }
-        // Right ligament: full width — reaching the edge triggers SENT link-up
-        return (params.W / 2 - e0 - r);
+        // Right ligament: full width — reaching the right edge triggers SENT link-up
+        return (m - r);
     }
 
     /**
@@ -758,7 +761,7 @@ class TC23Geometry extends CrackGeometry {
             { id: 'W', label: 'Plate Width, W', unit: 'in', default: 10.0, step: 0.1, min: 0.01 },
             { id: 't', label: 'Thickness, t', unit: 'in', default: 0.063, step: 0.001, min: 0.001 },
             { id: 'D', label: 'Hole Diameter, D', unit: 'in', default: 0.25, step: 0.01, min: 0.01 },
-            { id: 'e0', label: 'Hole Offset, e₀', unit: 'in', default: 0, step: 0.05, min: 0 },
+            { id: 'm', label: 'Right Margin (hole centre to right edge), m', unit: 'in', default: 5.0, step: 0.05, min: 0 },
             { id: 'a0', label: 'Left Crack, c₁₀', unit: 'in', default: 0.05, step: 0.005, min: 0.001 },
             { id: 'a0_2', label: 'Right Crack, c₂₀', unit: 'in', default: 0.05, step: 0.005, min: 0.001 },
             { id: 'eta', label: 'Bending Restraint, η (0=free, 1=fixed)', unit: '—', default: 0, step: 0.1, min: 0, max: 1 },
@@ -793,10 +796,13 @@ class TC23Geometry extends CrackGeometry {
         const W = params.W || 10;
         const D = params.D || 0.25;
         const r = D / 2;
-        const e0 = params.e0 || 0;
+        // m = right margin (hole centre to right plate edge); default = centred hole
+        const m = params.m !== undefined ? params.m : W / 2;
+        const B = W - m;   // hole centre distance from left plate edge
 
         const scale = plateW / W;
-        const holeCx = plateCx + e0 * scale;
+        // Hole centre x-position: offset from the left plate edge by B
+        const holeCx = x0 + B * scale;
 
         // ── Draw plate outline ──
         ctx.strokeStyle = '#475569';
@@ -821,8 +827,8 @@ class TC23Geometry extends CrackGeometry {
         const maxAvailLeft = holeCx - holeRadPx - x0;
         const maxAvailRight = (x0 + plateW) - holeCx - holeRadPx;
 
-        const c1MaxInch = W / 2 + e0 - r;  // left ligament (hole at W/2+e₀)
-        const c2MaxInch = W / 2 - e0 - r;  // right ligament
+        const c1MaxInch = B - r;   // left ligament (left hole edge to left plate edge)
+        const c2MaxInch = m - r;   // right ligament (right hole edge to right plate edge)
         const c1Px = Math.min(c1 / Math.max(c1MaxInch, 0.01), 0.95) * maxAvailLeft;
         const c2Px = Math.min(c2 / Math.max(c2MaxInch, 0.01), 0.95) * maxAvailRight;
 
@@ -902,25 +908,21 @@ class TC23Geometry extends CrackGeometry {
         ctx.textAlign = 'center';
         ctx.fillText('D', holeCx, dDimY - 5);
 
-        // ── Dimension: e₀ ──
-        if (e0 > 0.001) {
-            const eDimY = dDimY - 18;
+        // ── Dimension: m (right margin: right plate edge to hole centre) ──
+        {
+            const mDimY = dDimY - 18;
+            const rightEdgeX = x0 + plateW;
             ctx.strokeStyle = '#06b6d4';
             ctx.lineWidth = 1;
-            ctx.setLineDash([2, 2]);
-            ctx.beginPath();
-            ctx.moveTo(plateCx, y0 + 5);
-            ctx.lineTo(plateCx, y0 + plateH - 5);
-            ctx.stroke();
             ctx.setLineDash([]);
             ctx.beginPath();
-            ctx.moveTo(plateCx, eDimY);
-            ctx.lineTo(holeCx, eDimY);
+            ctx.moveTo(holeCx, mDimY);
+            ctx.lineTo(rightEdgeX, mDimY);
             ctx.stroke();
-            drawArrowhead(ctx, plateCx, eDimY, 'right', '#06b6d4');
-            drawArrowhead(ctx, holeCx, eDimY, 'left', '#06b6d4');
+            drawArrowhead(ctx, holeCx, mDimY, 'right', '#06b6d4');
+            drawArrowhead(ctx, rightEdgeX, mDimY, 'left', '#06b6d4');
             ctx.fillStyle = '#06b6d4';
-            ctx.fillText('e₀', (plateCx + holeCx) / 2, eDimY - 5);
+            ctx.fillText('m', (holeCx + rightEdgeX) / 2, mDimY - 5);
         }
 
         // ── Dimension: W ──
