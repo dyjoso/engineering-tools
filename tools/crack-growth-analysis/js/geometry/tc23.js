@@ -710,6 +710,15 @@ class TC23Geometry extends CrackGeometry {
 
     /**
      * Maximum valid crack length for a given side.
+     *
+     * Left crack: capped at 0.95× the left ligament — reaching the left plate
+     * edge is a terminal fracture of the remaining section.
+     *
+     * Right crack: allowed to reach 1.0× the right ligament (the full width),
+     * because arriving at the right plate edge IS the link-up event that
+     * transitions the analysis to the SENT phase.  Capping at 0.95× caused
+     * link-up to trigger while a_edge was already > 0.95W, making getBetaEdge
+     * return -1 on the very first SENT step and aborting the phase immediately.
      */
     getMaxCrack(params, side) {
         const r = params.D / 2;
@@ -718,8 +727,8 @@ class TC23Geometry extends CrackGeometry {
             // Left ligament: from left plate edge to left hole edge
             return 0.95 * (params.W / 2 + e0 - r);
         }
-        // Right ligament: from right hole edge to right plate edge
-        return 0.95 * (params.W / 2 - e0 - r);
+        // Right ligament: full width — reaching the edge triggers SENT link-up
+        return (params.W / 2 - e0 - r);
     }
 
     /**
