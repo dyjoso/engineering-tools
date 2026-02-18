@@ -224,7 +224,56 @@ When c₁ ≠ c₂ or e₀ ≠ 0, the two crack tips grow at different rates:
 4. Advance each crack: cᵢ_new = cᵢ + (da/dN_i) · ΔN
 5. Failure when either Kᵢ ≥ Kc
 
-### 3.5 Key Decisions — TC23
+### 3.5 Post-Link-Up SENT Phase — SIF Solutions
+
+When the right ligament fails (c₂ reaches the plate edge), the geometry transitions
+to a single-edge-notch tension (SENT) crack growing from the right plate edge.
+The total edge crack length is:
+
+```
+a_edge = c₁ + D + (W/2 − e₀ − R)
+```
+
+Three load contributions are superposed via K_total = K_tension + K_bending + K_bearing.
+
+#### Tension (S₀) and Bearing (S₃)
+
+Both use the membrane SENT beta (Tada/TPI, η-interpolated):
+
+```
+K_tension = S₀ · √(πa) · β_SENT(a/W, η)
+K_bearing = (D/W) · S₃ · √(πa) · β_SENT(a/W, η)
+```
+
+#### In-plane Bending (S₂) — NASGRO TC02 Solution B
+
+S₂ is treated as an in-plane bending stress (extreme-fibre value at the cracked
+cross-section, = 6M/BW²) using the NASGRO TC02 Solution B beta factor:
+
+```
+K_bending = S₂ · √(πa) · F_B(a/W)
+
+F_B(λ) = 1.122 − 1.40λ + 7.33λ² − 13.08λ³ + 14.0λ⁴
+```
+
+Attributed to Gross & Srawley (1965), NASA TN D-2603, via Tada, Paris & Irwin.
+The formula integrates the linear bending stress distribution across the section
+internally; S₂ (the extreme-fibre value) is passed in directly.
+
+**Sign convention (per NASGRO TC02)**: S₂ > 0 puts tension at the crack mouth,
+opening the crack. After link-up, the SENT crack mouth is at the right plate edge.
+The TC23 two-crack-phase convention (S₂ > 0 = tension on right face) is directly
+consistent: positive S₂ opens the SENT crack for any e₀. S₂ is therefore passed
+with its sign and always added (positive S₂ increases K).
+
+**Why F_B is separate from β_SENT**: Bending produces a linear stress distribution;
+membrane tension is uniform. F_B integrates the linear distribution and is a
+different function of a/W from the membrane β_SENT. The two must not be conflated.
+A previous (incorrect) implementation folded S₂ into the membrane stress with a
+hardcoded subtraction, which was wrong in sign for offset geometries and wrong in
+magnitude in all cases.
+
+### 3.6 Key Decisions — TC23
 
 - **SIF model**: Full NASGRO TC23 compounding (A1 × A2 × A3) from Appendix C.
   A1 uses β_r (Bowie polynomial) and β_u (unequal crack correction).
@@ -232,7 +281,12 @@ When c₁ ≠ c₂ or e₀ ≠ 0, the two crack tips grow at different rates:
   interactions, applied per-tip with correct near/far assignments.
 - **Dual-crack tracking**: Engine independently tracks c₁ and c₂.
 - **Net section yield**: Uses total section loss (D + c₁ + c₂).
-- **Loading**: S₀ (remote tension) only. S₂ (bending), S₃ (pin) not yet implemented.
+- **Loading**: S₀ (remote tension), S₂ (bending), S₃ (pin/bearing) all implemented.
+- **SENT bending beta**: Uses NASGRO TC02 Solution B polynomial F_B(a/W)
+  (Gross & Srawley 1965 / Tada-Paris-Irwin) for the S₂ contribution in the
+  post-link-up phase.  F_B is physically distinct from the membrane β_SENT and
+  must be applied separately.  S₂ enters with a positive sign (S₂ > 0 opens the
+  SENT crack, per TC02 convention, consistent with the TC23 two-crack-phase sign).
 
 ---
 
@@ -268,6 +322,10 @@ Default materials stored in Imperial units (ksi, in):
 3. Feddersen, C.E. — "Discussion of plane strain crack toughness testing", ASTM STP 410, 1967
 4. Isida, M. — "Stress intensity factors for the tension of an eccentrically cracked
    strip", J. Appl. Mech., 1966
-5. NASGRO Reference Manual, SwRI
+5. NASGRO Reference Manual, SwRI — Crack Case TC02 (Through Crack at Edge,
+   Solutions A/B/C for tension, bending, and bearing)
 6. Tada, H., Paris, P.C., Irwin, G.R. — "The Stress Analysis of Cracks Handbook",
    3rd ed., ASME Press, 2000
+7. Gross, B., Srawley, J.E. — "Stress-Intensity Factors for Single-Edge-Notch
+   Specimens in Bending or Combined Bending and Tension by Boundary Collocation
+   of a Stress Function", NASA TN D-2603, 1965

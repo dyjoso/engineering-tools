@@ -282,6 +282,34 @@ class TC23Geometry extends CrackGeometry {
         const bR = this._betaSENT_restrained(aOverW);
         return bU + eta * (bR - bU);
     }
+
+    /**
+     * Beta factor (Solution B) for a single-edge crack under in-plane bending (S₂).
+     *
+     * Taken directly from NASGRO crack case TC02, Solution B:
+     *
+     *   K_bend = S₂ · √(πa) · F_B(a/W)
+     *
+     *   F_B(λ) = 1.122 − 1.40λ + 7.33λ² − 13.08λ³ + 14.0λ⁴
+     *
+     * where λ = a/W.  Attributed to Gross & Srawley (1965), NASA TN D-2603,
+     * via Tada, Paris & Irwin "The Stress Analysis of Cracks Handbook", 3rd ed.
+     *
+     * S₂ is the extreme-fibre bending stress at the cracked cross-section
+     * (= 6M / BW²).  The formula integrates the linear bending stress
+     * distribution across the section internally; S₂ is passed in directly.
+     *
+     * Sign convention (per NASGRO TC02): S₂ > 0 puts tension at the crack
+     * mouth, opening the crack.  Positive S₂ therefore increases K.
+     *
+     * @param {number} aOverW - a/W ratio (crack length / plate width)
+     * @returns {number} F_B  (dimensionless beta factor for in-plane bending)
+     */
+    _betaSENT_bending(aOverW) {
+        const l = aOverW;
+        return 1.122 - 1.40 * l + 7.33 * l * l
+            - 13.08 * l * l * l + 14.0 * l * l * l * l;
+    }
     // ══════════════════════════════════════════════════════════
     //  Solution B2 — In-plane bending FEM table lookup
     // ══════════════════════════════════════════════════════════
@@ -504,19 +532,56 @@ class TC23Geometry extends CrackGeometry {
     }
 
     /**
-     * Combined SIF for edge crack (SENT) with bearing.
-     * After link-up, bearing stress acts as additional membrane tension
-     * through the D/W · β^C factor on the remaining edge crack.
-     * Falls back to pure SENT when S3 = 0.
+     * Combined SIF for the post-link-up SENT edge crack.
+     *
+     * Follows the NASGRO TC02 superposition scheme:
+     *
+     *   K_total = (β^A · S₀  +  β^B · S₂  +  β^C · S₃) · √(πa)
+     *
+     * ── Solution A — Remote tension (S₀) ─────────────────────────────────────
+     *   β^A = β_SENT(a/W, η)  [membrane, η-interpolated between pinned/clamped]
+     *
+     * ── Solution B — In-plane bending (S₂) ───────────────────────────────────
+     *   β^B = F_B(a/W)  [NASGRO TC02 / Gross-Srawley, see _betaSENT_bending()]
+     *
+     *   S₂ is the extreme-fibre bending stress at the cracked cross-section.
+     *   Per NASGRO TC02 sign convention, S₂ > 0 puts tension at the crack mouth
+     *   and therefore OPENS the crack (K_bending increases for S₂ > 0).
+     *
+     *   The post-link-up crack mouth is at the RIGHT plate edge.  The TC23
+     *   two-crack-phase convention (S₂ > 0 = tension on right face) is directly
+     *   consistent with this: positive S₂ opens the SENT crack.  S₂ is therefore
+     *   passed with its sign and always added, for any e₀ value.
+     *
+     * ── Solution C — Bearing (S₃) ────────────────────────────────────────────
+     *   Bearing is carried through the D/W scaling on the membrane beta:
+     *     K_bearing = (D/W) · S₃ · √(πa) · β^A
+     *   (A full TC02 Solution C bearing polynomial is not yet implemented here.)
+     *
+     * @param {number} aEdge  - Edge crack length [in]
+     * @param {number} S0     - Remote tension stress [ksi]
+     * @param {number} S3     - Bearing stress P/(Dt) [ksi], ≥ 0
+     * @param {object} params - Geometry parameters (must include W, D, S2, eta)
+     * @returns {number} K_total [ksi√in], or -1 if geometry limit exceeded
      */
     getKEdge_total(aEdge, S0, S3, params) {
         const betaEdge = this.getBetaEdge(aEdge, params);
         if (betaEdge < 0) return -1;
-        // In SENT phase (growing from Left edge), positive S2 (which opens Right)
-        // acts as closing stress on Left. So subtract S2.
-        const S2 = params.S2 || 0;
-        const S_eff = S0 - S2 + (S3 > 0 ? (params.D / params.W) * S3 : 0);
-        return S_eff * Math.sqrt(Math.PI * aEdge) * betaEdge;
+
+        const sqrtPiA = Math.sqrt(Math.PI * aEdge);
+        const aOverW  = aEdge / params.W;
+        const S2      = params.S2 || 0;
+
+        // Tension + bearing (both use membrane SENT beta)
+        const S_membrane = S0 + (S3 > 0 ? (params.D / params.W) * S3 : 0);
+        const K_membrane = S_membrane * sqrtPiA * betaEdge;
+
+        // Pure bending (Gross-Srawley beta, separate from membrane beta)
+        const K_bending = S2 !== 0
+            ? S2 * sqrtPiA * this._betaSENT_bending(aOverW)
+            : 0;
+
+        return K_membrane + K_bending;
     }
     // ══════════════════════════════════════════════════════════
 
