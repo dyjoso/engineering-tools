@@ -43,8 +43,13 @@ const CrackGrowthEngine = {
         const maxCycles = config.maxCycles || 1e7;
         const maxSteps = config.maxSteps || 50000;
 
-        const Kc = NasgroEquation.calcKc(t, mat);
+        const Kc = config.Kc_override !== undefined ? config.Kc_override : NasgroEquation.calcKc(t, mat);
         const aMax = geom.getMaxCrack(config.geomParams);
+
+        let baseStep = undefined;
+        if (config.geometryId === 'TC05') {
+            baseStep = (config.geomParams.H - config.geomParams.D) / 1000;
+        }
 
         let a = config.a0;
         let N = 0;
@@ -85,7 +90,7 @@ const CrackGrowthEngine = {
                 break;
             }
 
-            const delta_a = this._adaptiveStep(Kmax, Kc, a, aMax);
+            const delta_a = this._adaptiveStep(Kmax, Kc, a, aMax, baseStep);
             const delta_N = delta_a / result.dadN;
 
             if (step === 0 || step % 50 === 0) {
@@ -139,7 +144,7 @@ const CrackGrowthEngine = {
         const maxCycles = config.maxCycles || 1e7;
         const maxSteps = config.maxSteps || 50000;
 
-        const Kc = NasgroEquation.calcKc(t, mat);
+        const Kc = config.Kc_override !== undefined ? config.Kc_override : NasgroEquation.calcKc(t, mat);
 
         // Initial crack lengths
         let c1 = config.a0;                                       // Left crack
@@ -147,6 +152,15 @@ const CrackGrowthEngine = {
 
         const c1Max = geom.getMaxCrack(config.geomParams, 'left');
         const c2Max = geom.getMaxCrack(config.geomParams, 'right');
+
+        let baseStep = undefined;
+        if (config.geometryId === 'TC23') {
+            const m = config.geomParams.m !== undefined ? config.geomParams.m : config.geomParams.W / 2;
+            const r = config.geomParams.D / 2;
+            const leftLig = (config.geomParams.W - m) - r;
+            const rightLig = m - r;
+            baseStep = Math.min(leftLig, rightLig) / 1000;
+        }
 
         const S3 = config.geomParams.S3 || 0;  // Bearing stress
         const S2 = config.geomParams.S2 || 0;  // Bending stress
@@ -276,7 +290,7 @@ const CrackGrowthEngine = {
 
             // Adaptive step size based on most critical tip
             const delta_a = this._adaptiveStep(Kmax, Kc,
-                Math.max(c1, c2), Math.min(c1Max, c2Max));
+                Math.max(c1, c2), Math.min(c1Max, c2Max), baseStep);
 
             // Cycle increment: use the faster-growing tip to set ΔN
             const maxDadN = Math.max(res1.dadN, res2.dadN, 1e-20);
@@ -375,6 +389,11 @@ const CrackGrowthEngine = {
         let aEdge = geom.getEdgeCrackLength(c1, config.geomParams);
         const aEdgeMax = geom.getMaxCrackEdge(config.geomParams);
 
+        let baseStep = undefined;
+        if (config.geometryId === 'TC23') {
+            baseStep = config.geomParams.W / 1000;
+        }
+
         let N = N_start;
         let step = step_start;
         let failureMode = 'Running';
@@ -444,7 +463,7 @@ const CrackGrowthEngine = {
                 break;
             }
 
-            const delta_a = this._adaptiveStep(Kmax, Kc, aEdge, aEdgeMax);
+            const delta_a = this._adaptiveStep(Kmax, Kc, aEdge, aEdgeMax, baseStep);
             const delta_N = delta_a / result.dadN;
 
             if ((step - step_start) === 0 || (step - step_start) % 50 === 0) {
@@ -505,18 +524,20 @@ const CrackGrowthEngine = {
     /**
      * Adaptive step sizing based on proximity to instability.
      */
-    _adaptiveStep(Kmax, Kc, a, aMax) {
+    _adaptiveStep(Kmax, Kc, a, aMax, baseStep) {
         const fracMargin = 1.0 - Kmax / Kc;
         let delta_a;
 
+        const step0 = baseStep !== undefined ? baseStep : 0.005;
+
         if (fracMargin < 0.05) {
-            delta_a = 0.0005;
+            delta_a = step0 * 0.1;
         } else if (fracMargin < 0.15) {
-            delta_a = 0.001;
+            delta_a = step0 * 0.2;
         } else if (fracMargin < 0.3) {
-            delta_a = 0.002;
+            delta_a = step0 * 0.4;
         } else {
-            delta_a = 0.005;
+            delta_a = step0;
         }
 
         if (a + delta_a > aMax) {

@@ -571,8 +571,8 @@ class TC23Geometry extends CrackGeometry {
         if (betaEdge < 0) return -1;
 
         const sqrtPiA = Math.sqrt(Math.PI * aEdge);
-        const aOverW  = aEdge / params.W;
-        const S2      = params.S2 || 0;
+        const aOverW = aEdge / params.W;
+        const S2 = params.S2 || 0;
 
         // Tension + bearing (both use membrane SENT beta)
         const S_membrane = S0 + (S3 > 0 ? (params.D / params.W) * S3 : 0);
@@ -764,9 +764,7 @@ class TC23Geometry extends CrackGeometry {
             { id: 'm', label: 'Right Margin (hole centre to right edge), m', unit: 'in', default: 5.0, step: 0.05, min: 0 },
             { id: 'a0', label: 'Left Crack, c₁₀', unit: 'in', default: 0.05, step: 0.005, min: 0.001 },
             { id: 'a0_2', label: 'Right Crack, c₂₀', unit: 'in', default: 0.05, step: 0.005, min: 0.001 },
-            { id: 'eta', label: 'Bending Restraint, η (0=free, 1=fixed)', unit: '—', default: 0, step: 0.1, min: 0, max: 1 },
-            { id: 'S2', label: 'Bending Stress, S₂', unit: 'ksi', default: 0, step: 1 },
-            { id: 'S3', label: 'Bearing Stress, S₃ = P/(Dt)', unit: 'ksi', default: 0, step: 1, min: 0 }
+            { id: 'eta', label: 'Bending Restraint, η (0=free, 1=fixed)', unit: '—', default: 0, step: 0.1, min: 0, max: 1 }
         ];
     }
 

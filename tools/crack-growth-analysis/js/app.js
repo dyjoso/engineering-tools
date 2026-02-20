@@ -60,14 +60,27 @@ function onGeometryChange() {
 
         const label = document.createElement('label');
         label.htmlFor = `geom-${f.id}`;
-        label.innerHTML = `${f.label} <span class="unit">(${f.unit})</span>`;
+        label.innerHTML = f.unit ? `${f.label} <span class="unit">(${f.unit})</span>` : f.label;
 
-        const input = document.createElement('input');
-        input.type = 'number';
-        input.id = `geom-${f.id}`;
-        input.value = f.default;
-        input.step = f.step;
-        if (f.min !== undefined) input.min = f.min;
+        let input;
+        if (f.type === 'select') {
+            input = document.createElement('select');
+            input.id = `geom-${f.id}`;
+            f.options.forEach(opt => {
+                const optEl = document.createElement('option');
+                optEl.value = opt.value;
+                optEl.textContent = opt.label;
+                if (opt.value === f.default) optEl.selected = true;
+                input.appendChild(optEl);
+            });
+        } else {
+            input = document.createElement('input');
+            input.type = 'number';
+            input.id = `geom-${f.id}`;
+            input.value = f.default;
+            input.step = f.step;
+            if (f.min !== undefined) input.min = f.min;
+        }
 
         group.appendChild(label);
         group.appendChild(input);
@@ -115,7 +128,8 @@ function readGeomParams() {
     const fields = geom.getInputFields();
     const params = {};
     fields.forEach(f => {
-        params[f.id] = parseFloat(document.getElementById(`geom-${f.id}`).value);
+        const val = document.getElementById(`geom-${f.id}`).value;
+        params[f.id] = f.type === 'select' ? val : parseFloat(val);
     });
     return params;
 }
@@ -156,7 +170,16 @@ function runAnalysis() {
         const mat = readMaterial();
         const sigmaMax = parseFloat(document.getElementById('sigma-max').value);
         const R = parseFloat(document.getElementById('R-ratio').value);
+        const S2_bending = parseFloat(document.getElementById('S2-bending').value) || 0;
+        const S3_bearing = parseFloat(document.getElementById('S3-bearing').value) || 0;
         const maxCycles = parseFloat(document.getElementById('max-cycles').value) || 1e7;
+
+        geomParams.S2 = S2_bending;
+        geomParams.S3 = S3_bearing;
+
+        const KcOverrideStr = document.getElementById('mat-Kc-override').value;
+        const KcOverride = KcOverrideStr ? parseFloat(KcOverrideStr) : undefined;
+
         const geom = getGeometry(geomId);
 
         // Validation
@@ -164,7 +187,6 @@ function runAnalysis() {
         if (R >= 1) throw new Error('R must be < 1.');
         if (geomParams.a0 <= 0) throw new Error('Initial crack must be positive.');
 
-        // Build engine config
         const engineConfig = {
             geometryId: geomId,
             geomParams: geomParams,
@@ -174,6 +196,10 @@ function runAnalysis() {
             material: mat,
             maxCycles: maxCycles
         };
+
+        if (KcOverride !== undefined && !isNaN(KcOverride)) {
+            engineConfig.Kc_override = KcOverride;
+        }
 
         // For dual-crack, pass the second initial crack
         if (geom.isDualCrack() && geomParams.a0_2 !== undefined) {
@@ -203,8 +229,9 @@ function runAnalysis() {
             document.querySelector('#res-final-a').closest('.stat-box')
                 .querySelector('.stat-label').textContent = 'Final Cracks (c₁, c₂)';
         } else {
-            const crackLabel = (geomId === 'TC23') ? 'c' : '2a';
-            const displayVal = (geomId === 'TC23') ? result.finalCrack : result.finalTwoA;
+            const isHoleCrack = (geomId === 'TC23' || geomId === 'TC05');
+            const crackLabel = isHoleCrack ? 'c' : '2a';
+            const displayVal = isHoleCrack ? result.finalCrack : result.finalTwoA;
             document.getElementById('res-final-a').textContent = displayVal.toFixed(4) + ' in';
             document.querySelector('#res-final-a').closest('.stat-box')
                 .querySelector('.stat-label').textContent = `Final Crack (${crackLabel})`;
@@ -257,12 +284,12 @@ function renderChartSingle(data) {
     const ctx = document.getElementById('chart-a-vs-N').getContext('2d');
     if (chartA) chartA.destroy();
 
-    const isTc23 = (currentGeomId === 'TC23');
-    const label = isTc23 ? 'Crack Length (c)' : 'Crack Length (2a)';
-    const yLabel = isTc23 ? 'Crack Length c (in)' : 'Crack Length 2a (in)';
+    const isHoleCrack = (currentGeomId === 'TC23' || currentGeomId === 'TC05');
+    const label = isHoleCrack ? 'Crack Length (c)' : 'Crack Length (2a)';
+    const yLabel = isHoleCrack ? 'Crack Length c (in)' : 'Crack Length 2a (in)';
     const points = data.N.map((n, i) => ({
         x: n,
-        y: isTc23 ? data.a[i] : data.twoA[i]
+        y: isHoleCrack ? data.a[i] : data.twoA[i]
     }));
 
     chartA = new Chart(ctx, {
@@ -484,7 +511,7 @@ function renderLog(result) {
 }
 
 function renderLogSingle(result, logEl) {
-    const crackCol = (currentGeomId === 'TC23') ? 'c (in)' : '2a (in)';
+    const crackCol = (currentGeomId === 'TC23' || currentGeomId === 'TC05') ? 'c (in)' : '2a (in)';
 
     let header = `Crack Growth Analysis — ${result.failureMode}\n`;
     header += `Kc = ${result.Kc.toFixed(2)} ksi√in | Steps = ${result.totalSteps} | Cycles = ${Math.round(result.totalCycles).toLocaleString()}\n`;
@@ -495,7 +522,7 @@ function renderLogSingle(result, logEl) {
 
     let body = '';
     result.logEntries.forEach(e => {
-        const crackVal = (currentGeomId === 'TC23')
+        const crackVal = (currentGeomId === 'TC23' || currentGeomId === 'TC05')
             ? (parseFloat(e.twoA) / 2).toFixed(5)
             : e.twoA;
         body += padCol(e.N.toLocaleString(), 12) +

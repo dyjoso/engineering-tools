@@ -48,6 +48,22 @@
                 </div>
             </div>
 
+            <div class="card">
+                <div class="card-title">Loading (S1/S2 — Bending)</div>
+                <div class="input-group">
+                    <label>Bending Stress <span class="unit">(ksi)</span></label>
+                    <input type="number" id="S2-bending" value="0" step="1">
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Loading (S3 — Bearing)</div>
+                <div class="input-group">
+                    <label>Bearing Stress <span class="unit">(ksi)</span></label>
+                    <input type="number" id="S3-bearing" value="0" step="1" min="0">
+                </div>
+            </div>
+
             <!-- Material -->
             <div class="card">
                 <div class="collapse-header open" onclick="toggleCollapse(this)">
@@ -162,6 +178,10 @@
                         <label>Calc. K<sub>c</sub> (at t) <span class="unit">(ksi√in)</span></label>
                         <input type="text" id="mat-Kc-calc" value="—" readonly>
                     </div>
+                    <div class="input-group">
+                        <label>Override K<sub>c</sub> <span class="unit">(ksi√in)</span></label>
+                        <input type="number" id="mat-Kc-override" placeholder="Optional" step="1" min="0">
+                    </div>
                     <div class="input-group readonly">
                         <label>Calc. ΔK<sub>th</sub> (at R) <span class="unit">(ksi√in)</span></label>
                         <input type="text" id="mat-DKth-calc" value="—" readonly>
@@ -246,6 +266,8 @@
     <script src="js/geometry/tc01.js"></script>
     <script src="js/geometry/tc23-phi1-table.js"></script>
     <script src="js/geometry/tc23.js"></script>
+    <script src="js/geometry/tc05-data.js"></script>
+    <script src="js/geometry/tc05.js"></script>
     <script src="js/nasgro.js"></script>
     <script src="js/engine.js"></script>
     <script src="js/app.js"></script>
