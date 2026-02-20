@@ -65,8 +65,20 @@ const CrackGrowthEngine = {
         while (step < maxSteps) {
             if (a >= aMax) { failureMode = 'Geometry Limit (a/W)'; break; }
 
-            const Kmax = geom.getK(a, sigmaMax, config.geomParams);
+            let Kmax = geom.getK(a, sigmaMax, config.geomParams);
             if (Kmax < 0) { failureMode = 'Geometry Limit'; break; }
+
+            if (config.usePzc !== false) {
+                const sigma_flow = (mat.Yield + mat.UTS) / 2.0;
+                const alpha_pz = mat.alpha || 1.5;
+                const pzFactor = 1.0 / (2.0 * alpha_pz * Math.PI);
+                for (let pzIter = 0; pzIter < 2; pzIter++) {
+                    const ry = (Kmax > 0) ? pzFactor * Math.pow(Kmax / sigma_flow, 2) : 0;
+                    const K_corr = geom.getK(a + ry, sigmaMax, config.geomParams);
+                    if (K_corr > 0) Kmax = K_corr;
+                }
+            }
+
             const beta = geom.getBeta(a, config.geomParams);
 
             if (Kmax >= Kc) {
@@ -213,26 +225,25 @@ const CrackGrowthEngine = {
 
             // Irwin plastic zone correction (2 iterations)
             // r_y = K² / (2·α·π·σ_flow²)
-            // mat.alpha is the Newman constraint factor (also used as the plastic zone
-            // constraint factor, per standard NASGRO practice — NASGRO Elastic-Plastic §2).
-            // Guard: if effective crack exceeds geometry limits, keep uncorrected K
-            const sigma_flow = (mat.Yield + mat.UTS) / 2.0;
-            const alpha_pz = mat.alpha || 1.5;
-            const pzFactor = 1.0 / (2.0 * alpha_pz * Math.PI);
+            if (config.usePzc !== false) {
+                const sigma_flow = (mat.Yield + mat.UTS) / 2.0;
+                const alpha_pz = mat.alpha || 1.5;
+                const pzFactor = 1.0 / (2.0 * alpha_pz * Math.PI);
 
-            for (let pzIter = 0; pzIter < 2; pzIter++) {
-                const ry1 = (K1 > 0) ? pzFactor * Math.pow(K1 / sigma_flow, 2) : 0;
-                const ry2 = (K2 > 0) ? pzFactor * Math.pow(K2 / sigma_flow, 2) : 0;
+                for (let pzIter = 0; pzIter < 2; pzIter++) {
+                    const ry1 = (K1 > 0) ? pzFactor * Math.pow(K1 / sigma_flow, 2) : 0;
+                    const ry2 = (K2 > 0) ? pzFactor * Math.pow(K2 / sigma_flow, 2) : 0;
 
-                // Recalculate K with effective crack lengths
-                config.geomParams._c1 = c1 + ry1;
-                config.geomParams._c2 = c2 + ry2;
-                const K1_corr = calcK(c1 + ry1, 'left');
-                const K2_corr = calcK(c2 + ry2, 'right');
+                    // Recalculate K with effective crack lengths
+                    config.geomParams._c1 = c1 + ry1;
+                    config.geomParams._c2 = c2 + ry2;
+                    const K1_corr = calcK(c1 + ry1, 'left');
+                    const K2_corr = calcK(c2 + ry2, 'right');
 
-                // Only accept correction if geometry is still valid
-                if (K1_corr > 0) K1 = K1_corr;
-                if (K2_corr > 0) K2 = K2_corr;
+                    // Only accept correction if geometry is still valid
+                    if (K1_corr > 0) K1 = K1_corr;
+                    if (K2_corr > 0) K2 = K2_corr;
+                }
             }
 
             // Restore physical crack lengths for growth step
@@ -423,13 +434,15 @@ const CrackGrowthEngine = {
             let Kmax = calcKEdge(aEdge);
 
             // Irwin plastic zone correction (2 iterations)
-            const sigma_flow = (mat.Yield + mat.UTS) / 2.0;
-            const alpha_pz = mat.alpha || 1.5;
-            const pzFactor = 1.0 / (2.0 * alpha_pz * Math.PI);
-            for (let pzIter = 0; pzIter < 2; pzIter++) {
-                const ry = (Kmax > 0) ? pzFactor * Math.pow(Kmax / sigma_flow, 2) : 0;
-                const K_corr = calcKEdge(aEdge + ry);
-                if (K_corr > 0) Kmax = K_corr;  // Only accept if geometry valid
+            if (config.usePzc !== false) {
+                const sigma_flow = (mat.Yield + mat.UTS) / 2.0;
+                const alpha_pz = mat.alpha || 1.5;
+                const pzFactor = 1.0 / (2.0 * alpha_pz * Math.PI);
+                for (let pzIter = 0; pzIter < 2; pzIter++) {
+                    const ry = (Kmax > 0) ? pzFactor * Math.pow(Kmax / sigma_flow, 2) : 0;
+                    const K_corr = calcKEdge(aEdge + ry);
+                    if (K_corr > 0) Kmax = K_corr;  // Only accept if geometry valid
+                }
             }
             // ─── DEBUG: Log first few SENT steps ───
             if (step - step_start < 3) {

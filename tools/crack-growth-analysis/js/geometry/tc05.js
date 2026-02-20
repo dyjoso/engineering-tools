@@ -9,7 +9,7 @@
 
 class TC05 extends CrackGeometry {
     constructor() {
-        super('TC05', 'Through Crack at Hole (Row of Holes)');
+        super('TC05', 'TC05 — Through Crack at Hole (Row of Holes)');
     }
 
     /**

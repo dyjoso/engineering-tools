@@ -31,7 +31,7 @@
 
 class TC23Geometry extends CrackGeometry {
     constructor() {
-        super('TC23', 'TC23 — Through Cracks at Hole');
+        super('TC23', 'TC23 — Unequal Through Cracks at Offset Hole in Finite Width Plate');
 
         // β_r polynomial coefficients (Bowie solution, two equal symmetric cracks)
         // β_r(ρ) = Σ R_k · ρ^k,  k = 0..6,  ρ = c/(c+R)

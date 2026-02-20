@@ -194,7 +194,8 @@ function runAnalysis() {
             sigmaMax: sigmaMax,
             R: R,
             material: mat,
-            maxCycles: maxCycles
+            maxCycles: maxCycles,
+            usePzc: document.getElementById('use-pzc').checked
         };
 
         if (KcOverride !== undefined && !isNaN(KcOverride)) {
