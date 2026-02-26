@@ -407,6 +407,8 @@
             const size = 100;
             const rad = (theta * Math.PI) / 180;
 
+            const maxStress = Math.max(Math.abs(sxT), Math.abs(syT), Math.abs(txyT));
+
             // Draw Rotated Element
             ctx.save();
             ctx.translate(cx, cy);
@@ -418,13 +420,15 @@
 
             // Stress Arrows
             const drawArrow = (x, y, angle, len, color, label) => {
-                if (Math.abs(len) < 1) return;
+                if (Math.abs(len) < 1e-6) return;
                 ctx.save();
                 ctx.translate(x, y);
                 ctx.rotate(angle);
                 ctx.strokeStyle = color;
                 ctx.fillStyle = color;
-                const arrowLen = Math.min(Math.abs(len) * 0.5, 40) * (len > 0 ? 1 : -1);
+
+                const arrowLenMag = maxStress > 0 ? (Math.abs(len) / maxStress) * size : 0;
+                const arrowLen = arrowLenMag * (len > 0 ? 1 : -1);
 
                 ctx.beginPath();
                 ctx.moveTo(0, 0); ctx.lineTo(arrowLen, 0);
