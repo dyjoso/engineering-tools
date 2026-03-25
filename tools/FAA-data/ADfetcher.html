@@ -454,28 +454,43 @@
                 setStatus(`Fetching ${adNum} (${i + 1}/${adNumbers.length})...`, false, true);
 
                 try {
-                    const article = await searchAD(adNum);
-                    if (!article) {
+                    const candidates = await searchAD(adNum);
+                    if (!candidates || candidates.length === 0) {
                         resultsDiv.appendChild(makeErrorCard(adNum, 'Not found in the Federal Register.'));
                         continue;
                     }
 
-                    const contentUrl = format === 'html'
-                        ? article.body_html_url
-                        : article.raw_text_url;
+                    let found = false;
+                    for (const article of candidates) {
+                        const contentUrl = format === 'html'
+                            ? article.body_html_url
+                            : article.raw_text_url;
 
-                    if (!contentUrl) {
-                        resultsDiv.appendChild(makeErrorCard(adNum, `No ${format === 'html' ? 'HTML' : 'text'} content available.`));
-                        continue;
+                        if (!contentUrl) continue;
+
+                        let rawContent;
+                        try {
+                            rawContent = await fetchContent(contentUrl);
+                        } catch (_) { continue; }
+
+                        // Verify: the AD number must appear in the preamble
+                        // (before the first "(a) Effective Date" or "(a) Applicability")
+                        // not just somewhere in the cross-reference sections.
+                        if (!adNumberInPreamble(rawContent, adNum)) continue;
+
+                        const cleanContent = stripPreamble(rawContent, format);
+                        const title = article.title || adNum;
+                        const docNum = article.document_number || '';
+
+                        resultsDiv.appendChild(makeADCard(adNum, title, docNum, cleanContent, format));
+                        successCount++;
+                        found = true;
+                        break;
                     }
 
-                    const rawContent = await fetchContent(contentUrl);
-                    const cleanContent = stripPreamble(rawContent, format);
-                    const title = article.title || adNum;
-                    const docNum = article.document_number || '';
-
-                    resultsDiv.appendChild(makeADCard(adNum, title, docNum, cleanContent, format));
-                    successCount++;
+                    if (!found) {
+                        resultsDiv.appendChild(makeErrorCard(adNum, 'AD not found — results did not match the requested AD number.'));
+                    }
 
                 } catch (err) {
                     resultsDiv.appendChild(makeErrorCard(adNum, `Error: ${err.message}`));
@@ -492,6 +507,9 @@
             }
         }
 
+        // Returns an array of candidate articles, sorted so that title-matches
+        // come first. The caller (fetchADs) is responsible for verifying
+        // which candidate is the correct AD by checking the preamble.
         async function searchAD(adNumber) {
             const fieldsStr = ['pdf_url', 'document_number', 'title', 'body_html_url', 'raw_text_url']
                 .map(f => `fields[]=${f}`).join('&');
@@ -509,12 +527,46 @@
             const results = data.results || [];
             if (results.length === 0) return null;
 
-            // Try to find one whose title contains "Airworthiness Directives"
-            const adResult = results.find(r =>
+            // Filter to AD-related results only
+            const adResults = results.filter(r =>
                 r.title && r.title.toLowerCase().includes('airworthiness direct')
-            ) || results[0];
+            );
+            const candidates = adResults.length > 0 ? adResults : results;
 
-            return adResult;
+            // Sort so that title-matches come first (most likely correct)
+            candidates.sort((a, b) => {
+                const aHas = a.title && a.title.includes(adNumber) ? 0 : 1;
+                const bHas = b.title && b.title.includes(adNumber) ? 0 : 1;
+                return aHas - bHas;
+            });
+
+            return candidates;
+        }
+
+        // Check whether the AD number is the *subject* of this document by
+        // verifying it appears in the amendment designation line — the short block
+        // immediately before "(a) Effective Date". This line reads:
+        //   "XXXX-XX-XX  The Manufacturer: Amendment 39-NNNNN; Docket No. ..."
+        // Cross-references to other ADs (which cause false positives) appear much
+        // earlier in the supplementary discussion section, far from this marker.
+        function adNumberInPreamble(content, adNumber) {
+            // Strip HTML tags for a clean text search
+            const text = content.replace(/<[^>]*>/g, ' ');
+
+            // Find "(a) Effective Date" or "Effective Date (a)" — the anchor point
+            const anchorMatch = text.search(/\(a\)\s*(?:This\s+)?(?:airworthiness\s+directive|AD)\s+(?:is\s+)?(?:becomes?\s+)?effective|\(a\)\s*Effective\s+Date|Effective\s+Date\s*\(a\)/i);
+
+            if (anchorMatch !== -1) {
+                // The amendment designation line sits within ~500 chars before (a)
+                const windowStart = Math.max(0, anchorMatch - 500);
+                const window = text.substring(windowStart, anchorMatch);
+                return window.includes(adNumber);
+            }
+
+            // Fallback: if we can't find the (a) anchor, check the last 1000 chars
+            // of the first 4000 chars (still avoids the deep-reference sections)
+            const head = text.substring(0, 4000);
+            return head.substring(head.length - 1000).includes(adNumber);
         }
 
         // Fetch content with CORS proxy fallback.
