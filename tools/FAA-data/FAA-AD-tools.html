@@ -1,0 +1,1623 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FAA AD Tools</title>
+    <link rel="icon" type="image/png" href="icon.png">
+    <style>
+        /* ═══════════════════════════════════════════════════
+           SHARED DESIGN TOKENS
+        ═══════════════════════════════════════════════════ */
+        :root {
+            --primary: #0068c9;
+            --primary-dark: #0056b3;
+            --bg: #f0f0f0;
+            --card-bg: #ffffff;
+            --text: #333;
+            --border: #ccc;
+            --shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            --orange: #fa9e61;
+            --orange-dark: #e08e51;
+            --green: #B4CEA1;
+            --green-dark: #9ab88a;
+            --danger: #dc3545;
+            --success: #28a745;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font);
+            background: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 0.75rem;
+            display: flex;
+            justify-content: center;
+            font-size: 14px;
+            min-height: 100vh;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 960px;
+            background: var(--card-bg);
+            padding: 16px 20px 20px;
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+            align-self: flex-start;
+        }
+
+        /* ═══════════════════════════════════════════════════
+           SHARED: PAGE TITLE
+        ═══════════════════════════════════════════════════ */
+        h1 {
+            text-align: center;
+            font-size: 1.35em;
+            margin: 0 0 14px 0;
+            color: var(--primary);
+        }
+
+        /* ═══════════════════════════════════════════════════
+           SHARED: TAB SELECTOR
+        ═══════════════════════════════════════════════════ */
+        .tab-bar {
+            display: flex;
+            gap: 0;
+            border-bottom: 2px solid var(--primary);
+            margin-bottom: 16px;
+        }
+
+        .tab-btn {
+            padding: 8px 20px;
+            background: #e8eef5;
+            border: 1px solid #bcd;
+            border-bottom: none;
+            border-radius: 5px 5px 0 0;
+            font-size: 0.9em;
+            font-weight: 600;
+            color: #555;
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s;
+            font-family: var(--font);
+            white-space: nowrap;
+            margin-right: 4px;
+        }
+
+        .tab-btn:hover {
+            background: #d4e2f0;
+        }
+
+        .tab-btn.active {
+            background: var(--primary);
+            color: #fff;
+            border-color: var(--primary);
+        }
+
+        .tab-panel {
+            display: none;
+        }
+
+        .tab-panel.active {
+            display: block;
+        }
+
+        /* ═══════════════════════════════════════════════════
+           SHARED: BUTTONS
+        ═══════════════════════════════════════════════════ */
+        button {
+            padding: 8px 20px;
+            border-radius: 4px;
+            font-size: 0.92em;
+            font-weight: bold;
+            cursor: pointer;
+            font-family: var(--font);
+            transition: background 0.18s, opacity 0.18s;
+            border: none;
+            white-space: nowrap;
+        }
+
+        button:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+        }
+
+        /* ═══════════════════════════════════════════════════
+           SHARED: STATUS BAR + SPINNER
+        ═══════════════════════════════════════════════════ */
+        .status-bar {
+            font-size: 0.85em;
+            color: #555;
+            min-height: 1.4em;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-bar.error {
+            color: var(--danger);
+            font-weight: bold;
+        }
+
+        .status-bar.success {
+            color: var(--success);
+            font-weight: bold;
+        }
+
+        .spinner {
+            width: 13px;
+            height: 13px;
+            border: 2px solid #ccc;
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.65s linear infinite;
+            flex-shrink: 0;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* ═══════════════════════════════════════════════════
+           SHARED: CORS proxy (used by both tools)
+        ═══════════════════════════════════════════════════ */
+
+
+        /* ═══════════════════════════════════════════════════
+           DOWNLOADER STYLES
+        ═══════════════════════════════════════════════════ */
+        .params-panel {
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 14px 16px;
+            margin-bottom: 14px;
+        }
+
+        .params-panel legend {
+            font-weight: bold;
+            font-size: 0.88em;
+            color: #555;
+            padding: 0 6px;
+        }
+
+        .params-grid {
+            display: grid;
+            grid-template-columns: 180px 1fr 1fr;
+            gap: 8px 12px;
+            align-items: center;
+        }
+
+        .params-grid label {
+            font-size: 0.875em;
+            font-weight: 600;
+            color: #444;
+            text-align: right;
+        }
+
+        .params-grid input[type="text"] {
+            padding: 7px 10px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 0.92em;
+            font-family: var(--font);
+            width: 100%;
+        }
+
+        .params-grid input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(0, 104, 201, 0.18);
+        }
+
+        .hint-text {
+            font-size: 0.8em;
+            color: #888;
+            align-self: center;
+            padding-left: 2px;
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 14px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .btn-run {
+            background: var(--orange);
+            color: #fff;
+            border: 1px solid var(--orange-dark);
+        }
+
+        .btn-run:not(:disabled):hover {
+            background: var(--orange-dark);
+        }
+
+        .btn-dl-csv {
+            background: var(--green);
+            color: #333;
+            border: 1px solid var(--green-dark);
+            display: none;
+        }
+
+        .btn-dl-csv:not(:disabled):hover {
+            background: var(--green-dark);
+        }
+
+        .btn-copy-nums {
+            background: #ddeeff;
+            color: #1a5080;
+            border: 1px solid #a8c8e8;
+            display: none;
+        }
+
+        .btn-copy-nums:not(:disabled):hover {
+            background: #c8e0f4;
+        }
+
+        .btn-copy-nums.copied {
+            background: #d4edda;
+            color: #155724;
+            border-color: #b0d9be;
+        }
+
+        .btn-clear-dl {
+            background: #e8e8e8;
+            color: #555;
+            border: 1px solid #ccc;
+        }
+
+        .btn-clear-dl:not(:disabled):hover {
+            background: #d8d8d8;
+        }
+
+        /* how-it-works toggle */
+        .info-toggle {
+            background: none;
+            border: 1px solid var(--border);
+            color: #555;
+            font-size: 0.82em;
+            font-weight: normal;
+            padding: 4px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-left: auto;
+        }
+
+        .info-toggle:hover {
+            background: #f0f0f0;
+        }
+
+        .info-panel {
+            display: none;
+            background: #f8f9fc;
+            border: 1px solid #d0d8e8;
+            border-radius: 6px;
+            padding: 14px 18px;
+            margin-bottom: 14px;
+            font-size: 0.875em;
+            line-height: 1.65;
+            color: #333;
+        }
+
+        .info-panel h3 {
+            margin: 0 0 8px 0;
+            font-size: 1em;
+            color: var(--primary);
+        }
+
+        .info-panel h4 {
+            margin: 12px 0 4px 0;
+            font-size: 0.92em;
+            color: #444;
+        }
+
+        .info-panel p {
+            margin: 0 0 6px 0;
+        }
+
+        .info-panel ul {
+            margin: 4px 0 6px 0;
+            padding-left: 1.4em;
+        }
+
+        .info-panel li {
+            margin-bottom: 3px;
+        }
+
+        /* log panel */
+        .log-panel {
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            overflow: hidden;
+            margin-bottom: 14px;
+            display: none;
+        }
+
+        .log-panel-header {
+            background: #f6f6f6;
+            border-bottom: 1px solid var(--border);
+            padding: 6px 12px;
+            font-size: 0.82em;
+            font-weight: bold;
+            color: #666;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        #dl-logArea {
+            background: #1e1e2e;
+            color: #cdd6f4;
+            font-family: "Consolas", "Courier New", monospace;
+            font-size: 0.82em;
+            line-height: 1.55;
+            padding: 10px 14px;
+            max-height: 260px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .log-skip {
+            color: #a6adc8;
+        }
+
+        .log-ok {
+            color: #a6e3a1;
+        }
+
+        .log-warn {
+            color: #f9e2af;
+        }
+
+        .log-error {
+            color: #f38ba8;
+        }
+
+        .log-info {
+            color: #89dceb;
+        }
+
+        /* results table */
+        .results-panel {
+            display: none;
+            margin-top: 4px;
+        }
+
+        .results-summary {
+            font-size: 0.88em;
+            color: #444;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .table-wrap {
+            overflow-x: auto;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.84em;
+        }
+
+        thead th {
+            background: var(--primary);
+            color: #fff;
+            padding: 8px 10px;
+            text-align: left;
+            font-weight: 600;
+            white-space: nowrap;
+            position: sticky;
+            top: 0;
+        }
+
+        tbody tr:nth-child(even) {
+            background: #f7f9fc;
+        }
+
+        tbody tr:hover {
+            background: #eaf2ff;
+        }
+
+        tbody td {
+            padding: 7px 10px;
+            border-bottom: 1px solid #eee;
+            vertical-align: top;
+            max-width: 280px;
+            word-break: break-word;
+        }
+
+        .td-ad-num {
+            font-weight: bold;
+            white-space: nowrap;
+        }
+
+        .td-ata {
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .pdf-link {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .pdf-link:hover {
+            text-decoration: underline;
+        }
+
+        /* expandable cells */
+        .cell-expand {
+            max-height: 3.6em;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .cell-expand.open {
+            max-height: 600px;
+        }
+
+        .cell-expand:not(.open)::after {
+            content: "▼ more";
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            background: linear-gradient(to right, transparent, #fff 40%);
+            padding-left: 30px;
+            font-size: 0.78em;
+            color: var(--primary);
+        }
+
+        tbody tr:nth-child(even) .cell-expand:not(.open)::after {
+            background: linear-gradient(to right, transparent, #f7f9fc 40%);
+        }
+
+        tbody tr:hover .cell-expand:not(.open)::after {
+            background: linear-gradient(to right, transparent, #eaf2ff 40%);
+        }
+
+        /* ═══════════════════════════════════════════════════
+           FETCHER STYLES
+        ═══════════════════════════════════════════════════ */
+        .ft-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: flex-end;
+            margin-bottom: 12px;
+        }
+
+        .ft-input-group {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .ft-input-group label {
+            font-size: 0.85em;
+            font-weight: bold;
+            margin-bottom: 4px;
+            color: #555;
+        }
+
+        .ft-input-group input[type="text"] {
+            padding: 8px 10px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 0.95em;
+            font-family: var(--font);
+        }
+
+        .ft-input-group input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(0, 104, 201, 0.18);
+        }
+
+        .format-toggle {
+            display: flex;
+            gap: 0;
+            border-radius: 4px;
+            overflow: hidden;
+            border: 1px solid #bbb;
+            flex-shrink: 0;
+        }
+
+        .format-toggle label {
+            padding: 8px 14px;
+            font-size: 0.85em;
+            cursor: pointer;
+            background: #e7e7e7;
+            transition: 0.2s;
+            white-space: nowrap;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .format-toggle input[type="radio"] {
+            display: none;
+        }
+
+        .format-toggle input[type="radio"]:checked+label {
+            background: var(--primary);
+            color: white;
+        }
+
+        button.ft-fetch-btn {
+            padding: 8px 20px;
+            background: var(--orange);
+            color: white;
+            border: 1px solid var(--orange-dark);
+            border-radius: 4px;
+            font-size: 0.95em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+            font-family: var(--font);
+            flex-shrink: 0;
+            white-space: nowrap;
+        }
+
+        button.ft-fetch-btn:hover {
+            background: var(--orange-dark);
+        }
+
+        button.ft-fetch-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        button.ft-print-btn {
+            padding: 8px 20px;
+            background: var(--green);
+            color: #333;
+            border: 1px solid var(--green-dark);
+            border-radius: 4px;
+            font-size: 0.95em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+            font-family: var(--font);
+            flex-shrink: 0;
+            white-space: nowrap;
+        }
+
+        button.ft-print-btn:hover {
+            background: var(--green-dark);
+        }
+
+        /* AD result cards */
+        .ad-card {
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            margin-bottom: 16px;
+            overflow: hidden;
+            animation: fadeIn 0.3s;
+        }
+
+        .ad-card-header {
+            background: var(--primary);
+            color: white;
+            padding: 8px 14px;
+            font-weight: bold;
+            font-size: 0.95em;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .ad-card-header .ad-doc-num {
+            font-weight: normal;
+            font-size: 0.8em;
+            opacity: 0.85;
+        }
+
+        .ad-card-body {
+            padding: 14px;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        /* HTML content styling */
+        .ad-card-body.html-content {
+            font-family: "Times New Roman", Times, serif;
+            font-size: 10pt;
+            line-height: 1.3;
+            color: #000;
+            text-align: justify;
+        }
+
+        .ad-card-body.html-content h1:first-of-type,
+        .ad-card-body.html-content .document-heading {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 12pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-top: 14pt;
+            margin-bottom: 8pt;
+            text-align: left;
+            border: none;
+            padding: 0;
+        }
+
+        .ad-card-body.html-content h1:not(:first-of-type) {
+            font-family: "Times New Roman", Times, serif;
+            font-size: 10pt;
+            font-weight: bold;
+            text-transform: none;
+            color: #000;
+            margin-top: 10pt;
+            margin-bottom: 3pt;
+            text-align: left;
+        }
+
+        .ad-card-body.html-content h2,
+        .ad-card-body.html-content h3,
+        .ad-card-body.html-content h4,
+        .ad-card-body.html-content h5 {
+            font-family: "Times New Roman", Times, serif;
+            font-weight: bold;
+            text-align: left;
+            margin-top: 10pt;
+            margin-bottom: 3pt;
+            font-size: 10pt;
+        }
+
+        .ad-card-body.html-content p {
+            margin-top: 0;
+            margin-bottom: 4pt;
+            text-indent: 1.5em;
+        }
+
+        .ad-card-body.html-content p.indent-0,
+        .ad-card-body.html-content p.no-indent {
+            text-indent: 0;
+        }
+
+        .ad-card-body.html-content ul,
+        .ad-card-body.html-content ol {
+            margin-top: 0;
+            margin-bottom: 4pt;
+            padding-left: 2em;
+        }
+
+        .ad-card-body.html-content li p {
+            text-indent: 0;
+        }
+
+        .ad-card-body.html-content a {
+            color: #000;
+            text-decoration: none;
+        }
+
+        .ad-card-body.html-content table {
+            border-collapse: collapse;
+            margin: 8pt 0;
+            font-size: 9pt;
+            width: 100%;
+        }
+
+        .ad-card-body.html-content th,
+        .ad-card-body.html-content td {
+            border: 1px solid #999;
+            padding: 3pt 6pt;
+            text-align: left;
+            text-indent: 0;
+        }
+
+        .ad-card-body.html-content th {
+            background: #eee;
+            font-weight: bold;
+        }
+
+        /* Plain text styling */
+        .ad-card-body.text-content {
+            white-space: pre-wrap;
+            font-family: "Consolas", "Courier New", monospace;
+            font-size: 9pt;
+            line-height: 1.35;
+        }
+
+        .no-results {
+            text-align: center;
+            color: #999;
+            padding: 40px 20px;
+            font-size: 1em;
+        }
+
+        .no-results .hint {
+            margin-top: 8px;
+            font-size: 0.85em;
+            color: #aaa;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(4px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* ═══════════════════════════════════════════════════
+           PRINT STYLES  (applies to whichever tab is active)
+        ═══════════════════════════════════════════════════ */
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+                font-size: 9.5pt;
+            }
+
+            .app-container {
+                box-shadow: none;
+                border: none;
+                padding: 0;
+                max-width: 100%;
+            }
+
+            .tab-bar,
+            .ft-controls,
+            .status-bar,
+            h1,
+            button.ft-print-btn,
+            .tab-panel:not(.active),
+            .ad-card-header .ad-doc-num {
+                display: none !important;
+            }
+
+            .ad-card {
+                border: none;
+                break-inside: avoid;
+                page-break-inside: avoid;
+                margin: 0;
+            }
+
+            .ad-card-header {
+                background: none !important;
+                color: #000 !important;
+                padding: 0 0 4pt 0;
+                font-size: 11pt;
+                border-bottom: 1px solid #000;
+                margin-bottom: 8pt;
+                print-color-adjust: exact;
+                -webkit-print-color-adjust: exact;
+            }
+
+            .ad-card-body {
+                max-height: none;
+                overflow: visible;
+                padding: 0;
+                column-count: 2;
+                column-gap: 0.35in;
+            }
+
+            .ad-card-body.html-content {
+                font-size: 9.5pt;
+                line-height: 1.15;
+            }
+
+            .ad-card-body.text-content {
+                font-size: 8pt;
+                line-height: 1.2;
+            }
+
+            @page {
+                margin: 0.6in 0.75in;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app-container">
+        <h1>FAA Airworthiness Directive Tools</h1>
+
+        <!-- ── Tab selector ── -->
+        <div class="tab-bar">
+            <button class="tab-btn" id="tabBtnDownloader" onclick="switchTab('downloader')">Find ADs by Aircraft Type /
+                Model</button>
+            <button class="tab-btn" id="tabBtnFetcher" onclick="switchTab('fetcher')">Find a Specific AD</button>
+        </div>
+
+        <!-- ════════════════════════════════════════════════════════
+         TAB 1: DOWNLOADER  (Find ADs by Aircraft Type/Model)
+    ════════════════════════════════════════════════════════ -->
+        <div class="tab-panel" id="tabDownloader">
+
+            <fieldset class="params-panel">
+                <legend>Search Parameters</legend>
+                <div class="params-grid">
+                    <label for="inputMake">Aircraft Make</label>
+                    <input type="text" id="inputMake" value="Boeing" autocomplete="off" placeholder="e.g. Boeing">
+                    <span class="hint-text">Used in API search query</span>
+
+                    <label for="inputType">Aircraft Type</label>
+                    <input type="text" id="inputType" value="737" autocomplete="off" placeholder="e.g. 737">
+                    <span class="hint-text">Used in API search query</span>
+
+                    <label for="inputSeries">Model / Series</label>
+                    <input type="text" id="inputSeries" value="-400" autocomplete="off" placeholder="e.g. -400">
+                    <span class="hint-text">Both Type and Series must appear in (c) Applicability</span>
+
+                    <label for="inputDate">Published Since</label>
+                    <input type="text" id="inputDate" value="2024-01-01" autocomplete="off" placeholder="YYYY-MM-DD">
+                    <span class="hint-text">Format: YYYY-MM-DD</span>
+                </div>
+
+                <div class="btn-row">
+                    <button class="btn-run" id="btnRun" onclick="dl_startDownload()">&#9654;&nbsp; Find ADs</button>
+                    <button class="btn-dl-csv" id="btnDlCsv" onclick="dl_downloadCSV()">&#8595;&nbsp; Save CSV</button>
+                    <button class="btn-copy-nums" id="btnCopyNums" onclick="dl_copyADNumbers(this)">&#128203;&nbsp; Copy
+                        AD Numbers</button>
+                    <button class="btn-clear-dl" id="btnClearDl" onclick="dl_clearAll()">Clear</button>
+                    <button class="info-toggle" id="btnInfo" onclick="dl_toggleInfo()">&#8505;&nbsp; How this
+                        works</button>
+                </div>
+            </fieldset>
+
+            <!-- How it works panel -->
+            <div class="info-panel" id="dl-infoPanel">
+                <h3>How the AD Downloader works</h3>
+                <h4>Where does the data come from?</h4>
+                <p>The tool queries the <strong>Federal Register's official public API</strong> — the same database the
+                    FAA publishes all Airworthiness Directives to. This is the authoritative source; it is not scraping
+                    a website or relying on a third-party database.</p>
+                <h4>How does it avoid missing ADs?</h4>
+                <p>The search is deliberately <strong>broad first, then filtered</strong> using a two-stage process:</p>
+                <ul>
+                    <li><strong>Stage 1 — Cast a wide net via the API:</strong> The tool asks the Federal Register for
+                        every Rule published by the FAA that mentions both the aircraft make (e.g. "Boeing") and the
+                        aircraft type (e.g. "737") since the chosen date. It retrieves up to 100 results per page and
+                        automatically loops through all pages, so nothing is truncated.</li>
+                    <li><strong>Stage 2 — Confirm applicability by reading the actual AD text:</strong> For every
+                        candidate returned, the tool fetches the full text of the AD and reads the <strong>(c)
+                            Applicability</strong> paragraph — the legally binding section that defines exactly which
+                        aircraft the AD applies to. It checks that <em>both</em> the aircraft type and the model/series
+                        appear independently in that paragraph. An AD only makes the final list if both terms are found
+                        there.</li>
+                </ul>
+                <h4>Why is the two-stage approach important?</h4>
+                <p>The broad API search ensures ADs are not excluded due to unusual title wording. The applicability
+                    check ensures ADs that merely <em>reference</em> the target model in passing (e.g. a 737-800 AD that
+                    mentions the -400 as context) are not included. <strong>Every AD in the output genuinely applies to
+                        the specified aircraft.</strong></p>
+                <h4>What is in the output?</h4>
+                <p>Each matched AD includes its AD number, ATA system code, subject description, the full applicability
+                    text, the unsafe condition description, and a direct link to the official PDF — all traceable back
+                    to the Federal Register.</p>
+            </div>
+
+            <div class="status-bar" id="dl-statusBar"><span>Fill in the search parameters and click Find ADs.</span>
+            </div>
+
+            <!-- Activity log -->
+            <div class="log-panel" id="dl-logPanel">
+                <div class="log-panel-header">
+                    <span>Activity Log</span>
+                    <span id="dl-logCount"></span>
+                </div>
+                <div id="dl-logArea"></div>
+            </div>
+
+            <!-- Results table -->
+            <div class="results-panel" id="dl-resultsPanel">
+                <div class="results-summary" id="dl-resultsSummary"></div>
+                <div class="table-wrap">
+                    <table id="dl-resultsTable">
+                        <thead>
+                            <tr>
+                                <th>AD Number</th>
+                                <th>ATA</th>
+                                <th>ATA Subject</th>
+                                <th>Subject / Abstract</th>
+                                <th>(c) Applicability</th>
+                                <th>(e) Unsafe Condition</th>
+                                <th>PDF</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dl-resultsBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div><!-- /tabDownloader -->
+
+        <!-- ════════════════════════════════════════════════════════
+         TAB 2: FETCHER  (Find a Specific AD)
+    ════════════════════════════════════════════════════════ -->
+        <div class="tab-panel" id="tabFetcher">
+
+            <div class="ft-controls" id="ft-controls">
+                <div class="ft-input-group">
+                    <label for="ft-adInput">AD Number(s), comma-separated</label>
+                    <input type="text" id="ft-adInput" placeholder="e.g. 2020-15-14, 2018-04-07" autocomplete="off">
+                </div>
+
+                <div class="format-toggle">
+                    <input type="radio" name="ft-fmt" id="ft-fmtHtml" value="html" checked>
+                    <label for="ft-fmtHtml">Clean HTML</label>
+                    <input type="radio" name="ft-fmt" id="ft-fmtText" value="text">
+                    <label for="ft-fmtText">Plain Text</label>
+                </div>
+
+                <button class="ft-fetch-btn" id="ft-fetchBtn" onclick="ft_fetchADs()">Fetch ADs</button>
+                <button class="ft-print-btn" id="ft-printBtn" onclick="window.print()" style="display:none;">Print /
+                    Save PDF</button>
+            </div>
+
+            <div class="status-bar" id="ft-statusBar">
+                <span>Enter one or more AD numbers above and click Fetch.</span>
+            </div>
+
+            <div id="ft-results">
+                <!-- AD cards render here -->
+            </div>
+
+        </div><!-- /tabFetcher -->
+
+    </div><!-- /app-container -->
+
+    <script>
+        /* ═══════════════════════════════════════════════════════════════════
+           TAB SWITCHING
+        ═══════════════════════════════════════════════════════════════════ */
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
+            document.getElementById('tabBtn' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
+        }
+        // Default to downloader tab
+        switchTab('downloader');
+
+        /* ═══════════════════════════════════════════════════════════════════
+           SHARED: CORS PROXY + FETCH HELPER
+           (used by both tools — single copy to avoid duplication)
+        ═══════════════════════════════════════════════════════════════════ */
+        const CORS_PROXIES = [
+            u => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u),
+            u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
+            u => 'https://corsproxy.io/?' + encodeURIComponent(u),
+        ];
+
+        async function fetchWithProxy(url) {
+            try {
+                const r = await fetch(url);
+                if (r.ok) return await r.text();
+            } catch (_) { }
+            for (const makeProxy of CORS_PROXIES) {
+                try {
+                    const r = await fetch(makeProxy(url));
+                    if (r.ok) return await r.text();
+                } catch (_) { }
+            }
+            throw new Error('All CORS proxies failed for: ' + url);
+        }
+
+        // shared escHtml used by both tools
+        function escHtml(s) {
+            const d = document.createElement('div');
+            d.textContent = s;
+            return d.innerHTML;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════
+           DOWNLOADER  (dl_ prefix throughout)
+        ═══════════════════════════════════════════════════════════════════ */
+        let dl_adResults = [];
+        let dl_running = false;
+
+        function dl_toggleInfo() {
+            const p = document.getElementById('dl-infoPanel');
+            p.style.display = p.style.display === 'block' ? 'none' : 'block';
+        }
+
+        function dl_setStatus(msg, type) {
+            type = type || '';
+            const bar = document.getElementById('dl-statusBar');
+            bar.className = 'status-bar' + (type ? ' ' + type : '');
+            bar.innerHTML = (type === 'loading' ? '<div class="spinner"></div>' : '') +
+                '<span>' + escHtml(msg) + '</span>';
+        }
+
+        function dl_appendLog(msg, cls) {
+            const area = document.getElementById('dl-logArea');
+            const line = document.createElement('span');
+            if (cls) line.className = cls;
+            line.textContent = msg;
+            area.appendChild(line);
+            area.scrollTop = area.scrollHeight;
+        }
+
+        function dl_clearLog() {
+            document.getElementById('dl-logArea').innerHTML = '';
+            document.getElementById('dl-logCount').textContent = '';
+        }
+
+        function dl_updateLogCount(n) {
+            document.getElementById('dl-logCount').textContent = n === null ? '' : n + ' matched';
+        }
+
+        function dl_clearAll() {
+            dl_adResults = [];
+            dl_clearLog();
+            document.getElementById('dl-logPanel').style.display = 'none';
+            document.getElementById('dl-resultsPanel').style.display = 'none';
+            document.getElementById('dl-resultsBody').innerHTML = '';
+            document.getElementById('btnDlCsv').style.display = 'none';
+            document.getElementById('btnCopyNums').style.display = 'none';
+            dl_setStatus('Fill in the search parameters and click Find ADs.');
+        }
+
+        function dl_copyADNumbers(btn) {
+            if (!dl_adResults.length) return;
+            // Strip the 'AD ' prefix to match the format expected by the fetcher input
+            const numbers = dl_adResults.map(ad => ad['AD Number'].replace(/^AD\s+/i, '')).join(', ');
+            navigator.clipboard.writeText(numbers).then(function () {
+                const orig = btn.innerHTML;
+                btn.innerHTML = '&#10003;&nbsp; Copied!';
+                btn.classList.add('copied');
+                setTimeout(function () {
+                    btn.innerHTML = orig;
+                    btn.classList.remove('copied');
+                }, 2000);
+            }).catch(function () {
+                // Fallback for browsers without clipboard API
+                const ta = document.createElement('textarea');
+                ta.value = numbers;
+                ta.style.position = 'fixed';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.focus(); ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                const orig = btn.innerHTML;
+                btn.innerHTML = '&#10003;&nbsp; Copied!';
+                btn.classList.add('copied');
+                setTimeout(function () {
+                    btn.innerHTML = orig;
+                    btn.classList.remove('copied');
+                }, 2000);
+            });
+        }
+
+        // ── Federal Register API — paginated fetch ──
+        const DL_FR_API = 'https://www.federalregister.gov/api/v1/articles.json';
+
+        async function dl_fetchAllPages(make, aircraftType, startDate) {
+            const query = '"Airworthiness Directives" "' + make + '" "' + aircraftType + '"';
+            const fields = ['title', 'abstract', 'publication_date', 'pdf_url', 'document_number', 'body_html_url']
+                .map(f => 'fields[]=' + f).join('&');
+            let all = [], page = 1, totalPages = 1;
+
+            do {
+                const url = DL_FR_API + '?' +
+                    'conditions[agencies][]=federal-aviation-administration&' +
+                    'conditions[type][]=RULE&' +
+                    'conditions[term]=' + encodeURIComponent(query) + '&' +
+                    'conditions[publication_date][gte]=' + startDate + '&' +
+                    'order=newest&per_page=100&page=' + page + '&' + fields;
+
+                const resp = await fetch(url);
+                if (!resp.ok) throw new Error('API error ' + resp.status + ' on page ' + page);
+                const data = await resp.json();
+
+                const results = data.results || [];
+                if (results.length === 0) break;
+                all = all.concat(results);
+
+                totalPages = data.total_pages || 1;
+                const count = data.count || 0;
+
+                if (page === 1) dl_appendLog('Found ' + count + ' potential matching rules across ' + totalPages + ' page(s).\n', 'log-info');
+                if (totalPages > 1) dl_appendLog('  Downloaded page ' + page + ' of ' + totalPages + '...\n', 'log-info');
+                page++;
+            } while (page <= totalPages);
+
+            return all;
+        }
+
+        // ── Resolve AD number from document_number → docket_ids ──
+        async function dl_resolveADNumber(documentNumber) {
+            try {
+                const resp = await fetch('https://www.federalregister.gov/api/v1/articles/' + documentNumber + '.json');
+                if (!resp.ok) return 'Unknown AD Number';
+                const data = await resp.json();
+                for (const d of (data.docket_ids || [])) {
+                    if (d.startsWith('AD ')) return d;
+                }
+            } catch (_) { }
+            return 'Unknown AD Number';
+        }
+
+        // ── Paragraph extraction ──
+        function dl_stripHtml(html) {
+            return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+        }
+
+        function dl_escapeRe(s) {
+            return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+
+        function dl_findPara(text, letter, heading) {
+            let pattern = new RegExp(
+                '\\(' + letter + '\\)\\s*' + dl_escapeRe(heading) +
+                '(.*?)(?=\\([a-z]\\)\\s*[A-Z]|$)', 'is'
+            );
+            let m = text.match(pattern);
+            if (m) return m[1].trim();
+
+            pattern = new RegExp(
+                dl_escapeRe(heading) + '\\s+\\(' + letter + '\\)(.*?)(?=\\([a-z]\\)\\s*[A-Z]|(?:[A-Z][a-zA-Z]* )+\\([a-z]\\)|$)',
+                'is'
+            );
+            m = text.match(pattern);
+            if (m) return m[1].trim();
+            return null;
+        }
+
+        async function dl_extractParagraphs(htmlUrl) {
+            const NF = 'Not found';
+            let cPara = NF, ePara = NF, bPara = NF, dPara = NF;
+            let ataCode = NF, ataSubject = NF, superseded = 'None';
+
+            if (!htmlUrl) return { cPara, ePara, ataCode, ataSubject, superseded, bPara, dPara };
+
+            try {
+                const html = await fetchWithProxy(htmlUrl);
+                const text = dl_stripHtml(html);
+
+                // (b) Affected ADs → Superseded
+                const bResult = dl_findPara(text, 'b', 'Affected ADs');
+                if (bResult) {
+                    bPara = bResult;
+                    const idx = bResult.toLowerCase().indexOf('replaces');
+                    if (idx !== -1) {
+                        const after = bResult.substring(idx + 'replaces'.length);
+                        const matches = [...after.matchAll(/AD\s+\d{4}-\d{2}-\d{2}/g)].map(m => m[0]);
+                        if (matches.length) superseded = [...new Set(matches)].join(', ');
+                    }
+                }
+
+                // (d) Subject → ATA Code & Description
+                const dResult = dl_findPara(text, 'd', 'Subject');
+                if (dResult) {
+                    dPara = dResult;
+                    const ataMatch = dResult.match(/Code\s+(\d+)[,:]?\s*(.*)/);
+                    if (ataMatch) {
+                        ataCode = ataMatch[1].trim();
+                        let raw = ataMatch[2].trim();
+                        const dot = raw.indexOf('.');
+                        ataSubject = dot !== -1 ? raw.substring(0, dot).trim() : raw.replace(/\.$/, '');
+                    }
+                }
+
+                const cResult = dl_findPara(text, 'c', 'Applicability');
+                if (cResult !== null) cPara = cResult;
+
+                const eResult = dl_findPara(text, 'e', 'Unsafe Condition');
+                if (eResult !== null) ePara = eResult;
+
+            } catch (_) { }
+
+            return { cPara, ePara, ataCode, ataSubject, superseded, bPara, dPara };
+        }
+
+        // ── Main download process ──
+        async function dl_startDownload() {
+            if (dl_running) return;
+
+            const make = document.getElementById('inputMake').value.trim();
+            const aircraftType = document.getElementById('inputType').value.trim();
+            const modelSeries = document.getElementById('inputSeries').value.trim();
+            const startDate = document.getElementById('inputDate').value.trim();
+
+            if (!make || !aircraftType || !modelSeries || !startDate) {
+                dl_setStatus('Please fill in all search parameters.', 'error');
+                return;
+            }
+
+            dl_adResults = [];
+            dl_clearLog();
+            document.getElementById('dl-resultsBody').innerHTML = '';
+            document.getElementById('dl-resultsPanel').style.display = 'none';
+            document.getElementById('btnDlCsv').style.display = 'none';
+            document.getElementById('btnCopyNums').style.display = 'none';
+            document.getElementById('dl-logPanel').style.display = 'block';
+            document.getElementById('btnRun').disabled = true;
+            dl_running = true;
+
+            dl_setStatus('Searching for ' + make + ' ' + aircraftType + ' / ' + modelSeries + ' ADs since ' + startDate + '…', 'loading');
+            dl_appendLog('Starting search for ' + make + ' ' + aircraftType + ' / ' + modelSeries + ' ADs since ' + startDate + '…\n', 'log-info');
+
+            try {
+                const articles = await dl_fetchAllPages(make, aircraftType, startDate);
+
+                if (!articles.length) {
+                    dl_appendLog('No results returned from the Federal Register API.\n', 'log-warn');
+                    dl_setStatus('No results found.', 'error');
+                    dl_running = false;
+                    document.getElementById('btnRun').disabled = false;
+                    return;
+                }
+
+                dl_appendLog('Filtering and parsing full AD texts (this may take a moment)…\n', 'log-info');
+
+                for (const article of articles) {
+                    const title = article.title || '';
+                    if (!title.includes('Airworthiness Directives') || !title.includes(make)) continue;
+
+                    const abstract = (article.abstract || 'No subject provided.').replace(/\n/g, ' ').trim();
+                    const pdfUrl = article.pdf_url || '';
+                    const docNumber = article.document_number || '';
+                    const pubDate = article.publication_date || '';
+                    const htmlUrl = article.body_html_url || '';
+
+                    dl_setStatus('Resolving: ' + title.substring(0, 80) + '…', 'loading');
+
+                    const adNumber = docNumber ? await dl_resolveADNumber(docNumber) : 'Unknown AD Number';
+                    const { cPara, ePara, ataCode, ataSubject, superseded, bPara, dPara } = await dl_extractParagraphs(htmlUrl);
+
+                    if (!cPara.includes(aircraftType)) {
+                        dl_appendLog("  Skipped (type '" + aircraftType + "' not in Applicability): " + adNumber + '\n', 'log-skip');
+                        continue;
+                    }
+                    if (!cPara.includes(modelSeries)) {
+                        dl_appendLog("  Skipped (series '" + modelSeries + "' not in Applicability): " + adNumber + '\n', 'log-skip');
+                        continue;
+                    }
+
+                    dl_appendLog('  Matched: ' + adNumber + '\n', 'log-ok');
+
+                    dl_adResults.push({
+                        'AD Number': adNumber,
+                        'Title': title,
+                        'Subject': abstract,
+                        'Published Date': pubDate,
+                        'ATA Number': ataCode,
+                        'Subject Description': ataSubject,
+                        'Superseded ADs': superseded,
+                        '(b) Affected ADs': bPara,
+                        '(c) Applicability': cPara,
+                        '(d) Subject': dPara,
+                        '(e) Unsafe Condition': ePara,
+                        'PDF URL': pdfUrl,
+                    });
+                }
+
+                dl_adResults.sort((a, b) => (b['Published Date'] || '').localeCompare(a['Published Date'] || ''));
+                dl_updateLogCount(dl_adResults.length);
+
+                if (!dl_adResults.length) {
+                    dl_appendLog('\nNo fully matching ADs found for ' + make + ' ' + aircraftType + ' / ' + modelSeries + '.\n', 'log-warn');
+                    dl_setStatus('No ADs matched all criteria.', 'error');
+                } else {
+                    dl_appendLog('\nDone — ' + dl_adResults.length + ' AD(s) matched.\n', 'log-ok');
+                    dl_setStatus('Complete — ' + dl_adResults.length + ' AD(s) found. Use "Save CSV" to export.', 'success');
+                    document.getElementById('dl-resultsPanel').style.display = 'block';
+                    document.getElementById('btnDlCsv').style.display = 'inline-block';
+                    document.getElementById('btnCopyNums').style.display = 'inline-block';
+                    document.getElementById('dl-resultsSummary').textContent =
+                        dl_adResults.length + ' Airworthiness Directive(s) matched — ' +
+                        make + ' ' + aircraftType + ' / ' + modelSeries + ' since ' + startDate;
+                    dl_rebuildTable();
+                }
+
+            } catch (err) {
+                dl_appendLog('\nError: ' + err.message + '\n', 'log-error');
+                dl_setStatus('Error: ' + err.message, 'error');
+            }
+
+            dl_running = false;
+            document.getElementById('btnRun').disabled = false;
+        }
+
+        // ── Table rendering ──
+        function dl_rebuildTable() {
+            const tbody = document.getElementById('dl-resultsBody');
+            tbody.innerHTML = '';
+            for (const ad of dl_adResults) {
+                const tr = document.createElement('tr');
+                const adNum = ad['AD Number'].replace(/^AD\s+/i, '');
+                tr.innerHTML =
+                    '<td class="td-ad-num">' + escHtml(adNum) + '</td>' +
+                    '<td class="td-ata">' + escHtml(ad['ATA Number']) + '</td>' +
+                    '<td>' + escHtml(ad['Subject Description']) + '</td>' +
+                    '<td>' + dl_makeCellExpand(escHtml(ad['Subject'])) + '</td>' +
+                    '<td>' + dl_makeCellExpand(escHtml(ad['(c) Applicability'])) + '</td>' +
+                    '<td>' + dl_makeCellExpand(escHtml(ad['(e) Unsafe Condition'])) + '</td>' +
+                    '<td>' + (ad['PDF URL']
+                        ? '<a class="pdf-link" href="' + escHtml(ad['PDF URL']) + '" target="_blank" rel="noopener">Open PDF</a>'
+                        : '—') + '</td>';
+                tbody.appendChild(tr);
+            }
+            tbody.querySelectorAll('.cell-expand').forEach(el => {
+                el.addEventListener('click', () => el.classList.toggle('open'));
+            });
+        }
+
+        function dl_makeCellExpand(html) {
+            return '<div class="cell-expand">' + html + '</div>';
+        }
+
+        // ── CSV export ──
+        const DL_CSV_FIELDS = [
+            'AD Number', 'Title', 'Subject', 'Published Date',
+            'ATA Number', 'Subject Description', 'Superseded ADs',
+            '(b) Affected ADs', '(c) Applicability', '(d) Subject',
+            '(e) Unsafe Condition', 'PDF URL'
+        ];
+
+        function dl_csvEscape(val) {
+            const s = String(val == null ? '' : val);
+            if (s.includes('"') || s.includes(',') || s.includes('\n')) {
+                return '"' + s.replace(/"/g, '""') + '"';
+            }
+            return s;
+        }
+
+        function dl_downloadCSV() {
+            if (!dl_adResults.length) return;
+
+            const make = document.getElementById('inputMake').value.trim().replace(/\s+/g, '');
+            const aircraftType = document.getElementById('inputType').value.trim().replace(/\s+/g, '');
+            const modelSeries = document.getElementById('inputSeries').value.trim().replace(/[-\s]/g, '') || aircraftType;
+            const filename = 'AD_download_' + make + '_' + aircraftType + '_' + modelSeries + '.csv';
+
+            const rows = [DL_CSV_FIELDS.map(dl_csvEscape).join(',')];
+            for (const ad of dl_adResults) {
+                rows.push(DL_CSV_FIELDS.map(f => dl_csvEscape(ad[f])).join(','));
+            }
+
+            const blob = new Blob(['\uFEFF' + rows.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+
+        /* ═══════════════════════════════════════════════════════════════════
+           FETCHER  (ft_ prefix throughout)
+        ═══════════════════════════════════════════════════════════════════ */
+        const FT_API_BASE = 'https://www.federalregister.gov/api/v1/articles.json';
+
+        // Wire up Enter key on the fetcher input
+        document.getElementById('ft-adInput').addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') ft_fetchADs();
+        });
+
+        function ft_getFormat() {
+            return document.querySelector('input[name="ft-fmt"]:checked').value;
+        }
+
+        function ft_setStatus(msg, isError, showSpinner) {
+            const bar = document.getElementById('ft-statusBar');
+            bar.className = 'status-bar' + (isError ? ' error' : '');
+            bar.innerHTML = (showSpinner ? '<div class="spinner"></div>' : '') + '<span>' + msg + '</span>';
+        }
+
+        async function ft_fetchADs() {
+            const input = document.getElementById('ft-adInput').value.trim();
+            if (!input) { ft_setStatus('Please enter at least one AD number.', true); return; }
+
+            const adNumbers = input.split(',').map(s => s.trim()).filter(Boolean);
+            if (adNumbers.length === 0) { ft_setStatus('No valid AD numbers found.', true); return; }
+
+            const format = ft_getFormat();
+            const resultsDiv = document.getElementById('ft-results');
+            const fetchBtn = document.getElementById('ft-fetchBtn');
+            const printBtn = document.getElementById('ft-printBtn');
+
+            resultsDiv.innerHTML = '';
+            printBtn.style.display = 'none';
+            fetchBtn.disabled = true;
+
+            let successCount = 0;
+
+            for (let i = 0; i < adNumbers.length; i++) {
+                const adNum = adNumbers[i];
+                ft_setStatus('Fetching ' + adNum + ' (' + (i + 1) + '/' + adNumbers.length + ')...', false, true);
+
+                try {
+                    const candidates = await ft_searchAD(adNum);
+                    if (!candidates || candidates.length === 0) {
+                        resultsDiv.appendChild(ft_makeErrorCard(adNum, 'Not found in the Federal Register.'));
+                        continue;
+                    }
+
+                    let found = false;
+                    for (const article of candidates) {
+                        const contentUrl = format === 'html' ? article.body_html_url : article.raw_text_url;
+                        if (!contentUrl) continue;
+
+                        let rawContent;
+                        try { rawContent = await ft_fetchContent(contentUrl); } catch (_) { continue; }
+
+                        if (!ft_adNumberInPreamble(rawContent, adNum)) continue;
+
+                        const cleanContent = ft_stripPreamble(rawContent, format);
+                        const title = article.title || adNum;
+                        const docNum = article.document_number || '';
+
+                        resultsDiv.appendChild(ft_makeADCard(adNum, title, docNum, cleanContent, format));
+                        successCount++;
+                        found = true;
+                        break;
+                    }
+
+                    if (!found) {
+                        resultsDiv.appendChild(ft_makeErrorCard(adNum, 'AD not found — results did not match the requested AD number.'));
+                    }
+
+                } catch (err) {
+                    resultsDiv.appendChild(ft_makeErrorCard(adNum, 'Error: ' + err.message));
+                }
+            }
+
+            fetchBtn.disabled = false;
+
+            if (successCount > 0) {
+                printBtn.style.display = '';
+                ft_setStatus('Done — fetched ' + successCount + ' of ' + adNumbers.length + ' AD(s).');
+            } else {
+                ft_setStatus('No ADs were successfully fetched.', true);
+            }
+        }
+
+        async function ft_searchAD(adNumber) {
+            const fieldsStr = ['pdf_url', 'document_number', 'title', 'body_html_url', 'raw_text_url']
+                .map(f => 'fields[]=' + f).join('&');
+
+            const url = FT_API_BASE + '?' +
+                'conditions[agencies][]=federal-aviation-administration&' +
+                'conditions[type][]=RULE&' +
+                'conditions[term]=' + encodeURIComponent(adNumber) + '&' +
+                'per_page=20&' + fieldsStr;
+
+            const resp = await fetch(url);
+            if (!resp.ok) throw new Error('API returned ' + resp.status);
+            const data = await resp.json();
+
+            const results = data.results || [];
+            if (results.length === 0) return null;
+
+            const adResults = results.filter(r => r.title && r.title.toLowerCase().includes('airworthiness direct'));
+            const candidates = adResults.length > 0 ? adResults : results;
+
+            candidates.sort((a, b) => {
+                const aHas = a.title && a.title.includes(adNumber) ? 0 : 1;
+                const bHas = b.title && b.title.includes(adNumber) ? 0 : 1;
+                return aHas - bHas;
+            });
+
+            return candidates;
+        }
+
+        function ft_adNumberInPreamble(content, adNumber) {
+            const text = content.replace(/<[^>]*>/g, ' ');
+            const anchorMatch = text.search(/\(a\)\s*(?:This\s+)?(?:airworthiness\s+directive|AD)\s+(?:is\s+)?(?:becomes?\s+)?effective|\(a\)\s*Effective\s+Date|Effective\s+Date\s*\(a\)/i);
+
+            if (anchorMatch !== -1) {
+                const windowStart = Math.max(0, anchorMatch - 500);
+                const window = text.substring(windowStart, anchorMatch);
+                return window.includes(adNumber);
+            }
+
+            const head = text.substring(0, 4000);
+            return head.substring(head.length - 1000).includes(adNumber);
+        }
+
+        async function ft_fetchContent(url) {
+            // fetchWithProxy is shared above
+            return fetchWithProxy(url);
+        }
+
+        function ft_stripPreamble(content, format) {
+            if (format === 'html') {
+                const match = content.match(/(<h1[^>]*>\s*PART 39.*?AIRWORTHINESS DIRECTIVES\s*<\/h1>)/is);
+                if (match) {
+                    content = content.substring(content.indexOf(match[0]));
+                } else {
+                    const idx = content.indexOf('PART 39&mdash;AIRWORTHINESS DIRECTIVES');
+                    if (idx !== -1) {
+                        const start = content.lastIndexOf('<h1', idx);
+                        if (start !== -1) content = content.substring(start);
+                    }
+                }
+                content = content.replace(/<span[^>]*\bunprinted-element\b[^>]*>[\s\S]*?<\/span>/gi, '');
+                content = content.replace(/\(\s*printed\s+page\s+\d+\s*\)/gi, '');
+                content = content.replace(/\[\[Page\s+\d+\]\]/gi, '');
+                return content;
+            } else {
+                const marker = 'PART 39--AIRWORTHINESS DIRECTIVES';
+                const idx = content.indexOf(marker);
+                if (idx !== -1) {
+                    content = content.substring(idx);
+                } else {
+                    const marker2 = 'PART 39\u2014AIRWORTHINESS DIRECTIVES';
+                    const idx2 = content.indexOf(marker2);
+                    if (idx2 !== -1) content = content.substring(idx2);
+                }
+                const frDocIdx = content.lastIndexOf('[FR Doc.');
+                if (frDocIdx === -1) {
+                    const frDocIdx2 = content.lastIndexOf('[FR Doc');
+                    if (frDocIdx2 !== -1 && content.length - frDocIdx2 < 200) {
+                        content = content.substring(0, frDocIdx2).trimEnd();
+                    }
+                } else if (content.length - frDocIdx < 200) {
+                    content = content.substring(0, frDocIdx).trimEnd();
+                }
+                return content.trim();
+            }
+        }
+
+        function ft_makeADCard(adNum, title, docNum, content, format) {
+            const card = document.createElement('div');
+            card.className = 'ad-card';
+
+            const header = document.createElement('div');
+            header.className = 'ad-card-header';
+            header.innerHTML = '<span>' + escHtml(title) + '</span>' +
+                '<span class="ad-doc-num">' + escHtml(docNum) + '</span>';
+
+            const body = document.createElement('div');
+            body.className = 'ad-card-body ' + (format === 'html' ? 'html-content' : 'text-content');
+            if (format === 'html') { body.innerHTML = content; } else { body.textContent = content; }
+
+            card.appendChild(header);
+            card.appendChild(body);
+            return card;
+        }
+
+        function ft_makeErrorCard(adNum, message) {
+            const card = document.createElement('div');
+            card.className = 'ad-card';
+
+            const header = document.createElement('div');
+            header.className = 'ad-card-header';
+            header.style.background = 'var(--danger)';
+            header.textContent = 'AD ' + adNum;
+
+            const body = document.createElement('div');
+            body.className = 'ad-card-body';
+            body.style.padding = '20px';
+            body.style.color = '#666';
+            body.style.textAlign = 'center';
+            body.textContent = message;
+
+            card.appendChild(header);
+            card.appendChild(body);
+            return card;
+        }
+    </script>
+</body>
+
+</html>
