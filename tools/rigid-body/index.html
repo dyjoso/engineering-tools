@@ -298,6 +298,122 @@
             user-select: none;
             white-space: nowrap;
             transform: translate(-50%, -50%);
+        }
+
+        /* --- Image-based support picker --- */
+        .image-picker-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.55);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .image-picker-overlay.open {
+            display: flex;
+        }
+
+        .image-picker-card {
+            background-color: white;
+            border-radius: 6px;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+            padding: 14px;
+            width: min(92vw, 900px);
+            max-height: 92vh;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .image-picker-card h2 {
+            margin: 0;
+            font-size: 16px;
+            color: #333;
+        }
+
+        .image-picker-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            align-items: center;
+            font-size: 12px;
+        }
+
+        .image-picker-controls button {
+            font-family: inherit;
+            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 3px;
+            border: 1px solid #999;
+            background: linear-gradient(to bottom, #f5f5f5, #d8d8d8);
+            cursor: pointer;
+        }
+
+        .image-picker-controls button.primary {
+            background: linear-gradient(to bottom, #e4f2fd, #97aab9);
+            border-color: #1565C0;
+            color: black;
+        }
+
+        .image-picker-controls select {
+            font-size: 12px;
+            padding: 3px;
+        }
+
+        .image-picker-dropzone {
+            border: 2px dashed #b0b0b0;
+            border-radius: 4px;
+            background-color: #fafafa;
+            min-height: 120px;
+            max-height: 65vh;
+            overflow: auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            padding: 4px;
+        }
+
+        .image-picker-dropzone.drag-over {
+            border-color: #1565C0;
+            background-color: #e4f2fd;
+        }
+
+        .image-picker-dropzone .hint {
+            color: #777;
+            font-size: 13px;
+            text-align: center;
+            line-height: 1.5;
+            padding: 16px;
+        }
+
+        #image-picker-canvas {
+            display: none;
+            cursor: crosshair;
+            max-width: 100%;
+            height: auto;
+        }
+
+        #image-picker-canvas.ready {
+            display: block;
+        }
+
+        .image-picker-readout {
+            font-size: 11px;
+            color: #555;
+            max-height: 70px;
+            overflow-y: auto;
+            background-color: #f4f4f4;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            padding: 4px 6px;
+            font-family: monospace;
+        }
     </style>
 </head>
 
@@ -388,6 +504,7 @@
                 </tbody>
             </table>
             <button class="add-btn" onclick="addSupport()">+ Add General Support</button>
+            <button class="add-btn" id="pick-from-image-btn" type="button">Pick from Image</button>
         </div>
 
         <div class="section">
@@ -446,6 +563,40 @@
                 </label>
             </div>
             <div id="visualization-container"></div>
+        </div>
+    </div>
+
+    <div id="image-picker-modal" class="image-picker-overlay" role="dialog" aria-modal="true" aria-labelledby="image-picker-title">
+        <div class="image-picker-card">
+            <h2 id="image-picker-title">Pick Support Points from Image</h2>
+            <div class="image-picker-controls">
+                <input type="file" id="image-picker-file" accept="image/*" style="display:none;">
+                <button type="button" id="image-picker-choose-btn">Choose Image…</button>
+                <label>
+                    Plane:
+                    <select id="image-picker-plane">
+                        <option value="xy" selected>X-Y (top)</option>
+                        <option value="xz">X-Z (front)</option>
+                        <option value="yz">Y-Z (side)</option>
+                    </select>
+                </label>
+                <label>
+                    <input type="checkbox" id="image-picker-replace"> Replace existing supports
+                </label>
+                <span style="flex:1;"></span>
+                <button type="button" id="image-picker-undo-btn">Undo last</button>
+                <button type="button" id="image-picker-clear-btn">Clear points</button>
+                <button type="button" id="image-picker-cancel-btn">Cancel</button>
+                <button type="button" id="image-picker-confirm-btn" class="primary">Use Points</button>
+            </div>
+            <div id="image-picker-dropzone" class="image-picker-dropzone">
+                <div class="hint" id="image-picker-hint">
+                    Drag &amp; drop an image here, paste from clipboard (Ctrl+V),<br>
+                    or click <b>Choose Image…</b> above.
+                </div>
+                <canvas id="image-picker-canvas"></canvas>
+            </div>
+            <div class="image-picker-readout" id="image-picker-readout">No points picked yet.</div>
         </div>
     </div>
 
@@ -1087,6 +1238,203 @@
         document.getElementById('view-front-btn').addEventListener('click', () => setView('Z'));
         document.getElementById('view-right-btn').addEventListener('click', () => setView('X'));
         document.getElementById('ortho-toggle').addEventListener('change', handleOrthoToggle);
+
+        // --- Image-based support point picker ---
+        (function initImagePicker() {
+            const modal = document.getElementById('image-picker-modal');
+            const openBtn = document.getElementById('pick-from-image-btn');
+            const fileInputEl = document.getElementById('image-picker-file');
+            const chooseBtn = document.getElementById('image-picker-choose-btn');
+            const dropzone = document.getElementById('image-picker-dropzone');
+            const hint = document.getElementById('image-picker-hint');
+            const canvas = document.getElementById('image-picker-canvas');
+            const ctx = canvas.getContext('2d');
+            const planeSelect = document.getElementById('image-picker-plane');
+            const replaceChk = document.getElementById('image-picker-replace');
+            const undoBtn = document.getElementById('image-picker-undo-btn');
+            const clearBtn = document.getElementById('image-picker-clear-btn');
+            const cancelBtn = document.getElementById('image-picker-cancel-btn');
+            const confirmBtn = document.getElementById('image-picker-confirm-btn');
+            const readout = document.getElementById('image-picker-readout');
+
+            let currentImage = null;
+            let pickedPoints = [];
+
+            function open() {
+                modal.classList.add('open');
+                document.addEventListener('paste', handlePaste);
+            }
+
+            function close() {
+                modal.classList.remove('open');
+                document.removeEventListener('paste', handlePaste);
+                currentImage = null;
+                pickedPoints = [];
+                canvas.classList.remove('ready');
+                hint.style.display = '';
+                replaceChk.checked = false;
+                updateReadout();
+            }
+
+            function loadImageFromFile(file) {
+                if (!file || !file.type.startsWith('image/')) return;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        currentImage = img;
+                        pickedPoints = [];
+                        // Cap canvas drawing-buffer size to keep things snappy on huge screenshots.
+                        const maxDim = 1600;
+                        const ratio = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight));
+                        canvas.width = Math.round(img.naturalWidth * ratio);
+                        canvas.height = Math.round(img.naturalHeight * ratio);
+                        canvas.classList.add('ready');
+                        hint.style.display = 'none';
+                        redraw();
+                        updateReadout();
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+
+            function redraw() {
+                if (!currentImage) return;
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(currentImage, 0, 0, canvas.width, canvas.height);
+                pickedPoints.forEach((p, i) => {
+                    ctx.beginPath();
+                    ctx.arc(p.px, p.py, 7, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(244, 72, 72, 0.85)';
+                    ctx.fill();
+                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = 'white';
+                    ctx.stroke();
+                    ctx.fillStyle = 'white';
+                    ctx.font = 'bold 12px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(String(i + 1), p.px, p.py);
+                });
+            }
+
+            function scaledCoords() {
+                if (!currentImage) return [];
+                const W = canvas.width;
+                const H = canvas.height;
+                const scale = 100 / Math.max(W, H);
+                return pickedPoints.map(p => ({
+                    u: p.px * scale,
+                    v: (H - p.py) * scale,
+                }));
+            }
+
+            function mapToXYZ(u, v) {
+                const plane = planeSelect.value;
+                if (plane === 'xz') return { x: u, y: 0, z: v };
+                if (plane === 'yz') return { x: 0, y: u, z: v };
+                return { x: u, y: v, z: 0 };
+            }
+
+            function updateReadout() {
+                if (!pickedPoints.length) {
+                    readout.textContent = 'No points picked yet.';
+                    return;
+                }
+                const coords = scaledCoords();
+                const lines = coords.map((c, i) => {
+                    const xyz = mapToXYZ(c.u, c.v);
+                    return `${i + 1}: X=${xyz.x.toFixed(2)}  Y=${xyz.y.toFixed(2)}  Z=${xyz.z.toFixed(2)}`;
+                });
+                readout.textContent = lines.join('\n');
+            }
+
+            function handleCanvasClick(event) {
+                if (!currentImage) return;
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = canvas.width / rect.width;
+                const scaleY = canvas.height / rect.height;
+                const px = (event.clientX - rect.left) * scaleX;
+                const py = (event.clientY - rect.top) * scaleY;
+                pickedPoints.push({ px, py });
+                redraw();
+                updateReadout();
+            }
+
+            function handlePaste(event) {
+                if (!modal.classList.contains('open')) return;
+                const items = (event.clipboardData || window.clipboardData)?.items;
+                if (!items) return;
+                for (const item of items) {
+                    if (item.kind === 'file' && item.type.startsWith('image/')) {
+                        const blob = item.getAsFile();
+                        if (blob) {
+                            event.preventDefault();
+                            loadImageFromFile(blob);
+                            return;
+                        }
+                    }
+                }
+            }
+
+            function handleDrop(event) {
+                event.preventDefault();
+                dropzone.classList.remove('drag-over');
+                const file = event.dataTransfer?.files?.[0];
+                if (file) loadImageFromFile(file);
+            }
+
+            function confirmPoints() {
+                if (!pickedPoints.length) {
+                    close();
+                    return;
+                }
+                const coords = scaledCoords();
+                if (replaceChk.checked) {
+                    while (supportsTbody.firstChild) {
+                        supportsTbody.removeChild(supportsTbody.firstChild);
+                    }
+                }
+                coords.forEach(c => {
+                    const { x, y, z } = mapToXYZ(c.u, c.v);
+                    window.addSupport();
+                    const row = supportsTbody.lastElementChild;
+                    row.querySelector('.coord-x').value = x.toFixed(3);
+                    row.querySelector('.coord-y').value = y.toFixed(3);
+                    row.querySelector('.coord-z').value = z.toFixed(3);
+                });
+                close();
+            }
+
+            openBtn.addEventListener('click', open);
+            chooseBtn.addEventListener('click', () => fileInputEl.click());
+            fileInputEl.addEventListener('change', (e) => {
+                const f = e.target.files?.[0];
+                if (f) loadImageFromFile(f);
+                fileInputEl.value = '';
+            });
+            canvas.addEventListener('click', handleCanvasClick);
+            undoBtn.addEventListener('click', () => { pickedPoints.pop(); redraw(); updateReadout(); });
+            clearBtn.addEventListener('click', () => { pickedPoints = []; redraw(); updateReadout(); });
+            cancelBtn.addEventListener('click', close);
+            confirmBtn.addEventListener('click', confirmPoints);
+            planeSelect.addEventListener('change', updateReadout);
+
+            dropzone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropzone.classList.add('drag-over');
+            });
+            dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
+            dropzone.addEventListener('drop', handleDrop);
+
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) close();
+            });
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && modal.classList.contains('open')) close();
+            });
+        })();
 
     </script>
 </body>
