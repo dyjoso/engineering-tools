@@ -37,6 +37,7 @@ public sealed class SceneRenderer
     private (SKPoint a, SKPoint b, bool sel, string label)[] _bars = [];
     private (SKPoint[] pts, double vm, double sx, double sy, double sxy)[] _stressPolys = [];
     private (SKPoint[] outline, bool sel, int id)[] _surfaces = [];
+    private (SKPoint p, bool sel, int id)[] _geoPoints = [];
     private Dictionary<int, (double dx, double dy)> _disp = new();
 
     public StressView StressView { get; set; } = StressView.None;
@@ -47,6 +48,7 @@ public sealed class SceneRenderer
     public (double min, double max)? ContourRange { get; private set; }
 
     public HashSet<int> SelectedSurfaces { get; } = new();
+    public HashSet<int> SelectedPoints { get; } = new();
     public HashSet<int> SelectedNodes { get; } = new();
     public HashSet<int> SelectedElements { get; } = new();
     public HashSet<int> SelectedBars { get; } = new();
@@ -92,6 +94,11 @@ public sealed class SceneRenderer
             }
             return (pts.ToArray(), SelectedSurfaces.Contains(s.Id), s.Id);
         }).ToArray();
+
+        // Geometry corner points (always visible; FEMAP shows geometry points distinctly)
+        _geoPoints = _model.Nodes
+            .Select(g => (new SKPoint((float)g.X, (float)g.Y), SelectedPoints.Contains(g.Id), g.Id))
+            .ToArray();
 
         var hidden = _model.Membranes.Where(s => !s.Visible).Select(s => s.Id).ToHashSet();
 
@@ -246,6 +253,18 @@ public sealed class SceneRenderer
         // Nodes as small crosses (FEMAP style)
         DrawNodeCrosses(canvas, _nodesPlain, NodeColor, 2.5f * px, px);
         DrawNodeCrosses(canvas, _nodesSelected, SelectColor, 4f * px, 1.8f * px);
+
+        // Geometry corner points as filled squares (cyan; white when selected)
+        if (_geoPoints.Length > 0)
+        {
+            using var geoPtPlain = new SKPaint { Color = GeoColor, IsAntialias = true };
+            using var geoPtSel = new SKPaint { Color = SelectColor, IsAntialias = true };
+            foreach (var (pt, sel, _) in _geoPoints)
+            {
+                float r = (sel ? 5f : 3.5f) * px;
+                canvas.DrawRect(pt.X - r, pt.Y - r, 2 * r, 2 * r, sel ? geoPtSel : geoPtPlain);
+            }
+        }
 
         // Springs
         using (var springPaint = new SKPaint

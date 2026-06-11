@@ -12,7 +12,7 @@ namespace FeaApp;
 public partial class MainWindow : Window
 {
     private enum Mode { Select, PickCorners, PickEdge }
-    private enum Target { Surfaces, Nodes, Elements, Bars }
+    private enum Target { Surfaces, Points, Nodes, Elements, Bars }
 
     private FeModel _model = new();
     private SolveResult? _result;
@@ -87,6 +87,7 @@ public partial class MainWindow : Window
     private void ClearSelection()
     {
         _renderer.SelectedSurfaces.Clear();
+        _renderer.SelectedPoints.Clear();
         _renderer.SelectedNodes.Clear();
         _renderer.SelectedElements.Clear();
         _renderer.SelectedBars.Clear();
@@ -95,12 +96,43 @@ public partial class MainWindow : Window
 
     private void UpdateSelInfo()
     {
+        // Single surface / point: show associated geometry and mesh detail (FEMAP-style entity info)
+        if (_renderer.SelectedSurfaces.Count == 1 && _renderer.SelectedPoints.Count == 0 &&
+            _renderer.SelectedNodes.Count == 0 && _renderer.SelectedElements.Count == 0 &&
+            _renderer.SelectedBars.Count == 0)
+        {
+            var s = _model.Membranes.FirstOrDefault(m => m.Id == _renderer.SelectedSurfaces.First());
+            if (s is not null) { TxtSelInfo.Text = "Selected: " + DescribeSurface(s); return; }
+        }
+        if (_renderer.SelectedPoints.Count == 1)
+        {
+            var g = _model.Nodes.FirstOrDefault(n => n.Id == _renderer.SelectedPoints.First());
+            if (g is not null)
+            {
+                var used = _model.Membranes.Where(m => m.NodeIds.Contains(g.Id)).Select(m => $"Surface {m.Id}").ToList();
+                TxtSelInfo.Text = $"Selected: Point {g.Id} ({g.X:G6}, {g.Y:G6})" +
+                    (used.Count > 0 ? $" - used by {string.Join(", ", used)}" : " - unused");
+                return;
+            }
+        }
+
         var parts = new List<string>();
         if (_renderer.SelectedSurfaces.Count > 0) parts.Add($"{_renderer.SelectedSurfaces.Count} surface(s)");
+        if (_renderer.SelectedPoints.Count > 0) parts.Add($"{_renderer.SelectedPoints.Count} point(s)");
         if (_renderer.SelectedNodes.Count > 0) parts.Add($"{_renderer.SelectedNodes.Count} node(s)");
         if (_renderer.SelectedElements.Count > 0) parts.Add($"{_renderer.SelectedElements.Count} element(s)");
         if (_renderer.SelectedBars.Count > 0) parts.Add($"{_renderer.SelectedBars.Count} bar(s)");
         TxtSelInfo.Text = parts.Count > 0 ? "Selected: " + string.Join(", ", parts) : "";
+    }
+
+    private string DescribeSurface(Membrane s)
+    {
+        string points = string.Join(", ", s.NodeIds);
+        string edges = string.Join(", ", s.EdgeRadii.Select((r, i) => r == 0 ? $"E{i + 1} straight" : $"E{i + 1} R={r:G6}"));
+        int els = _model.FeElements.Count(e => e.MembraneId == s.Id);
+        string divisions = s.MeshM is { } mm && s.MeshN is { } nn ? $" {mm}x{nn}" : "";
+        string mesh = els == 0 ? "unmeshed" : $"meshed{divisions} Quad4 membrane ({els} elements)";
+        return $"Surface {s.Id} - points {points}; {edges}; {mesh}";
     }
 
     private void RefreshTree()
@@ -109,14 +141,49 @@ public partial class MainWindow : Window
 
         var geo = new TreeViewItem { Header = "Geometry", IsExpanded = true };
         var surfaces = new TreeViewItem { Header = $"Surfaces ({_model.Membranes.Count})", IsExpanded = true };
+        var pointById = _model.Nodes.ToDictionary(g => g.Id);
         foreach (var s in _model.Membranes)
         {
             int els = _model.FeElements.Count(e => e.MembraneId == s.Id);
-            surfaces.Items.Add(new TreeViewItem
+            var item = new TreeViewItem
             {
-                Header = $"Surface {s.Id}" + (els > 0 ? $"  [{els} elements]" : "  [unmeshed]"),
+                Header = $"Surface {s.Id}" + (els > 0 ? "  [meshed]" : "  [unmeshed]"),
                 Tag = s.Id
+            };
+
+            // Associated geometry: corner points and edges (FEMAP-style detail)
+            var ptsNode = new TreeViewItem { Header = "Points" };
+            foreach (var pid in s.NodeIds)
+            {
+                var g = pointById.GetValueOrDefault(pid);
+                ptsNode.Items.Add(new TreeViewItem
+                {
+                    Header = g is null ? $"Point {pid} (missing!)" : $"Point {pid}  ({g.X:G6}, {g.Y:G6})",
+                    Tag = ("point", pid)
+                });
+            }
+            item.Items.Add(ptsNode);
+
+            var edgesNode = new TreeViewItem { Header = "Edges" };
+            for (int e = 0; e < 4 && e < s.EdgeRadii.Count; e++)
+            {
+                int a = s.NodeIds[e], b = s.NodeIds[(e + 1) % 4];
+                double r = s.EdgeRadii[e];
+                edgesNode.Items.Add(new TreeViewItem
+                {
+                    Header = $"Edge {e + 1}  ({a} → {b})  " + (r == 0 ? "straight" : $"R = {r:G6}")
+                });
+            }
+            item.Items.Add(edgesNode);
+
+            // Mesh association: element type + divisions, not individual element numbers
+            string meshDiv = s.MeshM is { } mm && s.MeshN is { } nn ? $", {mm} x {nn}" : "";
+            item.Items.Add(new TreeViewItem
+            {
+                Header = els == 0 ? "Mesh: (none)" : $"Mesh: Quad4 membrane{meshDiv} ({els} elements)"
             });
+
+            surfaces.Items.Add(item);
         }
         geo.Items.Add(surfaces);
         ModelTree.Items.Add(geo);
@@ -145,12 +212,18 @@ public partial class MainWindow : Window
     {
         if (e.NewValue is TreeViewItem { Tag: int surfaceId })
         {
-            _renderer.SelectedSurfaces.Clear();
+            ClearSelection();
             _renderer.SelectedSurfaces.Add(surfaceId);
-            _renderer.Rebuild();
-            UpdateSelInfo();
-            Canvas.InvalidateVisual();
         }
+        else if (e.NewValue is TreeViewItem { Tag: ValueTuple<string, int> tag } && tag.Item1 == "point")
+        {
+            ClearSelection();
+            _renderer.SelectedPoints.Add(tag.Item2);
+        }
+        else return;
+        _renderer.Rebuild();
+        UpdateSelInfo();
+        Canvas.InvalidateVisual();
     }
 
     // ====================== file ======================
@@ -246,6 +319,42 @@ public partial class MainWindow : Window
     }
 
     private void MenuDeleteSurfaces_Click(object sender, RoutedEventArgs e) => DeleteSelected(surfacesOnly: true);
+
+    private void MenuEditPoint_Click(object sender, RoutedEventArgs e)
+    {
+        if (_renderer.SelectedPoints.Count != 1)
+        {
+            Prompt("Select exactly one point first (Select: Points, click a cyan square).");
+            return;
+        }
+        int pid = _renderer.SelectedPoints.First();
+        var g = _model.Nodes.FirstOrDefault(n => n.Id == pid);
+        if (g is null) return;
+
+        var meshedUsers = _model.Membranes
+            .Where(m => m.NodeIds.Contains(pid) && _model.FeElements.Any(el => el.MembraneId == m.Id))
+            .Select(m => m.Id).ToList();
+        var d = new FormDialog(this, $"Edit Point {pid}")
+            .AddField("x", "X", g.X)
+            .AddField("y", "Y", g.Y);
+        if (meshedUsers.Count > 0)
+            d.AddNote($"Surface(s) {string.Join(", ", meshedUsers)} are meshed and will be re-meshed to follow the new geometry.");
+        if (!d.Run()) return;
+        Snapshot();
+        string summary = Mesher.MoveGeometryPoint(_model, pid, d.Num("x"), d.Num("y"));
+        ModelChanged();
+        Log(summary);
+    }
+
+    private void MenuDeleteElements_Click(object sender, RoutedEventArgs e)
+    {
+        if (_renderer.SelectedElements.Count == 0)
+        {
+            Prompt("Select element(s) first (Select: Elements, click or box).");
+            return;
+        }
+        DeleteSelected();
+    }
 
     // ====================== mesh ======================
 
@@ -426,11 +535,10 @@ public partial class MainWindow : Window
         if (_renderer.SelectedElements.Count > 0)
         {
             Snapshot();
-            int count = _renderer.SelectedElements.Count;
-            _model.FeElements.RemoveAll(el => _renderer.SelectedElements.Contains(el.Id));
+            var (els, orphans) = Mesher.DeleteElements(_model, _renderer.SelectedElements);
             ClearSelection();
             ModelChanged();
-            Log($"{count} element(s) deleted.");
+            Log($"{els} element(s) deleted" + (orphans > 0 ? $" ({orphans} unreferenced node(s) removed with them)." : "."));
         }
     }
 
@@ -686,6 +794,28 @@ public partial class MainWindow : Window
             return;
         }
 
+        // Double-click a geometry point (in Points mode) opens the coordinate editor
+        if (e.ClickCount == 2 && _target == Target.Points)
+        {
+            double tol = 8 / _scale;
+            var hit = _model.Nodes
+                .Select(g => (g, d2: (g.X - wx) * (g.X - wx) + (g.Y - wy) * (g.Y - wy)))
+                .Where(t => t.d2 <= tol * tol)
+                .OrderBy(t => t.d2)
+                .Select(t => t.g)
+                .FirstOrDefault();
+            if (hit is not null)
+            {
+                _renderer.SelectedPoints.Clear();
+                _renderer.SelectedPoints.Add(hit.Id);
+                _renderer.Rebuild();
+                UpdateSelInfo();
+                Canvas.InvalidateVisual();
+                MenuEditPoint_Click(this, new RoutedEventArgs());
+                return;
+            }
+        }
+
         // Select mode: remember for click-vs-box decision on mouse-up
         _leftDown = true;
         _mouseDownPos = pos;
@@ -763,6 +893,11 @@ public partial class MainWindow : Window
         bool Inside(double x, double y) => x >= x0 && x <= x1 && y >= y0 && y <= y1;
         switch (_target)
         {
+            case Target.Points:
+                if (!additive) _renderer.SelectedPoints.Clear();
+                foreach (var g in _model.Nodes.Where(g => Inside(g.X, g.Y)))
+                    _renderer.SelectedPoints.Add(g.Id);
+                break;
             case Target.Nodes:
                 if (!additive) _renderer.SelectedNodes.Clear();
                 foreach (var n in _model.FeNodes.Where(n => Inside(n.X, n.Y)))
@@ -800,6 +935,17 @@ public partial class MainWindow : Window
         double tol = 8 / _scale;
         switch (_target)
         {
+            case Target.Points:
+            {
+                var hit = _model.Nodes
+                    .Select(g => (g, d2: (g.X - wx) * (g.X - wx) + (g.Y - wy) * (g.Y - wy)))
+                    .Where(t => t.d2 <= tol * tol)
+                    .OrderBy(t => t.d2)
+                    .Select(t => t.g)
+                    .FirstOrDefault();
+                ApplyPick(_renderer.SelectedPoints, hit?.Id, additive);
+                break;
+            }
             case Target.Nodes:
             {
                 var hit = _model.FeNodes

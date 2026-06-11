@@ -234,10 +234,15 @@ public class SolverTests
         Assert.Contains(model.FeNodes, n => Math.Abs(n.X) < 1e-9 && Math.Abs(n.Y) < 1e-9);
         Assert.Contains(model.FeNodes, n => Math.Abs(n.X - 10) < 1e-9 && Math.Abs(n.Y - 10) < 1e-9);
 
-        // Re-mesh replaces, never duplicates
+        // Re-mesh replaces, never duplicates: old mesh fully removed, ids unique
         Mesher.MeshMembrane(model, s, 2, 2);
         Assert.Equal(9, model.FeNodes.Count);
         Assert.Equal(4, model.FeElements.Count);
+        Assert.Equal(model.FeNodes.Count, model.FeNodes.Select(n => n.Id).Distinct().Count());
+        Assert.Equal(model.FeElements.Count, model.FeElements.Select(e2 => e2.Id).Distinct().Count());
+        Assert.All(model.FeElements, e2 => Assert.All(e2.NodeIds, id => Assert.Contains(model.FeNodes, n => n.Id == id)));
+        Assert.Equal(2, s.MeshM);
+        Assert.Equal(2, s.MeshN);
 
         // Meshed flat plate solves (sanity: all elements have positive Jacobians)
         foreach (var n in model.FeNodes) n.Bc = n.X < 1e-9 ? Fixed(true, true) : null;
@@ -259,6 +264,48 @@ public class SolverTests
         var (lx, ly) = Mesher.ArcPoint(0, 0, 10, 0, 0, 0.25);
         Assert.Equal(2.5, lx, 12);
         Assert.Equal(0, ly, 12);
+    }
+
+    [Fact]
+    public void Mesher_MoveGeometryPoint_RemeshesAffectedSurfaces()
+    {
+        var model = new FeModel();
+        var s = Mesher.AddSurface(model, new[] { (0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0) }, 1e7, 0.3, 0.1);
+        Mesher.MeshMembrane(model, s, 4, 4);
+        int nodesBefore = model.FeNodes.Count, elsBefore = model.FeElements.Count;
+
+        // Move corner 2 (10,0) -> (15,0): mesh should regenerate, same topology, new coords
+        var summary = Mesher.MoveGeometryPoint(model, s.NodeIds[1], 15, 0);
+
+        Assert.Contains("re-meshed", summary);
+        Assert.Equal(15, model.Nodes.First(g => g.Id == s.NodeIds[1]).X);
+        Assert.Equal(nodesBefore, model.FeNodes.Count);
+        Assert.Equal(elsBefore, model.FeElements.Count);
+        Assert.Contains(model.FeNodes, n => Math.Abs(n.X - 15) < 1e-9 && Math.Abs(n.Y) < 1e-9); // mesh follows
+        Assert.Equal(model.FeNodes.Count, model.FeNodes.Select(n => n.Id).Distinct().Count());
+
+        // Unmeshed surfaces are untouched by a point move
+        var s2 = Mesher.AddSurface(model, new[] { (20.0, 0.0), (30.0, 0.0), (30.0, 10.0), (20.0, 10.0) }, 1e7, 0.3, 0.1);
+        var summary2 = Mesher.MoveGeometryPoint(model, s2.NodeIds[0], 21, 1);
+        Assert.DoesNotContain("re-meshed", summary2);
+    }
+
+    [Fact]
+    public void Mesher_DeleteElements_RemovesOrphanNodes()
+    {
+        var model = new FeModel();
+        var s = Mesher.AddSurface(model, new[] { (0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0) }, 1e7, 0.3, 0.1);
+        Mesher.MeshMembrane(model, s, 2, 1); // 2 elements, 6 nodes
+
+        var el0 = model.FeElements[0];
+        var (els, orphans) = Mesher.DeleteElements(model, new[] { el0.Id });
+
+        Assert.Equal(1, els);
+        Assert.Equal(2, orphans); // the two nodes used only by the deleted element
+        Assert.Single(model.FeElements);
+        Assert.Equal(4, model.FeNodes.Count);
+        // Remaining element's nodes all still exist
+        Assert.All(model.FeElements[0].NodeIds, id => Assert.Contains(model.FeNodes, n => n.Id == id));
     }
 
     [Fact]

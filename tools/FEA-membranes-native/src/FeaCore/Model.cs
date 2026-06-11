@@ -39,6 +39,10 @@ public sealed class Membrane
     public double MaterialT { get; set; } = 0.05;
     public List<double> EdgeRadii { get; set; } = new() { 0, 0, 0, 0 };
     public bool Visible { get; set; } = true;
+    // Last mesh divisions - extra fields the webtool ignores; lets the native app
+    // re-mesh automatically when a corner point moves.
+    public int? MeshM { get; set; }
+    public int? MeshN { get; set; }
 }
 
 public sealed class FeNode

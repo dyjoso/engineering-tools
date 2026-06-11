@@ -120,7 +120,67 @@ public static class Mesher
                 els++;
             }
 
+        membrane.MeshM = m;
+        membrane.MeshN = n;
         return (created, els);
+    }
+
+    /// <summary>
+    /// Move a geometry (corner) point. Meshed surfaces using the point are re-meshed
+    /// with their stored divisions so the mesh follows the geometry. Returns a
+    /// human-readable summary of what was updated.
+    /// </summary>
+    public static string MoveGeometryPoint(FeModel model, int pointId, double x, double y)
+    {
+        var point = model.Nodes.FirstOrDefault(g => g.Id == pointId)
+            ?? throw new InvalidOperationException($"Point {pointId} not found.");
+        point.X = x;
+        point.Y = y;
+
+        var affected = model.Membranes.Where(s => s.NodeIds.Contains(pointId)).ToList();
+        var remeshed = new List<int>();
+        var cleared = new List<int>();
+        foreach (var s in affected)
+        {
+            bool isMeshed = model.FeElements.Any(e => e.MembraneId == s.Id);
+            if (!isMeshed) continue;
+            if (s.MeshM is { } m && s.MeshN is { } n)
+            {
+                MeshMembrane(model, s, m, n); // clears old mesh first
+                remeshed.Add(s.Id);
+            }
+            else
+            {
+                ClearMesh(model, s.Id);
+                cleared.Add(s.Id);
+            }
+        }
+
+        var parts = new List<string> { $"Point {pointId} moved to ({x:G6}, {y:G6})" };
+        if (remeshed.Count > 0) parts.Add($"surface(s) {string.Join(", ", remeshed)} re-meshed");
+        if (cleared.Count > 0) parts.Add($"surface(s) {string.Join(", ", cleared)} mesh cleared (unknown divisions)");
+        return string.Join("; ", parts) + ".";
+    }
+
+    /// <summary>
+    /// Delete elements, then remove FE nodes that are no longer referenced by any
+    /// element, spring, or bar (so the solver's orphan check stays clean).
+    /// Returns (elementsDeleted, orphanNodesDeleted).
+    /// </summary>
+    public static (int elements, int orphanNodes) DeleteElements(FeModel model, IReadOnlyCollection<int> elementIds)
+    {
+        var doomed = elementIds.ToHashSet();
+        int before = model.FeElements.Count;
+        model.FeElements.RemoveAll(e => doomed.Contains(e.Id));
+        int removed = before - model.FeElements.Count;
+
+        var referenced = new HashSet<int>();
+        foreach (var e in model.FeElements) referenced.UnionWith(e.NodeIds);
+        foreach (var s in model.FeSprings) { referenced.Add(s.FeNodeId1); referenced.Add(s.FeNodeId2); }
+        foreach (var b in model.FeBars) { referenced.Add(b.FeNodeId1); referenced.Add(b.FeNodeId2); }
+        int beforeNodes = model.FeNodes.Count;
+        model.FeNodes.RemoveAll(n => !referenced.Contains(n.Id));
+        return (removed, beforeNodes - model.FeNodes.Count);
     }
 
     /// <summary>Create a 4-sided surface (membrane) from corner coordinates. Returns the new membrane.</summary>
