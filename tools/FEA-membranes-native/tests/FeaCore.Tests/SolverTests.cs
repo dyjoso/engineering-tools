@@ -1,0 +1,240 @@
+using FeaCore;
+using Xunit;
+
+namespace FeaCore.Tests;
+
+// Same analytical cases as the webtool's headless harness (run_test.js):
+// exact solutions for a bilinear quad in uniaxial tension, bar PL/EA,
+// spring force, enforced displacement, orphan diagnostic, plate far-field.
+public class SolverTests
+{
+    private static BoundaryCondition Fixed(bool x, bool y) =>
+        new() { Type = "fixed", Value = new BcValue { FixX = x, FixY = y } };
+    private static BoundaryCondition Load(double fx, double fy) =>
+        new() { Type = "load", Value = new BcValue { Fx = fx, Fy = fy } };
+    private static BoundaryCondition Enforced(double? dx, double? dy) =>
+        new() { Type = "enforced", Value = new BcValue { Dx = dx, Dy = dy } };
+
+    [Fact]
+    public void Quad_UniaxialTension_ExactForBilinear()
+    {
+        // 10x10 square, t=0.1, E=1e7, nu=0. Left edge fixed X, bottom-left fixed Y.
+        // 1000 lb total on right edge -> sx = 1000 psi, u_right = 1e-3.
+        var model = new FeModel
+        {
+            FeNodes =
+            {
+                new FeNode { Id = 1, X = 0, Y = 0, Bc = Fixed(true, true), MembraneId = 1 },
+                new FeNode { Id = 2, X = 10, Y = 0, Bc = Load(500, 0), MembraneId = 1 },
+                new FeNode { Id = 3, X = 10, Y = 10, Bc = Load(500, 0), MembraneId = 1 },
+                new FeNode { Id = 4, X = 0, Y = 10, Bc = Fixed(true, false), MembraneId = 1 }
+            },
+            FeElements = { new FeElement { Id = 1, NodeIds = { 1, 2, 3, 4 }, MembraneId = 1 } },
+            Membranes = { new Membrane { Id = 1, MaterialE = 1e7, MaterialNu = 0.0, MaterialT = 0.1 } }
+        };
+
+        var r = Solver.Solve(model);
+
+        var d2 = r.Displacements.Single(d => d.NodeId == 2);
+        var d3 = r.Displacements.Single(d => d.NodeId == 3);
+        Assert.Equal(1e-3, d2.Dx, 9);
+        Assert.Equal(1e-3, d3.Dx, 9);
+
+        var st = r.ElementStresses.Single();
+        Assert.Equal(1000, st.Sxx, 6);
+        Assert.Equal(1000, st.SigmaVM, 6);
+
+        Assert.Equal(-1000, r.Reactions.Sum(x => x.Rx), 6);
+    }
+
+    [Fact]
+    public void Bar_AxialElongation_PLOverEA()
+    {
+        // Horizontal bar E=1e7, A=0.1, L=10, P=1000 -> elongation 1e-2.
+        // Vertical bar to a fixed node supplies Y stiffness at the loaded node.
+        var model = new FeModel
+        {
+            FeNodes =
+            {
+                new FeNode { Id = 1, X = 0, Y = 0, Bc = Fixed(true, true) },
+                new FeNode { Id = 2, X = 10, Y = 0, Bc = Load(1000, 0) },
+                new FeNode { Id = 3, X = 10, Y = -10, Bc = Fixed(true, true) }
+            },
+            FeBars =
+            {
+                new FeBar { Id = 1, FeNodeId1 = 1, FeNodeId2 = 2, E = 1e7, A = 0.1 },
+                new FeBar { Id = 2, FeNodeId1 = 3, FeNodeId2 = 2, E = 1e7, A = 0.1 }
+            }
+        };
+
+        var r = Solver.Solve(model);
+
+        Assert.Equal(0.01, r.Displacements.Single(d => d.NodeId == 2).Dx, 9);
+        var b1 = r.BarLoads.Single(b => b.Id == 1);
+        Assert.Equal(1000, b1.P, 6);          // tension positive
+        Assert.Equal(10000, b1.Stress, 6);
+        Assert.Equal(0, r.BarLoads.Single(b => b.Id == 2).P, 6);
+    }
+
+    [Fact]
+    public void Spring_DecoupledXY_ForceAndDisplacement()
+    {
+        // k=1e5 each direction, F=100 in X -> dx = 1e-3.
+        var model = new FeModel
+        {
+            FeNodes =
+            {
+                new FeNode { Id = 1, X = 0, Y = 0, Bc = Fixed(true, true) },
+                new FeNode { Id = 2, X = 0.05, Y = 0, Bc = Load(100, 0) }
+            },
+            FeSprings = { new FeSpring { Id = 1, FeNodeId1 = 1, FeNodeId2 = 2, Stiffness = 1e5 } }
+        };
+
+        var r = Solver.Solve(model);
+
+        Assert.Equal(1e-3, r.Displacements.Single(d => d.NodeId == 2).Dx, 9);
+        Assert.Equal(100, r.SpringLoads.Single().Fx, 6); // k*(u2-u1), matching the webtool convention
+    }
+
+    [Fact]
+    public void EnforcedDisplacement_IsExact()
+    {
+        // Right edge driven to dx=2e-3 -> sx = E*eps = 1e7 * 2e-4 = 2000 psi.
+        var model = new FeModel
+        {
+            FeNodes =
+            {
+                new FeNode { Id = 1, X = 0, Y = 0, Bc = Fixed(true, true), MembraneId = 1 },
+                new FeNode { Id = 2, X = 10, Y = 0, Bc = Enforced(2e-3, null), MembraneId = 1 },
+                new FeNode { Id = 3, X = 10, Y = 10, Bc = Enforced(2e-3, null), MembraneId = 1 },
+                new FeNode { Id = 4, X = 0, Y = 10, Bc = Fixed(true, false), MembraneId = 1 }
+            },
+            FeElements = { new FeElement { Id = 1, NodeIds = { 1, 2, 3, 4 }, MembraneId = 1 } },
+            Membranes = { new Membrane { Id = 1, MaterialE = 1e7, MaterialNu = 0.0, MaterialT = 0.1 } }
+        };
+
+        var r = Solver.Solve(model);
+
+        Assert.Equal(2e-3, r.Displacements.Single(d => d.NodeId == 2).Dx, 12); // exact (elimination, not penalty)
+        Assert.Equal(2000, r.ElementStresses.Single().Sxx, 6);
+    }
+
+    [Fact]
+    public void OrphanNode_ThrowsWithNodeId()
+    {
+        var model = new FeModel
+        {
+            FeNodes =
+            {
+                new FeNode { Id = 1, X = 0, Y = 0, Bc = Fixed(true, true) },
+                new FeNode { Id = 2, X = 10, Y = 0, Bc = Load(1000, 0) },
+                new FeNode { Id = 99, X = 50, Y = 50 } // orphan
+            },
+            FeBars = { new FeBar { Id = 1, FeNodeId1 = 1, FeNodeId2 = 2, E = 1e7, A = 0.1 } }
+        };
+
+        var ex = Assert.Throws<InvalidOperationException>(() => Solver.Solve(model));
+        Assert.Contains("99", ex.Message);
+    }
+
+    [Fact]
+    public void Plate_20x20_FarFieldStress()
+    {
+        // 100x100 plate, 20x20 mesh, left edge fixed, 100 lb/node on right edge.
+        // Far-field sx ~ (21*100)/(100*0.1) = 210 psi at mid-plate, within 2%.
+        const int M = 20, N = 20;
+        var model = new FeModel
+        {
+            Membranes = { new Membrane { Id = 1, MaterialE = 1e7, MaterialNu = 0.3, MaterialT = 0.1 } }
+        };
+        var grid = new int[M + 1, N + 1];
+        int nid = 1;
+        for (int i = 0; i <= M; i++)
+            for (int j = 0; j <= N; j++)
+            {
+                BoundaryCondition? bc = i == 0 ? Fixed(true, true) : i == M ? Load(100, 0) : null;
+                model.FeNodes.Add(new FeNode { Id = nid, X = i * 5, Y = j * 5, Bc = bc, MembraneId = 1 });
+                grid[i, j] = nid++;
+            }
+        int eid = 1;
+        for (int i = 0; i < M; i++)
+            for (int j = 0; j < N; j++)
+                model.FeElements.Add(new FeElement
+                {
+                    Id = eid++,
+                    NodeIds = { grid[i, j], grid[i + 1, j], grid[i + 1, j + 1], grid[i, j + 1] },
+                    MembraneId = 1
+                });
+
+        var r = Solver.Solve(model);
+
+        var midElements = model.FeElements
+            .Where(el => el.NodeIds.Any(id => model.FeNodes.First(n => n.Id == id).X == 50))
+            .Select(el => el.Id).ToHashSet();
+        double avgSx = r.ElementStresses.Where(s => midElements.Contains(s.ElementId)).Average(s => s.Sxx);
+        Assert.True(Math.Abs(avgSx - 210) / 210 < 0.02, $"avg mid-plate sx = {avgSx}, expected ~210");
+    }
+
+    [Fact]
+    public void SampleModel_LoadsAndSolves()
+    {
+        // Walk up from the test bin directory to find samples/ in the repo
+        var dir = AppContext.BaseDirectory;
+        string? samplePath = null;
+        for (int i = 0; i < 8 && dir is not null; i++)
+        {
+            var candidate = Path.Combine(dir, "samples", "curved-plate-with-bars.json");
+            if (File.Exists(candidate)) { samplePath = candidate; break; }
+            dir = Path.GetDirectoryName(dir);
+        }
+        Assert.False(samplePath is null, "samples/curved-plate-with-bars.json not found above test directory");
+
+        var model = FeModel.Load(samplePath!);
+        Assert.Equal(45, model.FeNodes.Count);
+        Assert.Equal(32, model.FeElements.Count);
+        Assert.Equal(8, model.FeBars.Count);
+
+        var r = Solver.Solve(model);
+
+        // Sanity: equilibrium - reactions balance the 5 x 250 lb applied load
+        Assert.Equal(-1250, r.Reactions.Sum(x => x.Rx), 4);
+        // All displacements finite and small
+        Assert.All(r.Displacements, d =>
+        {
+            Assert.True(double.IsFinite(d.Dx) && double.IsFinite(d.Dy));
+            Assert.True(Math.Abs(d.Dx) < 1 && Math.Abs(d.Dy) < 1);
+        });
+    }
+
+    [Fact]
+    public void WebtoolJson_RoundTrip()
+    {
+        const string json = """
+        {
+          "nodes": [ { "id": 1, "x": 0, "y": 0 } ],
+          "membranes": [ { "id": 1, "nodeIds": [1], "materialE": 1.05e7, "materialNu": 0.33,
+                           "materialT": 0.05, "edgeRadii": [60, 0, -60, 0], "visible": true } ],
+          "feNodes": [ { "id": 1, "x": 0, "y": 0, "membraneId": 1,
+                         "bc": { "type": "fixed", "value": { "fixX": true, "fixY": false } } } ],
+          "feElements": [],
+          "feSprings": [ { "id": 1, "feNodeId1": 1, "feNodeId2": 1, "stiffness": 50000 } ],
+          "feBars": [ { "id": 1, "feNodeId1": 1, "feNodeId2": 1, "E": 1.05e7, "A": 0.08 } ]
+        }
+        """;
+
+        var model = FeModel.FromJson(json);
+
+        Assert.Single(model.Membranes);
+        Assert.Equal(new List<double> { 60, 0, -60, 0 }, model.Membranes[0].EdgeRadii);
+        Assert.True(model.FeNodes[0].Bc!.Value.FixX);
+        Assert.False(model.FeNodes[0].Bc!.Value.FixY);
+        Assert.Equal(50000, model.FeSprings[0].Stiffness);
+        Assert.Equal(0.08, model.FeBars[0].A);
+
+        // Round-trip preserves the webtool's camelCase field names
+        var json2 = model.ToJson();
+        var model2 = FeModel.FromJson(json2);
+        Assert.Equal(model.Membranes[0].EdgeRadii, model2.Membranes[0].EdgeRadii);
+        Assert.True(model2.FeNodes[0].Bc!.Value.FixX);
+    }
+}
