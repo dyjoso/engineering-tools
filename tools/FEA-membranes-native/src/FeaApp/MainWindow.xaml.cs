@@ -30,7 +30,7 @@ public partial class MainWindow : Window
     private Point _mouseDownPos;
     private bool _leftDown, _panning;
     private Point _lastMouse;
-    private readonly List<(double X, double Y)> _pickedCorners = new();
+    private readonly List<(double X, double Y, int? PointId)> _pickedCorners = new();
 
     // Undo (model JSON snapshots, newest last)
     private readonly List<string> _undo = new();
@@ -81,6 +81,7 @@ public partial class MainWindow : Window
         if (invalidateResults) { _result = null; }
         _renderer.SetModel(_model, _result);
         RefreshTree();
+        UpdateSelInfo();
         Canvas.InvalidateVisual();
     }
 
@@ -96,6 +97,7 @@ public partial class MainWindow : Window
 
     private void UpdateSelInfo()
     {
+        UpdateSelectionData();
         // Single surface / point: show associated geometry and mesh detail (FEMAP-style entity info)
         if (_renderer.SelectedSurfaces.Count == 1 && _renderer.SelectedPoints.Count == 0 &&
             _renderer.SelectedNodes.Count == 0 && _renderer.SelectedElements.Count == 0 &&
@@ -123,6 +125,99 @@ public partial class MainWindow : Window
         if (_renderer.SelectedElements.Count > 0) parts.Add($"{_renderer.SelectedElements.Count} element(s)");
         if (_renderer.SelectedBars.Count > 0) parts.Add($"{_renderer.SelectedBars.Count} bar(s)");
         TxtSelInfo.Text = parts.Count > 0 ? "Selected: " + string.Join(", ", parts) : "";
+    }
+
+    /// <summary>Selection Data pane: per-entity values for the current selection.</summary>
+    private void UpdateSelectionData()
+    {
+        const int maxRows = 200;
+        var sb = new System.Text.StringBuilder();
+
+        if (_renderer.SelectedElements.Count > 0)
+        {
+            var stressById = _result?.ElementStresses.ToDictionary(s => s.ElementId);
+            var selected = _model.FeElements
+                .Where(el => _renderer.SelectedElements.Contains(el.Id))
+                .OrderBy(el => el.Id).ToList();
+            sb.AppendLine($"Elements ({selected.Count}):");
+            if (stressById is not null)
+            {
+                sb.AppendLine($"{"ID",6} {"SX",12} {"SY",12} {"SXY",12} {"VonMises",12}");
+                var shown = selected.Take(maxRows).ToList();
+                foreach (var el in shown)
+                {
+                    if (stressById.TryGetValue(el.Id, out var st))
+                        sb.AppendLine($"{el.Id,6} {st.Sxx,12:G5} {st.Syy,12:G5} {st.Sxy,12:G5} {st.SigmaVM,12:G5}");
+                    else
+                        sb.AppendLine($"{el.Id,6} {"-",12} {"-",12} {"-",12} {"-",12}");
+                }
+                if (selected.Count > maxRows) sb.AppendLine($"  … {selected.Count - maxRows} more not shown");
+                var withStress = selected.Where(el => stressById.ContainsKey(el.Id))
+                    .Select(el => stressById[el.Id]).ToList();
+                if (withStress.Count > 0)
+                {
+                    sb.AppendLine();
+                    sb.AppendLine($"VM  min {withStress.Min(s => s.SigmaVM):G5}  max {withStress.Max(s => s.SigmaVM):G5}");
+                    sb.AppendLine($"SX  min {withStress.Min(s => s.Sxx):G5}  max {withStress.Max(s => s.Sxx):G5}");
+                    sb.AppendLine($"SY  min {withStress.Min(s => s.Syy):G5}  max {withStress.Max(s => s.Syy):G5}");
+                    sb.AppendLine($"SXY min {withStress.Min(s => s.Sxy):G5}  max {withStress.Max(s => s.Sxy):G5}");
+                }
+            }
+            else
+            {
+                var membById = _model.Membranes.ToDictionary(m => m.Id);
+                sb.AppendLine("(no results - run Analyze > Solve for stresses)");
+                foreach (var el in selected.Take(maxRows))
+                {
+                    var memb = el.MembraneId is { } mid ? membById.GetValueOrDefault(mid) : null;
+                    double? eMod = el.PropE ?? memb?.MaterialE;
+                    double? t = el.PropT ?? memb?.MaterialT;
+                    sb.AppendLine($"El {el.Id}: Quad4, surface {el.MembraneId?.ToString() ?? "-"}, E={eMod:G5}, t={t:G5}");
+                }
+                if (selected.Count > maxRows) sb.AppendLine($"  … {selected.Count - maxRows} more not shown");
+            }
+            sb.AppendLine();
+        }
+
+        if (_renderer.SelectedNodes.Count > 0)
+        {
+            var dispById = _result?.Displacements.ToDictionary(d => d.NodeId);
+            var selected = _model.FeNodes
+                .Where(n => _renderer.SelectedNodes.Contains(n.Id))
+                .OrderBy(n => n.Id).ToList();
+            sb.AppendLine($"Nodes ({selected.Count}):");
+            sb.AppendLine(dispById is not null
+                ? $"{"ID",6} {"X",10} {"Y",10} {"DX",12} {"DY",12}"
+                : $"{"ID",6} {"X",10} {"Y",10}  BC");
+            foreach (var n in selected.Take(maxRows))
+            {
+                if (dispById is not null && dispById.TryGetValue(n.Id, out var dsp))
+                    sb.AppendLine($"{n.Id,6} {n.X,10:G5} {n.Y,10:G5} {dsp.Dx,12:E3} {dsp.Dy,12:E3}");
+                else
+                    sb.AppendLine($"{n.Id,6} {n.X,10:G5} {n.Y,10:G5}  {n.Bc?.Type ?? "-"}");
+            }
+            if (selected.Count > maxRows) sb.AppendLine($"  … {selected.Count - maxRows} more not shown");
+            sb.AppendLine();
+        }
+
+        if (_renderer.SelectedBars.Count > 0)
+        {
+            var barById = _result?.BarLoads.ToDictionary(b => b.Id);
+            var selected = _model.FeBars
+                .Where(b => _renderer.SelectedBars.Contains(b.Id))
+                .OrderBy(b => b.Id).ToList();
+            sb.AppendLine($"Bars ({selected.Count}):");
+            foreach (var b in selected.Take(maxRows))
+            {
+                if (barById is not null && barById.TryGetValue(b.Id, out var bl))
+                    sb.AppendLine($"B{b.Id}: P={bl.P:G5} {(bl.P >= 0 ? "(T)" : "(C)")}, stress={bl.Stress:G5}, L={bl.Length:G5}");
+                else
+                    sb.AppendLine($"B{b.Id}: E={b.E:G5}, A={b.A:G5}");
+            }
+            sb.AppendLine();
+        }
+
+        TxtSelData.Text = sb.Length > 0 ? sb.ToString() : "(nothing selected)";
     }
 
     private string DescribeSurface(Membrane s)
@@ -309,7 +404,7 @@ public partial class MainWindow : Window
     {
         _mode = Mode.PickCorners;
         _pickedCorners.Clear();
-        Prompt("Pick corner 1 of 4 (Esc to cancel). Order corners around the boundary.");
+        Prompt("Pick corner 1 of 4 - clicks near an existing point snap to it. Order corners around the boundary (Esc to cancel).");
     }
 
     private void MenuEdgeRadius_Click(object sender, RoutedEventArgs e)
@@ -583,6 +678,7 @@ public partial class MainWindow : Window
             _result = await Task.Run(() => Solver.Solve(model));
             _renderer.SetModel(_model, _result);
             RefreshTree();
+            UpdateSelInfo(); // refresh Selection Data pane with the new results
             string msg = $"Analysis complete: {_result.DofCount} DOF, {_result.NonZeros} non-zeros, " +
                 $"{_result.ConstrainedDofs} constrained DOFs, {_result.Elapsed.TotalMilliseconds:F0} ms. " +
                 $"Max |d| = {_result.Displacements.Max(d => Math.Max(Math.Abs(d.Dx), Math.Abs(d.Dy))):E3}.";
@@ -772,8 +868,31 @@ public partial class MainWindow : Window
 
         if (_mode == Mode.PickCorners)
         {
-            _pickedCorners.Add((wx, wy));
-            Log($"Corner {_pickedCorners.Count}: ({wx:F2}, {wy:F2})");
+            // Snap to an existing geometry point within ~10 screen px - the surface
+            // then SHARES that point (no near-coincident duplicates in space).
+            double snapTol = 10 / _scale;
+            var snap = _model.Nodes
+                .Select(g => (g, d2: (g.X - wx) * (g.X - wx) + (g.Y - wy) * (g.Y - wy)))
+                .Where(t => t.d2 <= snapTol * snapTol)
+                .OrderBy(t => t.d2)
+                .Select(t => t.g)
+                .FirstOrDefault();
+            if (snap is not null && _pickedCorners.Any(c => c.PointId == snap.Id))
+            {
+                Prompt($"Point {snap.Id} is already corner {_pickedCorners.FindIndex(c => c.PointId == snap.Id) + 1} - pick a different corner.");
+                return;
+            }
+            if (snap is not null)
+            {
+                _pickedCorners.Add((snap.X, snap.Y, snap.Id));
+                Log($"Corner {_pickedCorners.Count}: snapped to existing Point {snap.Id} ({snap.X:G6}, {snap.Y:G6}).");
+            }
+            else
+            {
+                _pickedCorners.Add((wx, wy, null));
+                Log($"Corner {_pickedCorners.Count}: new point at ({wx:F2}, {wy:F2}).");
+            }
+
             if (_pickedCorners.Count == 4)
             {
                 _mode = Mode.Select;
@@ -781,15 +900,24 @@ public partial class MainWindow : Window
                     .AddField("E", "Modulus E", 10.5e6).AddField("nu", "Poisson nu", 0.33).AddField("t", "Thickness t", 0.05);
                 if (d.Run())
                 {
-                    Snapshot();
-                    var s = Mesher.AddSurface(_model, _pickedCorners.ToArray(), d.Num("E"), d.Num("nu"), d.Num("t"));
-                    ModelChanged(invalidateResults: false);
-                    Log($"Surface {s.Id} created.");
+                    try
+                    {
+                        Snapshot();
+                        var s = Mesher.AddSurface(_model, _pickedCorners.ToArray(), d.Num("E"), d.Num("nu"), d.Num("t"));
+                        int shared = _pickedCorners.Count(c => c.PointId is not null);
+                        ModelChanged(invalidateResults: false);
+                        Log($"Surface {s.Id} created" + (shared > 0 ? $" ({shared} corner(s) shared with existing geometry)." : "."));
+                    }
+                    catch (Exception ex)
+                    {
+                        Log("Surface creation failed: " + ex.Message);
+                        MessageBox.Show(this, ex.Message, "Surface creation failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    }
                 }
                 _pickedCorners.Clear();
                 Prompt("Ready.");
             }
-            else Prompt($"Pick corner {_pickedCorners.Count + 1} of 4 (Esc to cancel).");
+            else Prompt($"Pick corner {_pickedCorners.Count + 1} of 4 - clicks near an existing point snap to it (Esc to cancel).");
             Canvas.InvalidateVisual();
             return;
         }

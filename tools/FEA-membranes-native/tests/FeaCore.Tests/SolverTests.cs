@@ -309,6 +309,40 @@ public class SolverTests
     }
 
     [Fact]
+    public void Mesher_AddSurface_SharedPoints()
+    {
+        var model = new FeModel();
+        var s1 = Mesher.AddSurface(model, new[] { (0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0) }, 1e7, 0.3, 0.1);
+
+        // Second surface reuses s1's right-edge points (snap behaviour)
+        int p2 = s1.NodeIds[1], p3 = s1.NodeIds[2];
+        var s2 = Mesher.AddSurface(model, new[]
+        {
+            (0.0, 0.0, (int?)p2),
+            (20.0, 0.0, null),
+            (20.0, 10.0, null),
+            (0.0, 0.0, (int?)p3)
+        }, 1e7, 0.3, 0.1);
+
+        Assert.Equal(6, model.Nodes.Count);              // 4 + 2 new, not 8
+        Assert.Equal(p2, s2.NodeIds[0]);
+        Assert.Equal(p3, s2.NodeIds[3]);
+
+        // Moving the shared point updates both surfaces' meshes
+        Mesher.MeshMembrane(model, s1, 2, 2);
+        Mesher.MeshMembrane(model, s2, 2, 2);
+        Mesher.MoveGeometryPoint(model, p2, 12, 0);
+        Assert.Contains(model.FeNodes, n => n.MembraneId == s1.Id && Math.Abs(n.X - 12) < 1e-9 && Math.Abs(n.Y) < 1e-9);
+        Assert.Contains(model.FeNodes, n => n.MembraneId == s2.Id && Math.Abs(n.X - 12) < 1e-9 && Math.Abs(n.Y) < 1e-9);
+
+        // Duplicate corner picks are rejected
+        Assert.Throws<InvalidOperationException>(() => Mesher.AddSurface(model, new[]
+        {
+            (0.0, 0.0, (int?)p2), (0.0, 0.0, (int?)p2), (30.0, 0.0, (int?)null), (30.0, 10.0, (int?)null)
+        }, 1e7, 0.3, 0.1));
+    }
+
+    [Fact]
     public void Mesher_MergeCoincidentNodes_StitchesTwoSurfacesIntoContinuousPlate()
     {
         // Two 5x10 surfaces side by side sharing the x=5 line, meshed separately ->

@@ -112,12 +112,28 @@
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Model Info pane -->
-            <DockPanel Grid.Column="0" Background="White">
-                <TextBlock DockPanel.Dock="Top" Text="Model Info" FontWeight="Bold" Padding="8,6"
-                           Background="#2D3E5F" Foreground="White"/>
-                <TreeView x:Name="ModelTree" BorderThickness="0" SelectedItemChanged="ModelTree_SelectedItemChanged"/>
-            </DockPanel>
+            <!-- Model Info + Selection Data panes -->
+            <Grid Grid.Column="0" Background="White">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="4"/>
+                    <RowDefinition Height="260"/>
+                </Grid.RowDefinitions>
+                <DockPanel Grid.Row="0">
+                    <TextBlock DockPanel.Dock="Top" Text="Model Info" FontWeight="Bold" Padding="8,6"
+                               Background="#2D3E5F" Foreground="White"/>
+                    <TreeView x:Name="ModelTree" BorderThickness="0" SelectedItemChanged="ModelTree_SelectedItemChanged"/>
+                </DockPanel>
+                <GridSplitter Grid.Row="1" HorizontalAlignment="Stretch" Background="#C8C8C8"/>
+                <DockPanel Grid.Row="2">
+                    <TextBlock DockPanel.Dock="Top" Text="Selection Data" FontWeight="Bold" Padding="8,4"
+                               Background="#2D3E5F" Foreground="White"/>
+                    <TextBox x:Name="TxtSelData" IsReadOnly="True" BorderThickness="0"
+                             FontFamily="Consolas" FontSize="11.5"
+                             VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                             TextWrapping="NoWrap" Text="(nothing selected)"/>
+                </DockPanel>
+            </Grid>
 
             <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch" Background="#C8C8C8"/>
 

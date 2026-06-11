@@ -297,16 +297,41 @@ public static class Mesher
 
     /// <summary>Create a 4-sided surface (membrane) from corner coordinates. Returns the new membrane.</summary>
     public static Membrane AddSurface(FeModel model, (double X, double Y)[] corners, double e, double nu, double t)
+        => AddSurface(model, corners.Select(c => (c.X, c.Y, (int?)null)).ToArray(), e, nu, t);
+
+    /// <summary>
+    /// Create a 4-sided surface. A corner with ExistingPointId set reuses that geometry
+    /// point (surfaces then share it - moving it updates both); otherwise a new point is
+    /// created at (X, Y).
+    /// </summary>
+    public static Membrane AddSurface(FeModel model, (double X, double Y, int? ExistingPointId)[] corners, double e, double nu, double t)
     {
         if (corners.Length != 4) throw new ArgumentException("Exactly 4 corners required.");
+        var resolvedIds = new int[4];
         int nextGeoId = model.Nodes.Count == 0 ? 1 : model.Nodes.Max(x => x.Id) + 1;
-        int nextMemId = model.Membranes.Count == 0 ? 1 : model.Membranes.Max(x => x.Id) + 1;
-
-        var membrane = new Membrane { Id = nextMemId, MaterialE = e, MaterialNu = nu, MaterialT = t };
-        foreach (var (x, y) in corners)
+        for (int i = 0; i < 4; i++)
         {
-            model.Nodes.Add(new GeometryNode { Id = nextGeoId, X = x, Y = y });
-            membrane.NodeIds.Add(nextGeoId++);
+            if (corners[i].ExistingPointId is { } pid)
+            {
+                if (model.Nodes.All(g => g.Id != pid))
+                    throw new InvalidOperationException($"Corner {i + 1}: point {pid} does not exist.");
+                resolvedIds[i] = pid;
+            }
+            else resolvedIds[i] = -1;
+        }
+        if (resolvedIds.Where(id => id > 0).GroupBy(id => id).Any(g => g.Count() > 1))
+            throw new InvalidOperationException("The same point was picked for two corners - pick 4 distinct corners.");
+
+        int nextMemId = model.Membranes.Count == 0 ? 1 : model.Membranes.Max(x => x.Id) + 1;
+        var membrane = new Membrane { Id = nextMemId, MaterialE = e, MaterialNu = nu, MaterialT = t };
+        for (int i = 0; i < 4; i++)
+        {
+            if (resolvedIds[i] < 0)
+            {
+                model.Nodes.Add(new GeometryNode { Id = nextGeoId, X = corners[i].X, Y = corners[i].Y });
+                resolvedIds[i] = nextGeoId++;
+            }
+            membrane.NodeIds.Add(resolvedIds[i]);
         }
         model.Membranes.Add(membrane);
         return membrane;
