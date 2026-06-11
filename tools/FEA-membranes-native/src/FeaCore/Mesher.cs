@@ -43,14 +43,126 @@ public static class Mesher
         return (cx + absR * Math.Cos(a), cy + absR * Math.Sin(a));
     }
 
-    /// <summary>Remove all FE nodes/elements belonging to a membrane (springs/bars attached to them too).</summary>
+    /// <summary>
+    /// Remove a membrane's mesh. Nodes still referenced by another membrane's elements
+    /// (e.g. after a coincident-node merge stitched two meshes together) are kept;
+    /// springs/bars attached only to removed nodes go with them.
+    /// </summary>
     public static void ClearMesh(FeModel model, int membraneId)
     {
-        var doomedNodes = model.FeNodes.Where(n => n.MembraneId == membraneId).Select(n => n.Id).ToHashSet();
         model.FeElements.RemoveAll(e => e.MembraneId == membraneId);
+
+        // Nodes of this membrane survive only if something else still references them
+        var referenced = new HashSet<int>();
+        foreach (var e in model.FeElements) referenced.UnionWith(e.NodeIds);
+
+        var doomedNodes = model.FeNodes
+            .Where(n => n.MembraneId == membraneId && !referenced.Contains(n.Id))
+            .Select(n => n.Id).ToHashSet();
         model.FeSprings.RemoveAll(s => doomedNodes.Contains(s.FeNodeId1) || doomedNodes.Contains(s.FeNodeId2));
         model.FeBars.RemoveAll(b => doomedNodes.Contains(b.FeNodeId1) || doomedNodes.Contains(b.FeNodeId2));
-        model.FeNodes.RemoveAll(n => n.MembraneId == membraneId);
+        model.FeNodes.RemoveAll(n => doomedNodes.Contains(n.Id));
+    }
+
+    /// <summary>
+    /// Merge FE nodes that lie within 'tol' of each other (FEMAP-style coincident-node
+    /// merge, used to stitch adjacent meshed surfaces together). The lowest node id in
+    /// each cluster survives; element/spring/bar references are remapped.
+    /// Pairs connected to each other by a spring are NEVER merged - coincident
+    /// spring-joined nodes are this tool's intentional fastener idealisation.
+    /// If 'onlyNodeIds' is given, merging is restricted to those nodes.
+    /// Returns (nodesMerged, degenerateSpringsRemoved, degenerateBarsRemoved).
+    /// </summary>
+    public static (int merged, int springsRemoved, int barsRemoved) MergeCoincidentNodes(
+        FeModel model, double tol, IReadOnlyCollection<int>? onlyNodeIds = null)
+    {
+        if (tol <= 0) throw new ArgumentOutOfRangeException(nameof(tol), "Tolerance must be positive.");
+
+        var candidates = onlyNodeIds is null
+            ? model.FeNodes
+            : model.FeNodes.Where(n => onlyNodeIds.Contains(n.Id)).ToList();
+
+        // Pairs directly joined by a spring are exempt from merging
+        var springPairs = new HashSet<long>();
+        foreach (var s in model.FeSprings)
+        {
+            int a = Math.Min(s.FeNodeId1, s.FeNodeId2), b = Math.Max(s.FeNodeId1, s.FeNodeId2);
+            springPairs.Add((long)a << 32 | (uint)b);
+        }
+        bool SpringJoined(int a, int b) =>
+            springPairs.Contains((long)Math.Min(a, b) << 32 | (uint)Math.Max(a, b));
+
+        // Union-find over candidate nodes (lowest id becomes the cluster root)
+        var parent = new Dictionary<int, int>();
+        foreach (var n in candidates) parent[n.Id] = n.Id;
+        int Find(int x)
+        {
+            while (parent[x] != x) { parent[x] = parent[parent[x]]; x = parent[x]; }
+            return x;
+        }
+        void Union(int a, int b)
+        {
+            int ra = Find(a), rb = Find(b);
+            if (ra == rb) return;
+            if (ra < rb) parent[rb] = ra; else parent[ra] = rb;
+        }
+
+        // Spatial hash so large models stay O(n)
+        var cells = new Dictionary<(long cx, long cy), List<FeNode>>();
+        foreach (var n in candidates)
+        {
+            var key = ((long)Math.Floor(n.X / tol), (long)Math.Floor(n.Y / tol));
+            if (!cells.TryGetValue(key, out var list)) cells[key] = list = new List<FeNode>();
+            list.Add(n);
+        }
+        double tol2 = tol * tol;
+        foreach (var n in candidates)
+        {
+            long cx = (long)Math.Floor(n.X / tol), cy = (long)Math.Floor(n.Y / tol);
+            for (long dx = -1; dx <= 1; dx++)
+                for (long dy = -1; dy <= 1; dy++)
+                {
+                    if (!cells.TryGetValue((cx + dx, cy + dy), out var list)) continue;
+                    foreach (var m in list)
+                    {
+                        if (m.Id <= n.Id) continue;
+                        double ddx = m.X - n.X, ddy = m.Y - n.Y;
+                        if (ddx * ddx + ddy * ddy > tol2) continue;
+                        if (SpringJoined(n.Id, m.Id)) continue;
+                        Union(n.Id, m.Id);
+                    }
+                }
+        }
+
+        // Build remap and apply
+        var remap = new Dictionary<int, int>();
+        foreach (var n in candidates)
+        {
+            int root = Find(n.Id);
+            if (root != n.Id) remap[n.Id] = root;
+        }
+        if (remap.Count == 0) return (0, 0, 0);
+
+        var keptById = model.FeNodes.ToDictionary(n => n.Id);
+        foreach (var (gone, kept) in remap)
+        {
+            // Carry the BC over if the surviving node has none
+            var goneNode = keptById[gone];
+            var keptNode = keptById[kept];
+            keptNode.Bc ??= goneNode.Bc;
+            keptNode.IsSpringConnectionPoint |= goneNode.IsSpringConnectionPoint;
+        }
+        int Mapped(int id) => remap.GetValueOrDefault(id, id);
+        foreach (var e in model.FeElements)
+            for (int i = 0; i < e.NodeIds.Count; i++) e.NodeIds[i] = Mapped(e.NodeIds[i]);
+        foreach (var s in model.FeSprings) { s.FeNodeId1 = Mapped(s.FeNodeId1); s.FeNodeId2 = Mapped(s.FeNodeId2); }
+        foreach (var b in model.FeBars) { b.FeNodeId1 = Mapped(b.FeNodeId1); b.FeNodeId2 = Mapped(b.FeNodeId2); }
+
+        int springsRemoved = model.FeSprings.RemoveAll(s => s.FeNodeId1 == s.FeNodeId2);
+        int barsRemoved = model.FeBars.RemoveAll(b => b.FeNodeId1 == b.FeNodeId2);
+        model.FeNodes.RemoveAll(n => remap.ContainsKey(n.Id));
+
+        return (remap.Count, springsRemoved, barsRemoved);
     }
 
     /// <summary>

@@ -346,6 +346,34 @@ public partial class MainWindow : Window
         Log(summary);
     }
 
+    private void MenuMergeNodes_Click(object sender, RoutedEventArgs e)
+    {
+        if (_model.FeNodes.Count == 0) { Prompt("No FE nodes - mesh a surface first."); return; }
+        bool scoped = _renderer.SelectedNodes.Count > 1;
+        var d = new FormDialog(this, "Merge Coincident Nodes")
+            .AddField("tol", "Tolerance", 0.01)
+            .AddNote(scoped
+                ? $"Only the {_renderer.SelectedNodes.Count} selected nodes are considered."
+                : "All FE nodes are considered (select nodes first to restrict the scope).")
+            .AddNote("Pairs joined by a spring are never merged - coincident spring-connected " +
+                     "nodes are the fastener idealisation.");
+        if (!d.Run()) return;
+        Snapshot();
+        var (merged, springsRemoved, barsRemoved) = Mesher.MergeCoincidentNodes(
+            _model, d.Num("tol"), scoped ? _renderer.SelectedNodes.ToList() : null);
+        ClearSelection();
+        ModelChanged();
+        string scope = scoped ? " among the selected nodes" : "";
+        string msg = merged == 0
+            ? $"No coincident nodes found within tolerance {d.Num("tol"):G6}{scope}." +
+              (scoped ? " (Press Esc to clear the selection and re-run for a whole-model merge.)" : "")
+            : $"{merged} node(s) merged within tolerance {d.Num("tol"):G6}{scope}." +
+              (springsRemoved > 0 ? $" {springsRemoved} degenerate spring(s) removed." : "") +
+              (barsRemoved > 0 ? $" {barsRemoved} degenerate bar(s) removed." : "");
+        Log(msg);
+        Prompt(msg);
+    }
+
     private void MenuDeleteElements_Click(object sender, RoutedEventArgs e)
     {
         if (_renderer.SelectedElements.Count == 0)

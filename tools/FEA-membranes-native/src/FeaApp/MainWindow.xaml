@@ -37,6 +37,8 @@
                 <MenuItem Header="Create _Bars Along Selected Nodes…" Click="MenuBars_Click"/>
                 <MenuItem Header="Create _Spring Between 2 Selected Nodes…" Click="MenuSpring_Click"/>
                 <Separator/>
+                <MenuItem Header="_Merge Coincident Nodes…" Click="MenuMergeNodes_Click"/>
+                <Separator/>
                 <MenuItem Header="_Delete Selected Elements" Click="MenuDeleteElements_Click"/>
                 <Separator/>
                 <MenuItem Header="Surface _Properties…" Click="MenuSurfaceProps_Click"/>

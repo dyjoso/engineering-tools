@@ -309,6 +309,133 @@ public class SolverTests
     }
 
     [Fact]
+    public void Mesher_MergeCoincidentNodes_StitchesTwoSurfacesIntoContinuousPlate()
+    {
+        // Two 5x10 surfaces side by side sharing the x=5 line, meshed separately ->
+        // duplicate nodes along the seam. After merging, the pair must behave as one
+        // continuous 10x10 plate: uniaxial tension gives the exact bilinear answer.
+        var model = new FeModel();
+        var s1 = Mesher.AddSurface(model, new[] { (0.0, 0.0), (5.0, 0.0), (5.0, 10.0), (0.0, 10.0) }, 1e7, 0.0, 0.1);
+        var s2 = Mesher.AddSurface(model, new[] { (5.0, 0.0), (10.0, 0.0), (10.0, 10.0), (5.0, 10.0) }, 1e7, 0.0, 0.1);
+        Mesher.MeshMembrane(model, s1, 2, 2);
+        Mesher.MeshMembrane(model, s2, 2, 2);
+        Assert.Equal(18, model.FeNodes.Count); // 9 + 9, seam doubled
+
+        var (merged, _, _) = Mesher.MergeCoincidentNodes(model, 1e-6);
+
+        Assert.Equal(3, merged);                // the 3 seam nodes
+        Assert.Equal(15, model.FeNodes.Count);
+        Assert.All(model.FeElements, el => Assert.All(el.NodeIds, id => Assert.Contains(model.FeNodes, n => n.Id == id)));
+
+        // Solve: fixed left edge, 1000 lb total on right edge -> sx = 1000 psi exact
+        foreach (var n in model.FeNodes)
+        {
+            if (n.X < 1e-9) n.Bc = Fixed(true, n.Y < 1e-9);
+            else if (n.X > 10 - 1e-9) n.Bc = Load(1000.0 / 3, 0);
+        }
+        var r = Solver.Solve(model);
+        foreach (var st in r.ElementStresses) Assert.Equal(1000, st.Sxx, 4);
+        Assert.Equal(-1000, r.Reactions.Sum(x => x.Rx), 4);
+    }
+
+    [Fact]
+    public void Mesher_MergeCoincidentNodes_PreservesSpringPairsAndBcs()
+    {
+        var model = new FeModel
+        {
+            FeNodes =
+            {
+                new FeNode { Id = 1, X = 0, Y = 0 },                                  // spring pair a
+                new FeNode { Id = 2, X = 0.001, Y = 0 },                              // spring pair b (coincident!)
+                new FeNode { Id = 3, X = 5, Y = 5, Bc = Load(50, 0) },                // plain pair a (no BC kept node gets one)
+                new FeNode { Id = 4, X = 5.001, Y = 5 },                              // plain pair b
+                new FeNode { Id = 5, X = 9, Y = 9 }
+            },
+            FeSprings = { new FeSpring { Id = 1, FeNodeId1 = 1, FeNodeId2 = 2, Stiffness = 1e5 } },
+            FeBars =
+            {
+                new FeBar { Id = 1, FeNodeId1 = 3, FeNodeId2 = 5, E = 1e7, A = 0.1 },
+                new FeBar { Id = 2, FeNodeId1 = 4, FeNodeId2 = 3, E = 1e7, A = 0.1 } // becomes degenerate
+            }
+        };
+
+        var (merged, springsRemoved, barsRemoved) = Mesher.MergeCoincidentNodes(model, 0.01);
+
+        Assert.Equal(1, merged);                                   // only 3+4; 1+2 protected by spring
+        Assert.Equal(0, springsRemoved);
+        Assert.Equal(1, barsRemoved);                              // bar 2 collapsed to a point
+        Assert.Contains(model.FeNodes, n => n.Id == 1);
+        Assert.Contains(model.FeNodes, n => n.Id == 2);            // spring pair survives
+        Assert.DoesNotContain(model.FeNodes, n => n.Id == 4);
+        Assert.Single(model.FeSprings);
+        Assert.Single(model.FeBars);
+        Assert.NotNull(model.FeNodes.First(n => n.Id == 3).Bc);    // BC retained on kept node
+
+        // Scoped merge: nothing outside the given set is touched
+        var model2 = new FeModel
+        {
+            FeNodes =
+            {
+                new FeNode { Id = 1, X = 0, Y = 0 },
+                new FeNode { Id = 2, X = 0.001, Y = 0 },
+                new FeNode { Id = 3, X = 1, Y = 0 },
+                new FeNode { Id = 4, X = 1.001, Y = 0 }
+            }
+        };
+        var (m2, _, _) = Mesher.MergeCoincidentNodes(model2, 0.01, new[] { 3, 4 });
+        Assert.Equal(1, m2);
+        Assert.Contains(model2.FeNodes, n => n.Id == 1);
+        Assert.Contains(model2.FeNodes, n => n.Id == 2); // out of scope, untouched
+    }
+
+    [Fact]
+    public void Mesher_MergeCoincidentNodes_NegativeCoordinates()
+    {
+        // Spatial-hash cells use floor division - make sure negative coords hash
+        // consistently (real models are often centred on the origin).
+        var model = new FeModel
+        {
+            FeNodes =
+            {
+                new FeNode { Id = 1, X = -7.07, Y = -7.07 },
+                new FeNode { Id = 2, X = -7.075, Y = -7.07 },   // within 0.01 of node 1
+                new FeNode { Id = 3, X = -50, Y = 50 },
+                new FeNode { Id = 4, X = -50.009, Y = 50.001 }, // within 0.01 of node 3 (crosses a cell boundary)
+                new FeNode { Id = 5, X = 0.005, Y = -0.005 },
+                new FeNode { Id = 6, X = -0.004, Y = 0.004 }    // within 0.02 of node 5, straddling origin
+            }
+        };
+
+        var (merged, _, _) = Mesher.MergeCoincidentNodes(model, 0.02);
+
+        Assert.Equal(3, merged);
+        Assert.Equal(3, model.FeNodes.Count);
+        Assert.Contains(model.FeNodes, n => n.Id == 1);
+        Assert.Contains(model.FeNodes, n => n.Id == 3);
+        Assert.Contains(model.FeNodes, n => n.Id == 5);
+    }
+
+    [Fact]
+    public void Mesher_ClearMesh_KeepsNodesSharedWithOtherSurfaces()
+    {
+        // Stitch two meshed surfaces, then re-mesh one: the seam nodes now belong to
+        // the other surface's elements and must survive the clear.
+        var model = new FeModel();
+        var s1 = Mesher.AddSurface(model, new[] { (0.0, 0.0), (5.0, 0.0), (5.0, 10.0), (0.0, 10.0) }, 1e7, 0.0, 0.1);
+        var s2 = Mesher.AddSurface(model, new[] { (5.0, 0.0), (10.0, 0.0), (10.0, 10.0), (5.0, 10.0) }, 1e7, 0.0, 0.1);
+        Mesher.MeshMembrane(model, s1, 2, 2);
+        Mesher.MeshMembrane(model, s2, 2, 2);
+        Mesher.MergeCoincidentNodes(model, 1e-6);
+
+        Mesher.ClearMesh(model, s1.Id);
+
+        // s2's elements must keep all their nodes (including the former seam)
+        Assert.All(model.FeElements, el => Assert.All(el.NodeIds, id => Assert.Contains(model.FeNodes, n => n.Id == id)));
+        Assert.Equal(4, model.FeElements.Count);
+        Assert.Equal(9, model.FeNodes.Count);
+    }
+
+    [Fact]
     public void Mesher_DeleteSurface_RemovesMeshAndOrphanGeometry()
     {
         var model = new FeModel();
