@@ -1457,6 +1457,56 @@
             }
         }
         function isPointInsidePolygon(point, polygonVertices) { const x = point.x, y = point.y; let isInside = false; const n = polygonVertices.length; if (n < 3) return false; for (let i = 0, j = n - 1; i < n; j = i++) { const xi = polygonVertices[i].x, yi = polygonVertices[i].y; const xj = polygonVertices[j].x, yj = polygonVertices[j].y; const y_adjusted = y + 1e-9; const intersect = ((yi > y_adjusted) !== (yj > y_adjusted)) && (x < (xj - xi) * (y_adjusted - yi) / (yj - yi) + xi); if (intersect) { isInside = !isInside; } } return isInside; }
+        // --- Manual pickers for batched (non-listening) layers ---
+        function pickSpringAt(p, tol) {
+            const nodeById = new Map(feNodes.map(n => [n.id, n]));
+            for (const s of feSprings) {
+                const n1 = nodeById.get(s.feNodeId1), n2 = nodeById.get(s.feNodeId2);
+                if (!n1 || !n2) continue;
+                const m1 = findMembraneById(n1.membraneId), m2 = findMembraneById(n2.membraneId);
+                if ((m1 && m1.visible === false) && (m2 && m2.visible === false)) continue;
+                if (getDistanceToSegment(p, n1, n2) <= tol) return s;
+            }
+            return null;
+        }
+        function pickBarAt(p, tol) {
+            const nodeById = new Map(feNodes.map(n => [n.id, n]));
+            for (const b of feBars) {
+                const n1 = nodeById.get(b.feNodeId1), n2 = nodeById.get(b.feNodeId2);
+                if (!n1 || !n2) continue;
+                if (getDistanceToSegment(p, n1, n2) <= tol) return b;
+            }
+            return null;
+        }
+        function elementVertices(el, nodeById) {
+            if (el.type !== 'quad' || el.nodeIds.length !== 4) return null;
+            const verts = el.nodeIds.map(id => nodeById.get(id));
+            return verts.every(v => v) ? verts : null;
+        }
+        function pickElementAt(p) {
+            const nodeById = new Map(feNodes.map(n => [n.id, n]));
+            const hidden = new Set(membranes.filter(m => m.visible === false).map(m => m.id));
+            for (const el of feElements) {
+                if (hidden.has(el.membraneId)) continue;
+                const verts = elementVertices(el, nodeById);
+                if (verts && isPointInsidePolygon(p, verts)) return el;
+            }
+            return null;
+        }
+        function pickElementEdgeAt(p, tol) {
+            const nodeById = new Map(feNodes.map(n => [n.id, n]));
+            const hidden = new Set(membranes.filter(m => m.visible === false).map(m => m.id));
+            for (const el of feElements) {
+                if (hidden.has(el.membraneId)) continue;
+                const verts = elementVertices(el, nodeById);
+                if (!verts) continue;
+                for (let i = 0; i < 4; i++) {
+                    if (getDistanceToSegment(p, verts[i], verts[(i + 1) % 4]) <= tol) return el;
+                }
+            }
+            return null;
+        }
+
         function handleStageClick(e) {
             console.log(`handleStageClick called in mode: ${currentMode}`);
             if (!stage || !geometryLayer || !backgroundLayer) return;
@@ -1468,6 +1518,29 @@
             const stagePos = stage.position();
             const scale = stage.scaleX();
             const clickPos = { x: (pos.x - stagePos.x) / scale, y: (pos.y - stagePos.y) / scale };
+
+            // --- Manual picking for batched layers (mesh elements, springs, bars) ---
+            // These are drawn as single batched shapes with listening:false, so clicks are
+            // resolved here against the model data instead of Konva's per-shape hit canvas.
+            const pickTol = 6 / scale; // ~6 screen px
+            if (currentMode === 'select-springs-box' || currentMode === 'delete-item') {
+                const spring = pickSpringAt(clickPos, pickTol);
+                if (spring) { handleSpringClick(spring); return; }
+            }
+            if (currentMode === 'select-bars-box' || currentMode === 'delete-item') {
+                const bar = pickBarAt(clickPos, pickTol);
+                if (bar) { handleBarClick(bar); return; }
+            }
+            if (currentMode === 'select-element' || currentMode === 'select-element-box') {
+                const element = pickElementAt(clickPos);
+                if (element) { handleElementClick(element); return; }
+            }
+            if (currentMode === 'delete-item') {
+                // Match previous behaviour: deleting an element requires clicking ON its edge
+                // (clicking inside still targets the membrane below).
+                const element = pickElementEdgeAt(clickPos, pickTol);
+                if (element) { handleElementClick(element); return; }
+            }
 
             if (currentMode === 'select-membrane' || currentMode === 'delete-item') {
                 // Check if click is inside any membrane
@@ -2213,7 +2286,9 @@
             if (!stage) return;
             const scale = stage.scaleX(); // Get the NEW scale after zoom
 
-            // Update geometric nodes (Radius only)
+            // Update geometric nodes (Radius only). All batched layers (mesh, springs, bars,
+            // deformed overlay) read stage.scaleX() inside their sceneFuncs, so they need no
+            // rebuild on zoom - the caller's stage.batchDraw() repaints them at the new scale.
             nodes.forEach(node => {
                 if (node.konvaCircle) {
                     let radius = NODE_RADIUS_TARGET_PX / scale;
@@ -2223,45 +2298,7 @@
                     node.konvaCircle.radius(radius);
                 }
             });
-
-            // Update FE nodes / BCs (by redrawing mesh layer which uses scale)
-            drawMesh();
-
-            // --- Update Spring Labels for Fixed Screen Size ---
-            if (springLayer) {
-                const springLabels = springLayer.find('Text'); // Find all labels
-
-                springLabels.forEach(textNode => {
-                    const node1Id = textNode.getAttr('node1Id'); // Get associated node
-                    const node1 = findFeNodeById(node1Id);
-
-                    if (node1) {
-                        // Calculate NEW world offset based on FIXED screen offset and NEW scale
-                        const worldOffsetX = SPRING_LABEL_SCREEN_OFFSET_X / scale;
-                        const worldOffsetY = SPRING_LABEL_SCREEN_OFFSET_Y / scale;
-
-                        // Update counter-scaling to match the new stage scale
-                        textNode.scaleX(1 / scale);
-                        textNode.scaleY(1 / scale);
-
-                        // Update world position based on node1's current pos and NEW world offset
-                        textNode.position({
-                            x: node1.x + worldOffsetX,
-                            y: node1.y - worldOffsetY // Still subtract Y offset for 'up'
-                        });
-
-                        // NOTE: textNode.fontSize() is NOT changed here - it remains fixed
-                    }
-                });
-            } // End if (springLayer)
-
-            // Bars (labels are counter-scaled, so redraw fully at the new scale)
-            drawBars();
-
-            // Batch draw layers that had visual updates
-            geometryLayer?.batchDraw(); // Nodes updated
-            // meshLayer is redrawn by drawMesh()
-            springLayer?.batchDraw();   // Labels updated
+            geometryLayer?.batchDraw();
         }
         // --- End Added Function ---
 
@@ -2752,139 +2789,181 @@
 
             membrane.isMeshed = true;
         }
+        // Mesh is rendered as a handful of batched custom shapes (one canvas path for all
+        // element edges, one for node dots, one for BC glyphs) instead of one Konva node per
+        // element/FE-node. This keeps layer redraws (pan/zoom) at a few ms even for large
+        // meshes. The sceneFuncs read stage.scaleX() at draw time, so zooming needs no rebuild.
+        // Clicks are resolved by manual picking in handleStageClick (no per-shape hit canvas).
         function drawMesh() {
             if (!meshLayer || !stage) return;
-            const scale = stage.scaleX(); // Get current scale
             meshLayer.destroyChildren();
             const selectedFeSet = new Set(selectedFeNodes);
+            const selectedElSet = new Set(selectedFeElements);
+            const hiddenMembranes = new Set(membranes.filter(m => m.visible === false).map(m => m.id));
+            const nodeById = new Map(feNodes.map(n => [n.id, n]));
 
+            // Unselected elements: collect deduplicated edges (interior edges are shared by
+            // two quads - stroking each once roughly halves rasterization cost).
+            // Selected elements keep full closed outlines so the highlight reads clearly.
+            const edgeKeys = new Set();
+            const edges = []; // flat: 4 coords per edge
+            const elSel = []; // flat: 8 coords per selected quad
             feElements.forEach(element => {
-                const membrane = findMembraneById(element.membraneId);
-                if (membrane && membrane.visible === false) {
-                    return; // Skip drawing elements of hidden membranes
+                if (hiddenMembranes.has(element.membraneId)) return;
+                if (element.type !== 'quad' || element.nodeIds.length !== 4) return;
+                const n0 = nodeById.get(element.nodeIds[0]), n1 = nodeById.get(element.nodeIds[1]),
+                    n2 = nodeById.get(element.nodeIds[2]), n3 = nodeById.get(element.nodeIds[3]);
+                if (!n0 || !n1 || !n2 || !n3) { console.warn(`Skipping drawing element ${element.id}, missing node data.`); return; }
+                if (selectedElSet.has(element.id)) {
+                    elSel.push(n0.x, n0.y, n1.x, n1.y, n2.x, n2.y, n3.x, n3.y);
+                    return;
                 }
-
-                if (element.type === 'quad' && element.nodeIds.length === 4) {
-                    const elementNodes = element.nodeIds.map(nodeId => findFeNodeById(nodeId));
-                    if (elementNodes.every(n => n)) {
-                        const points = elementNodes.flatMap(n => [n.x, n.y]);
-                        const meshLine = new Konva.Line({
-                            points: points,
-                            stroke: isElementSelected(element.id) ? 'orange' : MESH_LINE_COLOR,
-                            strokeWidth: isElementSelected(element.id) ? LINE_STROKE_WIDTH_TARGET_PX * 2 : LINE_STROKE_WIDTH_TARGET_PX, // Target pixel width
-                            strokeScaleEnabled: false, // Keep constant pixel width
-                            closed: true,
-                            listening: true, // ENABLE LISTENING for click events/hover
-                            id: `element-${element.id}` // Add ID for finding it later if needed (Konva id)
-                        });
-
-                        // Add hover pointer
-                        meshLine.on('mouseenter', () => { if (currentMode === 'select-element' || currentMode === 'select-element-box' || currentMode === 'delete-item') stage.container().style.cursor = 'pointer'; });
-                        meshLine.on('mouseleave', () => { if (currentMode === 'select-element' || currentMode === 'select-element-box' || currentMode === 'delete-item') stage.container().style.cursor = 'default'; });
-
-                        // Add click handler (single-click toggles selection in element modes)
-                        meshLine.on('click tap', (e) => {
-                            if (currentMode === 'select-element' || currentMode === 'select-element-box' || currentMode === 'delete-item') {
-                                e.cancelBubble = true; // Prevent stage click only in these modes
-                                handleElementClick(element);
-                            }
-                            // Otherwise let it bubble to stage/membrane
-                        });
-
-                        meshLayer.add(meshLine);
-                    } else { console.warn(`Skipping drawing element ${element.id}, missing node data.`); }
+                const quad = [n0, n1, n2, n3];
+                for (let i = 0; i < 4; i++) {
+                    const a = element.nodeIds[i], b = element.nodeIds[(i + 1) % 4];
+                    const key = a < b ? a * 100000000 + b : b * 100000000 + a;
+                    if (edgeKeys.has(key)) continue;
+                    edgeKeys.add(key);
+                    const na = quad[i], nb = quad[(i + 1) % 4];
+                    edges.push(na.x, na.y, nb.x, nb.y);
                 }
             });
 
+            const dotPlain = [], dotSpring = [], dotSel = [];
+            const bcNodes = [];
             feNodes.forEach(node => {
-                const membrane = findMembraneById(node.membraneId);
-                if (membrane && membrane.visible === false) {
-                    return; // Skip drawing nodes of hidden membranes
-                }
-
-                const isSelected = selectedFeSet.has(node.id);
-
-                // --- Calculate scaled radius ---
-                const radiusPx = isSelected ? FE_NODE_SELECTED_RADIUS_TARGET_PX : FE_NODE_RADIUS_TARGET_PX;
-                const radius = radiusPx / scale;
-
-                const nodeCircle = new Konva.Circle({
-                    x: node.x,
-                    y: node.y,
-                    radius: radius, // Use scaled radius
-                    fill: isSelected ? FE_NODE_SELECTED_COLOR : (node.isSpringConnectionPoint ? SPRING_NODE_COLOR : FE_NODE_COLOR),
-                    listening: false
-                });
-                meshLayer.add(nodeCircle);
-                if (node.bc) {
-                    drawBcSymbol(node.x, node.y, node.bc); // Pass scale to BC drawing
-                }
+                if (hiddenMembranes.has(node.membraneId)) return;
+                if (selectedFeSet.has(node.id)) dotSel.push(node.x, node.y);
+                else if (node.isSpringConnectionPoint) dotSpring.push(node.x, node.y);
+                else dotPlain.push(node.x, node.y);
+                if (node.bc) bcNodes.push(node);
             });
+
+            meshLayer.add(new Konva.Shape({
+                listening: false,
+                name: 'mesh-batch',
+                sceneFunc: function (ctx) {
+                    const c = ctx._context;
+                    const s = stage.scaleX();
+                    // Visible world rect (slightly padded) for culling - big win when zoomed in
+                    const wx0 = (-stage.x()) / s - 5, wy0 = (-stage.y()) / s - 5;
+                    const wx1 = (stage.width() - stage.x()) / s + 5, wy1 = (stage.height() - stage.y()) / s + 5;
+
+                    if (edges.length) {
+                        c.beginPath();
+                        for (let i = 0; i < edges.length; i += 4) {
+                            const x1 = edges[i], y1 = edges[i + 1], x2 = edges[i + 2], y2 = edges[i + 3];
+                            if ((x1 < wx0 && x2 < wx0) || (x1 > wx1 && x2 > wx1) ||
+                                (y1 < wy0 && y2 < wy0) || (y1 > wy1 && y2 > wy1)) continue;
+                            c.moveTo(x1, y1);
+                            c.lineTo(x2, y2);
+                        }
+                        c.strokeStyle = MESH_LINE_COLOR;
+                        c.lineWidth = LINE_STROKE_WIDTH_TARGET_PX / s;
+                        c.stroke();
+                    }
+                    if (elSel.length) {
+                        c.beginPath();
+                        for (let i = 0; i < elSel.length; i += 8) {
+                            c.moveTo(elSel[i], elSel[i + 1]);
+                            c.lineTo(elSel[i + 2], elSel[i + 3]);
+                            c.lineTo(elSel[i + 4], elSel[i + 5]);
+                            c.lineTo(elSel[i + 6], elSel[i + 7]);
+                            c.closePath();
+                        }
+                        c.strokeStyle = 'orange';
+                        c.lineWidth = LINE_STROKE_WIDTH_TARGET_PX * 2 / s;
+                        c.stroke();
+                    }
+
+                    const fillDots = (arr, color, radiusPx) => {
+                        if (!arr.length) return;
+                        const r = radiusPx / s;
+                        c.beginPath();
+                        for (let i = 0; i < arr.length; i += 2) {
+                            const x = arr[i], y = arr[i + 1];
+                            if (x < wx0 || x > wx1 || y < wy0 || y > wy1) continue;
+                            c.moveTo(x + r, y);
+                            c.arc(x, y, r, 0, Math.PI * 2);
+                        }
+                        c.fillStyle = color;
+                        c.fill();
+                    };
+                    fillDots(dotPlain, FE_NODE_COLOR, FE_NODE_RADIUS_TARGET_PX);
+                    fillDots(dotSpring, SPRING_NODE_COLOR, FE_NODE_RADIUS_TARGET_PX);
+                    fillDots(dotSel, FE_NODE_SELECTED_COLOR, FE_NODE_SELECTED_RADIUS_TARGET_PX);
+
+                    drawBcGlyphs(c, s, bcNodes);
+                }
+            }));
+
             refreshDeformedMesh(); // Re-add deformed overlay (destroyChildren above removed it)
             meshLayer.batchDraw();
-            console.log(`Drew mesh with ${feNodes.length} nodes and ${feElements.length} elements.`);
+            console.log(`Drew mesh with ${feNodes.length} nodes and ${feElements.length} elements (batched).`);
         }
-        function drawBcSymbol(x, y, bcData) {
-            if (!meshLayer || !stage) return;
-            const scale = stage.scaleX();
+        // Draws all BC glyphs with raw canvas calls inside the batched mesh shape.
+        // Geometry matches the previous per-node Konva symbols (triangles for fixed,
+        // arrows for load/enforced), sized in screen pixels via the current scale s.
+        function drawBcGlyphs(c, s, bcNodes) {
+            if (!bcNodes.length) return;
+            const symbolSize = BC_SYMBOL_SIZE_TARGET_PX / s;
+            const nodeRadius = FE_NODE_RADIUS_TARGET_PX / s;
+            const symbolOffset = nodeRadius + (BC_SYMBOL_OFFSET_TARGET_PX / s);
+            const lw = LINE_STROKE_WIDTH_TARGET_PX / s;
 
-            // --- Scale symbol size and offset ---
-            const symbolSize = BC_SYMBOL_SIZE_TARGET_PX / scale;
-            const nodeRadius = (FE_NODE_RADIUS_TARGET_PX / scale); // Use FE node base radius for offset calc
-            const symbolOffset = nodeRadius + (BC_SYMBOL_OFFSET_TARGET_PX / scale);
-            const strokeWidth = LINE_STROKE_WIDTH_TARGET_PX; // Target pixel width
+            // Triangle with apex pointing at angle 'ang' (radians, screen coords / Y-down)
+            const triangle = (cx, cy, ang) => {
+                const r = symbolSize / 2;
+                c.moveTo(cx + r * Math.cos(ang), cy + r * Math.sin(ang));
+                c.lineTo(cx + r * Math.cos(ang + 2 * Math.PI / 3), cy + r * Math.sin(ang + 2 * Math.PI / 3));
+                c.lineTo(cx + r * Math.cos(ang - 2 * Math.PI / 3), cy + r * Math.sin(ang - 2 * Math.PI / 3));
+                c.closePath();
+            };
+            const arrows = []; // {x1,y1,x2,y2,color}
 
-            /* Adjusted offset */
-            if (bcData.type === 'fixed') {
-                if (bcData.value.fixX) {
-                    const fixedX = new Konva.RegularPolygon({
-                        x: x - symbolOffset, y: y, sides: 3, radius: symbolSize / 2, rotation: 90, fill: 'black',
-                        stroke: 'black', strokeWidth: strokeWidth, strokeScaleEnabled: false, // Constant pixel stroke
-                        listening: false,
-                    });
-                    meshLayer.add(fixedX);
+            // Fixed-BC triangles (all black) in one path
+            c.beginPath();
+            bcNodes.forEach(node => {
+                const bc = node.bc;
+                if (bc.type === 'fixed') {
+                    if (bc.value.fixX) triangle(node.x - symbolOffset, node.y, 0);            // apex toward node (+x)
+                    if (bc.value.fixY) triangle(node.x, node.y + symbolOffset, -Math.PI / 2); // apex toward node (up)
+                } else if (bc.type === 'enforced' || bc.type === 'load') {
+                    const isLoad = bc.type === 'load';
+                    const color = isLoad ? 'red' : 'green';
+                    const vx = isLoad ? bc.value.fx : bc.value.dx;
+                    const vy = isLoad ? bc.value.fy : bc.value.dy;
+                    if (vx !== null && vx !== 0) {
+                        const sg = Math.sign(vx);
+                        arrows.push({ x1: node.x + sg * symbolOffset / 1.5, y1: node.y, x2: node.x + sg * (symbolOffset + symbolSize), y2: node.y, color });
+                    }
+                    if (vy !== null && vy !== 0) {
+                        const sg = Math.sign(vy);
+                        arrows.push({ x1: node.x, y1: node.y + sg * symbolOffset / 1.5, x2: node.x, y2: node.y + sg * (symbolOffset + symbolSize), color });
+                    }
                 }
-                if (bcData.value.fixY) {
-                    const fixedY = new Konva.RegularPolygon({
-                        x: x, y: y + symbolOffset, sides: 3, radius: symbolSize / 2, rotation: 0, fill: 'black',
-                        stroke: 'black', strokeWidth: strokeWidth, strokeScaleEnabled: false, // Constant pixel stroke
-                        listening: false,
-                    });
-                    meshLayer.add(fixedY);
-                }
-            } else if (bcData.type === 'enforced' || bcData.type === 'load') {
-                const isLoad = bcData.type === 'load';
-                const val = bcData.value;
-                const color = isLoad ? 'red' : 'green';
-                const valueX = isLoad ? val.fx : val.dx;
-                const valueY = isLoad ? val.fy : val.dy;
+            });
+            c.fillStyle = 'black';
+            c.fill();
 
-                const pointerLength = 4 / scale; // Scale pointer size too
-                const pointerWidth = 4 / scale;
-
-                if (valueX !== null && valueX !== 0) {
-                    const signX = Math.sign(valueX);
-                    // Adjust arrow points based on scaled offset and size
-                    const arrowX = new Konva.Arrow({
-                        points: [x + signX * symbolOffset / 1.5, y, x + signX * (symbolOffset + symbolSize), y], // Adjusted start point slightly
-                        pointerLength: pointerLength, pointerWidth: pointerWidth,
-                        fill: color, stroke: color, strokeWidth: strokeWidth, strokeScaleEnabled: false, // Constant pixel pixel stroke
-                        listening: false
-                    });
-                    meshLayer.add(arrowX);
-                }
-                if (valueY !== null && valueY !== 0) {
-                    const signY = Math.sign(valueY);
-                    // Adjust arrow points based on scaled offset and size
-                    const arrowY = new Konva.Arrow({
-                        points: [x, y + signY * symbolOffset / 1.5, x, y + signY * (symbolOffset + symbolSize)], // Adjusted start point slightly
-                        pointerLength: pointerLength, pointerWidth: pointerWidth,
-                        fill: color, stroke: color, strokeWidth: strokeWidth, strokeScaleEnabled: false, // Constant pixel stroke
-                        listening: false
-                    });
-                    meshLayer.add(arrowY);
-                }
-            }
+            // Load/enforced arrows (shaft + filled head)
+            const headLen = 6 / s, headW = 4 / s;
+            arrows.forEach(a => {
+                const ang = Math.atan2(a.y2 - a.y1, a.x2 - a.x1);
+                c.beginPath();
+                c.moveTo(a.x1, a.y1);
+                c.lineTo(a.x2, a.y2);
+                c.strokeStyle = a.color;
+                c.lineWidth = lw;
+                c.stroke();
+                c.beginPath();
+                c.moveTo(a.x2, a.y2);
+                c.lineTo(a.x2 - headLen * Math.cos(ang) - headW * Math.sin(ang), a.y2 - headLen * Math.sin(ang) + headW * Math.cos(ang));
+                c.lineTo(a.x2 - headLen * Math.cos(ang) + headW * Math.sin(ang), a.y2 - headLen * Math.sin(ang) - headW * Math.cos(ang));
+                c.closePath();
+                c.fillStyle = a.color;
+                c.fill();
+            });
         }
         function requestSpringInput() {
             console.log("Create Springs button clicked. Requesting input.");
@@ -3122,99 +3201,96 @@
             });
             if (geometryLayer) geometryLayer.batchDraw();
         }
+        // Springs are rendered as one batched shape (all lines + all labels). Labels keep a
+        // constant screen size: positions/offsets/fonts are derived from stage.scaleX() at
+        // draw time, so zooming only needs a layer redraw, never a rebuild. Spring clicks
+        // are resolved by manual segment picking in handleStageClick.
         function drawSprings() {
             if (!springLayer || !stage) { return; }
             springLayer.destroyChildren();
-            const scale = stage.scaleX(); // Get scale ONLY for calculating initial world offset
+            const nodeById = new Map(feNodes.map(n => [n.id, n]));
+            const selectedSet = new Set(selectedFeSprings);
+            const resultById = new Map((resultsSpringLoads || []).map(r => [r.id, r]));
 
+            // Pre-build per-spring render records (geometry + label content)
+            const items = [];
             feSprings.forEach(spring => {
-                const node1 = findFeNodeById(spring.feNodeId1);
-                const node2 = findFeNodeById(spring.feNodeId2);
+                const node1 = nodeById.get(spring.feNodeId1);
+                const node2 = nodeById.get(spring.feNodeId2);
+                if (!node1 || !node2) return;
+                const isSelected = selectedSet.has(spring.id);
 
-                if (node1 && node2) {
-                    const isSelected = selectedFeSprings.includes(spring.id);
+                const springResult = resultById.get(spring.id);
+                let labelLines;
+                if (springResult && springResult.fx !== undefined && springResult.fy !== undefined) {
+                    const fxNum = Number(springResult.fx);
+                    const fyNum = Number(springResult.fy);
+                    const frNum = Math.sqrt(fxNum * fxNum + fyNum * fyNum);
+                    labelLines = [`Fx: ${fxNum.toFixed(2)}`, `Fy: ${fyNum.toFixed(2)}`, `FR: ${frNum.toFixed(2)}`];
+                } else {
+                    labelLines = [`S${spring.id}`, `k=${spring.stiffness}`];
+                }
 
-                    const line = new Konva.Line({
-                        points: [node1.x, node1.y, node2.x, node2.y],
-                        stroke: isSelected ? SPRING_SELECTED_COLOR : SPRING_LINE_COLOR,
-                        strokeWidth: isSelected ? SPRING_SELECTED_WIDTH_PX : LINE_STROKE_WIDTH_TARGET_PX,
-                        strokeScaleEnabled: false,
-                        dash: isSelected ? [] : [8 / scale, 4 / scale], // No dash for selected springs
-                        listening: true, // Enable listening for clicks
-                        name: `spring-line-${spring.id}`
+                const dx = node2.x - node1.x, dy = node2.y - node1.y;
+                const len = Math.sqrt(dx * dx + dy * dy) || 1;
+                items.push({
+                    x1: node1.x, y1: node1.y, x2: node2.x, y2: node2.y,
+                    midX: (node1.x + node2.x) / 2, midY: (node1.y + node2.y) / 2,
+                    perpX: -dy / len, perpY: dx / len,
+                    isSelected, labelLines
+                });
+            });
+            if (items.length === 0) { springLayer.batchDraw(); return; }
+
+            springLayer.add(new Konva.Shape({
+                listening: false,
+                name: 'spring-batch',
+                sceneFunc: function (ctx) {
+                    const c = ctx._context;
+                    const s = stage.scaleX();
+
+                    // Lines: dashed for unselected, solid thicker for selected
+                    const strokeGroup = (selected) => {
+                        let any = false;
+                        c.beginPath();
+                        items.forEach(it => {
+                            if (it.isSelected !== selected) return;
+                            c.moveTo(it.x1, it.y1);
+                            c.lineTo(it.x2, it.y2);
+                            any = true;
+                        });
+                        if (!any) return;
+                        c.strokeStyle = selected ? SPRING_SELECTED_COLOR : SPRING_LINE_COLOR;
+                        c.lineWidth = (selected ? SPRING_SELECTED_WIDTH_PX : LINE_STROKE_WIDTH_TARGET_PX) / s;
+                        c.setLineDash(selected ? [] : [8 / s, 4 / s]);
+                        c.stroke();
+                    };
+                    strokeGroup(false);
+                    strokeGroup(true);
+                    c.setLineDash([]);
+
+                    // Labels: fixed screen-size font, offset perpendicular to the spring
+                    const fontSize = SPRING_LABEL_FIXED_FONT_SIZE / s;
+                    const lineHeight = fontSize * 1.15;
+                    const offset = SPRING_RESULT_LABEL_OFFSET_PX / s;
+                    c.font = `${fontSize}px Arial, sans-serif`;
+                    c.textAlign = 'center';
+                    c.textBaseline = 'middle';
+                    items.forEach(it => {
+                        c.fillStyle = it.isSelected ? SPRING_SELECTED_COLOR : SPRING_LABEL_COLOR;
+                        const lx = it.midX + it.perpX * offset;
+                        const ly = it.midY + it.perpY * offset;
+                        const n = it.labelLines.length;
+                        it.labelLines.forEach((txt, i) => {
+                            c.fillText(txt, lx, ly + (i - (n - 1) / 2) * lineHeight);
+                        });
                     });
-
-                    // Add hover pointer
-                    line.on('mouseenter', () => { if (currentMode === 'select-springs-box' || currentMode === 'delete-item') stage.container().style.cursor = 'pointer'; });
-                    line.on('mouseleave', () => { if (currentMode === 'select-springs-box' || currentMode === 'delete-item') stage.container().style.cursor = 'default'; });
-
-                    // Add click handler
-                    line.on('click tap', (e) => {
-                        if (currentMode === 'select-springs-box' || currentMode === 'delete-item') {
-                            e.cancelBubble = true; // Prevent stage click only in these modes
-                            handleSpringClick(spring);
-                        }
-                    });
-
-                    // Add to layer
-                    springLayer.add(line);
-
-                    // --- Check for and Prepare Spring Label Text ---
-                    const springResult = resultsSpringLoads?.find(r => r.id === spring.id);
-                    let labelTextContent;
-                    let labelFillColor = isSelected ? SPRING_SELECTED_COLOR : SPRING_LABEL_COLOR;
-
-                    if (springResult && springResult.fx !== undefined && springResult.fy !== undefined) {
-                        // Get numerical values first
-                        const fxNum = Number(springResult.fx);
-                        const fyNum = Number(springResult.fy);
-
-                        // Calculate Resultant Force (FR)
-                        const frNum = Math.sqrt(fxNum * fxNum + fyNum * fyNum);
-
-                        // Format all values to 2 decimal places
-                        const fxFormatted = fxNum.toFixed(2);
-                        const fyFormatted = fyNum.toFixed(2);
-                        const frFormatted = frNum.toFixed(2); // Format FR
-
-                        // Create the 3-line label text including FR
-                        labelTextContent = `Fx: ${fxFormatted}\nFy: ${fyFormatted}\nFR: ${frFormatted}`;
-                    } else {
-                        labelTextContent = `S${spring.id}\nk=${spring.stiffness}`;
-                    }
-
-                    // Calculate midpoint for label positioning
-                    const midX = (node1.x + node2.x) / 2;
-                    const midY = (node1.y + node2.y) / 2;
-
-                    // Calculate perpendicular offset for label
-                    const dx = node2.x - node1.x;
-                    const dy = node2.y - node1.y;
-                    const len = Math.sqrt(dx * dx + dy * dy);
-                    const perpX = -dy / (len || 1);
-                    const perpY = dx / (len || 1);
-
-                    // --- Create the Label with Fixed Font Size and Counter-Scaling ---
-                    const labelToShow = new Konva.Text({
-                        x: midX + perpX * (SPRING_RESULT_LABEL_OFFSET_PX / scale),
-                        y: midY + perpY * (SPRING_RESULT_LABEL_OFFSET_PX / scale),
-                        text: labelTextContent,
-                        fontSize: SPRING_LABEL_FIXED_FONT_SIZE, // Use FIXED pixel font size
-                        fill: labelFillColor,
-                        listening: false,
-                        scaleX: 1 / scale,                    // Apply initial counter-scaling
-                        scaleY: 1 / scale,                    // Apply initial counter-scaling
-                        verticalAlign: 'middle',             // Center vertically
-                        align: 'center'
-                    });
-
-                    springLayer.add(labelToShow);
-
-                } // end if(node1 && node2)
-            }); // End forEach spring
+                    c.textAlign = 'left';
+                    c.textBaseline = 'alphabetic';
+                }
+            }));
 
             springLayer.batchDraw();
-            // console.log(`Drew ${feSprings.length} springs (fixed size labels).`);
         }
         function handleApplyBc() { const type = document.getElementById('bc-type-select').value; console.log(`Applying BC Type: ${type} to ${selectedFeNodes.length} nodes.`); if (selectedFeNodes.length === 0) { updateStatus("No FE nodes selected to apply BC."); return; } let bcData = null; try { if (type === 'fixed') { const fixX = document.getElementById('bc-fix-x').checked; const fixY = document.getElementById('bc-fix-y').checked; if (!fixX && !fixY) { alert("For 'Fixed' BC, please select at least one direction (X or Y)."); return; } bcData = { type: 'fixed', value: { fixX: fixX, fixY: fixY } }; } else if (type === 'enforced') { const enforceX = document.getElementById('bc-enforce-x').checked; const enforceY = document.getElementById('bc-enforce-y').checked; const dxStr = document.getElementById('bc-dx-input').value; const dyStr = document.getElementById('bc-dy-input').value; let dx = null; let dy = null; if (!enforceX && !enforceY) { alert("For 'Enforced' BC, please check at least one direction (X or Y) to enforce."); return; } if (enforceX) { if (dxStr.trim() === '') { alert("Please enter a Dx value if 'Enforce X' is checked."); return; } dx = parseFloat(dxStr); if (isNaN(dx)) { alert("Invalid Dx value. Please enter a number."); return; } } if (enforceY) { if (dyStr.trim() === '') { alert("Please enter a Dy value if 'Enforce Y' is checked."); return; } dy = parseFloat(dyStr); if (isNaN(dy)) { alert("Invalid Dy value. Please enter a number."); return; } } bcData = { type: 'enforced', value: { dx: dx, dy: dy } }; } else if (type === 'load') { const fxStr = document.getElementById('bc-fx-input').value; const fyStr = document.getElementById('bc-fy-input').value; if (fxStr.trim() === '' || fyStr.trim() === '') { alert("Please enter values for Fx and Fy."); return; } const fx = parseFloat(fxStr); const fy = parseFloat(fyStr); if (isNaN(fx) || isNaN(fy)) { alert("Invalid Fx or Fy value. Please enter numbers."); return; } bcData = { type: 'load', value: { fx: fx, fy: fy } }; } } catch (error) { console.error("Error processing BC input:", error); alert("An error occurred while processing BC input."); return; } snapshotForUndo(`Apply BC (${type}) to ${selectedFeNodes.length} node(s)`); const nodesAffected = selectedFeNodes.length; selectedFeNodes.forEach(feNodeId => { const node = findFeNodeById(feNodeId); if (node) { node.bc = bcData; } else { console.warn(`Could not find FE Node ${feNodeId} to apply BC.`); } }); console.log("Applied BC Data:", bcData); clearFeSelection(); updateStatus(`Applied BC type '${type}' to ${nodesAffected} nodes.`); }
         function handleApplyMaterialProperties() {
@@ -3402,40 +3478,23 @@
             updateStatus(msg);
         }
 
+        // Bars are rendered as one batched shape (lines + labels), same pattern as drawSprings.
+        // Bar clicks are resolved by manual segment picking in handleStageClick.
         function drawBars() {
             if (!barLayer || !stage) return;
             barLayer.destroyChildren();
-            const scale = stage.scaleX();
+            const nodeById = new Map(feNodes.map(n => [n.id, n]));
+            const selectedSet = new Set(selectedFeBars);
+            const resultById = new Map((resultsBarLoads || []).map(r => [r.id, r]));
 
+            const items = [];
             feBars.forEach(bar => {
-                const node1 = findFeNodeById(bar.feNodeId1);
-                const node2 = findFeNodeById(bar.feNodeId2);
+                const node1 = nodeById.get(bar.feNodeId1);
+                const node2 = nodeById.get(bar.feNodeId2);
                 if (!node1 || !node2) return;
 
-                const isSelected = selectedFeBars.includes(bar.id);
-
-                const line = new Konva.Line({
-                    points: [node1.x, node1.y, node2.x, node2.y],
-                    stroke: isSelected ? BAR_SELECTED_COLOR : BAR_LINE_COLOR,
-                    strokeWidth: isSelected ? BAR_SELECTED_WIDTH_PX : BAR_LINE_WIDTH_PX,
-                    strokeScaleEnabled: false,
-                    listening: true,
-                    name: `bar-line-${bar.id}`
-                });
-
-                line.on('mouseenter', () => { if (currentMode === 'select-bars-box' || currentMode === 'delete-item') stage.container().style.cursor = 'pointer'; });
-                line.on('mouseleave', () => { if (currentMode === 'select-bars-box' || currentMode === 'delete-item') stage.container().style.cursor = 'default'; });
-                line.on('click tap', (e) => {
-                    if (currentMode === 'select-bars-box' || currentMode === 'delete-item') {
-                        e.cancelBubble = true;
-                        handleBarClick(bar);
-                    }
-                });
-
-                barLayer.add(line);
-
                 // Label: axial force after solve, otherwise id + A
-                const barResult = resultsBarLoads?.find(r => r.id === bar.id);
+                const barResult = resultById.get(bar.id);
                 let labelText;
                 if (barResult && barResult.P !== undefined) {
                     const p = Number(barResult.P);
@@ -3444,24 +3503,54 @@
                     labelText = `B${bar.id} A=${bar.A}`;
                 }
 
-                const midX = (node1.x + node2.x) / 2;
-                const midY = (node1.y + node2.y) / 2;
                 const dx = node2.x - node1.x, dy = node2.y - node1.y;
                 const len = Math.sqrt(dx * dx + dy * dy) || 1;
-                const perpX = -dy / len, perpY = dx / len;
-
-                barLayer.add(new Konva.Text({
-                    x: midX + perpX * (8 / scale),
-                    y: midY + perpY * (8 / scale),
-                    text: labelText,
-                    fontSize: BAR_LABEL_FONT_SIZE,
-                    fill: isSelected ? BAR_SELECTED_COLOR : BAR_LABEL_COLOR,
-                    listening: false,
-                    scaleX: 1 / scale,
-                    scaleY: 1 / scale,
-                    align: 'center'
-                }));
+                items.push({
+                    x1: node1.x, y1: node1.y, x2: node2.x, y2: node2.y,
+                    midX: (node1.x + node2.x) / 2, midY: (node1.y + node2.y) / 2,
+                    perpX: -dy / len, perpY: dx / len,
+                    isSelected: selectedSet.has(bar.id), labelText
+                });
             });
+            if (items.length === 0) { barLayer.batchDraw(); return; }
+
+            barLayer.add(new Konva.Shape({
+                listening: false,
+                name: 'bar-batch',
+                sceneFunc: function (ctx) {
+                    const c = ctx._context;
+                    const s = stage.scaleX();
+
+                    const strokeGroup = (selected) => {
+                        let any = false;
+                        c.beginPath();
+                        items.forEach(it => {
+                            if (it.isSelected !== selected) return;
+                            c.moveTo(it.x1, it.y1);
+                            c.lineTo(it.x2, it.y2);
+                            any = true;
+                        });
+                        if (!any) return;
+                        c.strokeStyle = selected ? BAR_SELECTED_COLOR : BAR_LINE_COLOR;
+                        c.lineWidth = (selected ? BAR_SELECTED_WIDTH_PX : BAR_LINE_WIDTH_PX) / s;
+                        c.stroke();
+                    };
+                    strokeGroup(false);
+                    strokeGroup(true);
+
+                    const fontSize = BAR_LABEL_FONT_SIZE / s;
+                    const offset = 8 / s;
+                    c.font = `${fontSize}px Arial, sans-serif`;
+                    c.textAlign = 'center';
+                    c.textBaseline = 'middle';
+                    items.forEach(it => {
+                        c.fillStyle = it.isSelected ? BAR_SELECTED_COLOR : BAR_LABEL_COLOR;
+                        c.fillText(it.labelText, it.midX + it.perpX * offset, it.midY + it.perpY * offset);
+                    });
+                    c.textAlign = 'left';
+                    c.textBaseline = 'alphabetic';
+                }
+            }));
 
             barLayer.batchDraw();
         }
@@ -4659,53 +4748,80 @@ console.log('[Worker] Solver worker initialized');
             }
 
             const scaleFactor = getActiveDeformScale();
+            const nodeById = new Map(feNodes.map(n => [n.id, n]));
+            const hiddenMembranes = new Set(membranes.filter(m => m.visible === false).map(m => m.id));
             const defPos = (node) => {
                 const disp = resultsDispMap.get(node.id);
                 if (!disp) return null;
                 return { x: node.x + disp.dx * scaleFactor, y: node.y + disp.dy * scaleFactor };
             };
 
+            // Pre-compute deformed outlines as deduplicated edges, render as one batched shape
+            const edgeKeys = new Set();
+            const quadPts = []; // flat: 4 coords per deduped edge
             feElements.forEach(element => {
-                const membrane = findMembraneById(element.membraneId);
-                if (membrane && membrane.visible === false) return;
+                if (hiddenMembranes.has(element.membraneId)) return;
                 if (element.type !== 'quad' || element.nodeIds.length !== 4) return;
-
-                const deformedPoints = [];
-                let valid = true;
-                element.nodeIds.forEach(nodeId => {
-                    const node = findFeNodeById(nodeId);
+                const defs = [];
+                for (const nodeId of element.nodeIds) {
+                    const node = nodeById.get(nodeId);
                     const p = node ? defPos(node) : null;
-                    if (p) { deformedPoints.push(p.x, p.y); } else { valid = false; }
-                });
-                if (!valid) return;
-
-                meshLayer.add(new Konva.Line({
-                    points: deformedPoints,
-                    stroke: 'rgba(255, 0, 0, 0.7)',
-                    strokeWidth: LINE_STROKE_WIDTH_TARGET_PX,
-                    strokeScaleEnabled: false,
-                    closed: true,
-                    listening: false,
-                    name: 'deformed-mesh-element'
-                }));
+                    if (!p) return;
+                    defs.push(p);
+                }
+                for (let i = 0; i < 4; i++) {
+                    const a = element.nodeIds[i], b = element.nodeIds[(i + 1) % 4];
+                    const key = a < b ? a * 100000000 + b : b * 100000000 + a;
+                    if (edgeKeys.has(key)) continue;
+                    edgeKeys.add(key);
+                    quadPts.push(defs[i].x, defs[i].y, defs[(i + 1) % 4].x, defs[(i + 1) % 4].y);
+                }
             });
-
-            // Deformed bars
+            const barPts = []; // flat: 4 coords per bar
             feBars.forEach(bar => {
-                const n1 = findFeNodeById(bar.feNodeId1);
-                const n2 = findFeNodeById(bar.feNodeId2);
+                const n1 = nodeById.get(bar.feNodeId1);
+                const n2 = nodeById.get(bar.feNodeId2);
                 if (!n1 || !n2) return;
                 const p1 = defPos(n1), p2 = defPos(n2);
                 if (!p1 || !p2) return;
-                meshLayer.add(new Konva.Line({
-                    points: [p1.x, p1.y, p2.x, p2.y],
-                    stroke: 'rgba(220, 38, 38, 0.9)',
-                    strokeWidth: BAR_LINE_WIDTH_PX,
-                    strokeScaleEnabled: false,
-                    listening: false,
-                    name: 'deformed-mesh-element'
-                }));
+                barPts.push(p1.x, p1.y, p2.x, p2.y);
             });
+
+            if (quadPts.length || barPts.length) {
+                meshLayer.add(new Konva.Shape({
+                    listening: false,
+                    name: 'deformed-mesh-element',
+                    sceneFunc: function (ctx) {
+                        const c = ctx._context;
+                        const s = stage.scaleX();
+                        const wx0 = (-stage.x()) / s - 5, wy0 = (-stage.y()) / s - 5;
+                        const wx1 = (stage.width() - stage.x()) / s + 5, wy1 = (stage.height() - stage.y()) / s + 5;
+                        if (quadPts.length) {
+                            c.beginPath();
+                            for (let i = 0; i < quadPts.length; i += 4) {
+                                const x1 = quadPts[i], y1 = quadPts[i + 1], x2 = quadPts[i + 2], y2 = quadPts[i + 3];
+                                if ((x1 < wx0 && x2 < wx0) || (x1 > wx1 && x2 > wx1) ||
+                                    (y1 < wy0 && y2 < wy0) || (y1 > wy1 && y2 > wy1)) continue;
+                                c.moveTo(x1, y1);
+                                c.lineTo(x2, y2);
+                            }
+                            c.strokeStyle = 'rgba(255, 0, 0, 0.7)';
+                            c.lineWidth = LINE_STROKE_WIDTH_TARGET_PX / s;
+                            c.stroke();
+                        }
+                        if (barPts.length) {
+                            c.beginPath();
+                            for (let i = 0; i < barPts.length; i += 4) {
+                                c.moveTo(barPts[i], barPts[i + 1]);
+                                c.lineTo(barPts[i + 2], barPts[i + 3]);
+                            }
+                            c.strokeStyle = 'rgba(220, 38, 38, 0.9)';
+                            c.lineWidth = BAR_LINE_WIDTH_PX / s;
+                            c.stroke();
+                        }
+                    }
+                }));
+            }
 
             meshLayer.batchDraw();
         }
@@ -4797,31 +4913,43 @@ console.log('[Worker] Solver worker initialized');
                 }
             }
 
-            // Draw Elements
+            // Draw all element fills as one batched shape (per-element fill colour)
+            const nodeById = new Map(feNodes.map(n => [n.id, n]));
+            const polys = []; // {points: [x0,y0,...], color}
             visibleElements.forEach(item => {
                 const { el, val } = item;
                 const norm = (val - minVal) / range; // 0 to 1
                 // Map to Hue: 240 (Blue, min) -> 0 (Red, max)
                 const hue = 240 * (1 - norm);
-                const color = `hsl(${hue}, 100%, 50%)`;
-
-                const nodeCoords = el.nodeIds.map(id => findFeNodeById(id));
+                const nodeCoords = el.nodeIds.map(id => nodeById.get(id));
                 if (nodeCoords.some(n => !n)) return;
                 const points = nodeCoords.flatMap(n => [n.x, n.y]);
-
-                // Reuse or create shape (recreating is safer with destroyChildren)
-                const poly = new Konva.Line({
-                    points: points,
-                    fill: color,
-                    strokeWidth: 0,
-                    closed: true,
-                    listening: false
+                const xs = points.filter((_, i) => i % 2 === 0), ys = points.filter((_, i) => i % 2 === 1);
+                polys.push({
+                    points, color: `hsl(${hue}, 100%, 50%)`,
+                    minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys)
                 });
-                stressLayer.add(poly);
-
-                // Update cache/reference if needed? No, purely visual here.
-                el.konvaShape = poly; // Keep ref for internal use if needed
             });
+            stressLayer.add(new Konva.Shape({
+                listening: false,
+                name: 'stress-batch',
+                sceneFunc: function (ctx) {
+                    const c = ctx._context;
+                    const s = stage.scaleX();
+                    const wx0 = (-stage.x()) / s, wy0 = (-stage.y()) / s;
+                    const wx1 = (stage.width() - stage.x()) / s, wy1 = (stage.height() - stage.y()) / s;
+                    polys.forEach(p => {
+                        if (p.maxX < wx0 || p.minX > wx1 || p.maxY < wy0 || p.minY > wy1) return;
+                        const pts = p.points;
+                        c.beginPath();
+                        c.moveTo(pts[0], pts[1]);
+                        for (let i = 2; i < pts.length; i += 2) c.lineTo(pts[i], pts[i + 1]);
+                        c.closePath();
+                        c.fillStyle = p.color;
+                        c.fill();
+                    });
+                }
+            }));
 
             stressLayer.visible(true);
             stressLayer.batchDraw();
