@@ -207,6 +207,80 @@ public class SolverTests
     }
 
     [Fact]
+    public void UnderConstrained_ThrowsInsteadOfSilentGarbage()
+    {
+        // Loaded plate with NO constraints - rigid-body modes make K singular.
+        var model = new FeModel();
+        var s = Mesher.AddSurface(model, new[] { (0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0) }, 1e7, 0.3, 0.1);
+        Mesher.MeshMembrane(model, s, 2, 2);
+        model.FeNodes[0].Bc = Load(100, 0);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => Solver.Solve(model));
+        Assert.Contains("under-constrained", ex.Message);
+    }
+
+    [Fact]
+    public void Mesher_FlatQuad_NodeAndElementCounts()
+    {
+        var model = new FeModel();
+        var s = Mesher.AddSurface(model, new[] { (0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0) }, 1e7, 0.0, 0.1);
+        var (nodes, els) = Mesher.MeshMembrane(model, s, 4, 3);
+
+        Assert.Equal(5 * 4, nodes);
+        Assert.Equal(12, els);
+        Assert.Equal(20, model.FeNodes.Count);
+
+        // Corner FE nodes coincide with geometry corners
+        Assert.Contains(model.FeNodes, n => Math.Abs(n.X) < 1e-9 && Math.Abs(n.Y) < 1e-9);
+        Assert.Contains(model.FeNodes, n => Math.Abs(n.X - 10) < 1e-9 && Math.Abs(n.Y - 10) < 1e-9);
+
+        // Re-mesh replaces, never duplicates
+        Mesher.MeshMembrane(model, s, 2, 2);
+        Assert.Equal(9, model.FeNodes.Count);
+        Assert.Equal(4, model.FeElements.Count);
+
+        // Meshed flat plate solves (sanity: all elements have positive Jacobians)
+        foreach (var n in model.FeNodes) n.Bc = n.X < 1e-9 ? Fixed(true, true) : null;
+        model.FeNodes.First(n => n.X > 9.9 && n.Y < 0.1).Bc = Load(100, 0);
+        var r = Solver.Solve(model);
+        Assert.All(r.Displacements, d => Assert.True(double.IsFinite(d.Dx)));
+    }
+
+    [Fact]
+    public void Mesher_ArcEdge_MatchesWebtoolSample()
+    {
+        // The webtool sample (curved-plate-with-bars.json) has edge 4 of a 100x50 plate
+        // from (0,50) to (0,0) with R=200; its meshed midpoint landed at x=-1.5687, y=25.
+        var (x, y) = Mesher.ArcPoint(0, 50, 0, 0, 200, 0.5);
+        Assert.Equal(-1.5687, x, 3);
+        Assert.Equal(25.0, y, 6);
+
+        // Zero radius degenerates to a straight line
+        var (lx, ly) = Mesher.ArcPoint(0, 0, 10, 0, 0, 0.25);
+        Assert.Equal(2.5, lx, 12);
+        Assert.Equal(0, ly, 12);
+    }
+
+    [Fact]
+    public void Mesher_DeleteSurface_RemovesMeshAndOrphanGeometry()
+    {
+        var model = new FeModel();
+        var s1 = Mesher.AddSurface(model, new[] { (0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0) }, 1e7, 0.3, 0.1);
+        var s2 = Mesher.AddSurface(model, new[] { (20.0, 0.0), (30.0, 0.0), (30.0, 10.0), (20.0, 10.0) }, 1e7, 0.3, 0.1);
+        Mesher.MeshMembrane(model, s1, 2, 2);
+        Mesher.MeshMembrane(model, s2, 2, 2);
+        Mesher.CreateBarsAlongNodes(model, model.FeNodes.Where(n => n.MembraneId == s1.Id && n.Y < 1e-9).Select(n => n.Id).ToList(), 1e7, 0.1);
+
+        Mesher.DeleteSurface(model, s1.Id);
+
+        Assert.Single(model.Membranes);
+        Assert.Equal(4, model.Nodes.Count);                               // s1's corners gone
+        Assert.DoesNotContain(model.FeNodes, n => n.MembraneId == s1.Id); // s1 mesh gone
+        Assert.Empty(model.FeBars);                                       // bars on s1 nodes gone
+        Assert.Equal(9, model.FeNodes.Count);                             // s2 mesh intact
+    }
+
+    [Fact]
     public void WebtoolJson_RoundTrip()
     {
         const string json = """

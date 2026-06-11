@@ -215,9 +215,35 @@ public static class Solver
 
         if (nFree > 0)
         {
-            var lu = SparseLU.Create(kff, ColumnOrdering.MinimumDegreeAtPlusA, 1.0);
             var uf = new double[nFree];
-            lu.Solve(rhs, uf);
+            try
+            {
+                var lu = SparseLU.Create(kff, ColumnOrdering.MinimumDegreeAtPlusA, 1.0);
+                lu.Solve(rhs, uf);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException(
+                    "Stiffness matrix is singular - the model is under-constrained " +
+                    "(add constraints to prevent rigid-body motion).", ex);
+            }
+
+            // Residual check: a numerically singular K can "solve" to garbage or zeros
+            // without throwing. ||K_ff u_f - rhs|| must be small relative to the loads.
+            var residual = new double[nFree];
+            kff.Multiply(uf, residual);
+            double resNorm = 0, rhsNorm = 0;
+            for (int i = 0; i < nFree; i++)
+            {
+                double r = residual[i] - rhs[i];
+                resNorm += r * r;
+                rhsNorm += rhs[i] * rhs[i];
+            }
+            if (rhsNorm > 0 && Math.Sqrt(resNorm) > 1e-6 * Math.Sqrt(rhsNorm))
+                throw new InvalidOperationException(
+                    "Solve failed the equilibrium check - the model is under-constrained or ill-conditioned " +
+                    "(add constraints to prevent rigid-body motion).");
+
             for (int i = 0; i < nDof; i++) if (freeIndex[i] >= 0) u[i] = uf[freeIndex[i]];
         }
 

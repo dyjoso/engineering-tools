@@ -1,8 +1,27 @@
 # FEA Membranes (native Windows app)
 
-Native Windows 11 successor to the `tools/FEA-membranes` webtool. Same model
-format, same element set (Q4 plane-stress membranes, XY-decoupled springs,
-axial bars), but built for much larger models and faster iteration.
+Native Windows 11 successor to the `tools/FEA-membranes` webtool, with a
+FEMAP-style front end. Same model format, same element set (Q4 plane-stress
+membranes, XY-decoupled springs, axial bars), but built for much larger models
+and faster iteration.
+
+## Workflow (FEMAP-style)
+
+1. **Geometry > Surface by Corner Points…** (or *Surface by Picking* - 4 clicks
+   on the canvas), **Edge Radius** to curve an edge (pick the edge, enter R;
+   +ve convex / -ve concave).
+2. **Mesh > Mesh Selected Surfaces…** - M x N structured Coons-patch mesh
+   (arcs honoured). Select surfaces by click/box with *Select: Surfaces*.
+3. **Model > Constraint / Load / Enforced Displacement** on selected nodes
+   (*Select: Nodes*, click or box-select). **Create Bars Along Selected Nodes**
+   chains bars along the dominant direction; springs join 2 selected nodes.
+4. **Analyze > Solve** (F5) - contour auto-switches to Von Mises; pick SX/SY/SXY
+   from the toolbar, toggle the deformed overlay.
+5. **File > Save** writes the webtool-compatible .json.
+
+Mouse: left click/drag = select (Ctrl adds), middle or right drag = pan,
+wheel = zoom, F = fit, Esc = cancel/clear, Del = delete selection, Ctrl+Z = undo.
+The Model Info tree mirrors the model; the Messages pane logs every command.
 
 ## Stack
 
@@ -47,9 +66,9 @@ dotnet publish src/FeaApp -c Release -r win-x64 --self-contained -p:PublishSingl
 
 ## Roadmap
 
-- [ ] Geometry editing (create membranes, curve edges, mesh) — currently the webtool
-      remains the editor; this app opens its saved models
 - [ ] Results tables + CSV export (spring/bar/reaction/displacement)
 - [ ] Node-averaged stress smoothing
+- [ ] Spring grids between surfaces (webtool's spring-group workflow)
 - [ ] Triangular elements, pressure (edge) loading
-- [ ] Larger element library once the editor lands
+- [ ] Node coordinate editing / dragging
+- [ ] Larger element library (beams, plates) now that the editor exists
