@@ -369,6 +369,112 @@ public class SolverTests
     }
 
     [Fact]
+    public void Rbe2_TiesSelectedDofsExactly()
+    {
+        // Plate, left edge fixed. RBE2 ties the right edge in X only; the load goes
+        // on ONE right-edge node but every tied node must move identically in X
+        // (and the plate must carry the full load - check via reactions).
+        var model = new FeModel();
+        var s = Mesher.AddSurface(model, new[] { (0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0) }, 1e7, 0.3, 0.1);
+        Mesher.MeshMembrane(model, s, 2, 2);
+        var rightNodes = model.FeNodes.Where(n => n.X > 10 - 1e-9).OrderBy(n => n.Y).ToList();
+        foreach (var n in model.FeNodes)
+            if (n.X < 1e-9) n.Bc = Fixed(true, true);
+        rightNodes[1].Bc = Load(1000, 0); // mid-height node only
+
+        Mesher.CreateRbe2(model, rightNodes.Select(n => n.Id).ToList(), tieX: true, tieY: false);
+
+        var r = Solver.Solve(model);
+
+        var dx = rightNodes.Select(n => r.Displacements.Single(d => d.NodeId == n.Id).Dx).ToList();
+        Assert.All(dx, v => Assert.Equal(dx[0], v, 12));   // X tied exactly
+        var dy = rightNodes.Select(n => r.Displacements.Single(d => d.NodeId == n.Id).Dy).ToList();
+        Assert.NotEqual(dy[0], dy[1], 9);                  // Y left free (Poisson contraction differs)
+        Assert.Equal(-1000, r.Reactions.Sum(x => x.Rx), 4); // equilibrium through the tie
+        Assert.True(dx[0] > 0);
+    }
+
+    [Fact]
+    public void Rbe2_ConstrainsViaIndependentNode()
+    {
+        // Constraint applied to the independent node holds the whole group: fix the
+        // independent node in X, load a dependent node in X -> nothing moves in X,
+        // and the full load appears as the reaction at the prescribing node.
+        var model = new FeModel
+        {
+            FeNodes =
+            {
+                new FeNode { Id = 1, X = 0, Y = 0, Bc = Fixed(true, true) },
+                new FeNode { Id = 2, X = 10, Y = 0 },
+                new FeNode { Id = 3, X = 10, Y = 5, Bc = Load(500, 0) }
+            },
+            FeBars = { new FeBar { Id = 1, FeNodeId1 = 1, FeNodeId2 = 2, E = 1e7, A = 0.1 } }
+        };
+        // Node 3 has no stiffness of its own - the RBE2 ties it to node 2 completely
+        Mesher.CreateRbe2(model, new[] { 2, 3 }, tieX: true, tieY: true);
+        // Y of the 2-3 group: bar gives no transverse stiffness, fix via node 2
+        model.FeNodes.First(n => n.Id == 2).Bc = Fixed(false, true);
+
+        var r = Solver.Solve(model);
+
+        var d2 = r.Displacements.Single(d => d.NodeId == 2);
+        var d3 = r.Displacements.Single(d => d.NodeId == 3);
+        Assert.Equal(d2.Dx, d3.Dx, 12);
+        Assert.Equal(d2.Dy, d3.Dy, 12);
+        Assert.Equal(500.0 * 10 / (1e7 * 0.1), d2.Dx, 9); // PL/EA with the tied load
+        Assert.Equal(-500, r.Reactions.Sum(x => x.Rx), 6);
+    }
+
+    [Fact]
+    public void Rbe2_ConflictingPrescribedValues_Throw()
+    {
+        var model = new FeModel
+        {
+            FeNodes =
+            {
+                new FeNode { Id = 1, X = 0, Y = 0, Bc = Enforced(0.001, null) },
+                new FeNode { Id = 2, X = 1, Y = 0, Bc = Enforced(0.002, null) },
+                new FeNode { Id = 3, X = 2, Y = 0, Bc = Fixed(true, true) }
+            },
+            FeBars =
+            {
+                new FeBar { Id = 1, FeNodeId1 = 1, FeNodeId2 = 3, E = 1e7, A = 0.1 },
+                new FeBar { Id = 2, FeNodeId1 = 2, FeNodeId2 = 3, E = 1e7, A = 0.1 }
+            },
+            FeSprings = { new FeSpring { Id = 1, FeNodeId1 = 1, FeNodeId2 = 2, Stiffness = 1e5 } }
+        };
+        Mesher.CreateRbe2(model, new[] { 1, 2 }, tieX: true, tieY: true);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => Solver.Solve(model));
+        Assert.Contains("conflicts", ex.Message);
+    }
+
+    [Fact]
+    public void Rbe2_CleanupOnMeshAndMergeOperations()
+    {
+        var model = new FeModel();
+        var s = Mesher.AddSurface(model, new[] { (0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0) }, 1e7, 0.3, 0.1);
+        Mesher.MeshMembrane(model, s, 2, 2);
+        var ids = model.FeNodes.Take(3).Select(n => n.Id).ToList();
+        Mesher.CreateRbe2(model, ids, true, true);
+
+        // Re-meshing destroys the nodes -> RBE2 goes with them
+        Mesher.MeshMembrane(model, s, 3, 3);
+        Assert.Empty(model.Rbe2s);
+
+        // Merge remaps RBE2 node references
+        var extra = new FeNode { Id = 9001, X = 0, Y = 0 }; // coincident with corner node
+        model.FeNodes.Add(extra);
+        var corner = model.FeNodes.First(n => Math.Abs(n.X) < 1e-9 && Math.Abs(n.Y) < 1e-9 && n.Id != 9001);
+        var far = model.FeNodes.First(n => n.X > 9.9 && n.Y > 9.9);
+        Mesher.CreateRbe2(model, new[] { extra.Id, far.Id }, true, true);
+        Mesher.MergeCoincidentNodes(model, 1e-6);
+        var rbe2 = Assert.Single(model.Rbe2s);
+        Assert.Equal(corner.Id, Math.Min(rbe2.IndependentNodeId, rbe2.DependentNodeIds.Min()));
+        Assert.DoesNotContain(9001, rbe2.DependentNodeIds);
+    }
+
+    [Fact]
     public void Quad8_PatchTest_UniaxialTensionExact()
     {
         // Single Q8, 10x10, E=1e7, nu=0, t=0.1, total 1000 lb on the right edge.

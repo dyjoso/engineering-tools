@@ -83,20 +83,58 @@ public static class Solver
         var nodes = model.FeNodes;
         int n = nodes.Count;
         int nDof = 2 * n;
-        var dofOf = new Dictionary<int, int>(n); // node id -> first DOF index
+        var dofOf = new Dictionary<int, int>(n); // node id -> first ORIGINAL DOF index
         for (int i = 0; i < n; i++) dofOf[nodes[i].Id] = 2 * i;
 
         var membById = model.Membranes.ToDictionary(m => m.Id);
         var nodeById = model.FeNodes.ToDictionary(nd => nd.Id);
 
-        // ---- Assemble global triplets ----
-        var coo = new CoordinateStorage<double>(nDof, nDof, Math.Max(16, 64 * model.FeElements.Count + 16 * (model.FeSprings.Count + model.FeBars.Count)));
-        var diag = new double[nDof];
+        // ---- RBE2 multipoint constraints: tie DOFs together exactly by giving
+        // dependent DOFs the same solve index as the independent DOF ----
+        var dofParent = new int[nDof];
+        for (int i = 0; i < nDof; i++) dofParent[i] = i;
+        int FindDof(int x)
+        {
+            while (dofParent[x] != x) { dofParent[x] = dofParent[dofParent[x]]; x = dofParent[x]; }
+            return x;
+        }
+        void UnionDof(int a, int b)
+        {
+            int ra = FindDof(a), rb = FindDof(b);
+            if (ra != rb) dofParent[Math.Max(ra, rb)] = Math.Min(ra, rb);
+        }
+        foreach (var r in model.Rbe2s)
+        {
+            if (!dofOf.TryGetValue(r.IndependentNodeId, out int mi))
+                throw new InvalidOperationException($"RBE2 {r.Id}: independent node {r.IndependentNodeId} not found.");
+            foreach (var dep in r.DependentNodeIds)
+            {
+                if (!dofOf.TryGetValue(dep, out int di))
+                    throw new InvalidOperationException($"RBE2 {r.Id}: dependent node {dep} not found.");
+                if (r.TieX) UnionDof(mi, di);
+                if (r.TieY) UnionDof(mi + 1, di + 1);
+            }
+        }
+        // Compact solve-space numbering: tied DOFs share one index
+        var dofMap = new int[nDof];
+        var rootToCompact = new Dictionary<int, int>();
+        int nC = 0;
+        for (int i = 0; i < nDof; i++)
+        {
+            int root = FindDof(i);
+            if (!rootToCompact.TryGetValue(root, out int c2)) rootToCompact[root] = c2 = nC++;
+            dofMap[i] = c2;
+        }
+
+        // ---- Assemble global triplets (in solve space) ----
+        var coo = new CoordinateStorage<double>(nC, nC, Math.Max(16, 64 * model.FeElements.Count + 16 * (model.FeSprings.Count + model.FeBars.Count)));
+        var diag = new double[nC];
 
         void Add(int r, int c, double v)
         {
-            coo.At(r, c, v);
-            if (r == c) diag[r] += v;
+            int mr = dofMap[r], mc = dofMap[c];
+            coo.At(mr, mc, v);
+            if (mr == mc) diag[mr] += v;
         }
 
         foreach (var el in model.FeElements)
@@ -159,9 +197,25 @@ public static class Solver
                 }
         }
 
-        // ---- Loads and constraints ----
-        var f = new double[nDof];
-        var prescribed = new double?[nDof]; // non-null => DOF has a prescribed value
+        // ---- Loads and constraints (in solve space; loads on tied DOFs accumulate) ----
+        var f = new double[nC];
+        var prescribed = new double?[nC];     // non-null => solve DOF has a prescribed value
+        var prescriberDof = new int[nC];      // original DOF that prescribed it (reaction reporting)
+        Array.Fill(prescriberDof, -1);
+        void Prescribe(int origDof, double value, int nodeId)
+        {
+            int c2 = dofMap[origDof];
+            if (prescribed[c2] is { } existing)
+            {
+                if (Math.Abs(existing - value) > 1e-12)
+                    throw new InvalidOperationException(
+                        $"Node {nodeId}: prescribed displacement conflicts with another constraint " +
+                        "in the same RBE2 tie group.");
+                return; // duplicate identical constraint - first prescriber keeps the reaction
+            }
+            prescribed[c2] = value;
+            prescriberDof[c2] = origDof;
+        }
         foreach (var nd in nodes)
         {
             if (nd.Bc is null) continue;
@@ -169,16 +223,16 @@ public static class Solver
             switch (nd.Bc.Type)
             {
                 case "fixed":
-                    if (nd.Bc.Value.FixX) prescribed[i] = 0.0;
-                    if (nd.Bc.Value.FixY) prescribed[i + 1] = 0.0;
+                    if (nd.Bc.Value.FixX) Prescribe(i, 0.0, nd.Id);
+                    if (nd.Bc.Value.FixY) Prescribe(i + 1, 0.0, nd.Id);
                     break;
                 case "load":
-                    f[i] += nd.Bc.Value.Fx ?? 0.0;
-                    f[i + 1] += nd.Bc.Value.Fy ?? 0.0;
+                    f[dofMap[i]] += nd.Bc.Value.Fx ?? 0.0;
+                    f[dofMap[i + 1]] += nd.Bc.Value.Fy ?? 0.0;
                     break;
                 case "enforced":
-                    if (nd.Bc.Value.Dx.HasValue) prescribed[i] = nd.Bc.Value.Dx.Value;
-                    if (nd.Bc.Value.Dy.HasValue) prescribed[i + 1] = nd.Bc.Value.Dy.Value;
+                    if (nd.Bc.Value.Dx.HasValue) Prescribe(i, nd.Bc.Value.Dx.Value, nd.Id);
+                    if (nd.Bc.Value.Dy.HasValue) Prescribe(i + 1, nd.Bc.Value.Dy.Value, nd.Id);
                     break;
                 default:
                     throw new InvalidOperationException($"Node {nd.Id}: unknown BC type '{nd.Bc.Type}'.");
@@ -190,8 +244,8 @@ public static class Solver
             .Where(nd =>
             {
                 int i = dofOf[nd.Id];
-                return (prescribed[i] is null && diag[i] == 0.0) ||
-                       (prescribed[i + 1] is null && diag[i + 1] == 0.0);
+                return (prescribed[dofMap[i]] is null && diag[dofMap[i]] == 0.0) ||
+                       (prescribed[dofMap[i + 1]] is null && diag[dofMap[i + 1]] == 0.0);
             })
             .Select(nd => nd.Id)
             .ToList();
@@ -201,22 +255,22 @@ public static class Solver
                 "Attach elements/springs/bars to them or delete them.");
 
         // ---- Partition: solve K_ff u_f = f_f - K_fc u_c ----
-        var freeIndex = new int[nDof];
+        var freeIndex = new int[nC];
         int nFree = 0;
-        for (int i = 0; i < nDof; i++) freeIndex[i] = prescribed[i] is null ? nFree++ : -1;
-        int nCon = nDof - nFree;
+        for (int i = 0; i < nC; i++) freeIndex[i] = prescribed[i] is null ? nFree++ : -1;
+        int nCon = nC - nFree;
 
-        var u = new double[nDof];
-        for (int i = 0; i < nDof; i++) if (prescribed[i] is { } v) u[i] = v;
+        var u = new double[nC];
+        for (int i = 0; i < nC; i++) if (prescribed[i] is { } v) u[i] = v;
 
         var full = (SparseMatrix)SparseMatrix.OfIndexed(coo); // duplicates summed
         var rhs = new double[nFree];
-        for (int i = 0; i < nDof; i++) if (freeIndex[i] >= 0) rhs[freeIndex[i]] = f[i];
+        for (int i = 0; i < nC; i++) if (freeIndex[i] >= 0) rhs[freeIndex[i]] = f[i];
 
         // Reduced matrix + RHS correction for prescribed values, built from the full CSC
         var cooFF = new CoordinateStorage<double>(nFree, nFree, full.NonZerosCount);
         var ap = full.ColumnPointers; var ai = full.RowIndices; var ax = full.Values;
-        for (int col = 0; col < nDof; col++)
+        for (int col = 0; col < nC; col++)
         {
             int fc = freeIndex[col];
             for (int p = ap[col]; p < ap[col + 1]; p++)
@@ -260,23 +314,25 @@ public static class Solver
                     "Solve failed the equilibrium check - the model is under-constrained or ill-conditioned " +
                     "(add constraints to prevent rigid-body motion).");
 
-            for (int i = 0; i < nDof; i++) if (freeIndex[i] >= 0) u[i] = uf[freeIndex[i]];
+            for (int i = 0; i < nC; i++) if (freeIndex[i] >= 0) u[i] = uf[freeIndex[i]];
         }
 
-        // ---- Reactions: r = K u - f_applied, reported at prescribed DOFs ----
-        var ku = new double[nDof];
+        // ---- Reactions: r = K u - f_applied, reported at the node whose BC prescribed
+        // the solve DOF (one reporter per RBE2 tie group keeps the sums meaningful) ----
+        var ku = new double[nC];
         full.Multiply(u, ku);
         var reactions = new List<Reaction>();
         foreach (var nd in nodes)
         {
             int i = dofOf[nd.Id];
-            bool px = prescribed[i] is not null, py = prescribed[i + 1] is not null;
+            int cx = dofMap[i], cy = dofMap[i + 1];
+            bool px = prescriberDof[cx] == i, py = prescriberDof[cy] == i + 1;
             if (!px && !py) continue;
             reactions.Add(new Reaction
             {
                 NodeId = nd.Id,
-                Rx = px ? ku[i] - f[i] : 0.0,
-                Ry = py ? ku[i + 1] - f[i + 1] : 0.0
+                Rx = px ? ku[cx] - f[cx] : 0.0,
+                Ry = py ? ku[cy] - f[cy] : 0.0
             });
         }
 
@@ -284,8 +340,8 @@ public static class Solver
         var disps = nodes.Select(nd => new NodeResult
         {
             NodeId = nd.Id,
-            Dx = u[dofOf[nd.Id]],
-            Dy = u[dofOf[nd.Id] + 1]
+            Dx = u[dofMap[dofOf[nd.Id]]],
+            Dy = u[dofMap[dofOf[nd.Id] + 1]]
         }).ToList();
 
         var stresses = new List<ElementStress>(model.FeElements.Count);
@@ -305,8 +361,8 @@ public static class Solver
             {
                 var nd = nodeById[el.NodeIds[a]];
                 xy[a, 0] = nd.X; xy[a, 1] = nd.Y;
-                ue[2 * a] = u[dofOf[nd.Id]];
-                ue[2 * a + 1] = u[dofOf[nd.Id] + 1];
+                ue[2 * a] = u[dofMap[dofOf[nd.Id]]];
+                ue[2 * a + 1] = u[dofMap[dofOf[nd.Id] + 1]];
             }
             bool q8 = ElementTopology.IsQuad8(el);
             var (sx, sy, sxy) = q8 ? Quad8.StressAtCenter(xy, ue, e, nu) : Quad4.StressAtCenter(xy, ue, e, nu);
@@ -343,8 +399,8 @@ public static class Solver
             return new SpringLoad
             {
                 Id = s.Id,
-                Fx = s.Stiffness * (u[j] - u[i]),
-                Fy = s.Stiffness * (u[j + 1] - u[i + 1])
+                Fx = s.Stiffness * (u[dofMap[j]] - u[dofMap[i]]),
+                Fy = s.Stiffness * (u[dofMap[j + 1]] - u[dofMap[i + 1]])
             };
         }).ToList();
 
@@ -356,7 +412,7 @@ public static class Solver
             double len = Math.Sqrt(dx * dx + dy * dy);
             double cx = dx / len, cy = dy / len;
             int i = dofOf[b.FeNodeId1], j = dofOf[b.FeNodeId2];
-            double elong = (u[j] - u[i]) * cx + (u[j + 1] - u[i + 1]) * cy;
+            double elong = (u[dofMap[j]] - u[dofMap[i]]) * cx + (u[dofMap[j + 1]] - u[dofMap[i + 1]]) * cy;
             double p = b.E * b.A / len * elong;
             return new BarLoad { Id = b.Id, P = p, Stress = p / b.A, Length = len };
         }).ToList();
@@ -370,7 +426,7 @@ public static class Solver
             SpringLoads = springLoads,
             BarLoads = barLoads,
             Reactions = reactions,
-            DofCount = nDof,
+            DofCount = nC,
             NonZeros = full.NonZerosCount,
             ConstrainedDofs = nCon,
             Elapsed = sw.Elapsed

@@ -26,6 +26,7 @@ public sealed class SceneRenderer
     private static readonly SKColor ConstraintColor = new(0x36, 0xE0, 0xC8);
     private static readonly SKColor LoadColor = new(0xFF, 0x60, 0x52);
     private static readonly SKColor EnforcedColor = new(0x7C, 0xFF, 0x6E);
+    private static readonly SKColor Rbe2Color = new(0x6E, 0xB7, 0xFF);
 
     private FeModel? _model;
     private SolveResult? _result;
@@ -43,6 +44,7 @@ public sealed class SceneRenderer
     private (SKPoint[] outline, bool sel, int id)[] _surfaces = [];
     private (SKPoint p, bool sel, int id)[] _geoPoints = [];
     private SKPoint[] _springPoints = [];
+    private (SKPoint ind, SKPoint[] deps, string label)[] _rbe2Spiders = [];
     // Vector plot data: position + force components (world units / force units)
     private (SKPoint p, double fx, double fy)[] _springForceVectors = [];
     private (SKPoint p, double fx, double fy)[] _reactionVectors = [];
@@ -180,6 +182,19 @@ public sealed class SceneRenderer
                     : $"S{s.Id} k={s.Stiffness:G4}";
                 return (new SKPoint((float)a.X, (float)a.Y), new SKPoint((float)b.X, (float)b.Y),
                         SelectedSprings.Contains(s.Id), label);
+            }).ToArray();
+
+        // RBE2 spiders (independent node -> dependents), hidden if all nodes hidden
+        _rbe2Spiders = _model.Rbe2s
+            .Where(r => nodeById.ContainsKey(r.IndependentNodeId) && r.DependentNodeIds.All(nodeById.ContainsKey))
+            .Where(r => !(NodeHidden(r.IndependentNodeId) && r.DependentNodeIds.All(NodeHidden)))
+            .Select(r =>
+            {
+                var ind = nodeById[r.IndependentNodeId];
+                var deps = r.DependentNodeIds.Select(id => nodeById[id])
+                    .Select(d => new SKPoint((float)d.X, (float)d.Y)).ToArray();
+                string ties = (r.TieX ? "X" : "") + (r.TieY ? "Y" : "");
+                return (new SKPoint((float)ind.X, (float)ind.Y), deps, $"RBE2-{r.Id} [{ties}]");
             }).ToArray();
 
         // Vector plot data (world position + force components)
@@ -357,18 +372,58 @@ public sealed class SceneRenderer
             canvas.DrawPath(spPath, spPaint);
         }
 
-        // Springs (selected ones solid white + thicker)
+        // Springs drawn as a zigzag coil glyph (fixed screen size) so they stand out -
+        // especially the zero-length fastener springs between coincident nodes.
         using (var springPaint = new SKPaint
         {
-            Color = SpringColor, StrokeWidth = 1.4f * px, IsStroke = true, IsAntialias = true,
-            PathEffect = SKPathEffect.CreateDash(new[] { 6 * px, 4 * px }, 0)
+            Color = SpringColor, StrokeWidth = 1.4f * px, IsStroke = true, IsAntialias = true
         })
         using (var springSelPaint = new SKPaint
         {
-            Color = SelectColor, StrokeWidth = 3f * px, IsStroke = true, IsAntialias = true
+            Color = SelectColor, StrokeWidth = 2.6f * px, IsStroke = true, IsAntialias = true
         })
+        using (var coil = new SKPath())
+        {
             foreach (var (a, b, sel, _) in _springs)
-                canvas.DrawLine(a, b, sel ? springSelPaint : springPaint);
+            {
+                coil.Reset();
+                BuildSpringGlyph(coil, a, b, px);
+                canvas.DrawPath(coil, sel ? springSelPaint : springPaint);
+            }
+        }
+
+        // RBE2 spiders: lines from the independent node to each dependent, with a
+        // small hexagon marking the independent node (FEMAP-style rigid element look)
+        if (_rbe2Spiders.Length > 0)
+        {
+            using var rbePaint = new SKPaint { Color = Rbe2Color, StrokeWidth = 1.3f * px, IsStroke = true, IsAntialias = true };
+            using var rbeFill = new SKPaint { Color = Rbe2Color, IsAntialias = true };
+            using var path = new SKPath();
+            foreach (var (ind, deps, label) in _rbe2Spiders)
+            {
+                foreach (var d in deps)
+                {
+                    path.MoveTo(ind);
+                    path.LineTo(d);
+                }
+                // hexagon at the independent node
+                float r = 4f * px;
+                for (int k = 0; k < 6; k++)
+                {
+                    float ang = MathF.PI / 3 * k;
+                    var pt = new SKPoint(ind.X + r * MathF.Cos(ang), ind.Y + r * MathF.Sin(ang));
+                    if (k == 0) path.MoveTo(pt); else path.LineTo(pt);
+                }
+                path.Close();
+            }
+            canvas.DrawPath(path, rbePaint);
+            if (ShowLabels)
+            {
+                using var font = new SKFont(SKTypeface.Default, 9 * px);
+                foreach (var (ind, _, label) in _rbe2Spiders)
+                    canvas.DrawText(label, ind.X + 6 * px, ind.Y - 6 * px, font, rbeFill);
+            }
+        }
 
         // Bars
         foreach (var (a, b, sel, _) in _bars)
@@ -481,6 +536,48 @@ public sealed class SceneRenderer
         canvas.DrawPath(head, paint);
         paint.IsStroke = true;
         canvas.DrawText(mag.ToString("G4"), x2 + 4 * px, y2 - 3 * px, font, text);
+    }
+
+    /// <summary>
+    /// Zigzag spring glyph: lead-in line, 4-tooth coil (constant screen size) centred
+    /// at the midpoint, lead-out line. Zero-length springs (coincident fastener nodes)
+    /// still get a visible coil, drawn at 45 degrees.
+    /// </summary>
+    private static void BuildSpringGlyph(SKPath path, SKPoint a, SKPoint b, float px)
+    {
+        float dx = b.X - a.X, dy = b.Y - a.Y;
+        float len = MathF.Sqrt(dx * dx + dy * dy);
+        float ux, uy;
+        if (len < 1e-6f) { ux = 0.7071f; uy = -0.7071f; } // zero-length: 45 deg up-right
+        else { ux = dx / len; uy = dy / len; }
+        float nx = -uy, ny = ux; // perpendicular
+
+        float glyphLen = MathF.Min(22 * px, MathF.Max(len * 0.6f, 14 * px));
+        float amp = 4 * px;
+        var mid = new SKPoint((a.X + b.X) / 2, (a.Y + b.Y) / 2);
+        var g0 = new SKPoint(mid.X - ux * glyphLen / 2, mid.Y - uy * glyphLen / 2);
+        var g1 = new SKPoint(mid.X + ux * glyphLen / 2, mid.Y + uy * glyphLen / 2);
+
+        if (len > glyphLen)
+        {
+            path.MoveTo(a);
+            path.LineTo(g0);
+        }
+        else path.MoveTo(g0);
+
+        // 4 teeth: quarter-steps along the glyph, alternating +/- amplitude
+        const int teeth = 4;
+        for (int k = 1; k <= teeth; k++)
+        {
+            float t = (k - 0.5f) / teeth;
+            float sgn = k % 2 == 1 ? 1f : -1f;
+            path.LineTo(
+                g0.X + ux * glyphLen * t + nx * amp * sgn,
+                g0.Y + uy * glyphLen * t + ny * amp * sgn);
+        }
+        path.LineTo(g1);
+
+        if (len > glyphLen) path.LineTo(b);
     }
 
     private static void DrawNodeCrosses(SKCanvas canvas, SKPoint[] pts, SKColor color, float r, float lw)

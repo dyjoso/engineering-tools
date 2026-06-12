@@ -96,6 +96,20 @@ public sealed class FeBar
     public double A { get; set; }
 }
 
+/// <summary>
+/// Nastran-style RBE2 rigid element (translational): the dependent nodes' selected
+/// DOFs are tied to the independent node's DOFs (membrane model - no rotational
+/// coupling). Enforced as an exact multipoint constraint, not a penalty.
+/// </summary>
+public sealed class Rbe2
+{
+    public int Id { get; set; }
+    public int IndependentNodeId { get; set; }
+    public List<int> DependentNodeIds { get; set; } = new();
+    public bool TieX { get; set; } = true;
+    public bool TieY { get; set; } = true;
+}
+
 public sealed class FeModel
 {
     public List<GeometryNode> Nodes { get; set; } = new();
@@ -105,6 +119,7 @@ public sealed class FeModel
     public List<FeElement> FeElements { get; set; } = new();
     public List<FeSpring> FeSprings { get; set; } = new();
     public List<FeBar> FeBars { get; set; } = new();
+    public List<Rbe2> Rbe2s { get; set; } = new(); // extra field; webtool ignores it
 
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
@@ -148,5 +163,15 @@ public sealed class FeModel
         foreach (var b in FeBars)
             if (!nodeIds.Contains(b.FeNodeId1) || !nodeIds.Contains(b.FeNodeId2))
                 throw new InvalidDataException($"Bar {b.Id} references a missing FE node.");
+        foreach (var r in Rbe2s)
+        {
+            if (!nodeIds.Contains(r.IndependentNodeId))
+                throw new InvalidDataException($"RBE2 {r.Id} references missing independent node {r.IndependentNodeId}.");
+            foreach (var d in r.DependentNodeIds)
+                if (!nodeIds.Contains(d))
+                    throw new InvalidDataException($"RBE2 {r.Id} references missing dependent node {d}.");
+            if (!r.TieX && !r.TieY)
+                throw new InvalidDataException($"RBE2 {r.Id} ties no DOFs.");
+        }
     }
 }

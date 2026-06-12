@@ -42,6 +42,9 @@
                 <MenuItem Header="Create _Spring Between 2 Selected Nodes…" Click="MenuSpring_Click"/>
                 <MenuItem Header="Create Springs at Spring P_oints…" Click="MenuSpringsAtPoints_Click"/>
                 <Separator/>
+                <MenuItem Header="Create RBE_2 from Selected Nodes…" Click="MenuRbe2_Click"/>
+                <MenuItem Header="Delete All RBE2s" Click="MenuDeleteRbe2s_Click"/>
+                <Separator/>
                 <MenuItem Header="_Merge Coincident Nodes…" Click="MenuMergeNodes_Click"/>
                 <Separator/>
                 <MenuItem Header="_Delete Selected Elements" Click="MenuDeleteElements_Click"/>

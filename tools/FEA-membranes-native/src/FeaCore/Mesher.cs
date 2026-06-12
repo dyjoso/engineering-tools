@@ -61,7 +61,43 @@ public static class Mesher
             .Select(n => n.Id).ToHashSet();
         model.FeSprings.RemoveAll(s => doomedNodes.Contains(s.FeNodeId1) || doomedNodes.Contains(s.FeNodeId2));
         model.FeBars.RemoveAll(b => doomedNodes.Contains(b.FeNodeId1) || doomedNodes.Contains(b.FeNodeId2));
+        PruneRbe2s(model, doomedNodes);
         model.FeNodes.RemoveAll(n => doomedNodes.Contains(n.Id));
+    }
+
+    /// <summary>Drop removed nodes from RBE2s; delete RBE2s whose independent node is gone or with no dependents left.</summary>
+    private static void PruneRbe2s(FeModel model, HashSet<int> doomedNodes)
+    {
+        foreach (var r in model.Rbe2s)
+            r.DependentNodeIds.RemoveAll(doomedNodes.Contains);
+        model.Rbe2s.RemoveAll(r => doomedNodes.Contains(r.IndependentNodeId) || r.DependentNodeIds.Count == 0);
+    }
+
+    /// <summary>
+    /// Create an RBE2 tying the selected nodes' X and/or Y DOFs to the independent
+    /// node (the lowest selected id). Translational only - the membrane model has no
+    /// rotational DOFs.
+    /// </summary>
+    public static Rbe2 CreateRbe2(FeModel model, IReadOnlyCollection<int> nodeIds, bool tieX, bool tieY)
+    {
+        if (nodeIds.Count < 2) throw new InvalidOperationException("Select at least 2 nodes for an RBE2.");
+        if (!tieX && !tieY) throw new InvalidOperationException("Tie at least one direction (X and/or Y).");
+        foreach (var id in nodeIds)
+            if (model.FeNodes.All(n => n.Id != id))
+                throw new InvalidOperationException($"RBE2: node {id} not found.");
+
+        int independent = nodeIds.Min();
+        int nextId = model.Rbe2s.Count == 0 ? 1 : model.Rbe2s.Max(r => r.Id) + 1;
+        var rbe2 = new Rbe2
+        {
+            Id = nextId,
+            IndependentNodeId = independent,
+            DependentNodeIds = nodeIds.Where(id => id != independent).OrderBy(id => id).ToList(),
+            TieX = tieX,
+            TieY = tieY
+        };
+        model.Rbe2s.Add(rbe2);
+        return rbe2;
     }
 
     /// <summary>
@@ -160,6 +196,18 @@ public static class Mesher
 
         int springsRemoved = model.FeSprings.RemoveAll(s => s.FeNodeId1 == s.FeNodeId2);
         int barsRemoved = model.FeBars.RemoveAll(b => b.FeNodeId1 == b.FeNodeId2);
+
+        // RBE2s: remap, dedupe dependents, drop self-references and emptied ties
+        foreach (var r in model.Rbe2s)
+        {
+            r.IndependentNodeId = Mapped(r.IndependentNodeId);
+            r.DependentNodeIds = r.DependentNodeIds
+                .Select(Mapped)
+                .Where(id => id != r.IndependentNodeId)
+                .Distinct().ToList();
+        }
+        model.Rbe2s.RemoveAll(r => r.DependentNodeIds.Count == 0);
+
         model.FeNodes.RemoveAll(n => remap.ContainsKey(n.Id));
 
         return (remap.Count, springsRemoved, barsRemoved);
@@ -330,7 +378,9 @@ public static class Mesher
         foreach (var s in model.FeSprings) { referenced.Add(s.FeNodeId1); referenced.Add(s.FeNodeId2); }
         foreach (var b in model.FeBars) { referenced.Add(b.FeNodeId1); referenced.Add(b.FeNodeId2); }
         int beforeNodes = model.FeNodes.Count;
-        model.FeNodes.RemoveAll(n => !referenced.Contains(n.Id));
+        var doomedNodes = model.FeNodes.Where(n => !referenced.Contains(n.Id)).Select(n => n.Id).ToHashSet();
+        PruneRbe2s(model, doomedNodes);
+        model.FeNodes.RemoveAll(n => doomedNodes.Contains(n.Id));
         return (removed, beforeNodes - model.FeNodes.Count);
     }
 

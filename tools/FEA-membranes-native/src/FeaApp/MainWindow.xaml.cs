@@ -389,6 +389,7 @@ public partial class MainWindow : Window
         fem.Items.Add(new TreeViewItem { Header = $"Elements ({_model.FeElements.Count})" });
         fem.Items.Add(new TreeViewItem { Header = $"Bars ({_model.FeBars.Count})" });
         fem.Items.Add(new TreeViewItem { Header = $"Springs ({_model.FeSprings.Count})" });
+        fem.Items.Add(new TreeViewItem { Header = $"RBE2s ({_model.Rbe2s.Count})" });
         int loads = _model.FeNodes.Count(n => n.Bc?.Type == "load");
         int constraints = _model.FeNodes.Count(n => n.Bc?.Type is "fixed" or "enforced");
         fem.Items.Add(new TreeViewItem { Header = $"Loads ({loads})" });
@@ -610,6 +611,35 @@ public partial class MainWindow : Window
         string summary = Mesher.MoveGeometryPoint(_model, pid, d.Num("x"), d.Num("y"));
         ModelChanged();
         Log(summary);
+    }
+
+    private void MenuRbe2_Click(object sender, RoutedEventArgs e)
+    {
+        var nodes = SelectedFeNodes();
+        if (nodes.Count < 2) { Prompt("Select 2+ nodes first (Select: Nodes, click or box)."); return; }
+        int independent = nodes.Min(n => n.Id);
+        var d = new FormDialog(this, $"RBE2 over {nodes.Count} Node(s)")
+            .AddCheck("tx", "Tie X (all nodes move together in X)", true)
+            .AddCheck("ty", "Tie Y (all nodes move together in Y)", true)
+            .AddNote($"Independent node: {independent} (lowest selected id). Translational only - " +
+                     "the membrane model has no rotational DOFs. Enforced as an exact constraint.");
+        if (!d.Run()) return;
+        if (!d.Check("tx") && !d.Check("ty")) { Prompt("Tie at least one direction."); return; }
+        Snapshot();
+        var rbe2 = Mesher.CreateRbe2(_model, nodes.Select(n => n.Id).ToList(), d.Check("tx"), d.Check("ty"));
+        ModelChanged();
+        Log($"RBE2 {rbe2.Id} created: independent node {rbe2.IndependentNodeId}, " +
+            $"{rbe2.DependentNodeIds.Count} dependent(s), ties [{(rbe2.TieX ? "X" : "")}{(rbe2.TieY ? "Y" : "")}].");
+    }
+
+    private void MenuDeleteRbe2s_Click(object sender, RoutedEventArgs e)
+    {
+        if (_model.Rbe2s.Count == 0) { Prompt("No RBE2s to delete."); return; }
+        Snapshot();
+        int n = _model.Rbe2s.Count;
+        _model.Rbe2s.Clear();
+        ModelChanged();
+        Log($"{n} RBE2(s) deleted.");
     }
 
     private void MenuMergeNodes_Click(object sender, RoutedEventArgs e)
