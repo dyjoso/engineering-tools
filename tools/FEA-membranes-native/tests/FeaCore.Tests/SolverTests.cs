@@ -369,6 +369,30 @@ public class SolverTests
     }
 
     [Fact]
+    public void Mesher_DeleteNodes_CascadesToAttachedEntities()
+    {
+        var model = new FeModel();
+        var s = Mesher.AddSurface(model, new[] { (0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0) }, 1e7, 0.3, 0.1);
+        Mesher.MeshMembrane(model, s, 2, 2); // 9 nodes, 4 elements
+        var corner = model.FeNodes.First(n => Math.Abs(n.X) < 1e-9 && Math.Abs(n.Y) < 1e-9);
+        var far = model.FeNodes.First(n => n.X > 9.9 && n.Y > 9.9);
+        model.FeBars.Add(new FeBar { Id = 1, FeNodeId1 = corner.Id, FeNodeId2 = far.Id, E = 1e7, A = 0.1 });
+        model.FeSprings.Add(new FeSpring { Id = 1, FeNodeId1 = corner.Id, FeNodeId2 = far.Id, Stiffness = 1e5 });
+        Mesher.CreateRbe2(model, new[] { corner.Id, far.Id }, true, true);
+
+        var (nodes, els, springs, bars) = Mesher.DeleteNodes(model, new[] { corner.Id });
+
+        Assert.Equal(1, nodes);
+        Assert.Equal(1, els);     // only the corner element touches that node
+        Assert.Equal(1, springs);
+        Assert.Equal(1, bars);
+        Assert.Equal(8, model.FeNodes.Count);
+        Assert.Equal(3, model.FeElements.Count);
+        Assert.Empty(model.Rbe2s); // independent node deleted -> RBE2 removed
+        Assert.All(model.FeElements, el => Assert.All(el.NodeIds, id => Assert.Contains(model.FeNodes, n => n.Id == id)));
+    }
+
+    [Fact]
     public void Rbe2_TiesSelectedDofsExactly()
     {
         // Plate, left edge fixed. RBE2 ties the right edge in X only; the load goes

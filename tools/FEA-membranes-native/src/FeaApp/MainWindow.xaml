@@ -4,6 +4,25 @@
         xmlns:skia="clr-namespace:SkiaSharp.Views.WPF;assembly=SkiaSharp.Views.WPF"
         Title="FEA Membranes" Width="1500" Height="950"
         WindowStartupLocation="CenterScreen" Background="#F0F0F0">
+    <Window.Resources>
+        <!-- Toolbar icon style: 16x16 stroked vector paths, consistent slate colour -->
+        <Style x:Key="TbIcon" TargetType="Path">
+            <Setter Property="Stroke" Value="#2D3E5F"/>
+            <Setter Property="StrokeThickness" Value="1.3"/>
+            <Setter Property="Width" Value="16"/>
+            <Setter Property="Height" Value="16"/>
+            <Setter Property="Stretch" Value="None"/>
+            <Setter Property="Margin" Value="0,0,5,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="StrokeLineJoin" Value="Round"/>
+            <Setter Property="StrokeStartLineCap" Value="Round"/>
+            <Setter Property="StrokeEndLineCap" Value="Round"/>
+        </Style>
+        <Style x:Key="TbButton" TargetType="Button">
+            <Setter Property="Padding" Value="6,3"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+    </Window.Resources>
     <DockPanel>
         <Menu DockPanel.Dock="Top">
             <MenuItem Header="_File">
@@ -15,10 +34,21 @@
                 <Separator/>
                 <MenuItem Header="E_xit" Click="MenuExit_Click"/>
             </MenuItem>
+            <MenuItem Header="_Edit">
+                <MenuItem Header="_Undo" Click="MenuUndo_Click" InputGestureText="Ctrl+Z"/>
+                <Separator/>
+                <MenuItem Header="_Delete Selection" Click="MenuDeleteSelected_Click" InputGestureText="Del"/>
+                <MenuItem Header="_Clear Selection" Click="MenuClearSelection_Click" InputGestureText="Esc"/>
+                <Separator/>
+                <MenuItem Header="_Merge Coincident Nodes…" Click="MenuMergeNodes_Click"/>
+            </MenuItem>
             <MenuItem Header="_Geometry">
-                <MenuItem Header="Surface by _Origin and Size…" Click="MenuSurfaceByOrigin_Click"/>
-                <MenuItem Header="Surface by _Corner Points…" Click="MenuSurfaceByCorners_Click"/>
-                <MenuItem Header="Surface by _Picking (4 clicks)" Click="MenuSurfacePick_Click"/>
+                <MenuItem Header="New Surface">
+                    <MenuItem Header="By _Origin and Size…" Click="MenuSurfaceByOrigin_Click"/>
+                    <MenuItem Header="By _Corner Points…" Click="MenuSurfaceByCorners_Click"/>
+                    <MenuItem Header="By _Picking (4 clicks, snaps to points)" Click="MenuSurfacePick_Click"/>
+                </MenuItem>
+                <MenuItem Header="Surface P_roperties…" Click="MenuSurfaceProps_Click"/>
                 <Separator/>
                 <MenuItem Header="Edge _Radius (pick edge)…" Click="MenuEdgeRadius_Click"/>
                 <MenuItem Header="Edit Point Coordina_tes…" Click="MenuEditPoint_Click"/>
@@ -33,23 +63,24 @@
                 <MenuItem Header="_Clear Mesh on Selected Surfaces" Click="MenuClearMesh_Click"/>
             </MenuItem>
             <MenuItem Header="M_odel">
-                <MenuItem Header="_Constraint on Selected Nodes…" Click="MenuConstraint_Click"/>
-                <MenuItem Header="_Load on Selected Nodes…" Click="MenuLoad_Click"/>
-                <MenuItem Header="_Enforced Displacement on Selected Nodes…" Click="MenuEnforced_Click"/>
-                <MenuItem Header="Remove _BCs from Selected Nodes" Click="MenuClearBc_Click"/>
-                <Separator/>
-                <MenuItem Header="Create _Bars Along Selected Nodes…" Click="MenuBars_Click"/>
-                <MenuItem Header="Create _Spring Between 2 Selected Nodes…" Click="MenuSpring_Click"/>
-                <MenuItem Header="Create Springs at Spring P_oints…" Click="MenuSpringsAtPoints_Click"/>
-                <Separator/>
-                <MenuItem Header="Create RBE_2 from Selected Nodes…" Click="MenuRbe2_Click"/>
-                <MenuItem Header="Delete All RBE2s" Click="MenuDeleteRbe2s_Click"/>
-                <Separator/>
-                <MenuItem Header="_Merge Coincident Nodes…" Click="MenuMergeNodes_Click"/>
-                <Separator/>
-                <MenuItem Header="_Delete Selected Elements" Click="MenuDeleteElements_Click"/>
-                <Separator/>
-                <MenuItem Header="Surface _Properties…" Click="MenuSurfaceProps_Click"/>
+                <MenuItem Header="Loads &amp; Constraints">
+                    <MenuItem Header="_Constraint on Selected Nodes…" Click="MenuConstraint_Click"/>
+                    <MenuItem Header="_Load on Selected Nodes…" Click="MenuLoad_Click"/>
+                    <MenuItem Header="_Enforced Displacement on Selected Nodes…" Click="MenuEnforced_Click"/>
+                    <Separator/>
+                    <MenuItem Header="Remove _BCs from Selected Nodes" Click="MenuClearBc_Click"/>
+                </MenuItem>
+                <MenuItem Header="Create Elements">
+                    <MenuItem Header="_Bars Along Selected Nodes…" Click="MenuBars_Click"/>
+                    <MenuItem Header="_Spring Between 2 Selected Nodes…" Click="MenuSpring_Click"/>
+                    <MenuItem Header="Springs at Spring P_oints…" Click="MenuSpringsAtPoints_Click"/>
+                    <MenuItem Header="RBE_2 from Selected Nodes…" Click="MenuRbe2_Click"/>
+                </MenuItem>
+                <MenuItem Header="Delete">
+                    <MenuItem Header="Delete Selected _Nodes (and attached)" Click="MenuDeleteNodes_Click"/>
+                    <MenuItem Header="Delete Selected _Elements" Click="MenuDeleteElements_Click"/>
+                    <MenuItem Header="Delete All RBE2s" Click="MenuDeleteRbe2s_Click"/>
+                </MenuItem>
             </MenuItem>
             <MenuItem Header="_Analyze">
                 <MenuItem Header="_Solve" Click="BtnSolve_Click" InputGestureText="F5"/>
@@ -66,13 +97,35 @@
 
         <ToolBarTray DockPanel.Dock="Top">
             <ToolBar>
-                <Button Click="MenuOpen_Click" Padding="6,3">Open</Button>
-                <Button Click="MenuSave_Click" Padding="6,3">Save</Button>
+                <Button Click="MenuOpen_Click" Style="{StaticResource TbButton}" ToolTip="Open model (Ctrl+O)">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Style="{StaticResource TbIcon}" Data="M1,13 V4 H6 L8,6 H15 V13 Z"/>
+                        <TextBlock VerticalAlignment="Center">Open</TextBlock>
+                    </StackPanel>
+                </Button>
+                <Button Click="MenuSave_Click" Style="{StaticResource TbButton}" ToolTip="Save model (Ctrl+S)">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Style="{StaticResource TbIcon}" Data="M2,2 H11 L14,5 V14 H2 Z M5,2 V6 H11 V2 M5,14 V10 H11 V14"/>
+                        <TextBlock VerticalAlignment="Center">Save</TextBlock>
+                    </StackPanel>
+                </Button>
+                <Button Click="MenuUndo_Click" Style="{StaticResource TbButton}" ToolTip="Undo (Ctrl+Z)">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Style="{StaticResource TbIcon}" Data="M3,4 V9 H8 M3,8 A6,6 0 1 0 6,3.5"/>
+                        <TextBlock VerticalAlignment="Center">Undo</TextBlock>
+                    </StackPanel>
+                </Button>
                 <Separator/>
-                <Button Click="BtnFit_Click" Padding="6,3">Fit</Button>
+                <Button Click="BtnFit_Click" Style="{StaticResource TbButton}" ToolTip="Fit model to window (F)">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Style="{StaticResource TbIcon}" Data="M1,5 V1 H5 M11,1 H15 V5 M15,11 V15 H11 M5,15 H1 V11"/>
+                        <TextBlock VerticalAlignment="Center">Fit</TextBlock>
+                    </StackPanel>
+                </Button>
                 <Separator/>
                 <Label VerticalAlignment="Center">Select:</Label>
-                <ComboBox x:Name="CmbTarget" Width="100" SelectedIndex="0" SelectionChanged="CmbTarget_SelectionChanged">
+                <ComboBox x:Name="CmbTarget" Width="100" SelectedIndex="0" SelectionChanged="CmbTarget_SelectionChanged"
+                          ToolTip="Entity type picked by click / box-drag on the canvas (Ctrl adds to selection)">
                     <ComboBoxItem>Surfaces</ComboBoxItem>
                     <ComboBoxItem>Points</ComboBoxItem>
                     <ComboBoxItem>Nodes</ComboBoxItem>
@@ -81,15 +134,54 @@
                     <ComboBoxItem>Springs</ComboBoxItem>
                 </ComboBox>
                 <Separator/>
-                <Button Click="MenuMesh_Click" Padding="6,3">Mesh…</Button>
-                <Button Click="MenuConstraint_Click" Padding="6,3">Constraint…</Button>
-                <Button Click="MenuLoad_Click" Padding="6,3">Load…</Button>
-                <Button Click="MenuBars_Click" Padding="6,3">Bars…</Button>
+                <Button Click="MenuMesh_Click" Style="{StaticResource TbButton}" ToolTip="Mesh selected surfaces (M x N, Quad4 or Quad8)">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Style="{StaticResource TbIcon}" Data="M2,2 H14 V14 H2 Z M6,2 V14 M10,2 V14 M2,6 H14 M2,10 H14"/>
+                        <TextBlock VerticalAlignment="Center">Mesh</TextBlock>
+                    </StackPanel>
+                </Button>
+                <Button Click="MenuConstraint_Click" Style="{StaticResource TbButton}" ToolTip="Constrain selected nodes (fix X / Y)">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Style="{StaticResource TbIcon}" Data="M8,2 L13,11 H3 Z M2,14 H14"/>
+                        <TextBlock VerticalAlignment="Center">Constrain</TextBlock>
+                    </StackPanel>
+                </Button>
+                <Button Click="MenuLoad_Click" Style="{StaticResource TbButton}" ToolTip="Apply nodal load (FX / FY per selected node)">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Style="{StaticResource TbIcon}" Data="M2,8 H12 M12,8 L8,4 M12,8 L8,12" Stroke="#C0392B"/>
+                        <TextBlock VerticalAlignment="Center">Load</TextBlock>
+                    </StackPanel>
+                </Button>
+                <Button Click="MenuBars_Click" Style="{StaticResource TbButton}" ToolTip="Create bars chained along selected nodes">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Style="{StaticResource TbIcon}" Data="M3,12 L13,4 M3,12 m-1.6,0 a1.6,1.6 0 1 0 3.2,0 a1.6,1.6 0 1 0 -3.2,0 M13,4 m-1.6,0 a1.6,1.6 0 1 0 3.2,0 a1.6,1.6 0 1 0 -3.2,0"/>
+                        <TextBlock VerticalAlignment="Center">Bars</TextBlock>
+                    </StackPanel>
+                </Button>
+                <Button Click="MenuSpringsAtPoints_Click" Style="{StaticResource TbButton}" ToolTip="Create springs at spring points (exactly 2 visible nodes in range)">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Style="{StaticResource TbIcon}" Data="M1,8 H3 L5,4 L8,12 L11,4 L13,8 H15" Stroke="#A0529E"/>
+                        <TextBlock VerticalAlignment="Center">Springs</TextBlock>
+                    </StackPanel>
+                </Button>
+                <Button Click="MenuRbe2_Click" Style="{StaticResource TbButton}" ToolTip="Create RBE2 rigid tie over selected nodes (X and/or Y)">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Style="{StaticResource TbIcon}" Data="M8,8 L2,3 M8,8 L14,3 M8,8 L2,13 M8,8 L14,13 M8,8 m-2,0 a2,2 0 1 0 4,0 a2,2 0 1 0 -4,0" Stroke="#3D74B8"/>
+                        <TextBlock VerticalAlignment="Center">RBE2</TextBlock>
+                    </StackPanel>
+                </Button>
                 <Separator/>
-                <Button x:Name="BtnSolve" Click="BtnSolve_Click" Padding="8,3" FontWeight="Bold">Solve</Button>
+                <Button x:Name="BtnSolve" Click="BtnSolve_Click" Style="{StaticResource TbButton}" FontWeight="Bold"
+                        ToolTip="Run the linear static analysis (F5)">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Style="{StaticResource TbIcon}" Data="M9,1 L3,9 H7 L6,15 L13,6 H9 Z" Stroke="#1B8E3B" Fill="#2EBF5B" StrokeThickness="1"/>
+                        <TextBlock VerticalAlignment="Center">Solve</TextBlock>
+                    </StackPanel>
+                </Button>
                 <Separator/>
                 <Label VerticalAlignment="Center">Contour:</Label>
-                <ComboBox x:Name="CmbView" Width="110" SelectionChanged="CmbView_SelectionChanged" SelectedIndex="0">
+                <ComboBox x:Name="CmbView" Width="110" SelectionChanged="CmbView_SelectionChanged" SelectedIndex="0"
+                          ToolTip="Stress contour displayed after a solve">
                     <ComboBoxItem>None</ComboBoxItem>
                     <ComboBoxItem>Von Mises</ComboBoxItem>
                     <ComboBoxItem>Stress X</ComboBoxItem>
@@ -100,10 +192,12 @@
                           Checked="ChkNodalAvg_Changed" Unchecked="ChkNodalAvg_Changed"
                           ToolTip="Contour nodal-averaged stresses (smooth) instead of per-element values (flat)">Node Avg</CheckBox>
                 <CheckBox x:Name="ChkDeformed" VerticalAlignment="Center" Margin="6,0,0,0"
-                          Checked="ChkDeformed_Changed" Unchecked="ChkDeformed_Changed">Deformed</CheckBox>
+                          Checked="ChkDeformed_Changed" Unchecked="ChkDeformed_Changed"
+                          ToolTip="Overlay the deformed shape (auto-scaled)">Deformed</CheckBox>
                 <Separator/>
                 <Label VerticalAlignment="Center">Vectors:</Label>
-                <ComboBox x:Name="CmbVectors" Width="110" SelectedIndex="0" SelectionChanged="CmbVectors_SelectionChanged">
+                <ComboBox x:Name="CmbVectors" Width="110" SelectedIndex="0" SelectionChanged="CmbVectors_SelectionChanged"
+                          ToolTip="Plot spring force and/or reaction arrows after a solve">
                     <ComboBoxItem>None</ComboBoxItem>
                     <ComboBoxItem>Spring Forces</ComboBoxItem>
                     <ComboBoxItem>Reactions</ComboBoxItem>

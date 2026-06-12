@@ -362,6 +362,22 @@ public static class Mesher
     }
 
     /// <summary>
+    /// Delete FE nodes and everything that references them: elements containing the
+    /// node, springs/bars touching it, RBE2 references. Returns counts of what went.
+    /// </summary>
+    public static (int nodes, int elements, int springs, int bars) DeleteNodes(
+        FeModel model, IReadOnlyCollection<int> nodeIds)
+    {
+        var doomed = nodeIds.ToHashSet();
+        int els = model.FeElements.RemoveAll(e => e.NodeIds.Any(doomed.Contains));
+        int springs = model.FeSprings.RemoveAll(s => doomed.Contains(s.FeNodeId1) || doomed.Contains(s.FeNodeId2));
+        int bars = model.FeBars.RemoveAll(b => doomed.Contains(b.FeNodeId1) || doomed.Contains(b.FeNodeId2));
+        PruneRbe2s(model, doomed);
+        int nodes = model.FeNodes.RemoveAll(n => doomed.Contains(n.Id));
+        return (nodes, els, springs, bars);
+    }
+
+    /// <summary>
     /// Delete elements, then remove FE nodes that are no longer referenced by any
     /// element, spring, or bar (so the solver's orphan check stays clean).
     /// Returns (elementsDeleted, orphanNodesDeleted).

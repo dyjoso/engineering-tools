@@ -482,6 +482,29 @@ public partial class MainWindow : Window
 
     private void MenuExit_Click(object sender, RoutedEventArgs e) => Close();
 
+    // ====================== edit menu ======================
+
+    private void MenuUndo_Click(object sender, RoutedEventArgs e) => Undo();
+
+    private void MenuDeleteSelected_Click(object sender, RoutedEventArgs e) => DeleteSelected();
+
+    private void MenuClearSelection_Click(object sender, RoutedEventArgs e)
+    {
+        ClearSelection();
+        _renderer.Rebuild();
+        Canvas.InvalidateVisual();
+    }
+
+    private void MenuDeleteNodes_Click(object sender, RoutedEventArgs e)
+    {
+        if (_renderer.SelectedNodes.Count == 0)
+        {
+            Prompt("Select node(s) first (Select: Nodes, click or box).");
+            return;
+        }
+        DeleteSelected();
+    }
+
     // ====================== geometry ======================
 
     private void MenuSurfaceByCorners_Click(object sender, RoutedEventArgs e)
@@ -850,6 +873,20 @@ public partial class MainWindow : Window
             return;
         }
         if (surfacesOnly) { Prompt("Select surface(s) first."); return; }
+        if (_renderer.SelectedNodes.Count > 0)
+        {
+            Snapshot();
+            var (nodes2, els2, springs2, bars2) = Mesher.DeleteNodes(_model, _renderer.SelectedNodes);
+            ClearSelection();
+            ModelChanged();
+            var extras = new List<string>();
+            if (els2 > 0) extras.Add($"{els2} element(s)");
+            if (springs2 > 0) extras.Add($"{springs2} spring(s)");
+            if (bars2 > 0) extras.Add($"{bars2} bar(s)");
+            Log($"{nodes2} node(s) deleted" +
+                (extras.Count > 0 ? $" (with attached {string.Join(", ", extras)})." : "."));
+            return;
+        }
         if (_renderer.SelectedBars.Count > 0)
         {
             Snapshot();
