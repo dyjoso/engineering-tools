@@ -31,7 +31,7 @@ public sealed class SceneRenderer
     private SolveResult? _result;
 
     private float[] _edges = [];
-    private float[] _selElementOutlines = [];
+    private SKPoint[][] _selElementOutlines = [];
     private SKPoint[] _nodesPlain = [];
     private SKPoint[] _nodesSelected = [];
     private (SKPoint a, SKPoint b, bool sel, string label)[] _springs = [];
@@ -129,26 +129,25 @@ public sealed class SceneRenderer
         _springPoints = _model.SpringPoints
             .Select(p => new SKPoint((float)p.X, (float)p.Y)).ToArray();
 
-        // Mesh edges (dedup) + selected element outlines
+        // Mesh edges (dedup, perimeter segments - quad8 edges are two segments through
+        // the midside node) + selected element outlines
         var edgeKeys = new HashSet<long>();
         var edges = new List<float>(_model.FeElements.Count * 8);
-        var selOutlines = new List<float>();
+        var selOutlines = new List<SKPoint[]>();
         foreach (var el in _model.FeElements)
         {
             if (el.MembraneId is { } mid && hidden.Contains(mid)) continue;
-            if (el.Type != "quad" || el.NodeIds.Count != 4) continue;
+            if (!ElementTopology.IsSupported(el)) continue;
+            if (el.NodeIds.Any(id => !nodeById.ContainsKey(id))) continue;
             if (SelectedElements.Contains(el.Id))
             {
-                foreach (var nid in el.NodeIds)
-                {
-                    var n = nodeById[nid];
-                    selOutlines.Add((float)n.X); selOutlines.Add((float)n.Y);
-                }
+                selOutlines.Add(ElementTopology.BoundaryNodeIds(el)
+                    .Select(id => nodeById[id])
+                    .Select(n => new SKPoint((float)n.X, (float)n.Y)).ToArray());
                 continue;
             }
-            for (int i = 0; i < 4; i++)
+            foreach (var (a, b) in ElementTopology.PerimeterEdges(el))
             {
-                int a = el.NodeIds[i], b = el.NodeIds[(i + 1) % 4];
                 long key = a < b ? (long)a << 32 | (uint)b : (long)b << 32 | (uint)a;
                 if (!edgeKeys.Add(key)) continue;
                 var na = nodeById[a]; var nb = nodeById[b];
@@ -216,36 +215,39 @@ public sealed class SceneRenderer
             foreach (var el in _model.FeElements)
             {
                 if (el.MembraneId is { } mid && hidden.Contains(mid)) continue;
+                if (!ElementTopology.IsSupported(el)) continue;
                 if (!stressById.TryGetValue(el.Id, out var st)) continue;
-                var pts = el.NodeIds.Select(id => nodeById[id]).Select(n => new SKPoint((float)n.X, (float)n.Y)).ToArray();
+                if (el.NodeIds.Any(id => !nodeById.ContainsKey(id))) continue;
+                var pts = ElementTopology.BoundaryNodeIds(el)
+                    .Select(id => nodeById[id])
+                    .Select(n => new SKPoint((float)n.X, (float)n.Y)).ToArray();
                 polys.Add((pts, st.SigmaVM, st.Sxx, st.Syy, st.Sxy));
             }
             _stressPolys = polys.ToArray();
 
-            // Smooth contour data: triangulate each quad (0-1-2, 0-2-3) with
-            // nodal-averaged values at each vertex
+            // Smooth contour: fan-triangulate the boundary ring around its centroid
+            // (centroid value = mean of ring values); works for quad4 and quad8
             var nodal = _result.NodalStresses.ToDictionary(s => s.NodeId);
             var pos = new List<SKPoint>();
             var vals = new List<(double, double, double, double)>();
             foreach (var el in _model.FeElements)
             {
                 if (el.MembraneId is { } mid && hidden.Contains(mid)) continue;
-                if (el.Type != "quad" || el.NodeIds.Count != 4) continue;
-                var p = new SKPoint[4];
-                var v = new (double, double, double, double)[4];
-                bool ok = true;
-                for (int a = 0; a < 4; a++)
+                if (!ElementTopology.IsSupported(el)) continue;
+                var ringIds = ElementTopology.BoundaryNodeIds(el);
+                if (ringIds.Any(id => !nodeById.ContainsKey(id) || !nodal.ContainsKey(id))) continue;
+                var p = ringIds.Select(id => nodeById[id]).Select(n => new SKPoint((float)n.X, (float)n.Y)).ToArray();
+                var v = ringIds.Select(id => nodal[id]).Select(s => (s.SigmaVM, s.Sxx, s.Syy, s.Sxy)).ToArray();
+
+                var centroid = new SKPoint(p.Average(q => q.X), p.Average(q => q.Y));
+                var centroidVal = (v.Average(x => x.Item1), v.Average(x => x.Item2),
+                                   v.Average(x => x.Item3), v.Average(x => x.Item4));
+                for (int a = 0; a < p.Length; a++)
                 {
-                    if (!nodeById.TryGetValue(el.NodeIds[a], out var nd) ||
-                        !nodal.TryGetValue(el.NodeIds[a], out var ns)) { ok = false; break; }
-                    p[a] = new SKPoint((float)nd.X, (float)nd.Y);
-                    v[a] = (ns.SigmaVM, ns.Sxx, ns.Syy, ns.Sxy);
-                }
-                if (!ok) continue;
-                foreach (int a in new[] { 0, 1, 2, 0, 2, 3 })
-                {
-                    pos.Add(p[a]);
-                    vals.Add(v[a]);
+                    int b2 = (a + 1) % p.Length;
+                    pos.Add(centroid); vals.Add(centroidVal);
+                    pos.Add(p[a]); vals.Add(v[a]);
+                    pos.Add(p[b2]); vals.Add(v[b2]);
                 }
             }
             _smoothPos = pos.ToArray();
@@ -294,12 +296,11 @@ public sealed class SceneRenderer
         {
             using var selPaint = new SKPaint { Color = SelectColor, StrokeWidth = 2.5f * px, IsStroke = true, IsAntialias = true };
             using var path = new SKPath();
-            for (int i = 0; i < _selElementOutlines.Length; i += 8)
+            foreach (var ring in _selElementOutlines)
             {
-                path.MoveTo(_selElementOutlines[i], _selElementOutlines[i + 1]);
-                path.LineTo(_selElementOutlines[i + 2], _selElementOutlines[i + 3]);
-                path.LineTo(_selElementOutlines[i + 4], _selElementOutlines[i + 5]);
-                path.LineTo(_selElementOutlines[i + 6], _selElementOutlines[i + 7]);
+                if (ring.Length < 3) continue;
+                path.MoveTo(ring[0]);
+                for (int i = 1; i < ring.Length; i++) path.LineTo(ring[i]);
                 path.Close();
             }
             canvas.DrawPath(path, selPaint);
@@ -747,10 +748,10 @@ public sealed class SceneRenderer
         var edgeKeys = new HashSet<long>();
         foreach (var el in _model.FeElements)
         {
-            if (el.Type != "quad" || el.NodeIds.Count != 4) continue;
-            for (int i = 0; i < 4; i++)
+            if (!ElementTopology.IsSupported(el)) continue;
+            if (el.NodeIds.Any(id => !nodeById.ContainsKey(id))) continue;
+            foreach (var (a, b) in ElementTopology.PerimeterEdges(el))
             {
-                int a = el.NodeIds[i], b = el.NodeIds[(i + 1) % 4];
                 long key = a < b ? (long)a << 32 | (uint)b : (long)b << 32 | (uint)a;
                 if (!edgeKeys.Add(key)) continue;
                 path.MoveTo(Def(a));

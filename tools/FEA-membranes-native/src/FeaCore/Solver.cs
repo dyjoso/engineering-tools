@@ -101,15 +101,16 @@ public static class Solver
 
         foreach (var el in model.FeElements)
         {
-            if (el.Type != "quad" || el.NodeIds.Count != 4) continue;
+            if (!ElementTopology.IsSupported(el)) continue;
             var memb = el.MembraneId.HasValue && membById.TryGetValue(el.MembraneId.Value, out var mm) ? mm : null;
             double e = el.PropE ?? memb?.MaterialE ?? throw new InvalidOperationException($"Element {el.Id}: no E available.");
             double nu = el.PropNu ?? memb?.MaterialNu ?? 0.0;
             double t = el.PropT ?? memb?.MaterialT ?? throw new InvalidOperationException($"Element {el.Id}: no thickness available.");
 
-            var xy = new double[4, 2];
-            var edof = new int[8];
-            for (int a = 0; a < 4; a++)
+            int nn = el.NodeIds.Count;
+            var xy = new double[nn, 2];
+            var edof = new int[2 * nn];
+            for (int a = 0; a < nn; a++)
             {
                 var nd = nodeById[el.NodeIds[a]];
                 xy[a, 0] = nd.X; xy[a, 1] = nd.Y;
@@ -117,9 +118,12 @@ public static class Solver
                 edof[2 * a + 1] = dofOf[nd.Id] + 1;
             }
 
-            var ke = Quad4.Stiffness(xy, e, nu, t);
-            for (int r = 0; r < 8; r++)
-                for (int c = 0; c < 8; c++)
+            var ke = ElementTopology.IsQuad8(el)
+                ? Quad8.Stiffness(xy, e, nu, t)
+                : Quad4.Stiffness(xy, e, nu, t);
+            int ndof2 = 2 * nn;
+            for (int r = 0; r < ndof2; r++)
+                for (int c = 0; c < ndof2; c++)
                     if (ke[r, c] != 0.0) Add(edof[r], edof[c], ke[r, c]);
         }
 
@@ -289,31 +293,33 @@ public static class Solver
         var nodalSum = new Dictionary<int, (double sx, double sy, double sxy, int n)>();
         foreach (var el in model.FeElements)
         {
-            if (el.Type != "quad" || el.NodeIds.Count != 4) continue;
+            if (!ElementTopology.IsSupported(el)) continue;
             var memb = el.MembraneId.HasValue && membById.TryGetValue(el.MembraneId.Value, out var mm) ? mm : null;
             double e = el.PropE ?? memb?.MaterialE ?? 0.0;
             double nu = el.PropNu ?? memb?.MaterialNu ?? 0.0;
 
-            var xy = new double[4, 2];
-            var ue = new double[8];
-            for (int a = 0; a < 4; a++)
+            int nn = el.NodeIds.Count;
+            var xy = new double[nn, 2];
+            var ue = new double[2 * nn];
+            for (int a = 0; a < nn; a++)
             {
                 var nd = nodeById[el.NodeIds[a]];
                 xy[a, 0] = nd.X; xy[a, 1] = nd.Y;
                 ue[2 * a] = u[dofOf[nd.Id]];
                 ue[2 * a + 1] = u[dofOf[nd.Id] + 1];
             }
-            var (sx, sy, sxy) = Quad4.StressAtCenter(xy, ue, e, nu);
+            bool q8 = ElementTopology.IsQuad8(el);
+            var (sx, sy, sxy) = q8 ? Quad8.StressAtCenter(xy, ue, e, nu) : Quad4.StressAtCenter(xy, ue, e, nu);
             double vm = Math.Sqrt(sx * sx + sy * sy - sx * sy + 3 * sxy * sxy);
             stresses.Add(new ElementStress { ElementId = el.Id, Sxx = sx, Syy = sy, Sxy = sxy, SigmaVM = vm });
 
-            // Corner stresses for nodal averaging
-            var corners = Quad4.StressAtCorners(xy, ue, e, nu);
-            for (int a = 0; a < 4; a++)
+            // Per-node stresses for nodal averaging (all 8 nodes for quad8)
+            var atNodes = q8 ? Quad8.StressAtNodes(xy, ue, e, nu) : Quad4.StressAtCorners(xy, ue, e, nu);
+            for (int a = 0; a < nn; a++)
             {
                 int nid = el.NodeIds[a];
                 var acc = nodalSum.GetValueOrDefault(nid);
-                nodalSum[nid] = (acc.sx + corners[a].sx, acc.sy + corners[a].sy, acc.sxy + corners[a].sxy, acc.n + 1);
+                nodalSum[nid] = (acc.sx + atNodes[a].sx, acc.sy + atNodes[a].sy, acc.sxy + atNodes[a].sxy, acc.n + 1);
             }
         }
 

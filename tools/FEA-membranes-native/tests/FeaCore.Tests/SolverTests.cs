@@ -369,6 +369,130 @@ public class SolverTests
     }
 
     [Fact]
+    public void Quad8_PatchTest_UniaxialTensionExact()
+    {
+        // Single Q8, 10x10, E=1e7, nu=0, t=0.1, total 1000 lb on the right edge.
+        // Consistent nodal loads for uniform traction on a quadratic edge: corners 1/6,
+        // midside 4/6 of the edge total. Exact answer: sx=1000 psi, u_right=1e-3.
+        var model = new FeModel();
+        var s = Mesher.AddSurface(model, new[] { (0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0) }, 1e7, 0.0, 0.1);
+        Mesher.MeshMembrane(model, s, 1, 1, quadratic: true);
+
+        Assert.Equal(8, model.FeNodes.Count);
+        Assert.Single(model.FeElements);
+        Assert.Equal("quad8", model.FeElements[0].Type);
+
+        foreach (var n in model.FeNodes)
+        {
+            if (n.X < 1e-9) n.Bc = Fixed(true, n.Y < 1e-9);
+            else if (n.X > 10 - 1e-9)
+                n.Bc = Load(n.Y is > 1e-9 and < 10 - 1e-9 ? 1000.0 * 4 / 6 : 1000.0 / 6, 0);
+        }
+
+        var r = Solver.Solve(model);
+
+        foreach (var n in model.FeNodes.Where(n => n.X > 10 - 1e-9))
+            Assert.Equal(1e-3, r.Displacements.Single(d => d.NodeId == n.Id).Dx, 9);
+        Assert.Equal(1000, r.ElementStresses.Single().Sxx, 4);
+        // Nodal-averaged stresses exact at ALL 8 nodes (corners and midsides)
+        Assert.Equal(8, r.NodalStresses.Count);
+        foreach (var ns in r.NodalStresses) Assert.Equal(1000, ns.Sxx, 4);
+        Assert.Equal(-1000, r.Reactions.Sum(x => x.Rx), 5);
+    }
+
+    [Fact]
+    public void Quad8_PureBending_ExactLinearStress()
+    {
+        // The killer Q8 advantage: a SINGLE Q8 carries pure in-plane bending exactly
+        // (quadratic displacements -> linear strain). Apply a linear end traction
+        // sx = +/-1000 at y = +/-5 via consistent loads on the right edge and check
+        // the linear stress profile. A single Q4 cannot do this (shear locking).
+        var model = new FeModel();
+        var s = Mesher.AddSurface(model, new[] { (0.0, -5.0), (20.0, -5.0), (20.0, 5.0), (0.0, 5.0) }, 1e7, 0.0, 0.1);
+        Mesher.MeshMembrane(model, s, 1, 1, quadratic: true);
+
+        // Consistent loads for traction sx(y) = 200*y on edge x=20 (t=0.1, height 10):
+        // corner nodes (y=+-5): +/-500/3, midside (y=0): 0
+        foreach (var n in model.FeNodes)
+        {
+            if (n.X < 1e-9)
+                n.Bc = Math.Abs(n.Y) < 1e-9
+                    ? Fixed(true, true)          // mid-height: pin
+                    : Fixed(true, false);        // corners: symmetry in x
+            else if (n.X > 20 - 1e-9 && Math.Abs(n.Y) > 1e-9)
+                n.Bc = Load(Math.Sign(n.Y) * 500.0 / 3, 0);
+        }
+
+        var r = Solver.Solve(model);
+
+        // Averaged nodal stresses follow sx = 200*y at every node
+        var nodeById = model.FeNodes.ToDictionary(n => n.Id);
+        foreach (var ns in r.NodalStresses)
+            Assert.Equal(200 * nodeById[ns.NodeId].Y, ns.Sxx, 3);
+    }
+
+    [Fact]
+    public void Quad8_Mesher_CountsAndMidsides()
+    {
+        var model = new FeModel();
+        var s = Mesher.AddSurface(model, new[] { (0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0) }, 1e7, 0.3, 0.1);
+        var (nodes, els) = Mesher.MeshMembrane(model, s, 4, 3, quadratic: true);
+
+        // Serendipity grid: (2M+1)(2N+1) - M*N centre points
+        Assert.Equal(9 * 7 - 12, nodes);
+        Assert.Equal(12, els);
+        Assert.All(model.FeElements, el => Assert.Equal(8, el.NodeIds.Count));
+        Assert.True(s.MeshQuadratic);
+
+        // Midside nodes sit between their corners
+        var nodeById = model.FeNodes.ToDictionary(n => n.Id);
+        foreach (var el in model.FeElements)
+        {
+            var n = el.NodeIds.Select(id => nodeById[id]).ToArray();
+            Assert.Equal((n[0].X + n[1].X) / 2, n[4].X, 9);
+            Assert.Equal((n[1].Y + n[2].Y) / 2, n[5].Y, 9);
+        }
+
+        // Re-mesh back to quad4 replaces cleanly
+        Mesher.MeshMembrane(model, s, 2, 2, quadratic: false);
+        Assert.Equal(9, model.FeNodes.Count);
+        Assert.False(s.MeshQuadratic);
+    }
+
+    [Fact]
+    public void Quad8_QuarterPoint_CrackTipConfigurationSolves()
+    {
+        // Quarter-point (Barsoum) configuration: midside nodes adjacent to a crack-tip
+        // corner moved to the quarter position. The element must assemble (Gauss points
+        // are interior, Jacobian positive there), solve, and produce finite stresses
+        // (nodal averaging nudges off the singular tip).
+        var model = new FeModel();
+        var s = Mesher.AddSurface(model, new[] { (0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0) }, 1e7, 0.3, 0.1);
+        Mesher.MeshMembrane(model, s, 1, 1, quadratic: true);
+
+        // Crack tip at corner node 1 (0,0): shift midsides 5 (edge 1-2) and 8 (edge 4-1)
+        // to the quarter points nearest the tip.
+        var el = model.FeElements.Single();
+        var nodeById = model.FeNodes.ToDictionary(n => n.Id);
+        var mid5 = nodeById[el.NodeIds[4]];
+        mid5.X = 2.5; mid5.Y = 0;       // quarter of edge 1-2 from the tip
+        var mid8 = nodeById[el.NodeIds[7]];
+        mid8.X = 0; mid8.Y = 2.5;       // quarter of edge 4-1 from the tip
+
+        foreach (var n in model.FeNodes)
+        {
+            if (n.X > 10 - 1e-9) n.Bc = Fixed(true, true);             // clamp far edge
+            else if (n.X < 1e-9 && n.Y < 1e-9) n.Bc = Load(0, -100);   // pull the tip
+        }
+
+        var r = Solver.Solve(model);
+
+        Assert.All(r.Displacements, d => Assert.True(double.IsFinite(d.Dx) && double.IsFinite(d.Dy)));
+        Assert.All(r.NodalStresses, ns => Assert.True(double.IsFinite(ns.SigmaVM)));
+        Assert.Equal(100, r.Reactions.Sum(x => x.Ry), 5); // equilibrium holds
+    }
+
+    [Fact]
     public void Mesher_SpringPointGrid_CountsAndSpacing()
     {
         var model = new FeModel();

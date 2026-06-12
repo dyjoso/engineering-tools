@@ -174,7 +174,8 @@ public partial class MainWindow : Window
                     var memb = el.MembraneId is { } mid ? membById.GetValueOrDefault(mid) : null;
                     double? eMod = el.PropE ?? memb?.MaterialE;
                     double? t = el.PropT ?? memb?.MaterialT;
-                    sb.AppendLine($"El {el.Id}: Quad4, surface {el.MembraneId?.ToString() ?? "-"}, E={eMod:G5}, t={t:G5}");
+                    string elType = el.Type == "quad8" ? "Quad8" : "Quad4";
+                    sb.AppendLine($"El {el.Id}: {elType}, surface {el.MembraneId?.ToString() ?? "-"}, E={eMod:G5}, t={t:G5}");
                 }
                 if (selected.Count > maxRows) sb.AppendLine($"  … {selected.Count - maxRows} more not shown");
             }
@@ -297,7 +298,8 @@ public partial class MainWindow : Window
         string edges = string.Join(", ", s.EdgeRadii.Select((r, i) => r == 0 ? $"E{i + 1} straight" : $"E{i + 1} R={r:G6}"));
         int els = _model.FeElements.Count(e => e.MembraneId == s.Id);
         string divisions = s.MeshM is { } mm && s.MeshN is { } nn ? $" {mm}x{nn}" : "";
-        string mesh = els == 0 ? "unmeshed" : $"meshed{divisions} Quad4 membrane ({els} elements)";
+        string elType = s.MeshQuadratic ? "Quad8" : "Quad4";
+        string mesh = els == 0 ? "unmeshed" : $"meshed{divisions} {elType} membrane ({els} elements)";
         return $"Surface {s.Id} - points {points}; {edges}; {mesh}";
     }
 
@@ -370,9 +372,10 @@ public partial class MainWindow : Window
 
             // Mesh association: element type + divisions, not individual element numbers
             string meshDiv = s.MeshM is { } mm && s.MeshN is { } nn ? $", {mm} x {nn}" : "";
+            string meshType = s.MeshQuadratic ? "Quad8" : "Quad4";
             item.Items.Add(new TreeViewItem
             {
-                Header = els == 0 ? "Mesh: (none)" : $"Mesh: Quad4 membrane{meshDiv} ({els} elements)"
+                Header = els == 0 ? "Mesh: (none)" : $"Mesh: {meshType} membrane{meshDiv} ({els} elements)"
             });
 
             surfaces.Items.Add(item);
@@ -662,14 +665,18 @@ public partial class MainWindow : Window
         if (surfaces.Count == 0) { Prompt("Select surface(s) first (Select: Surfaces, click or box)."); return; }
         var d = new FormDialog(this, $"Mesh {surfaces.Count} Surface(s)")
             .AddField("m", "Divisions along edge 1-2 (M)", 8)
-            .AddField("n", "Divisions along edge 2-3 (N)", 4);
+            .AddField("n", "Divisions along edge 2-3 (N)", 4)
+            .AddCheck("q8", "Quadratic elements (Quad8, corner + midside nodes)", false)
+            .AddNote("Quad8 gives quadratic displacement fields - better for stress gradients " +
+                     "and the basis for quarter-point crack-tip elements.");
         if (!d.Run()) return;
         Snapshot();
         int m = (int)d.Num("m"), n = (int)d.Num("n");
+        bool q8 = d.Check("q8");
         foreach (var s in surfaces)
         {
-            var (nodes, els) = Mesher.MeshMembrane(_model, s, m, n);
-            Log($"Surface {s.Id} meshed {m}x{n}: {nodes} nodes, {els} elements.");
+            var (nodes, els) = Mesher.MeshMembrane(_model, s, m, n, q8);
+            Log($"Surface {s.Id} meshed {m}x{n} {(q8 ? "Quad8" : "Quad4")}: {nodes} nodes, {els} elements.");
         }
         ModelChanged();
     }
@@ -1336,8 +1343,9 @@ public partial class MainWindow : Window
                 FeElement? hit = null;
                 foreach (var el in _model.FeElements)
                 {
-                    if (el.NodeIds.Count != 4) continue;
-                    var v = el.NodeIds.Select(id => nodeById.GetValueOrDefault(id)).ToArray();
+                    if (!ElementTopology.IsSupported(el)) continue;
+                    var v = ElementTopology.BoundaryNodeIds(el)
+                        .Select(id => nodeById.GetValueOrDefault(id)).ToArray();
                     if (v.Any(x => x is null)) continue;
                     if (PointInPolygon(wx, wy, v!)) { hit = el; break; }
                 }

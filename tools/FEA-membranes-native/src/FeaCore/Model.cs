@@ -55,6 +55,7 @@ public sealed class Membrane
     // re-mesh automatically when a corner point moves.
     public int? MeshM { get; set; }
     public int? MeshN { get; set; }
+    public bool MeshQuadratic { get; set; } // last mesh used quad8 elements
 }
 
 public sealed class FeNode
@@ -135,6 +136,8 @@ public sealed class FeModel
         {
             if (el.Type == "quad" && el.NodeIds.Count != 4)
                 throw new InvalidDataException($"Element {el.Id} is a quad with {el.NodeIds.Count} nodes.");
+            if (el.Type == "quad8" && el.NodeIds.Count != 8)
+                throw new InvalidDataException($"Element {el.Id} is a quad8 with {el.NodeIds.Count} nodes.");
             foreach (var nid in el.NodeIds)
                 if (!nodeIds.Contains(nid))
                     throw new InvalidDataException($"Element {el.Id} references missing FE node {nid}.");

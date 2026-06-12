@@ -167,9 +167,10 @@ public static class Mesher
 
     /// <summary>
     /// Mesh a 4-sided membrane M x N (re-meshing replaces any existing mesh).
+    /// quadratic=true creates 8-node serendipity quads (corner + midside nodes).
     /// Returns (nodesCreated, elementsCreated).
     /// </summary>
-    public static (int nodes, int elements) MeshMembrane(FeModel model, Membrane membrane, int m, int n)
+    public static (int nodes, int elements) MeshMembrane(FeModel model, Membrane membrane, int m, int n, bool quadratic = false)
     {
         if (membrane.NodeIds.Count != 4)
             throw new InvalidOperationException($"Surface {membrane.Id} is not 4-sided.");
@@ -193,47 +194,85 @@ public static class Mesher
             return ArcPoint(a.X, a.Y, b.X, b.Y, r, t);
         }
 
-        var grid = new int[m + 1, n + 1];
-        int created = 0;
-        for (int i = 0; i <= m; i++)
+        (double X, double Y) Coons(double u, double v)
         {
-            for (int j = 0; j <= n; j++)
-            {
-                double u = (double)i / m, v = (double)j / n;
-
-                var c1 = Boundary(0, u);       // bottom (v=0)
-                var c2 = Boundary(2, 1 - u);   // top (v=1), reversed
-                var d1 = Boundary(3, 1 - v);   // left (u=0), reversed
-                var d2 = Boundary(1, v);       // right (u=1)
-
-                double sx = (1 - v) * c1.X + v * c2.X + (1 - u) * d1.X + u * d2.X
-                    - ((1 - u) * (1 - v) * corners[0].X + u * (1 - v) * corners[1].X + u * v * corners[2].X + (1 - u) * v * corners[3].X);
-                double sy = (1 - v) * c1.Y + v * c2.Y + (1 - u) * d1.Y + u * d2.Y
-                    - ((1 - u) * (1 - v) * corners[0].Y + u * (1 - v) * corners[1].Y + u * v * corners[2].Y + (1 - u) * v * corners[3].Y);
-
-                var node = new FeNode { Id = nextNodeId++, X = sx, Y = sy, MembraneId = membrane.Id };
-                model.FeNodes.Add(node);
-                grid[i, j] = node.Id;
-                created++;
-            }
+            var c1 = Boundary(0, u);       // bottom (v=0)
+            var c2 = Boundary(2, 1 - u);   // top (v=1), reversed
+            var d1 = Boundary(3, 1 - v);   // left (u=0), reversed
+            var d2 = Boundary(1, v);       // right (u=1)
+            double sx = (1 - v) * c1.X + v * c2.X + (1 - u) * d1.X + u * d2.X
+                - ((1 - u) * (1 - v) * corners[0].X + u * (1 - v) * corners[1].X + u * v * corners[2].X + (1 - u) * v * corners[3].X);
+            double sy = (1 - v) * c1.Y + v * c2.Y + (1 - u) * d1.Y + u * d2.Y
+                - ((1 - u) * (1 - v) * corners[0].Y + u * (1 - v) * corners[1].Y + u * v * corners[2].Y + (1 - u) * v * corners[3].Y);
+            return (sx, sy);
         }
 
-        int els = 0;
-        for (int i = 0; i < m; i++)
-            for (int j = 0; j < n; j++)
-            {
-                model.FeElements.Add(new FeElement
+        int created = 0, els = 0;
+        if (!quadratic)
+        {
+            var grid = new int[m + 1, n + 1];
+            for (int i = 0; i <= m; i++)
+                for (int j = 0; j <= n; j++)
                 {
-                    Id = nextElId++,
-                    Type = "quad",
-                    NodeIds = { grid[i, j], grid[i + 1, j], grid[i + 1, j + 1], grid[i, j + 1] },
-                    MembraneId = membrane.Id
-                });
-                els++;
-            }
+                    var (sx, sy) = Coons((double)i / m, (double)j / n);
+                    var node = new FeNode { Id = nextNodeId++, X = sx, Y = sy, MembraneId = membrane.Id };
+                    model.FeNodes.Add(node);
+                    grid[i, j] = node.Id;
+                    created++;
+                }
+
+            for (int i = 0; i < m; i++)
+                for (int j = 0; j < n; j++)
+                {
+                    model.FeElements.Add(new FeElement
+                    {
+                        Id = nextElId++,
+                        Type = "quad",
+                        NodeIds = { grid[i, j], grid[i + 1, j], grid[i + 1, j + 1], grid[i, j + 1] },
+                        MembraneId = membrane.Id
+                    });
+                    els++;
+                }
+        }
+        else
+        {
+            // Serendipity grid: a (2M+1) x (2N+1) fine grid without the element-centre
+            // points (both indices odd)
+            int fm = 2 * m, fn = 2 * n;
+            var grid = new int[fm + 1, fn + 1];
+            for (int i = 0; i <= fm; i++)
+                for (int j = 0; j <= fn; j++)
+                {
+                    if (i % 2 == 1 && j % 2 == 1) { grid[i, j] = -1; continue; }
+                    var (sx, sy) = Coons((double)i / fm, (double)j / fn);
+                    var node = new FeNode { Id = nextNodeId++, X = sx, Y = sy, MembraneId = membrane.Id };
+                    model.FeNodes.Add(node);
+                    grid[i, j] = node.Id;
+                    created++;
+                }
+
+            for (int i = 0; i < m; i++)
+                for (int j = 0; j < n; j++)
+                {
+                    int ci = 2 * i, cj = 2 * j;
+                    model.FeElements.Add(new FeElement
+                    {
+                        Id = nextElId++,
+                        Type = "quad8",
+                        NodeIds =
+                        {
+                            grid[ci, cj], grid[ci + 2, cj], grid[ci + 2, cj + 2], grid[ci, cj + 2],     // corners
+                            grid[ci + 1, cj], grid[ci + 2, cj + 1], grid[ci + 1, cj + 2], grid[ci, cj + 1] // midsides
+                        },
+                        MembraneId = membrane.Id
+                    });
+                    els++;
+                }
+        }
 
         membrane.MeshM = m;
         membrane.MeshN = n;
+        membrane.MeshQuadratic = quadratic;
         return (created, els);
     }
 
@@ -258,7 +297,7 @@ public static class Mesher
             if (!isMeshed) continue;
             if (s.MeshM is { } m && s.MeshN is { } n)
             {
-                MeshMembrane(model, s, m, n); // clears old mesh first
+                MeshMembrane(model, s, m, n, s.MeshQuadratic); // clears old mesh first
                 remeshed.Add(s.Id);
             }
             else
