@@ -681,6 +681,86 @@ public class SolverTests
     }
 
     [Fact]
+    public void DistributedLoad_Quad4_ConsistentAndExact()
+    {
+        // Total 1000 lb spread over the right edge of a 2x2 Quad4 plate must produce
+        // the consistent 250/500/250 pattern and therefore an EXACT uniform stress
+        // field (sx = 1000 psi at every averaged node).
+        var model = new FeModel();
+        var s = Mesher.AddSurface(model, new[] { (0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0) }, 1e7, 0.0, 0.1);
+        Mesher.MeshMembrane(model, s, 2, 2);
+        foreach (var n in model.FeNodes)
+            if (n.X < 1e-9) n.Bc = Fixed(true, n.Y < 1e-9);
+
+        var rightIds = model.FeNodes.Where(n => n.X > 10 - 1e-9).Select(n => n.Id).ToList();
+        var res = Mesher.ApplyDistributedLoad(model, rightIds, 1000, 0, isTotal: true);
+
+        Assert.Equal(2, res.Edges);
+        Assert.Equal(10, res.TotalLength, 9);
+        Assert.Equal(1000, res.AppliedFx, 9);
+        var corner = model.FeNodes.First(n => n.X > 10 - 1e-9 && n.Y < 1e-9);
+        var mid = model.FeNodes.First(n => n.X > 10 - 1e-9 && Math.Abs(n.Y - 5) < 1e-9);
+        Assert.Equal(250, corner.Bc!.Value.Fx!.Value, 9);
+        Assert.Equal(500, mid.Bc!.Value.Fx!.Value, 9);
+
+        var r = Solver.Solve(model);
+        foreach (var ns in r.NodalStresses) Assert.Equal(1000, ns.Sxx, 4);
+    }
+
+    [Fact]
+    public void DistributedLoad_Quad8_RunningLoad_ConsistentAndExact()
+    {
+        // Running load 100 lb/in over the 10-long right edge of a 2x2 Quad8 plate:
+        // total 1000, per-edge 500 split 1/6-4/6-1/6 -> exact uniform stress.
+        var model = new FeModel();
+        var s = Mesher.AddSurface(model, new[] { (0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0) }, 1e7, 0.0, 0.1);
+        Mesher.MeshMembrane(model, s, 2, 2, quadratic: true);
+        foreach (var n in model.FeNodes)
+            if (n.X < 1e-9) n.Bc = Fixed(true, n.Y < 1e-9);
+
+        var rightIds = model.FeNodes.Where(n => n.X > 10 - 1e-9).Select(n => n.Id).ToList();
+        Assert.Equal(5, rightIds.Count); // 3 corners + 2 midsides
+        var res = Mesher.ApplyDistributedLoad(model, rightIds, 100, 0, isTotal: false);
+
+        Assert.Equal(2, res.Edges);
+        Assert.Equal(1000, res.AppliedFx, 9);
+        var midside = model.FeNodes.First(n => n.X > 10 - 1e-9 && Math.Abs(n.Y - 2.5) < 1e-9);
+        var sharedCorner = model.FeNodes.First(n => n.X > 10 - 1e-9 && Math.Abs(n.Y - 5) < 1e-9);
+        Assert.Equal(500.0 * 4 / 6, midside.Bc!.Value.Fx!.Value, 9);
+        Assert.Equal(2 * 500.0 / 6, sharedCorner.Bc!.Value.Fx!.Value, 9); // 1/6 from each edge
+
+        var r = Solver.Solve(model);
+        foreach (var ns in r.NodalStresses) Assert.Equal(1000, ns.Sxx, 4);
+    }
+
+    [Fact]
+    public void DistributedLoad_AddsToExistingAndSkipsConstrained()
+    {
+        var model = new FeModel();
+        var s = Mesher.AddSurface(model, new[] { (0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0) }, 1e7, 0.0, 0.1);
+        Mesher.MeshMembrane(model, s, 2, 2);
+        foreach (var n in model.FeNodes)
+            if (n.X < 1e-9) n.Bc = Fixed(true, n.Y < 1e-9);
+
+        var right = model.FeNodes.Where(n => n.X > 10 - 1e-9).OrderBy(n => n.Y).ToList();
+        right[0].Bc = Load(0, 77);                                  // existing load: must be summed
+        right[2].Bc = Fixed(true, true);                            // constrained: must be skipped
+
+        var res = Mesher.ApplyDistributedLoad(model, right.Select(n => n.Id).ToList(), 1000, 0, isTotal: true);
+
+        Assert.Equal(1, res.SkippedConstrained);
+        Assert.Equal(250, right[0].Bc!.Value.Fx!.Value, 9);          // 250 added
+        Assert.Equal(77, right[0].Bc!.Value.Fy!.Value, 9);           // existing FY kept
+        Assert.Equal("fixed", right[2].Bc!.Type);                    // untouched
+        Assert.Equal(750, res.AppliedFx, 9);                         // 250 share dropped
+
+        // Selection without any complete element edge errors clearly
+        var scattered = new[] { model.FeNodes.First(n => n.X < 1e-9).Id, right[1].Id };
+        Assert.Throws<InvalidOperationException>(() =>
+            Mesher.ApplyDistributedLoad(model, scattered, 1, 0, true));
+    }
+
+    [Fact]
     public void Quad8_PatchTest_UniaxialTensionExact()
     {
         // Single Q8, 10x10, E=1e7, nu=0, t=0.1, total 1000 lb on the right edge.

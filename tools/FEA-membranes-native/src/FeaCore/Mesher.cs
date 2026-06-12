@@ -698,6 +698,107 @@ public static class Mesher
             doomedNodes.Contains(c.FaceBQuarterNodeId) || doomedNodes.Contains(c.FaceBCornerNodeId));
     }
 
+    public sealed record DistributedLoadResult(
+        int Edges, double TotalLength, double AppliedFx, double AppliedFy, int SkippedConstrained);
+
+    /// <summary>
+    /// Apply a distributed line load over the element edges spanned by the selected
+    /// nodes, as CONSISTENT nodal loads: 1/2-1/2 per linear (Quad4) edge,
+    /// 1/6-4/6-1/6 per quadratic (Quad8) edge. fx/fy are either running load
+    /// (force per unit length) or the total load over the whole selected line.
+    /// Loads ADD to existing nodal loads; nodes carrying fixed/enforced BCs are
+    /// skipped (their share is dropped and counted in the result).
+    /// </summary>
+    public static DistributedLoadResult ApplyDistributedLoad(
+        FeModel model, IReadOnlyCollection<int> nodeIds, double fx, double fy, bool isTotal)
+    {
+        var selected = nodeIds.ToHashSet();
+        var nodeById = model.FeNodes.ToDictionary(n => n.Id);
+
+        // Collect element edges fully inside the selection. Quad8 edges are the full
+        // corner-midside-corner triple; geometric edges shared by two elements load once.
+        var seen = new HashSet<long>();
+        var edges = new List<(int[] nodes, double length)>(); // 2 or 3 node ids per edge
+        foreach (var el in model.FeElements)
+        {
+            if (!ElementTopology.IsSupported(el)) continue;
+            var n = el.NodeIds;
+            var elEdges = ElementTopology.IsQuad8(el)
+                ? new[]
+                {
+                    new[] { n[0], n[4], n[1] }, new[] { n[1], n[5], n[2] },
+                    new[] { n[2], n[6], n[3] }, new[] { n[3], n[7], n[0] }
+                }
+                : new[]
+                {
+                    new[] { n[0], n[1] }, new[] { n[1], n[2] },
+                    new[] { n[2], n[3] }, new[] { n[3], n[0] }
+                };
+            foreach (var edge in elEdges)
+            {
+                if (!edge.All(selected.Contains)) continue;
+                if (edge.Any(id => !nodeById.ContainsKey(id))) continue;
+                int a = edge[0], b = edge[^1];
+                long key = Math.Min(a, b) is var lo && Math.Max(a, b) is var hi
+                    ? (long)lo << 32 | (uint)hi : 0;
+                if (!seen.Add(key)) continue;
+                var na = nodeById[a];
+                var nb = nodeById[b];
+                double len = Math.Sqrt((nb.X - na.X) * (nb.X - na.X) + (nb.Y - na.Y) * (nb.Y - na.Y));
+                if (len <= 0) continue;
+                edges.Add((edge, len));
+            }
+        }
+        if (edges.Count == 0)
+            throw new InvalidOperationException(
+                "No element edges lie within the selected nodes - select a connected line of " +
+                "nodes along element edges (for Quad8 include the midside nodes).");
+
+        double totalLength = edges.Sum(e => e.length);
+        // Running load per unit length
+        double wx = isTotal ? fx / totalLength : fx;
+        double wy = isTotal ? fy / totalLength : fy;
+
+        // Accumulate consistent nodal forces
+        var f = new Dictionary<int, (double fx, double fy)>();
+        void Acc(int id, double share, double len)
+        {
+            var v = f.GetValueOrDefault(id);
+            f[id] = (v.fx + wx * len * share, v.fy + wy * len * share);
+        }
+        foreach (var (en, len) in edges)
+        {
+            if (en.Length == 3)
+            {
+                Acc(en[0], 1.0 / 6, len);
+                Acc(en[1], 4.0 / 6, len);
+                Acc(en[2], 1.0 / 6, len);
+            }
+            else
+            {
+                Acc(en[0], 0.5, len);
+                Acc(en[1], 0.5, len);
+            }
+        }
+
+        int skipped = 0;
+        double appliedFx = 0, appliedFy = 0;
+        foreach (var (id, (nfx, nfy)) in f)
+        {
+            var node = nodeById[id];
+            if (node.Bc is { Type: "fixed" or "enforced" }) { skipped++; continue; }
+            double curFx = node.Bc?.Value.Fx ?? 0, curFy = node.Bc?.Value.Fy ?? 0;
+            node.Bc = new BoundaryCondition
+            {
+                Type = "load",
+                Value = new BcValue { Fx = curFx + nfx, Fy = curFy + nfy }
+            };
+            appliedFx += nfx;
+            appliedFy += nfy;
+        }
+        return new DistributedLoadResult(edges.Count, totalLength, appliedFx, appliedFy, skipped);
+    }
+
     /// <summary>Delete a surface, its geometry nodes (if unshared) and its mesh.</summary>
     public static void DeleteSurface(FeModel model, int membraneId)
     {

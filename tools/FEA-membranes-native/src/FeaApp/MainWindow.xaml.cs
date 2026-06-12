@@ -837,6 +837,42 @@ public partial class MainWindow : Window
         Log($"Load FX={d.Num("fx")}, FY={d.Num("fy")} applied to {nodes.Count} node(s).");
     }
 
+    private void MenuDistLoad_Click(object sender, RoutedEventArgs e)
+    {
+        var nodes = SelectedFeNodes();
+        if (nodes.Count < 2)
+        {
+            Prompt("Select the nodes along the loaded line first (Select: Nodes - for Quad8 meshes include the midside nodes).");
+            return;
+        }
+        var d = new FormDialog(this, $"Distributed Load over {nodes.Count} Node(s)")
+            .AddField("fx", "FX", 0)
+            .AddField("fy", "FY", 0)
+            .AddCheck("total", "Values are the TOTAL load over the line (untick for running load per unit length)", false)
+            .AddNote("Applied as consistent nodal loads on the element edges spanned by the " +
+                     "selection (1/2-1/2 per Quad4 edge, 1/6-4/6-1/6 per Quad8 edge). " +
+                     "Adds to existing nodal loads; nodes with fixed/enforced BCs are skipped.");
+        if (!d.Run()) return;
+        if (d.Num("fx") == 0 && d.Num("fy") == 0) { Prompt("Enter a non-zero FX and/or FY."); return; }
+        try
+        {
+            Snapshot();
+            var res = Mesher.ApplyDistributedLoad(_model, nodes.Select(n => n.Id).ToList(),
+                d.Num("fx"), d.Num("fy"), d.Check("total"));
+            ModelChanged();
+            Log($"Distributed load applied over {res.Edges} edge(s), length {res.TotalLength:G5}: " +
+                $"total FX = {res.AppliedFx:G5}, FY = {res.AppliedFy:G5}" +
+                (res.SkippedConstrained > 0
+                    ? $" ({res.SkippedConstrained} constrained node(s) skipped - their share was dropped)."
+                    : "."));
+        }
+        catch (Exception ex)
+        {
+            Log("Distributed load failed: " + ex.Message);
+            MessageBox.Show(this, ex.Message, "Distributed load failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
     private void MenuEnforced_Click(object sender, RoutedEventArgs e)
     {
         var nodes = SelectedFeNodes();

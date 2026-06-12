@@ -66,6 +66,7 @@
                 <MenuItem Header="Loads &amp; Constraints">
                     <MenuItem Header="_Constraint on Selected Nodes…" Click="MenuConstraint_Click"/>
                     <MenuItem Header="_Load on Selected Nodes…" Click="MenuLoad_Click"/>
+                    <MenuItem Header="_Distributed Load on Selected Line…" Click="MenuDistLoad_Click"/>
                     <MenuItem Header="_Enforced Displacement on Selected Nodes…" Click="MenuEnforced_Click"/>
                     <Separator/>
                     <MenuItem Header="Remove _BCs from Selected Nodes" Click="MenuClearBc_Click"/>
