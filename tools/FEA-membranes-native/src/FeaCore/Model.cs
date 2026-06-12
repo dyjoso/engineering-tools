@@ -30,6 +30,18 @@ public sealed class GeometryNode
     public double Y { get; set; }
 }
 
+/// <summary>
+/// Free-standing geometry marker used only to define spring elements (never part of
+/// a surface). A spring is created at a spring point when exactly two visible FE
+/// nodes lie within the coincidence range.
+/// </summary>
+public sealed class SpringPoint
+{
+    public int Id { get; set; }
+    public double X { get; set; }
+    public double Y { get; set; }
+}
+
 public sealed class Membrane
 {
     public int Id { get; set; }
@@ -87,6 +99,7 @@ public sealed class FeModel
 {
     public List<GeometryNode> Nodes { get; set; } = new();
     public List<Membrane> Membranes { get; set; } = new();
+    public List<SpringPoint> SpringPoints { get; set; } = new(); // extra field; webtool ignores it
     public List<FeNode> FeNodes { get; set; } = new();
     public List<FeElement> FeElements { get; set; } = new();
     public List<FeSpring> FeSprings { get; set; } = new();

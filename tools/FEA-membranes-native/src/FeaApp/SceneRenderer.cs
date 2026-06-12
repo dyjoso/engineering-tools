@@ -41,6 +41,7 @@ public sealed class SceneRenderer
     private (double vm, double sx, double sy, double sxy)[] _smoothVals = [];
     private (SKPoint[] outline, bool sel, int id)[] _surfaces = [];
     private (SKPoint p, bool sel, int id)[] _geoPoints = [];
+    private SKPoint[] _springPoints = [];
     private Dictionary<int, (double dx, double dy)> _disp = new();
 
     public StressView StressView { get; set; } = StressView.None;
@@ -100,12 +101,24 @@ public sealed class SceneRenderer
             return (pts.ToArray(), SelectedSurfaces.Contains(s.Id), s.Id);
         }).ToArray();
 
-        // Geometry corner points (always visible; FEMAP shows geometry points distinctly)
+        var hidden = _model.Membranes.Where(s => !s.Visible).Select(s => s.Id).ToHashSet();
+
+        // Geometry corner points: hidden if every surface using the point is hidden
+        // (points not used by any surface stay visible)
+        var pointUsage = new Dictionary<int, (int total, int hidden)>();
+        foreach (var m in _model.Membranes)
+            foreach (var pid in m.NodeIds)
+            {
+                var u = pointUsage.GetValueOrDefault(pid);
+                pointUsage[pid] = (u.total + 1, u.hidden + (hidden.Contains(m.Id) ? 1 : 0));
+            }
         _geoPoints = _model.Nodes
+            .Where(g => !pointUsage.TryGetValue(g.Id, out var u) || u.hidden < u.total)
             .Select(g => (new SKPoint((float)g.X, (float)g.Y), SelectedPoints.Contains(g.Id), g.Id))
             .ToArray();
 
-        var hidden = _model.Membranes.Where(s => !s.Visible).Select(s => s.Id).ToHashSet();
+        _springPoints = _model.SpringPoints
+            .Select(p => new SKPoint((float)p.X, (float)p.Y)).ToArray();
 
         // Mesh edges (dedup) + selected element outlines
         var edgeKeys = new HashSet<long>();
@@ -144,9 +157,13 @@ public sealed class SceneRenderer
             .Where(n => SelectedNodes.Contains(n.Id))
             .Select(n => new SKPoint((float)n.X, (float)n.Y)).ToArray();
 
+        bool NodeHidden(int id) =>
+            nodeById.TryGetValue(id, out var n) && n.MembraneId is { } m && hidden.Contains(m);
+
         var springLoads = _result?.SpringLoads.ToDictionary(s => s.Id);
         _springs = _model.FeSprings
             .Where(s => nodeById.ContainsKey(s.FeNodeId1) && nodeById.ContainsKey(s.FeNodeId2))
+            .Where(s => !(NodeHidden(s.FeNodeId1) && NodeHidden(s.FeNodeId2)))
             .Select(s =>
             {
                 var a = nodeById[s.FeNodeId1]; var b = nodeById[s.FeNodeId2];
@@ -159,6 +176,7 @@ public sealed class SceneRenderer
         var barLoads = _result?.BarLoads.ToDictionary(b => b.Id);
         _bars = _model.FeBars
             .Where(b => nodeById.ContainsKey(b.FeNodeId1) && nodeById.ContainsKey(b.FeNodeId2))
+            .Where(b => !(NodeHidden(b.FeNodeId1) && NodeHidden(b.FeNodeId2)))
             .Select(b =>
             {
                 var a = nodeById[b.FeNodeId1]; var c = nodeById[b.FeNodeId2];
@@ -299,6 +317,23 @@ public sealed class SceneRenderer
                 float r = (sel ? 5f : 3.5f) * px;
                 canvas.DrawRect(pt.X - r, pt.Y - r, 2 * r, 2 * r, sel ? geoPtSel : geoPtPlain);
             }
+        }
+
+        // Spring points as magenta diamonds (free geometry markers for spring creation)
+        if (_springPoints.Length > 0)
+        {
+            using var spPaint = new SKPaint { Color = SpringColor, IsAntialias = true };
+            using var spPath = new SKPath();
+            float r = 4.5f * px;
+            foreach (var pt in _springPoints)
+            {
+                spPath.MoveTo(pt.X, pt.Y - r);
+                spPath.LineTo(pt.X + r, pt.Y);
+                spPath.LineTo(pt.X, pt.Y + r);
+                spPath.LineTo(pt.X - r, pt.Y);
+                spPath.Close();
+            }
+            canvas.DrawPath(spPath, spPaint);
         }
 
         // Springs

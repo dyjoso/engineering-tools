@@ -16,11 +16,15 @@
                 <MenuItem Header="E_xit" Click="MenuExit_Click"/>
             </MenuItem>
             <MenuItem Header="_Geometry">
+                <MenuItem Header="Surface by _Origin and Size…" Click="MenuSurfaceByOrigin_Click"/>
                 <MenuItem Header="Surface by _Corner Points…" Click="MenuSurfaceByCorners_Click"/>
                 <MenuItem Header="Surface by _Picking (4 clicks)" Click="MenuSurfacePick_Click"/>
                 <Separator/>
                 <MenuItem Header="Edge _Radius (pick edge)…" Click="MenuEdgeRadius_Click"/>
                 <MenuItem Header="Edit Point Coordina_tes…" Click="MenuEditPoint_Click"/>
+                <Separator/>
+                <MenuItem Header="Spring Point _Grid…" Click="MenuSpringPointGrid_Click"/>
+                <MenuItem Header="Delete _All Spring Points" Click="MenuDeleteSpringPoints_Click"/>
                 <Separator/>
                 <MenuItem Header="_Delete Selected Surfaces" Click="MenuDeleteSurfaces_Click"/>
             </MenuItem>
@@ -36,6 +40,7 @@
                 <Separator/>
                 <MenuItem Header="Create _Bars Along Selected Nodes…" Click="MenuBars_Click"/>
                 <MenuItem Header="Create _Spring Between 2 Selected Nodes…" Click="MenuSpring_Click"/>
+                <MenuItem Header="Create Springs at Spring P_oints…" Click="MenuSpringsAtPoints_Click"/>
                 <Separator/>
                 <MenuItem Header="_Merge Coincident Nodes…" Click="MenuMergeNodes_Click"/>
                 <Separator/>

@@ -369,6 +369,92 @@ public class SolverTests
     }
 
     [Fact]
+    public void Mesher_SpringPointGrid_CountsAndSpacing()
+    {
+        var model = new FeModel();
+        var pts = Mesher.AddSpringPointGrid(model, 10, 20, 40, 30, 5, 3);
+
+        Assert.Equal(15, pts.Count);
+        Assert.Equal(15, model.SpringPoints.Count);
+        Assert.Contains(model.SpringPoints, p => p.X == 10 && p.Y == 20);   // start
+        Assert.Contains(model.SpringPoints, p => p.X == 50 && p.Y == 50);   // far corner
+        Assert.Contains(model.SpringPoints, p => p.X == 20 && p.Y == 35);   // interior pitch 10, 15
+
+        // A 1 x N grid collapses the X dimension
+        var single = Mesher.AddSpringPointGrid(model, 0, 0, 100, 10, 1, 2);
+        Assert.All(single, p => Assert.Equal(0, p.X));
+    }
+
+    [Fact]
+    public void Mesher_SpringsAtSpringPoints_ExactlyTwoVisibleNodesRule()
+    {
+        // Two coincident meshed surfaces (doubler-style): seam node pairs sit on top
+        // of each other; spring points placed at four of those locations.
+        var model = new FeModel();
+        var s1 = Mesher.AddSurface(model, new[] { (0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0) }, 1e7, 0.3, 0.1);
+        var s2 = Mesher.AddSurface(model, new[] { (0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0) }, 1e7, 0.3, 0.05);
+        Mesher.MeshMembrane(model, s1, 2, 2);
+        Mesher.MeshMembrane(model, s2, 2, 2); // 9 nodes from each, pairwise coincident
+
+        Mesher.AddSpringPointGrid(model, 0, 0, 10, 10, 2, 2); // 4 corner spring points
+        var r = Mesher.CreateSpringsAtSpringPoints(model, 0.01, 5e4);
+
+        Assert.Equal(4, r.Created);                  // one spring per point, never more
+        Assert.Equal(0, r.SkippedTooMany);
+        Assert.Equal(4, model.FeSprings.Count);
+        Assert.All(model.FeSprings, s => Assert.NotEqual(s.FeNodeId1, s.FeNodeId2));
+
+        // Re-running creates nothing new (duplicate protection)
+        var r2 = Mesher.CreateSpringsAtSpringPoints(model, 0.01, 5e4);
+        Assert.Equal(0, r2.Created);
+        Assert.Equal(4, r2.SkippedDuplicate);
+
+        // Too-large range sees many nodes -> skipped, not guessed
+        model.FeSprings.Clear();
+        var r3 = Mesher.CreateSpringsAtSpringPoints(model, 50, 5e4);
+        Assert.Equal(0, r3.Created);
+        Assert.Equal(4, r3.SkippedTooMany);
+
+        // A point with only one node in range is skipped (springs were cleared above,
+        // so the 4 corner points create again and the lone-node point is skipped)
+        Mesher.AddSpringPointGrid(model, 100, 100, 1, 1, 1, 1);
+        model.FeNodes.Add(new FeNode { Id = 999, X = 100, Y = 100 });
+        var r4 = Mesher.CreateSpringsAtSpringPoints(model, 0.01, 5e4);
+        Assert.Equal(4, r4.Created);
+        Assert.Equal(1, r4.SkippedTooFew);
+    }
+
+    [Fact]
+    public void Mesher_SpringsAtSpringPoints_OnlyVisibleNodesConsidered()
+    {
+        // THREE coincident surfaces: 3 nodes at each location -> skipped (too many).
+        // Hiding one surface leaves exactly 2 visible nodes -> springs created, and
+        // none of them touch the hidden surface's nodes.
+        var model = new FeModel();
+        var s1 = Mesher.AddSurface(model, new[] { (0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0) }, 1e7, 0.3, 0.1);
+        var s2 = Mesher.AddSurface(model, new[] { (0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0) }, 1e7, 0.3, 0.05);
+        var s3 = Mesher.AddSurface(model, new[] { (0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0) }, 1e7, 0.3, 0.02);
+        Mesher.MeshMembrane(model, s1, 1, 1);
+        Mesher.MeshMembrane(model, s2, 1, 1);
+        Mesher.MeshMembrane(model, s3, 1, 1);
+        Mesher.AddSpringPointGrid(model, 0, 0, 10, 10, 2, 2);
+
+        var all = Mesher.CreateSpringsAtSpringPoints(model, 0.01, 5e4);
+        Assert.Equal(0, all.Created);
+        Assert.Equal(4, all.SkippedTooMany);
+
+        s3.Visible = false;
+        var vis = Mesher.CreateSpringsAtSpringPoints(model, 0.01, 5e4);
+        Assert.Equal(4, vis.Created);
+        var s3Nodes = model.FeNodes.Where(n => n.MembraneId == s3.Id).Select(n => n.Id).ToHashSet();
+        Assert.All(model.FeSprings, sp =>
+        {
+            Assert.DoesNotContain(sp.FeNodeId1, s3Nodes);
+            Assert.DoesNotContain(sp.FeNodeId2, s3Nodes);
+        });
+    }
+
+    [Fact]
     public void Mesher_AddSurface_SharedPoints()
     {
         var model = new FeModel();

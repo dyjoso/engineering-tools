@@ -255,11 +255,37 @@ public partial class MainWindow : Window
         foreach (var s in _model.Membranes)
         {
             int els = _model.FeElements.Count(e => e.MembraneId == s.Id);
-            var item = new TreeViewItem
+
+            // Header with a visibility checkbox: toggling hides/shows the surface AND
+            // its mesh (nodes + elements) without rebuilding the tree.
+            var headerPanel = new StackPanel { Orientation = Orientation.Horizontal };
+            var visChk = new CheckBox
             {
-                Header = $"Surface {s.Id}" + (els > 0 ? "  [meshed]" : "  [unmeshed]"),
-                Tag = s.Id
+                IsChecked = s.Visible,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 5, 0),
+                ToolTip = "Show/hide this surface and its mesh"
             };
+            var surfId = s.Id;
+            RoutedEventHandler visHandler = (_, args) =>
+            {
+                args.Handled = true; // don't select the tree item when clicking the checkbox
+                var surf = _model.Membranes.FirstOrDefault(m => m.Id == surfId);
+                if (surf is null) return;
+                surf.Visible = visChk.IsChecked == true;
+                _renderer.Rebuild();
+                Canvas.InvalidateVisual();
+                Log($"Surface {surfId} {(surf.Visible ? "shown" : "hidden")}.");
+            };
+            visChk.Checked += visHandler;
+            visChk.Unchecked += visHandler;
+            headerPanel.Children.Add(visChk);
+            headerPanel.Children.Add(new TextBlock
+            {
+                Text = $"Surface {s.Id}" + (els > 0 ? "  [meshed]" : "  [unmeshed]"),
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            var item = new TreeViewItem { Header = headerPanel, Tag = s.Id };
 
             // Associated geometry: corner points and edges (FEMAP-style detail)
             var ptsNode = new TreeViewItem { Header = "Points" };
@@ -296,6 +322,7 @@ public partial class MainWindow : Window
             surfaces.Items.Add(item);
         }
         geo.Items.Add(surfaces);
+        geo.Items.Add(new TreeViewItem { Header = $"Spring Points ({_model.SpringPoints.Count})" });
         ModelTree.Items.Add(geo);
 
         var fem = new TreeViewItem { Header = "Model", IsExpanded = true };
@@ -413,6 +440,76 @@ public partial class MainWindow : Window
         ModelChanged(invalidateResults: false);
         FitView();
         Log($"Surface {s.Id} created.");
+    }
+
+    private void MenuSurfaceByOrigin_Click(object sender, RoutedEventArgs e)
+    {
+        var d = new FormDialog(this, "Surface by Origin and Size")
+            .AddField("x0", "Origin X", 0).AddField("y0", "Origin Y", 0)
+            .AddField("lx", "Length X", 100).AddField("ly", "Length Y", 50)
+            .AddField("E", "Modulus E", 10.5e6).AddField("nu", "Poisson nu", 0.33).AddField("t", "Thickness t", 0.05)
+            .AddNote("Corners are origin, origin+X, origin+X+Y, origin+Y. Negative lengths grow the other way.");
+        if (!d.Run()) return;
+        double x0 = d.Num("x0"), y0 = d.Num("y0"), lx = d.Num("lx"), ly = d.Num("ly");
+        if (lx == 0 || ly == 0) { Prompt("Lengths must be non-zero."); return; }
+        Snapshot();
+        var s = Mesher.AddSurface(_model,
+            new[] { (x0, y0), (x0 + lx, y0), (x0 + lx, y0 + ly), (x0, y0 + ly) },
+            d.Num("E"), d.Num("nu"), d.Num("t"));
+        ModelChanged(invalidateResults: false);
+        FitView();
+        Log($"Surface {s.Id} created at ({x0:G6}, {y0:G6}), {lx:G6} x {ly:G6}.");
+    }
+
+    private void MenuSpringPointGrid_Click(object sender, RoutedEventArgs e)
+    {
+        var d = new FormDialog(this, "Spring Point Grid")
+            .AddField("x0", "Start X", 0).AddField("y0", "Start Y", 0)
+            .AddField("w", "Width (X extent)", 100).AddField("h", "Height (Y extent)", 50)
+            .AddField("nx", "Points in X", 5).AddField("ny", "Points in Y", 3)
+            .AddNote("Spring points are free markers used only by Model > Create Springs at Spring Points.");
+        if (!d.Run()) return;
+        int nx = (int)d.Num("nx"), ny = (int)d.Num("ny");
+        if (nx < 1 || ny < 1) { Prompt("Point counts must be at least 1."); return; }
+        Snapshot();
+        var pts = Mesher.AddSpringPointGrid(_model, d.Num("x0"), d.Num("y0"), d.Num("w"), d.Num("h"), nx, ny);
+        ModelChanged(invalidateResults: false);
+        Log($"{pts.Count} spring point(s) created ({nx} x {ny} grid).");
+    }
+
+    private void MenuDeleteSpringPoints_Click(object sender, RoutedEventArgs e)
+    {
+        if (_model.SpringPoints.Count == 0) { Prompt("No spring points to delete."); return; }
+        Snapshot();
+        int n = _model.SpringPoints.Count;
+        _model.SpringPoints.Clear();
+        ModelChanged(invalidateResults: false);
+        Log($"{n} spring point(s) deleted.");
+    }
+
+    private void MenuSpringsAtPoints_Click(object sender, RoutedEventArgs e)
+    {
+        if (_model.SpringPoints.Count == 0)
+        {
+            Prompt("No spring points - create them first (Geometry > Spring Point Grid…).");
+            return;
+        }
+        var d = new FormDialog(this, $"Springs at {_model.SpringPoints.Count} Spring Point(s)")
+            .AddField("range", "Coincidence range", 0.1)
+            .AddField("k", "Stiffness k (X and Y)", 5e4)
+            .AddNote("One spring per point, created only where EXACTLY two visible FE nodes " +
+                     "lie within range. Hide surfaces to control which nodes are considered.");
+        if (!d.Run()) return;
+        Snapshot();
+        var r = Mesher.CreateSpringsAtSpringPoints(_model, d.Num("range"), d.Num("k"));
+        ModelChanged();
+        var parts = new List<string> { $"{r.Created} spring(s) created" };
+        if (r.SkippedTooFew > 0) parts.Add($"{r.SkippedTooFew} point(s) skipped (fewer than 2 nodes in range)");
+        if (r.SkippedTooMany > 0) parts.Add($"{r.SkippedTooMany} point(s) skipped (more than 2 nodes in range - reduce the range or hide surfaces)");
+        if (r.SkippedDuplicate > 0) parts.Add($"{r.SkippedDuplicate} point(s) skipped (spring already exists)");
+        string msg = string.Join("; ", parts) + ".";
+        Log(msg);
+        Prompt(msg);
     }
 
     private void MenuSurfacePick_Click(object sender, RoutedEventArgs e)

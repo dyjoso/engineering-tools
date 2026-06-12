@@ -337,6 +337,78 @@ public static class Mesher
         return membrane;
     }
 
+    /// <summary>
+    /// Create a grid of spring points: nx x ny points starting at (x0, y0) spanning
+    /// width x height (a count of 1 in a direction collapses that dimension).
+    /// </summary>
+    public static List<SpringPoint> AddSpringPointGrid(
+        FeModel model, double x0, double y0, double width, double height, int nx, int ny)
+    {
+        if (nx < 1 || ny < 1) throw new ArgumentOutOfRangeException(nameof(nx), "Counts must be >= 1.");
+        int nextId = model.SpringPoints.Count == 0 ? 1 : model.SpringPoints.Max(p => p.Id) + 1;
+        var created = new List<SpringPoint>();
+        for (int i = 0; i < nx; i++)
+            for (int j = 0; j < ny; j++)
+            {
+                var sp = new SpringPoint
+                {
+                    Id = nextId++,
+                    X = x0 + (nx == 1 ? 0 : width * i / (nx - 1)),
+                    Y = y0 + (ny == 1 ? 0 : height * j / (ny - 1))
+                };
+                model.SpringPoints.Add(sp);
+                created.Add(sp);
+            }
+        return created;
+    }
+
+    public sealed record SpringsAtPointsResult(
+        int Created, int SkippedTooFew, int SkippedTooMany, int SkippedDuplicate);
+
+    /// <summary>
+    /// Create one spring element per spring point: at each point, exactly two VISIBLE
+    /// FE nodes must lie within 'range'; a spring of stiffness k joins them. Points
+    /// with fewer or more than two nodes in range are skipped (counted in the result),
+    /// as are pairs that already have a spring.
+    /// </summary>
+    public static SpringsAtPointsResult CreateSpringsAtSpringPoints(FeModel model, double range, double stiffness)
+    {
+        if (range <= 0) throw new ArgumentOutOfRangeException(nameof(range), "Range must be positive.");
+        var hidden = model.Membranes.Where(m => !m.Visible).Select(m => m.Id).ToHashSet();
+        var visibleNodes = model.FeNodes
+            .Where(n => n.MembraneId is not { } mid || !hidden.Contains(mid))
+            .ToList();
+
+        var existingPairs = new HashSet<long>();
+        foreach (var s in model.FeSprings)
+        {
+            int a = Math.Min(s.FeNodeId1, s.FeNodeId2), b = Math.Max(s.FeNodeId1, s.FeNodeId2);
+            existingPairs.Add((long)a << 32 | (uint)b);
+        }
+
+        int nextId = model.FeSprings.Count == 0 ? 1 : model.FeSprings.Max(s => s.Id) + 1;
+        double r2 = range * range;
+        int created = 0, tooFew = 0, tooMany = 0, duplicate = 0;
+        foreach (var sp in model.SpringPoints)
+        {
+            var inRange = visibleNodes
+                .Where(n => (n.X - sp.X) * (n.X - sp.X) + (n.Y - sp.Y) * (n.Y - sp.Y) <= r2)
+                .ToList();
+            if (inRange.Count < 2) { tooFew++; continue; }
+            if (inRange.Count > 2) { tooMany++; continue; }
+
+            int a = Math.Min(inRange[0].Id, inRange[1].Id), b = Math.Max(inRange[0].Id, inRange[1].Id);
+            long key = (long)a << 32 | (uint)b;
+            if (!existingPairs.Add(key)) { duplicate++; continue; }
+
+            model.FeSprings.Add(new FeSpring { Id = nextId++, FeNodeId1 = a, FeNodeId2 = b, Stiffness = stiffness });
+            inRange[0].IsSpringConnectionPoint = true;
+            inRange[1].IsSpringConnectionPoint = true;
+            created++;
+        }
+        return new SpringsAtPointsResult(created, tooFew, tooMany, duplicate);
+    }
+
     /// <summary>Delete a surface, its geometry nodes (if unshared) and its mesh.</summary>
     public static void DeleteSurface(FeModel model, int membraneId)
     {
