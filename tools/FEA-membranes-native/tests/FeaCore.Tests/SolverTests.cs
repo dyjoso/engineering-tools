@@ -521,22 +521,29 @@ public class SolverTests
     }
 
     /// <summary>
-    /// MacNeal cantilever built from 6 trapezoidal SURFACES (one Q8 element each,
-    /// adjacent surfaces sharing corner points), stitched with a coincident-node
-    /// merge. Interior boundaries slant alternately by the given edge angle from
-    /// vertical; the outer ends stay vertical.
+    /// MacNeal distorted-element cantilever built from 6 SURFACES (one Q8 element
+    /// each, adjacent surfaces sharing corner points), stitched with a
+    /// coincident-node merge.
+    /// Trapezoidal: interior boundaries slant alternately; outer ends vertical.
+    /// Parallelogram: interior boundaries slant the SAME way (MacNeal's skew
+    /// pattern - the outline stays rectangular with a vertical clamped root, so
+    /// the 0.1081 reference applies; the middle four elements are parallelograms,
+    /// the end pair mirrored trapezoids).
+    /// Returns the model with BCs applied, ready to solve.
     /// </summary>
-    private static double MacNealTrapezoidTip(double edgeAngleDeg)
+    private static (FeModel model, List<FeNode> tipNodes) MacNealDistortedBuild(double edgeAngleDeg, bool parallelogram)
     {
         const double h = 0.2;
-        double delta = (h / 2) * Math.Tan(edgeAngleDeg * Math.PI / 180);
+        double tanA = Math.Tan(edgeAngleDeg * Math.PI / 180);
         var bot = new double[7];
         var top = new double[7];
         for (int i = 0; i <= 6; i++)
         {
-            double s = (i == 0 || i == 6) ? 0 : (i % 2 == 1 ? 1 : -1);
-            bot[i] = i - s * delta;
-            top[i] = i + s * delta;
+            double s = (i == 0 || i == 6) ? 0
+                : parallelogram ? 1                  // common slant direction
+                : (i % 2 == 1 ? 1 : -1);             // alternating (trapezoidal)
+            bot[i] = i - s * (h / 2) * tanA;
+            top[i] = i + s * (h / 2) * tanA;
         }
 
         var model = new FeModel();
@@ -560,17 +567,27 @@ public class SolverTests
         var (merged, _, _) = Mesher.MergeCoincidentNodes(model, 1e-9);
         Assert.Equal(15, merged); // 3 nodes per interior boundary x 5
 
-        foreach (var nd in model.FeNodes)
-            if (Math.Abs(nd.X) < 1e-9) nd.Bc = Fixed(true, true); // vertical clamped root
-        var endN = model.FeNodes.Where(nd => Math.Abs(nd.X - 6) < 1e-9).OrderBy(nd => nd.Y).ToList();
-        Assert.Equal(3, endN.Count);
-        endN[0].Bc = Load(0, 1.0 / 6);
-        endN[1].Bc = Load(0, 4.0 / 6);
-        endN[2].Bc = Load(0, 1.0 / 6);
+        // Root and tip edges are vertical in both patterns
+        var rootN = model.FeNodes.Where(nd => Math.Abs(nd.X) < 1e-9).ToList();
+        var tipN = model.FeNodes.Where(nd => Math.Abs(nd.X - 6) < 1e-9).OrderBy(nd => nd.Y).ToList();
+        Assert.Equal(3, rootN.Count);
+        Assert.Equal(3, tipN.Count);
 
-        var r = Solver.Solve(model);
-        return endN.Select(nd => r.Displacements.Single(d => d.NodeId == nd.Id).Dy).Average();
+        foreach (var nd in rootN) nd.Bc = Fixed(true, true); // clamped root
+        tipN[0].Bc = Load(0, 1.0 / 6);
+        tipN[1].Bc = Load(0, 4.0 / 6);
+        tipN[2].Bc = Load(0, 1.0 / 6);
+        return (model, tipN);
     }
+
+    private static double MacNealDistortedTip(double edgeAngleDeg, bool parallelogram)
+    {
+        var (model, tipN) = MacNealDistortedBuild(edgeAngleDeg, parallelogram);
+        var r = Solver.Solve(model);
+        return tipN.Select(nd => r.Displacements.Single(d => d.NodeId == nd.Id).Dy).Average();
+    }
+
+    private static double MacNealTrapezoidTip(double edgeAngleDeg) => MacNealDistortedTip(edgeAngleDeg, false);
 
     [Fact]
     public void Quad8_MacNealCantilever_TrapezoidalElements()
@@ -593,6 +610,49 @@ public class SolverTests
         double t45 = MacNealTrapezoidTip(45);
         Assert.True(Math.Abs(t45 - reference) / reference < 0.05,
             $"45deg tip {t45:G6} vs {reference} ({(t45 / reference - 1) * 100:F2}% off)");
+    }
+
+    [Fact]
+    public void Quad8_MacNealCantilever_ParallelogramElements()
+    {
+        // MacNeal's parallelogram (skew) variant: interior boundaries slanted in a
+        // common direction, rectangular outline, vertical clamped root.
+        //
+        // Measured (2x2 reduced integration):
+        //   30 deg: 0.9914   45 deg: 0.9969   (rectangular: 0.9868)
+        // Skew preserves the affine element mapping, so the quadratic element
+        // loses essentially nothing - slightly better than rectangular here.
+        const double reference = 0.1081;
+
+        double p30 = MacNealDistortedTip(30, parallelogram: true);
+        Assert.True(Math.Abs(p30 - reference) / reference < 0.02,
+            $"30deg tip {p30:G6} vs {reference} ({(p30 / reference - 1) * 100:F2}% off)");
+
+        double p45 = MacNealDistortedTip(45, parallelogram: true);
+        Assert.True(Math.Abs(p45 - reference) / reference < 0.02,
+            $"45deg tip {p45:G6} vs {reference} ({(p45 / reference - 1) * 100:F2}% off)");
+    }
+
+    [Fact]
+    public void MacNealModels_SaveForReview()
+    {
+        // Regenerate the MacNeal benchmark models into validation/ so they can be
+        // opened and reviewed in the app (BCs included; solve to reproduce).
+        var dir = AppContext.BaseDirectory;
+        string? valDir = null;
+        for (int i = 0; i < 8 && dir is not null; i++)
+        {
+            var candidate = Path.Combine(dir, "validation");
+            if (Directory.Exists(candidate)) { valDir = candidate; break; }
+            dir = Path.GetDirectoryName(dir);
+        }
+        Assert.False(valDir is null, "validation directory not found above test directory");
+
+        MacNealDistortedBuild(0, parallelogram: false).model.Save(Path.Combine(valDir!, "macneal-rectangular.json"));
+        MacNealDistortedBuild(30, parallelogram: false).model.Save(Path.Combine(valDir!, "macneal-trapezoid-30.json"));
+        MacNealDistortedBuild(45, parallelogram: false).model.Save(Path.Combine(valDir!, "macneal-trapezoid-45.json"));
+        MacNealDistortedBuild(30, parallelogram: true).model.Save(Path.Combine(valDir!, "macneal-parallelogram-30.json"));
+        MacNealDistortedBuild(45, parallelogram: true).model.Save(Path.Combine(valDir!, "macneal-parallelogram-45.json"));
     }
 
     [Fact]
