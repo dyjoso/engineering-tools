@@ -4,6 +4,7 @@ using SkiaSharp;
 namespace FeaApp;
 
 public enum StressView { None, VonMises, Sxx, Syy, Sxy }
+public enum VectorPlot { None, SpringForces, Reactions, Both }
 
 /// <summary>
 /// FEMAP-style immediate-mode renderer: deep-blue gradient background, white mesh,
@@ -42,12 +43,19 @@ public sealed class SceneRenderer
     private (SKPoint[] outline, bool sel, int id)[] _surfaces = [];
     private (SKPoint p, bool sel, int id)[] _geoPoints = [];
     private SKPoint[] _springPoints = [];
+    // Vector plot data: position + force components (world units / force units)
+    private (SKPoint p, double fx, double fy)[] _springForceVectors = [];
+    private (SKPoint p, double fx, double fy)[] _reactionVectors = [];
+    private double _modelExtent = 1;
     private Dictionary<int, (double dx, double dy)> _disp = new();
 
     public StressView StressView { get; set; } = StressView.None;
     /// <summary>Contour from nodal-averaged stresses (smooth) instead of per-element values (flat).</summary>
     public bool NodalAveraged { get; set; } = true;
     public bool ShowDeformed { get; set; }
+    public VectorPlot VectorPlot { get; set; } = VectorPlot.None;
+    /// <summary>World units per force unit for vector arrows; null = auto (~8% of model size at max force).</summary>
+    public double? VectorScale { get; set; }
     public bool ShowGrid { get; set; }
     public bool ShowLabels { get; set; } = true;
     public string ContourTitle { get; private set; } = "";
@@ -58,6 +66,7 @@ public sealed class SceneRenderer
     public HashSet<int> SelectedNodes { get; } = new();
     public HashSet<int> SelectedElements { get; } = new();
     public HashSet<int> SelectedBars { get; } = new();
+    public HashSet<int> SelectedSprings { get; } = new();
 
     /// <summary>Screen-space rubber band (device px), drawn while box-selecting.</summary>
     public SKRect? RubberBand { get; set; }
@@ -170,8 +179,12 @@ public sealed class SceneRenderer
                 string label = springLoads is not null && springLoads.TryGetValue(s.Id, out var sl)
                     ? $"FR={Math.Sqrt(sl.Fx * sl.Fx + sl.Fy * sl.Fy):F1}"
                     : $"S{s.Id} k={s.Stiffness:G4}";
-                return (new SKPoint((float)a.X, (float)a.Y), new SKPoint((float)b.X, (float)b.Y), false, label);
+                return (new SKPoint((float)a.X, (float)a.Y), new SKPoint((float)b.X, (float)b.Y),
+                        SelectedSprings.Contains(s.Id), label);
             }).ToArray();
+
+        // Vector plot data (world position + force components)
+        BuildVectors(nodeById, hidden);
 
         var barLoads = _result?.BarLoads.ToDictionary(b => b.Id);
         _bars = _model.FeBars
@@ -188,6 +201,13 @@ public sealed class SceneRenderer
             }).ToArray();
 
         _disp = _result?.Displacements.ToDictionary(d => d.NodeId, d => (d.Dx, d.Dy)) ?? new();
+
+        if (_model.FeNodes.Count > 0)
+        {
+            double minX = _model.FeNodes.Min(n => n.X), maxX = _model.FeNodes.Max(n => n.X);
+            double minY = _model.FeNodes.Min(n => n.Y), maxY = _model.FeNodes.Max(n => n.Y);
+            _modelExtent = Math.Max(Math.Max(maxX - minX, maxY - minY), 1e-9);
+        }
 
         if (_result is not null)
         {
@@ -336,14 +356,18 @@ public sealed class SceneRenderer
             canvas.DrawPath(spPath, spPaint);
         }
 
-        // Springs
+        // Springs (selected ones solid white + thicker)
         using (var springPaint = new SKPaint
         {
             Color = SpringColor, StrokeWidth = 1.4f * px, IsStroke = true, IsAntialias = true,
             PathEffect = SKPathEffect.CreateDash(new[] { 6 * px, 4 * px }, 0)
         })
-            foreach (var (a, b, _, _) in _springs)
-                canvas.DrawLine(a, b, springPaint);
+        using (var springSelPaint = new SKPaint
+        {
+            Color = SelectColor, StrokeWidth = 3f * px, IsStroke = true, IsAntialias = true
+        })
+            foreach (var (a, b, sel, _) in _springs)
+                canvas.DrawLine(a, b, sel ? springSelPaint : springPaint);
 
         // Bars
         foreach (var (a, b, sel, _) in _bars)
@@ -359,6 +383,7 @@ public sealed class SceneRenderer
 
         if (ShowLabels) DrawLabels(canvas, px);
         DrawBcGlyphs(canvas, px);
+        if (VectorPlot != VectorPlot.None) DrawVectors(canvas, px);
         if (ShowDeformed && _disp.Count > 0) DrawDeformed(canvas, px);
 
         canvas.Restore();
@@ -373,6 +398,88 @@ public sealed class SceneRenderer
             canvas.DrawRect(rb, rbFill);
             canvas.DrawRect(rb, rbLine);
         }
+    }
+
+    private void BuildVectors(Dictionary<int, FeNode> nodeById, HashSet<int> hidden)
+    {
+        if (_model is null || _result is null) { _springForceVectors = []; _reactionVectors = []; return; }
+
+        bool Hidden(int id) =>
+            nodeById.TryGetValue(id, out var n) && n.MembraneId is { } m && hidden.Contains(m);
+
+        // Spring forces: equal and opposite arrows at the two end nodes.
+        // SpringLoad (Fx, Fy) = k * (u2 - u1) = force the spring applies to node 1.
+        var springById = _model.FeSprings.ToDictionary(s => s.Id);
+        var sv = new List<(SKPoint, double, double)>();
+        foreach (var sl in _result.SpringLoads)
+        {
+            if (!springById.TryGetValue(sl.Id, out var s)) continue;
+            if (!nodeById.TryGetValue(s.FeNodeId1, out var n1) || !nodeById.TryGetValue(s.FeNodeId2, out var n2)) continue;
+            if (Hidden(s.FeNodeId1) && Hidden(s.FeNodeId2)) continue;
+            sv.Add((new SKPoint((float)n1.X, (float)n1.Y), sl.Fx, sl.Fy));
+            sv.Add((new SKPoint((float)n2.X, (float)n2.Y), -sl.Fx, -sl.Fy));
+        }
+        _springForceVectors = sv.ToArray();
+
+        _reactionVectors = _result.Reactions
+            .Where(r => nodeById.ContainsKey(r.NodeId) && !Hidden(r.NodeId))
+            .Where(r => Math.Abs(r.Rx) > 1e-12 || Math.Abs(r.Ry) > 1e-12)
+            .Select(r =>
+            {
+                var n = nodeById[r.NodeId];
+                return (new SKPoint((float)n.X, (float)n.Y), r.Rx, r.Ry);
+            }).ToArray();
+    }
+
+    private void DrawVectors(SKCanvas canvas, float px)
+    {
+        bool springs = VectorPlot is VectorPlot.SpringForces or VectorPlot.Both && _springForceVectors.Length > 0;
+        bool reactions = VectorPlot is VectorPlot.Reactions or VectorPlot.Both && _reactionVectors.Length > 0;
+        if (!springs && !reactions) return;
+
+        // Auto scale: longest arrow ~8% of model extent; user value overrides
+        double maxMag = 0;
+        if (springs) foreach (var (_, fx, fy) in _springForceVectors) maxMag = Math.Max(maxMag, Math.Sqrt(fx * fx + fy * fy));
+        if (reactions) foreach (var (_, fx, fy) in _reactionVectors) maxMag = Math.Max(maxMag, Math.Sqrt(fx * fx + fy * fy));
+        if (maxMag <= 0) return;
+        double scale = VectorScale ?? 0.08 * _modelExtent / maxMag;
+
+        using var font = new SKFont(SKTypeface.Default, 9 * px);
+        if (springs)
+        {
+            using var paint = new SKPaint { Color = SpringColor, StrokeWidth = 1.6f * px, IsAntialias = true };
+            using var text = new SKPaint { Color = SpringColor, IsAntialias = true };
+            foreach (var (p, fx, fy) in _springForceVectors)
+                DrawForceArrow(canvas, p, fx, fy, scale, paint, text, font, px);
+        }
+        if (reactions)
+        {
+            using var paint = new SKPaint { Color = new SKColor(0xFF, 0xA5, 0x2E), StrokeWidth = 1.8f * px, IsAntialias = true };
+            using var text = new SKPaint { Color = new SKColor(0xFF, 0xA5, 0x2E), IsAntialias = true };
+            foreach (var (p, fx, fy) in _reactionVectors)
+                DrawForceArrow(canvas, p, fx, fy, scale, paint, text, font, px);
+        }
+    }
+
+    private static void DrawForceArrow(SKCanvas canvas, SKPoint p, double fx, double fy, double scale,
+        SKPaint paint, SKPaint text, SKFont font, float px)
+    {
+        double mag = Math.Sqrt(fx * fx + fy * fy);
+        if (mag <= 0) return;
+        float x2 = (float)(p.X + fx * scale), y2 = (float)(p.Y + fy * scale);
+        paint.IsStroke = true;
+        canvas.DrawLine(p.X, p.Y, x2, y2, paint);
+        float ang = MathF.Atan2(y2 - p.Y, x2 - p.X);
+        float hl = 7 * px, hw = 4 * px;
+        using var head = new SKPath();
+        head.MoveTo(x2, y2);
+        head.LineTo(x2 - hl * MathF.Cos(ang) - hw * MathF.Sin(ang), y2 - hl * MathF.Sin(ang) + hw * MathF.Cos(ang));
+        head.LineTo(x2 - hl * MathF.Cos(ang) + hw * MathF.Sin(ang), y2 - hl * MathF.Sin(ang) - hw * MathF.Cos(ang));
+        head.Close();
+        paint.IsStroke = false;
+        canvas.DrawPath(head, paint);
+        paint.IsStroke = true;
+        canvas.DrawText(mag.ToString("G4"), x2 + 4 * px, y2 - 3 * px, font, text);
     }
 
     private static void DrawNodeCrosses(SKCanvas canvas, SKPoint[] pts, SKColor color, float r, float lw)

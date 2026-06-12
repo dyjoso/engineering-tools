@@ -12,7 +12,7 @@ namespace FeaApp;
 public partial class MainWindow : Window
 {
     private enum Mode { Select, PickCorners, PickEdge }
-    private enum Target { Surfaces, Points, Nodes, Elements, Bars }
+    private enum Target { Surfaces, Points, Nodes, Elements, Bars, Springs }
 
     private FeModel _model = new();
     private SolveResult? _result;
@@ -92,6 +92,7 @@ public partial class MainWindow : Window
         _renderer.SelectedNodes.Clear();
         _renderer.SelectedElements.Clear();
         _renderer.SelectedBars.Clear();
+        _renderer.SelectedSprings.Clear();
         UpdateSelInfo();
     }
 
@@ -124,6 +125,7 @@ public partial class MainWindow : Window
         if (_renderer.SelectedNodes.Count > 0) parts.Add($"{_renderer.SelectedNodes.Count} node(s)");
         if (_renderer.SelectedElements.Count > 0) parts.Add($"{_renderer.SelectedElements.Count} element(s)");
         if (_renderer.SelectedBars.Count > 0) parts.Add($"{_renderer.SelectedBars.Count} bar(s)");
+        if (_renderer.SelectedSprings.Count > 0) parts.Add($"{_renderer.SelectedSprings.Count} spring(s)");
         TxtSelInfo.Text = parts.Count > 0 ? "Selected: " + string.Join(", ", parts) : "";
     }
 
@@ -183,26 +185,44 @@ public partial class MainWindow : Window
         {
             var dispById = _result?.Displacements.ToDictionary(d => d.NodeId);
             var nodalById = _result?.NodalStresses.ToDictionary(s => s.NodeId);
+            var reactById = _result?.Reactions.ToDictionary(r => r.NodeId);
             var selected = _model.FeNodes
                 .Where(n => _renderer.SelectedNodes.Contains(n.Id))
                 .OrderBy(n => n.Id).ToList();
             sb.AppendLine($"Nodes ({selected.Count}):");
             sb.AppendLine(dispById is not null
-                ? $"{"ID",6} {"DX",12} {"DY",12} {"SX avg",12} {"SY avg",12} {"SXY avg",12} {"VM avg",12}"
+                ? $"{"ID",6} {"DX",12} {"DY",12} {"RX",12} {"RY",12} {"SX avg",12} {"SY avg",12} {"SXY avg",12} {"VM avg",12}"
                 : $"{"ID",6} {"X",10} {"Y",10}  BC");
             foreach (var n in selected.Take(maxRows))
             {
                 if (dispById is not null && dispById.TryGetValue(n.Id, out var dsp))
                 {
                     var ns = nodalById?.GetValueOrDefault(n.Id);
+                    var re = reactById?.GetValueOrDefault(n.Id);
+                    string rx = re is not null ? $"{re.Rx,12:G5}" : $"{"-",12}";
+                    string ry = re is not null ? $"{re.Ry,12:G5}" : $"{"-",12}";
                     sb.AppendLine(ns is not null
-                        ? $"{n.Id,6} {dsp.Dx,12:E3} {dsp.Dy,12:E3} {ns.Sxx,12:G5} {ns.Syy,12:G5} {ns.Sxy,12:G5} {ns.SigmaVM,12:G5}"
-                        : $"{n.Id,6} {dsp.Dx,12:E3} {dsp.Dy,12:E3} {"-",12} {"-",12} {"-",12} {"-",12}");
+                        ? $"{n.Id,6} {dsp.Dx,12:E3} {dsp.Dy,12:E3} {rx} {ry} {ns.Sxx,12:G5} {ns.Syy,12:G5} {ns.Sxy,12:G5} {ns.SigmaVM,12:G5}"
+                        : $"{n.Id,6} {dsp.Dx,12:E3} {dsp.Dy,12:E3} {rx} {ry} {"-",12} {"-",12} {"-",12} {"-",12}");
                 }
                 else
                     sb.AppendLine($"{n.Id,6} {n.X,10:G5} {n.Y,10:G5}  {n.Bc?.Type ?? "-"}");
             }
             if (selected.Count > maxRows) sb.AppendLine($"  … {selected.Count - maxRows} more not shown");
+
+            // Reaction totals and averages over the selected constrained nodes
+            if (reactById is not null)
+            {
+                var reacts = selected.Where(n => reactById.ContainsKey(n.Id)).Select(n => reactById[n.Id]).ToList();
+                if (reacts.Count > 0)
+                {
+                    double sumRx = reacts.Sum(r => r.Rx), sumRy = reacts.Sum(r => r.Ry);
+                    sb.AppendLine();
+                    sb.AppendLine($"Reactions over {reacts.Count} constrained node(s):");
+                    sb.AppendLine($"  Sum  RX {sumRx,12:G5}   RY {sumRy,12:G5}");
+                    sb.AppendLine($"  Avg  RX {sumRx / reacts.Count,12:G5}   RY {sumRy / reacts.Count,12:G5}");
+                }
+            }
             if (nodalById is not null)
             {
                 var withStress = selected.Where(n => nodalById.ContainsKey(n.Id)).Select(n => nodalById[n.Id]).ToList();
@@ -210,6 +230,42 @@ public partial class MainWindow : Window
                 {
                     sb.AppendLine();
                     sb.AppendLine($"VM avg  min {withStress.Min(s => s.SigmaVM):G5}  max {withStress.Max(s => s.SigmaVM):G5}");
+                }
+            }
+            sb.AppendLine();
+        }
+
+        if (_renderer.SelectedSprings.Count > 0)
+        {
+            var loadById = _result?.SpringLoads.ToDictionary(s => s.Id);
+            var selected = _model.FeSprings
+                .Where(s => _renderer.SelectedSprings.Contains(s.Id))
+                .OrderBy(s => s.Id).ToList();
+            sb.AppendLine($"Springs ({selected.Count}):");
+            sb.AppendLine(loadById is not null
+                ? $"{"ID",6} {"FX",12} {"FY",12} {"FR",12} {"k",12}"
+                : $"{"ID",6} {"Node1",8} {"Node2",8} {"k",12}");
+            double maxFr = 0;
+            foreach (var s in selected.Take(maxRows))
+            {
+                if (loadById is not null && loadById.TryGetValue(s.Id, out var sl))
+                {
+                    double fr = Math.Sqrt(sl.Fx * sl.Fx + sl.Fy * sl.Fy);
+                    maxFr = Math.Max(maxFr, fr);
+                    sb.AppendLine($"{s.Id,6} {sl.Fx,12:G5} {sl.Fy,12:G5} {fr,12:G5} {s.Stiffness,12:G4}");
+                }
+                else
+                    sb.AppendLine($"{s.Id,6} {s.FeNodeId1,8} {s.FeNodeId2,8} {s.Stiffness,12:G4}");
+            }
+            if (selected.Count > maxRows) sb.AppendLine($"  … {selected.Count - maxRows} more not shown");
+            if (loadById is not null && selected.Count > 1)
+            {
+                var loads = selected.Where(s => loadById.ContainsKey(s.Id)).Select(s => loadById[s.Id]).ToList();
+                if (loads.Count > 0)
+                {
+                    sb.AppendLine();
+                    sb.AppendLine($"FR  max {loads.Max(l => Math.Sqrt(l.Fx * l.Fx + l.Fy * l.Fy)):G5}" +
+                                  $"  avg {loads.Average(l => Math.Sqrt(l.Fx * l.Fx + l.Fy * l.Fy)):G5}");
                 }
             }
             sb.AppendLine();
@@ -767,6 +823,16 @@ public partial class MainWindow : Window
             Log($"{count} bar(s) deleted.");
             return;
         }
+        if (_renderer.SelectedSprings.Count > 0)
+        {
+            Snapshot();
+            int count = _renderer.SelectedSprings.Count;
+            _model.FeSprings.RemoveAll(s => _renderer.SelectedSprings.Contains(s.Id));
+            ClearSelection();
+            ModelChanged();
+            Log($"{count} spring(s) deleted.");
+            return;
+        }
         if (_renderer.SelectedElements.Count > 0)
         {
             Snapshot();
@@ -856,6 +922,30 @@ public partial class MainWindow : Window
     {
         if (_renderer is null) return;
         _renderer.NodalAveraged = ChkNodalAvg.IsChecked == true;
+        Canvas?.InvalidateVisual();
+    }
+
+    private void CmbVectors_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_renderer is null) return;
+        _renderer.VectorPlot = CmbVectors.SelectedIndex switch
+        {
+            1 => VectorPlot.SpringForces,
+            2 => VectorPlot.Reactions,
+            3 => VectorPlot.Both,
+            _ => VectorPlot.None
+        };
+        Canvas?.InvalidateVisual();
+    }
+
+    private void TxtVectorScale_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_renderer is null) return;
+        var text = TxtVectorScale.Text.Trim();
+        _renderer.VectorScale =
+            text.Length > 0 &&
+            double.TryParse(text, System.Globalization.CultureInfo.InvariantCulture, out var v) && v > 0
+                ? v : null; // blank or invalid = auto
         Canvas?.InvalidateVisual();
     }
 
@@ -1193,6 +1283,14 @@ public partial class MainWindow : Window
                         && Inside(n1.X, n1.Y) && Inside(n2.X, n2.Y))
                         _renderer.SelectedBars.Add(b.Id);
                 break;
+            case Target.Springs:
+                if (!additive) _renderer.SelectedSprings.Clear();
+                var ns = _model.FeNodes.ToDictionary(n => n.Id);
+                foreach (var s in _model.FeSprings)
+                    if (ns.TryGetValue(s.FeNodeId1, out var s1) && ns.TryGetValue(s.FeNodeId2, out var s2)
+                        && Inside(s1.X, s1.Y) && Inside(s2.X, s2.Y))
+                        _renderer.SelectedSprings.Add(s.Id);
+                break;
             case Target.Surfaces:
                 if (!additive) _renderer.SelectedSurfaces.Clear();
                 foreach (var s in _model.Membranes)
@@ -1258,6 +1356,20 @@ public partial class MainWindow : Window
                     if (d < best) { best = d; hit = b; }
                 }
                 ApplyPick(_renderer.SelectedBars, hit?.Id, additive);
+                break;
+            }
+            case Target.Springs:
+            {
+                var nodeById = _model.FeNodes.ToDictionary(n => n.Id);
+                FeSpring? hit = null;
+                double best = tol;
+                foreach (var s in _model.FeSprings)
+                {
+                    if (!nodeById.TryGetValue(s.FeNodeId1, out var n1) || !nodeById.TryGetValue(s.FeNodeId2, out var n2)) continue;
+                    double d = DistToSegment(wx, wy, n1.X, n1.Y, n2.X, n2.Y);
+                    if (d < best) { best = d; hit = s; }
+                }
+                ApplyPick(_renderer.SelectedSprings, hit?.Id, additive);
                 break;
             }
             case Target.Surfaces:

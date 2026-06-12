@@ -75,6 +75,7 @@
                     <ComboBoxItem>Nodes</ComboBoxItem>
                     <ComboBoxItem>Elements</ComboBoxItem>
                     <ComboBoxItem>Bars</ComboBoxItem>
+                    <ComboBoxItem>Springs</ComboBoxItem>
                 </ComboBox>
                 <Separator/>
                 <Button Click="MenuMesh_Click" Padding="6,3">Mesh…</Button>
@@ -97,6 +98,18 @@
                           ToolTip="Contour nodal-averaged stresses (smooth) instead of per-element values (flat)">Node Avg</CheckBox>
                 <CheckBox x:Name="ChkDeformed" VerticalAlignment="Center" Margin="6,0,0,0"
                           Checked="ChkDeformed_Changed" Unchecked="ChkDeformed_Changed">Deformed</CheckBox>
+                <Separator/>
+                <Label VerticalAlignment="Center">Vectors:</Label>
+                <ComboBox x:Name="CmbVectors" Width="110" SelectedIndex="0" SelectionChanged="CmbVectors_SelectionChanged">
+                    <ComboBoxItem>None</ComboBoxItem>
+                    <ComboBoxItem>Spring Forces</ComboBoxItem>
+                    <ComboBoxItem>Reactions</ComboBoxItem>
+                    <ComboBoxItem>Both</ComboBoxItem>
+                </ComboBox>
+                <Label VerticalAlignment="Center" Margin="4,0,0,0">Scale:</Label>
+                <TextBox x:Name="TxtVectorScale" Width="60" VerticalAlignment="Center"
+                         TextChanged="TxtVectorScale_TextChanged"
+                         ToolTip="Arrow length per unit force (world units). Blank = auto."/>
             </ToolBar>
         </ToolBarTray>
 
