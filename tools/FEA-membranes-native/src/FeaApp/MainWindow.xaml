@@ -76,6 +76,9 @@
                     <MenuItem Header="Springs at Spring P_oints…" Click="MenuSpringsAtPoints_Click"/>
                     <MenuItem Header="RBE_2 from Selected Nodes…" Click="MenuRbe2_Click"/>
                 </MenuItem>
+                <Separator/>
+                <MenuItem Header="_Merge Coincident Nodes…" Click="MenuMergeNodes_Click"/>
+                <Separator/>
                 <MenuItem Header="Delete">
                     <MenuItem Header="Delete Selected _Nodes (and attached)" Click="MenuDeleteNodes_Click"/>
                     <MenuItem Header="Delete Selected _Elements" Click="MenuDeleteElements_Click"/>
