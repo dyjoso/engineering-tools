@@ -97,6 +97,26 @@ public sealed class FeBar
 }
 
 /// <summary>
+/// Crack definition created by Mesher.CreateCrack: the mesh has been split along the
+/// crack path into two faces (A/B node pairs), and the midside nodes adjacent to the
+/// tip moved to the quarter points (Barsoum). The stored face nodes are the pair at
+/// r = L/4 (quarter-point midsides) and r = L (corners) behind the tip, used by the
+/// displacement-correlation SIF extraction after a solve.
+/// </summary>
+public sealed class Crack
+{
+    public int Id { get; set; }
+    public int TipNodeId { get; set; }
+    public int FaceAQuarterNodeId { get; set; }
+    public int FaceACornerNodeId { get; set; }
+    public int FaceBQuarterNodeId { get; set; }
+    public int FaceBCornerNodeId { get; set; }
+    // Unit normal to the crack line pointing from face B toward face A
+    public double NormalX { get; set; }
+    public double NormalY { get; set; }
+}
+
+/// <summary>
 /// Nastran-style RBE2 rigid element (translational): the dependent nodes' selected
 /// DOFs are tied to the independent node's DOFs (membrane model - no rotational
 /// coupling). Enforced as an exact multipoint constraint, not a penalty.
@@ -120,6 +140,7 @@ public sealed class FeModel
     public List<FeSpring> FeSprings { get; set; } = new();
     public List<FeBar> FeBars { get; set; } = new();
     public List<Rbe2> Rbe2s { get; set; } = new(); // extra field; webtool ignores it
+    public List<Crack> Cracks { get; set; } = new(); // extra field; webtool ignores it
 
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
@@ -172,6 +193,12 @@ public sealed class FeModel
                     throw new InvalidDataException($"RBE2 {r.Id} references missing dependent node {d}.");
             if (!r.TieX && !r.TieY)
                 throw new InvalidDataException($"RBE2 {r.Id} ties no DOFs.");
+        }
+        foreach (var c in Cracks)
+        {
+            foreach (var id in new[] { c.TipNodeId, c.FaceAQuarterNodeId, c.FaceACornerNodeId, c.FaceBQuarterNodeId, c.FaceBCornerNodeId })
+                if (!nodeIds.Contains(id))
+                    throw new InvalidDataException($"Crack {c.Id} references missing FE node {id}.");
         }
     }
 }

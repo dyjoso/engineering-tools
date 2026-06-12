@@ -62,6 +62,7 @@ public static class Mesher
         model.FeSprings.RemoveAll(s => doomedNodes.Contains(s.FeNodeId1) || doomedNodes.Contains(s.FeNodeId2));
         model.FeBars.RemoveAll(b => doomedNodes.Contains(b.FeNodeId1) || doomedNodes.Contains(b.FeNodeId2));
         PruneRbe2s(model, doomedNodes);
+        PruneCracks(model, doomedNodes);
         model.FeNodes.RemoveAll(n => doomedNodes.Contains(n.Id));
     }
 
@@ -118,15 +119,24 @@ public static class Mesher
             ? model.FeNodes
             : model.FeNodes.Where(n => onlyNodeIds.Contains(n.Id)).ToList();
 
-        // Pairs directly joined by a spring are exempt from merging
+        // Pairs directly joined by a spring are exempt from merging, as are crack-face
+        // node pairs (coincident BY DESIGN - merging them would heal the crack)
         var springPairs = new HashSet<long>();
         foreach (var s in model.FeSprings)
         {
             int a = Math.Min(s.FeNodeId1, s.FeNodeId2), b = Math.Max(s.FeNodeId1, s.FeNodeId2);
             springPairs.Add((long)a << 32 | (uint)b);
         }
+        var crackNodes = new HashSet<int>();
+        foreach (var c in model.Cracks)
+        {
+            crackNodes.Add(c.FaceAQuarterNodeId); crackNodes.Add(c.FaceACornerNodeId);
+            crackNodes.Add(c.FaceBQuarterNodeId); crackNodes.Add(c.FaceBCornerNodeId);
+            crackNodes.Add(c.TipNodeId);
+        }
         bool SpringJoined(int a, int b) =>
-            springPairs.Contains((long)Math.Min(a, b) << 32 | (uint)Math.Max(a, b));
+            springPairs.Contains((long)Math.Min(a, b) << 32 | (uint)Math.Max(a, b)) ||
+            crackNodes.Contains(a) || crackNodes.Contains(b);
 
         // Union-find over candidate nodes (lowest id becomes the cluster root)
         var parent = new Dictionary<int, int>();
@@ -373,6 +383,7 @@ public static class Mesher
         int springs = model.FeSprings.RemoveAll(s => doomed.Contains(s.FeNodeId1) || doomed.Contains(s.FeNodeId2));
         int bars = model.FeBars.RemoveAll(b => doomed.Contains(b.FeNodeId1) || doomed.Contains(b.FeNodeId2));
         PruneRbe2s(model, doomed);
+        PruneCracks(model, doomed);
         int nodes = model.FeNodes.RemoveAll(n => doomed.Contains(n.Id));
         return (nodes, els, springs, bars);
     }
@@ -396,6 +407,7 @@ public static class Mesher
         int beforeNodes = model.FeNodes.Count;
         var doomedNodes = model.FeNodes.Where(n => !referenced.Contains(n.Id)).Select(n => n.Id).ToHashSet();
         PruneRbe2s(model, doomedNodes);
+        PruneCracks(model, doomedNodes);
         model.FeNodes.RemoveAll(n => doomedNodes.Contains(n.Id));
         return (removed, beforeNodes - model.FeNodes.Count);
     }
@@ -512,6 +524,178 @@ public static class Mesher
             created++;
         }
         return new SpringsAtPointsResult(created, tooFew, tooMany, duplicate);
+    }
+
+    /// <summary>
+    /// Create a crack along a straight path of selected FE nodes in a Quad8 mesh.
+    /// The path nodes (corners AND midsides along one mesh line) are split into two
+    /// crack faces - every non-tip path node is duplicated and elements on one side
+    /// of the line re-reference the duplicate. The midside nodes on edges emanating
+    /// from each tip are moved to the quarter points (Barsoum), embedding the
+    /// 1/sqrt(r) singularity. Returns one Crack record per tip, used by the
+    /// displacement-correlation SIF extraction after a solve.
+    ///
+    /// Constraints (v1): the path must be straight and lie along element edges of a
+    /// Quad8 mesh; a tip must be in the mesh interior. Fixed/enforced BCs are copied
+    /// to duplicated nodes; nodal LOADS are not (copying would double them).
+    /// </summary>
+    public static List<Crack> CreateCrack(FeModel model, IReadOnlyCollection<int> pathNodeIds,
+        bool tipAtStart, bool tipAtEnd)
+    {
+        if (!tipAtStart && !tipAtEnd)
+            throw new InvalidOperationException("Choose at least one crack-tip end.");
+        if (pathNodeIds.Count < 3)
+            throw new InvalidOperationException("Select the crack path nodes (at least 3: corner-midside-corner).");
+
+        var nodeById = model.FeNodes.ToDictionary(n => n.Id);
+        var path = pathNodeIds.Select(id => nodeById.TryGetValue(id, out var n)
+            ? n : throw new InvalidOperationException($"Crack path node {id} not found.")).ToList();
+
+        // Order the path along its dominant direction (endpoints = the farthest pair)
+        FeNode end1 = path[0], end2 = path[0];
+        double best = -1;
+        foreach (var a in path)
+            foreach (var b in path)
+            {
+                double d2 = (a.X - b.X) * (a.X - b.X) + (a.Y - b.Y) * (a.Y - b.Y);
+                if (d2 > best) { best = d2; end1 = a; end2 = b; }
+            }
+        if (best <= 0) throw new InvalidOperationException("Crack path nodes are coincident.");
+        double dirX = (end2.X - end1.X) / Math.Sqrt(best), dirY = (end2.Y - end1.Y) / Math.Sqrt(best);
+        var ordered = path.OrderBy(n => (n.X - end1.X) * dirX + (n.Y - end1.Y) * dirY).ToList();
+
+        // Straightness check: every node within 1% of the path length off the line
+        double tolOff = 0.01 * Math.Sqrt(best);
+        foreach (var n in ordered)
+        {
+            double off = Math.Abs((n.X - end1.X) * dirY - (n.Y - end1.Y) * dirX);
+            if (off > tolOff)
+                throw new InvalidOperationException(
+                    $"Crack path is not straight: node {n.Id} lies off the line. Select nodes along one mesh line.");
+        }
+
+        // Elements touching the path must be Quad8 (quarter-point tips need midside nodes)
+        var pathSet = ordered.Select(n => n.Id).ToHashSet();
+        var touching = model.FeElements.Where(e => e.NodeIds.Any(pathSet.Contains)).ToList();
+        if (touching.Count == 0) throw new InvalidOperationException("No elements touch the crack path.");
+        if (touching.Any(e => !ElementTopology.IsQuad8(e)))
+            throw new InvalidOperationException(
+                "Crack creation requires a Quad8 mesh (re-mesh the surface with 'Quadratic elements' ticked).");
+
+        var tips = new List<FeNode>();
+        if (tipAtStart) tips.Add(ordered[0]);
+        if (tipAtEnd) tips.Add(ordered[^1]);
+        var tipIds = tips.Select(t => t.Id).ToHashSet();
+
+        // A tip must be interior: elements all around it (>= 2 attached elements and
+        // not on the path boundary end that has only one side meshed is fine - the
+        // real requirement is that splitting stops AT the tip)
+        foreach (var tip in tips)
+            if (touching.Count(e => e.NodeIds.Contains(tip.Id)) < 2)
+                throw new InvalidOperationException(
+                    $"Tip node {tip.Id} touches fewer than 2 elements - the tip must be inside the mesh.");
+
+        // ---- Split: duplicate every non-tip path node; elements on the negative
+        // side of the line re-reference the duplicate ----
+        int nextNodeId = model.FeNodes.Max(n => n.Id) + 1;
+        var dupOf = new Dictionary<int, int>(); // original path node id -> duplicate id
+        double SideOf(FeElement e)
+        {
+            double cx = 0, cy = 0;
+            foreach (var nid in e.NodeIds) { var nn = nodeById[nid]; cx += nn.X; cy += nn.Y; }
+            cx /= e.NodeIds.Count; cy /= e.NodeIds.Count;
+            return (cx - end1.X) * dirY - (cy - end1.Y) * dirX; // >0 = side B, <0 = side A
+        }
+        var sideOfElement = touching.ToDictionary(e => e.Id, SideOf);
+
+        foreach (var n in ordered)
+        {
+            if (tipIds.Contains(n.Id)) continue;
+            var attached = touching.Where(e => e.NodeIds.Contains(n.Id)).ToList();
+            var sideB = attached.Where(e => sideOfElement[e.Id] > 0).ToList();
+            var sideA = attached.Where(e => sideOfElement[e.Id] <= 0).ToList();
+            if (sideA.Count == 0 || sideB.Count == 0) continue; // boundary end node etc - nothing to split
+
+            var dup = new FeNode
+            {
+                Id = nextNodeId++,
+                X = n.X,
+                Y = n.Y,
+                MembraneId = n.MembraneId,
+                IsSpringConnectionPoint = n.IsSpringConnectionPoint,
+                // Constraints carry to both faces; loads must NOT be copied (doubling)
+                Bc = n.Bc is { Type: "fixed" or "enforced" } ? n.Bc : null
+            };
+            model.FeNodes.Add(dup);
+            nodeById[dup.Id] = dup;
+            dupOf[n.Id] = dup.Id;
+            foreach (var e in sideB)
+                for (int i = 0; i < e.NodeIds.Count; i++)
+                    if (e.NodeIds[i] == n.Id) e.NodeIds[i] = dup.Id;
+        }
+        if (dupOf.Count == 0)
+            throw new InvalidOperationException(
+                "Nothing to split - the path has no interior nodes with elements on both sides.");
+
+        // ---- Quarter-point conversion around each tip ----
+        foreach (var tip in tips)
+        {
+            foreach (var e in model.FeElements.Where(e2 => ElementTopology.IsQuad8(e2) && e2.NodeIds.Take(4).Contains(tip.Id)))
+            {
+                int c = e.NodeIds.IndexOf(tip.Id); // corner index 0..3
+                // midside between corners c and c+1 is at index 4+c; between c-1 and c at 4+(c+3)%4
+                foreach (var (midIdx, otherCornerIdx) in new[] { (4 + c, (c + 1) % 4), (4 + (c + 3) % 4, (c + 3) % 4) })
+                {
+                    var mid = nodeById[e.NodeIds[midIdx]];
+                    var other = nodeById[e.NodeIds[otherCornerIdx]];
+                    mid.X = tip.X + 0.25 * (other.X - tip.X);
+                    mid.Y = tip.Y + 0.25 * (other.Y - tip.Y);
+                }
+            }
+        }
+
+        // ---- Crack records: face node pairs behind each tip ----
+        int nextCrackId = model.Cracks.Count == 0 ? 1 : model.Cracks.Max(cr => cr.Id) + 1;
+        var created = new List<Crack>();
+        foreach (var tip in tips)
+        {
+            int tipIdx = ordered.FindIndex(n => n.Id == tip.Id);
+            int step = tipIdx == 0 ? 1 : -1; // walk back along the path away from the tip
+            if (tipIdx + 2 * step < 0 || tipIdx + 2 * step >= ordered.Count)
+                throw new InvalidOperationException($"Crack path too short behind tip {tip.Id}.");
+            var mNode = ordered[tipIdx + step];       // midside behind tip (now at L/4)
+            var cNode = ordered[tipIdx + 2 * step];   // corner behind tip (at L)
+            if (!dupOf.ContainsKey(mNode.Id) || !dupOf.ContainsKey(cNode.Id))
+                throw new InvalidOperationException(
+                    $"The path nodes behind tip {tip.Id} were not split - the crack faces did not separate there.");
+
+            // Normal pointing from side B (positive side) to side A: -(dirY, -dirX) etc.
+            // SideOf > 0 used cross = dx*dirY - dy*dirX; side A has cross <= 0, which is
+            // the side the normal (dirY, -dirX) points AWAY from; so B->A normal is:
+            double nxBA = -dirY, nyBA = dirX;
+            created.Add(new Crack
+            {
+                Id = nextCrackId++,
+                TipNodeId = tip.Id,
+                FaceAQuarterNodeId = mNode.Id,
+                FaceACornerNodeId = cNode.Id,
+                FaceBQuarterNodeId = dupOf[mNode.Id],
+                FaceBCornerNodeId = dupOf[cNode.Id],
+                NormalX = nxBA,
+                NormalY = nyBA
+            });
+        }
+        model.Cracks.AddRange(created);
+        return created;
+    }
+
+    /// <summary>Drop cracks whose nodes have been removed.</summary>
+    private static void PruneCracks(FeModel model, HashSet<int> doomedNodes)
+    {
+        model.Cracks.RemoveAll(c =>
+            doomedNodes.Contains(c.TipNodeId) ||
+            doomedNodes.Contains(c.FaceAQuarterNodeId) || doomedNodes.Contains(c.FaceACornerNodeId) ||
+            doomedNodes.Contains(c.FaceBQuarterNodeId) || doomedNodes.Contains(c.FaceBCornerNodeId));
     }
 
     /// <summary>Delete a surface, its geometry nodes (if unshared) and its mesh.</summary>

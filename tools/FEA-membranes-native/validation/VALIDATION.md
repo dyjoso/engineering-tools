@@ -48,6 +48,30 @@ are verification (patch-test) cases, not approximations.
 |----|------|-------|------------|
 | E8 | `Spring_DecoupledXY_ForceAndDisplacement` | F = k·δ per independent direction: k=1e5, F=100 → δ=1e-3. | δ and recovered spring force exact to 1e-9 |
 
+### 1.5 Crack tip and stress intensity factors
+
+The crack command splits the mesh into faces along a selected node path and
+moves the tip-adjacent midside nodes to the quarter points (Barsoum). K_I/K_II
+are extracted by two-point displacement correlation on the quarter-point face
+nodes: K = (E′/8)·√(2π/L)·(4Δ(L/4) − Δ(L)).
+
+| ID | Test | Basis | Acceptance |
+|----|------|-------|------------|
+| E9 | `Crack_SplitTopology_FacesSeparateAndTipIsQuarterPoint` | Edge crack in a 4×4 Q8 plate: 4 path nodes duplicated (tip shared), element references intact, face midsides moved to tip+L/4 exactly, faces separate under tension, K_I > 0 | Topology exact; quarter-point coordinates to 9 decimals |
+| E10 | `Crack_EdgeCrackedPlate_MatchesHandbookK1` | SENT, a/W = 0.3, H/W = 1.5, remote tension via consistent tractions. Handbook: K_I = Y·σ√(πa), Y per Gross & Brown polynomial | Within 8 % (measured −5.7 %, mesh-converged); K_II ≈ 0 (< 5 % of K_I) |
+| E11 | `Crack_CentreCrackedPlate_MatchesHandbookK1_BothTips` | CCT, a/W = 0.4, both tips in one command. Handbook: K_I = σ√(πa·sec(πa/2W)) (Feddersen) | Within 8 % (measured −4.3 %); K_II ≈ 0; both tips equal to 1 decimal |
+
+**Documented accuracy/bias.** Displacement correlation on a structured mesh
+(four rectangular quarter-point elements around the tip) systematically
+under-predicts K by ≈ 4–6 % at mesh convergence (one-point and r→0-extrapolated
+DCT variants measured −3.7 % to −4.5 % on the same problems). This is the
+known behaviour of non-collapsed rectangular quarter-point arrangements; note
+the bias is **non-conservative** for crack-growth use. The planned route to
+1–2 % is a domain J-integral / interaction-integral extractor (and optionally
+a collapsed-element tip rosette), which also removes the sensitivity to tip
+element shape. Merge operations never heal crack faces (crack nodes are exempt
+from coincident-node merging) and crack records are pruned with their nodes.
+
 ---
 
 ## 2. Boundary conditions & constraints
@@ -136,9 +160,10 @@ closed-form targets. A formal validation suite should add:
 2. **Convergence studies against handbook solutions** — e.g. plate with a
    central circular hole (Kt → 3.0 with refinement), and Q8 vs Q4 convergence
    rate comparison on the same problem.
-3. **Quarter-point SIF benchmark** — once SIF extraction lands: centre-cracked
-   and edge-cracked plates vs handbook K_I (Tada/Rooke & Cartwright), mesh
-   refinement sensitivity, and quarter-point vs mid-point comparison.
+3. ~~Quarter-point SIF benchmark~~ — **done** (E10/E11, SENT and CCT vs
+   handbook). Remaining: a J-integral / interaction-integral extractor to cut
+   the documented ≈5 % DCT bias to 1–2 %, plus mixed-mode (slant crack) and
+   mesh-refinement-sensitivity cases.
 4. **ν ≠ 0 single-element checks** — current single-element exactness cases use
    ν = 0 to keep closed forms simple; add a biaxial case with Poisson coupling.
 5. **Aspect-ratio / shape-sensitivity sweep** — document accuracy degradation

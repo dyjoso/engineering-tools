@@ -402,6 +402,20 @@ public partial class MainWindow : Window
             Header = _result is null ? "(none - run Analyze > Solve)" :
                 $"Static: {_result.DofCount} DOF, {_result.Elapsed.TotalMilliseconds:F0} ms"
         });
+        if (_model.Cracks.Count > 0)
+        {
+            var sifById = _result?.CrackSifs.ToDictionary(s => s.CrackId);
+            foreach (var c in _model.Cracks)
+            {
+                var sif = sifById?.GetValueOrDefault(c.Id);
+                results.Items.Add(new TreeViewItem
+                {
+                    Header = sif is null
+                        ? $"Crack {c.Id} (tip node {c.TipNodeId}): solve for K"
+                        : $"Crack {c.Id}: K_I = {sif.K1:G5}, K_II = {sif.K2:G5}"
+                });
+            }
+        }
         ModelTree.Items.Add(results);
     }
 
@@ -663,6 +677,49 @@ public partial class MainWindow : Window
         _model.Rbe2s.Clear();
         ModelChanged();
         Log($"{n} RBE2(s) deleted.");
+    }
+
+    private void MenuCrack_Click(object sender, RoutedEventArgs e)
+    {
+        var nodes = SelectedFeNodes();
+        if (nodes.Count < 3)
+        {
+            Prompt("Select the crack path nodes first (Select: Nodes - box-select corners AND midsides along one mesh line in a Quad8 mesh).");
+            return;
+        }
+        // Identify the path ends (farthest pair) so the tip checkboxes can name them
+        FeNode end1 = nodes[0], end2 = nodes[0];
+        double best = -1;
+        foreach (var a in nodes)
+            foreach (var b in nodes)
+            {
+                double d2 = (a.X - b.X) * (a.X - b.X) + (a.Y - b.Y) * (a.Y - b.Y);
+                if (d2 > best) { best = d2; end1 = a; end2 = b; }
+            }
+        var d = new FormDialog(this, $"Crack Along {nodes.Count} Node(s)")
+            .AddCheck("tipStart", $"Tip at node {end1.Id} ({end1.X:G5}, {end1.Y:G5})", false)
+            .AddCheck("tipEnd", $"Tip at node {end2.Id} ({end2.X:G5}, {end2.Y:G5})", true)
+            .AddNote("The mesh is split into crack faces along the path; midside nodes at each " +
+                     "tip move to the quarter points (Barsoum). Requires a Quad8 mesh and a " +
+                     "straight path along one mesh line. K_I / K_II are reported after Solve. " +
+                     "Tick both for an internal (centre) crack.");
+        if (!d.Run()) return;
+        try
+        {
+            Snapshot();
+            var cracks = Mesher.CreateCrack(_model, nodes.Select(n => n.Id).ToList(),
+                d.Check("tipStart"), d.Check("tipEnd"));
+            ClearSelection();
+            ModelChanged();
+            Log($"{cracks.Count} crack tip(s) created: " +
+                string.Join(", ", cracks.Select(c => $"Crack {c.Id} (tip node {c.TipNodeId})")) +
+                ". Solve to extract K_I / K_II.");
+        }
+        catch (Exception ex)
+        {
+            Log("Crack creation failed: " + ex.Message);
+            MessageBox.Show(this, ex.Message, "Crack creation failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
     }
 
     private void MenuMergeNodes_Click(object sender, RoutedEventArgs e)
@@ -936,6 +993,9 @@ public partial class MainWindow : Window
                 $"Max |d| = {_result.Displacements.Max(d => Math.Max(Math.Abs(d.Dx), Math.Abs(d.Dy))):E3}.";
             Prompt(msg);
             Log(msg);
+            foreach (var sif in _result.CrackSifs)
+                Log($"Crack {sif.CrackId} (tip node {sif.TipNodeId}): " +
+                    $"K_I = {sif.K1:G6}, K_II = {sif.K2:G6}  (quarter-point face L = {sif.FaceElementLength:G4})");
             if (CmbView.SelectedIndex == 0) CmbView.SelectedIndex = 1; // default to Von Mises after solve
         }
         catch (Exception ex)

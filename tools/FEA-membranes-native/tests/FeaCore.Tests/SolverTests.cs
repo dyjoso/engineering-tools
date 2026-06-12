@@ -1,4 +1,4 @@
-using FeaCore;
+﻿using FeaCore;
 using Xunit;
 
 namespace FeaCore.Tests;
@@ -620,6 +620,157 @@ public class SolverTests
         Assert.All(r.Displacements, d => Assert.True(double.IsFinite(d.Dx) && double.IsFinite(d.Dy)));
         Assert.All(r.NodalStresses, ns => Assert.True(double.IsFinite(ns.SigmaVM)));
         Assert.Equal(100, r.Reactions.Sum(x => x.Ry), 5); // equilibrium holds
+    }
+
+    // ---- Crack / SIF helpers ----
+
+    /// <summary>Apply uniform traction (total force F, +Y direction) as consistent
+    /// nodal loads on a horizontal Quad8 boundary at the given y.</summary>
+    private static void LoadQ8EdgeY(FeModel model, double yEdge, double totalFy)
+    {
+        var edgeNodes = model.FeNodes.Where(n => Math.Abs(n.Y - yEdge) < 1e-9)
+            .OrderBy(n => n.X).ToList();
+        // edge nodes alternate corner-midside-corner...; per quadratic edge of length
+        // covered by [c, m, c]: 1/6, 4/6, 1/6 of that edge's share
+        int nEdges = (edgeNodes.Count - 1) / 2;
+        double perEdge = totalFy / nEdges;
+        var f = new Dictionary<int, double>();
+        for (int e = 0; e < nEdges; e++)
+        {
+            f[edgeNodes[2 * e].Id] = f.GetValueOrDefault(edgeNodes[2 * e].Id) + perEdge / 6;
+            f[edgeNodes[2 * e + 1].Id] = f.GetValueOrDefault(edgeNodes[2 * e + 1].Id) + perEdge * 4 / 6;
+            f[edgeNodes[2 * e + 2].Id] = f.GetValueOrDefault(edgeNodes[2 * e + 2].Id) + perEdge / 6;
+        }
+        foreach (var (id, fy) in f)
+            model.FeNodes.First(n => n.Id == id).Bc = Load(0, fy);
+    }
+
+    [Fact]
+    public void Crack_SplitTopology_FacesSeparateAndTipIsQuarterPoint()
+    {
+        // 4x4 Quad8 plate, edge crack from the left boundary to mid-plate at mid-height.
+        var model = new FeModel();
+        var s = Mesher.AddSurface(model, new[] { (0.0, 0.0), (4.0, 0.0), (4.0, 4.0), (0.0, 4.0) }, 1e7, 0.3, 0.1);
+        Mesher.MeshMembrane(model, s, 4, 4, quadratic: true);
+        int nodesBefore = model.FeNodes.Count;
+
+        // Path along y=2 from x=0 to x=2: corners at x=0,1,2 and midsides at 0.5,1.5
+        var pathIds = model.FeNodes
+            .Where(n => Math.Abs(n.Y - 2) < 1e-9 && n.X <= 2 + 1e-9)
+            .Select(n => n.Id).ToList();
+        Assert.Equal(5, pathIds.Count);
+
+        var cracks = Mesher.CreateCrack(model, pathIds, tipAtStart: false, tipAtEnd: true);
+
+        var crack = Assert.Single(cracks);
+        // 4 non-tip path nodes duplicated (x=0, 0.5, 1, 1.5; the x=2 tip is shared)
+        Assert.Equal(nodesBefore + 4, model.FeNodes.Count);
+        Assert.All(model.FeElements, el => Assert.All(el.NodeIds, id => Assert.Contains(model.FeNodes, n => n.Id == id)));
+
+        // Quarter-point check: the path midside behind the tip moved from x=1.5 to
+        // tip + L/4 = 2 - 0.25 = 1.75 (both faces)
+        var nodeById = model.FeNodes.ToDictionary(n => n.Id);
+        Assert.Equal(1.75, nodeById[crack.FaceAQuarterNodeId].X, 9);
+        Assert.Equal(1.75, nodeById[crack.FaceBQuarterNodeId].X, 9);
+        Assert.Equal(1.0, Math.Abs(nodeById[crack.FaceACornerNodeId].X - 2.0), 9);
+
+        // Solve under remote tension: the faces must OPEN (positive K1) and the
+        // duplicated face nodes must move apart
+        foreach (var n in model.FeNodes)
+            if (Math.Abs(n.Y) < 1e-9) n.Bc = Fixed(Math.Abs(n.X) < 1e-9, true);
+        LoadQ8EdgeY(model, 4, 1000);
+
+        var r = Solver.Solve(model);
+        var sif = Assert.Single(r.CrackSifs);
+        Assert.True(sif.K1 > 0, $"K1 = {sif.K1} should be positive (opening)");
+        var dA = r.Displacements.Single(d => d.NodeId == crack.FaceAQuarterNodeId);
+        var dB = r.Displacements.Single(d => d.NodeId == crack.FaceBQuarterNodeId);
+        Assert.NotEqual(dA.Dy, dB.Dy, 9); // faces separated
+    }
+
+    [Fact]
+    public void Crack_EdgeCrackedPlate_MatchesHandbookK1()
+    {
+        // SENT: W=10, a=3 (a/W=0.3), remote tension applied as consistent tractions
+        // (total = sigma * W * t). H/W = 1.5 per side (the handbook polynomial assumes
+        // a long strip); tip element L = 0.25 -> L/a = 0.083.
+        // Handbook (Gross & Brown / Tada): K1 = Y * sigma * sqrt(pi*a),
+        // Y = 1.122 - 0.231r + 10.55r^2 - 21.71r^3 + 30.382r^4, r = a/W.
+        //
+        // Accuracy note: displacement correlation on a structured mesh (four
+        // rectangular quarter-point elements around the tip) carries a known
+        // systematic under-prediction. Measured here: -5.7% (mesh-converged;
+        // one-point and r->0-extrapolated DCT variants give -3.7% to -4.5%).
+        // The 8% acceptance reflects the method; a J-integral extractor is the
+        // planned route to 1-2%.
+        const double W = 10, H = 15, a = 3, sigma = 100, t = 0.1, E = 1e7, nu = 0.3;
+        var model = new FeModel();
+        var s = Mesher.AddSurface(model, new[] { (0.0, -H), (W, -H), (W, H), (0.0, H) }, E, nu, t);
+        Mesher.MeshMembrane(model, s, 40, 120, quadratic: true); // dx = dy = 0.25 (square tip elements)
+
+        // Crack along y=0 from the free edge x=0 to the tip at x=a
+        var pathIds = model.FeNodes
+            .Where(n => Math.Abs(n.Y) < 1e-9 && n.X <= a + 1e-9)
+            .Select(n => n.Id).ToList();
+        var cracks = Mesher.CreateCrack(model, pathIds, tipAtStart: false, tipAtEnd: true);
+        Assert.Single(cracks);
+
+        // Remote tension on top and bottom edges; minimal rigid-body restraint at
+        // far-field nodes that are NOT on the loaded edges (so no load is overwritten)
+        LoadQ8EdgeY(model, H, sigma * W * t);
+        LoadQ8EdgeY(model, -H, -sigma * W * t);
+        model.FeNodes.First(n => Math.Abs(n.X - W) < 1e-9 && Math.Abs(n.Y) < 1e-9).Bc = Fixed(true, true);
+        model.FeNodes.First(n => Math.Abs(n.X - W) < 1e-9 && Math.Abs(n.Y - H / 2) < 1e-9).Bc = Fixed(true, false);
+
+        var r = Solver.Solve(model);
+
+        double ratio = a / W;
+        double y = 1.122 - 0.231 * ratio + 10.55 * ratio * ratio
+                   - 21.71 * Math.Pow(ratio, 3) + 30.382 * Math.Pow(ratio, 4);
+        double kTarget = y * sigma * Math.Sqrt(Math.PI * a);
+
+        var sif = Assert.Single(r.CrackSifs);
+        Assert.True(Math.Abs(sif.K1 - kTarget) / kTarget < 0.08,
+            $"K1 = {sif.K1:G5} vs handbook {kTarget:G5} ({(sif.K1 / kTarget - 1) * 100:F1}% off)");
+        Assert.True(Math.Abs(sif.K2) < 0.05 * kTarget, $"K2 = {sif.K2:G5} should be ~0 for pure mode I");
+    }
+
+    [Fact]
+    public void Crack_CentreCrackedPlate_MatchesHandbookK1_BothTips()
+    {
+        // CCT: plate width 2W = 20, half-crack a = 4 (a/W = 0.4), height 2H = 40,
+        // remote tension. Handbook (Feddersen): K1 = sigma * sqrt(pi*a * sec(pi*a/(2W))).
+        // Measured accuracy: -4.3% (see the SENT note - same systematic DCT bias).
+        const double W2 = 20, H = 20, aHalf = 4, sigma = 100, t = 0.1;
+        var model = new FeModel();
+        var s = Mesher.AddSurface(model, new[] { (0.0, -H), (W2, -H), (W2, H), (0.0, H) }, 1e7, 0.3, t);
+        Mesher.MeshMembrane(model, s, 40, 80, quadratic: true); // dx = dy = 0.5
+
+        // Internal crack along y=0 from x=6 to x=14 (centred), tips at BOTH ends
+        var pathIds = model.FeNodes
+            .Where(n => Math.Abs(n.Y) < 1e-9 && n.X >= 6 - 1e-9 && n.X <= 14 + 1e-9)
+            .Select(n => n.Id).ToList();
+        var cracks = Mesher.CreateCrack(model, pathIds, tipAtStart: true, tipAtEnd: true);
+        Assert.Equal(2, cracks.Count);
+
+        LoadQ8EdgeY(model, H, sigma * W2 * t);
+        LoadQ8EdgeY(model, -H, -sigma * W2 * t);
+        model.FeNodes.First(n => Math.Abs(n.X) < 1e-9 && Math.Abs(n.Y) < 1e-9).Bc = Fixed(true, true);
+        model.FeNodes.First(n => Math.Abs(n.X - W2) < 1e-9 && Math.Abs(n.Y) < 1e-9).Bc = Fixed(false, true);
+
+        var r = Solver.Solve(model);
+
+        double kTarget = sigma * Math.Sqrt(Math.PI * aHalf / Math.Cos(Math.PI * aHalf / W2));
+
+        Assert.Equal(2, r.CrackSifs.Count);
+        foreach (var sif in r.CrackSifs)
+        {
+            Assert.True(Math.Abs(sif.K1 - kTarget) / kTarget < 0.08,
+                $"K1 = {sif.K1:G5} vs handbook {kTarget:G5} ({(sif.K1 / kTarget - 1) * 100:F1}% off)");
+            Assert.True(Math.Abs(sif.K2) < 0.05 * kTarget, $"K2 = {sif.K2:G5} should be ~0");
+        }
+        // Symmetric problem: both tips equal
+        Assert.Equal(r.CrackSifs[0].K1, r.CrackSifs[1].K1, 1);
     }
 
     [Fact]

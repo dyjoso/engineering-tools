@@ -77,6 +77,8 @@
                     <MenuItem Header="RBE_2 from Selected Nodes…" Click="MenuRbe2_Click"/>
                 </MenuItem>
                 <Separator/>
+                <MenuItem Header="Create Crac_k Along Selected Nodes…" Click="MenuCrack_Click"/>
+                <Separator/>
                 <MenuItem Header="_Merge Coincident Nodes…" Click="MenuMergeNodes_Click"/>
                 <Separator/>
                 <MenuItem Header="Delete">

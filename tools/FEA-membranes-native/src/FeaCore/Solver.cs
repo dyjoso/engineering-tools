@@ -1,4 +1,4 @@
-using CSparse;
+﻿using CSparse;
 using CSparse.Double;
 using CSparse.Double.Factorization;
 using CSparse.Storage;
@@ -54,6 +54,16 @@ public sealed class Reaction
     public double Ry { get; init; }
 }
 
+/// <summary>Stress intensity factors extracted at a crack tip (displacement correlation).</summary>
+public sealed class CrackSif
+{
+    public int CrackId { get; init; }
+    public int TipNodeId { get; init; }
+    public double K1 { get; init; }          // opening mode
+    public double K2 { get; init; }          // sliding mode
+    public double FaceElementLength { get; init; } // L of the quarter-point face element
+}
+
 public sealed class SolveResult
 {
     public required IReadOnlyList<NodeResult> Displacements { get; init; }
@@ -62,6 +72,7 @@ public sealed class SolveResult
     public required IReadOnlyList<SpringLoad> SpringLoads { get; init; }
     public required IReadOnlyList<BarLoad> BarLoads { get; init; }
     public required IReadOnlyList<Reaction> Reactions { get; init; }
+    public required IReadOnlyList<CrackSif> CrackSifs { get; init; }
     public int DofCount { get; init; }
     public int NonZeros { get; init; }
     public int ConstrainedDofs { get; init; }
@@ -417,6 +428,57 @@ public static class Solver
             return new BarLoad { Id = b.Id, P = p, Stress = p / b.A, Length = len };
         }).ToList();
 
+        // ---- Stress intensity factors: displacement correlation with quarter-point
+        // elements. With face nodes at r = L/4 (quarter point) and r = L (corner),
+        // the sqrt(r) coefficient of the relative face displacement gives
+        //   K = (E'/8) * sqrt(2*pi/L) * (4*delta(L/4) - delta(L))
+        // where delta is the relative displacement resolved normal (K1) or
+        // tangential (K2) to the crack. E' = E for plane stress. ----
+        var crackSifs = new List<CrackSif>();
+        foreach (var crack in model.Cracks)
+        {
+            if (!nodeById.TryGetValue(crack.TipNodeId, out var tip)) continue;
+            if (!nodeById.TryGetValue(crack.FaceAQuarterNodeId, out var mA) ||
+                !nodeById.TryGetValue(crack.FaceACornerNodeId, out var cA) ||
+                !nodeById.TryGetValue(crack.FaceBQuarterNodeId, out var mB) ||
+                !nodeById.TryGetValue(crack.FaceBCornerNodeId, out var cB)) continue;
+
+            // Material from an element containing the tip
+            var tipEl = model.FeElements.FirstOrDefault(e2 => e2.NodeIds.Contains(crack.TipNodeId));
+            if (tipEl is null) continue;
+            var tipMemb = tipEl.MembraneId.HasValue && membById.TryGetValue(tipEl.MembraneId.Value, out var tm) ? tm : null;
+            double eMod = tipEl.PropE ?? tipMemb?.MaterialE ?? 0.0;
+            if (eMod <= 0) continue;
+            double ePrime = eMod; // plane stress
+
+            double faceL = Math.Sqrt((cA.X - tip.X) * (cA.X - tip.X) + (cA.Y - tip.Y) * (cA.Y - tip.Y));
+            if (faceL <= 0) continue;
+            // Crack-local axes: t along the face away from the tip, n = stored B->A normal
+            double tx = (cA.X - tip.X) / faceL, ty = (cA.Y - tip.Y) / faceL;
+            double nx = crack.NormalX, ny = crack.NormalY;
+
+            (double dxr, double dyr) Rel(FeNode a, FeNode b)
+            {
+                int ia = dofOf[a.Id], ib = dofOf[b.Id];
+                return (u[dofMap[ia]] - u[dofMap[ib]], u[dofMap[ia + 1]] - u[dofMap[ib + 1]]);
+            }
+            var (dq_x, dq_y) = Rel(mA, mB); // relative displacement at r = L/4
+            var (dc_x, dc_y) = Rel(cA, cB); // relative displacement at r = L
+
+            double dv1 = dq_x * nx + dq_y * ny, dv2 = dc_x * nx + dc_y * ny; // opening
+            double du1 = dq_x * tx + dq_y * ty, du2 = dc_x * tx + dc_y * ty; // sliding
+
+            double factor = ePrime / 8.0 * Math.Sqrt(2 * Math.PI / faceL);
+            crackSifs.Add(new CrackSif
+            {
+                CrackId = crack.Id,
+                TipNodeId = crack.TipNodeId,
+                K1 = factor * (4 * dv1 - dv2),
+                K2 = factor * (4 * du1 - du2),
+                FaceElementLength = faceL
+            });
+        }
+
         sw.Stop();
         return new SolveResult
         {
@@ -426,6 +488,7 @@ public static class Solver
             SpringLoads = springLoads,
             BarLoads = barLoads,
             Reactions = reactions,
+            CrackSifs = crackSifs,
             DofCount = nC,
             NonZeros = full.NonZerosCount,
             ConstrainedDofs = nCon,

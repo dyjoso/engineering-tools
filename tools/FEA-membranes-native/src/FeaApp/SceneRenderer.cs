@@ -45,6 +45,7 @@ public sealed class SceneRenderer
     private (SKPoint p, bool sel, int id)[] _geoPoints = [];
     private SKPoint[] _springPoints = [];
     private (SKPoint ind, SKPoint[] deps, string label)[] _rbe2Spiders = [];
+    private (SKPoint p, string label)[] _crackTips = [];
     // Vector plot data: position + force components (world units / force units)
     private (SKPoint p, double fx, double fy)[] _springForceVectors = [];
     private (SKPoint p, double fx, double fy)[] _reactionVectors = [];
@@ -195,6 +196,15 @@ public sealed class SceneRenderer
                     .Select(d => new SKPoint((float)d.X, (float)d.Y)).ToArray();
                 string ties = (r.TieX ? "X" : "") + (r.TieY ? "Y" : "");
                 return (new SKPoint((float)ind.X, (float)ind.Y), deps, $"RBE2-{r.Id} [{ties}]");
+            }).ToArray();
+
+        // Crack tip markers
+        _crackTips = _model.Cracks
+            .Where(c => nodeById.ContainsKey(c.TipNodeId))
+            .Select(c =>
+            {
+                var t = nodeById[c.TipNodeId];
+                return (new SKPoint((float)t.X, (float)t.Y), $"Crack {c.Id}");
             }).ToArray();
 
         // Vector plot data (world position + force components)
@@ -435,6 +445,20 @@ public sealed class SceneRenderer
                 IsStroke = true, IsAntialias = true
             };
             canvas.DrawLine(a, b, barPaint);
+        }
+
+        // Crack tips: red double circle (FEMAP-style focal point marker)
+        if (_crackTips.Length > 0)
+        {
+            using var tipPaint = new SKPaint { Color = new SKColor(0xFF, 0x45, 0x45), StrokeWidth = 1.6f * px, IsStroke = true, IsAntialias = true };
+            using var tipFont = new SKFont(SKTypeface.Default, 9 * px);
+            using var tipText = new SKPaint { Color = new SKColor(0xFF, 0x45, 0x45), IsAntialias = true };
+            foreach (var (p, label) in _crackTips)
+            {
+                canvas.DrawCircle(p, 4f * px, tipPaint);
+                canvas.DrawCircle(p, 7f * px, tipPaint);
+                if (ShowLabels) canvas.DrawText(label, p.X + 9 * px, p.Y - 9 * px, tipFont, tipText);
+            }
         }
 
         if (ShowLabels) DrawLabels(canvas, px);
