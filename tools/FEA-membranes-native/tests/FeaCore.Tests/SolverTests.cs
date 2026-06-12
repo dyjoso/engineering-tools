@@ -498,6 +498,53 @@ public class SolverTests
         Assert.DoesNotContain(9001, rbe2.DependentNodeIds);
     }
 
+    private static double MacNealCantileverTip(int m, int n)
+    {
+        var model = new FeModel();
+        var s = Mesher.AddSurface(model, new[] { (0.0, 0.0), (6.0, 0.0), (6.0, 0.2), (0.0, 0.2) }, 1e7, 0.3, 0.1);
+        Mesher.MeshMembrane(model, s, m, n, quadratic: true);
+        foreach (var nd in model.FeNodes)
+            if (Math.Abs(nd.X) < 1e-9) nd.Bc = Fixed(true, true); // clamped root
+        // Unit tip load as consistent quadratic-edge loads on the end face
+        var endN = model.FeNodes.Where(nd => Math.Abs(nd.X - 6) < 1e-9).OrderBy(nd => nd.Y).ToList();
+        int ne = (endN.Count - 1) / 2;
+        var f = new Dictionary<int, double>();
+        for (int k = 0; k < ne; k++)
+        {
+            f[endN[2 * k].Id] = f.GetValueOrDefault(endN[2 * k].Id) + 1.0 / (6 * ne);
+            f[endN[2 * k + 1].Id] = f.GetValueOrDefault(endN[2 * k + 1].Id) + 4.0 / (6 * ne);
+            f[endN[2 * k + 2].Id] = f.GetValueOrDefault(endN[2 * k + 2].Id) + 1.0 / (6 * ne);
+        }
+        foreach (var (id, fy) in f) model.FeNodes.First(nd => nd.Id == id).Bc = Load(0, fy);
+        var r = Solver.Solve(model);
+        return endN.Select(nd => r.Displacements.Single(d => d.NodeId == nd.Id).Dy).Average();
+    }
+
+    [Fact]
+    public void Quad8_MacNealCantilever_TipDeflectionAndConvergence()
+    {
+        // MacNeal & Harder (1985) straight cantilever: 6.0 x 0.2 x 0.1, E = 1e7,
+        // nu = 0.3, unit in-plane shear load at the tip, rectangular elements.
+        // Reference tip deflection (incl. shear) = 0.1081.
+        //
+        // Measured with 2x2 REDUCED integration (standard for Q8 membranes -
+        // Nastran QUAD8 / Abaqus CPS8R):
+        //   6x1: 0.9868   12x1: 0.9933   24x2: 0.9984   48x4: 0.9992   96x8: 0.9993
+        // i.e. -1.3% on the coarse benchmark mesh (full 3x3 integration measured
+        // -1.8%), converging to -0.07%, the residual being the physical
+        // fully-clamped-root effect relative to beam theory. In line with
+        // published QUAD8 results for this benchmark.
+        const double reference = 0.1081;
+
+        double coarse = MacNealCantileverTip(6, 1);
+        Assert.True(Math.Abs(coarse - reference) / reference < 0.02,
+            $"6x1 tip {coarse:G6} vs {reference} ({(coarse / reference - 1) * 100:F2}% off)");
+
+        double fine = MacNealCantileverTip(48, 4);
+        Assert.True(Math.Abs(fine - reference) / reference < 0.002,
+            $"48x4 tip {fine:G6} vs {reference} ({(fine / reference - 1) * 100:F2}% off) - must converge");
+    }
+
     [Fact]
     public void Quad8_PatchTest_UniaxialTensionExact()
     {
@@ -699,10 +746,11 @@ public class SolverTests
         //
         // Accuracy note: displacement correlation on a structured mesh (four
         // rectangular quarter-point elements around the tip) carries a known
-        // systematic under-prediction. Measured here: -5.7% (mesh-converged;
-        // one-point and r->0-extrapolated DCT variants give -3.7% to -4.5%).
-        // The 8% acceptance reflects the method; a J-integral extractor is the
-        // planned route to 1-2%.
+        // systematic bias of ~5%. Measured here with the production 2x2
+        // reduced-integration Q8: +4.8% (over-prediction - CONSERVATIVE for
+        // crack growth). With full 3x3 integration the same setup measured
+        // -5.7% (non-conservative). The 8% acceptance reflects the method;
+        // a J-integral extractor is the planned route to 1-2%.
         const double W = 10, H = 15, a = 3, sigma = 100, t = 0.1, E = 1e7, nu = 0.3;
         var model = new FeModel();
         var s = Mesher.AddSurface(model, new[] { (0.0, -H), (W, -H), (W, H), (0.0, H) }, E, nu, t);
@@ -740,7 +788,8 @@ public class SolverTests
     {
         // CCT: plate width 2W = 20, half-crack a = 4 (a/W = 0.4), height 2H = 40,
         // remote tension. Handbook (Feddersen): K1 = sigma * sqrt(pi*a * sec(pi*a/(2W))).
-        // Measured accuracy: -4.3% (see the SENT note - same systematic DCT bias).
+        // Measured accuracy: +6.3% over (see the SENT note - same systematic DCT
+        // bias, conservative direction with reduced-integration Q8).
         const double W2 = 20, H = 20, aHalf = 4, sigma = 100, t = 0.1;
         var model = new FeModel();
         var s = Mesher.AddSurface(model, new[] { (0.0, -H), (W2, -H), (W2, H), (0.0, H) }, 1e7, 0.3, t);

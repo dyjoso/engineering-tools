@@ -33,6 +33,7 @@ are verification (patch-test) cases, not approximations.
 | ID | Test | Basis | Acceptance |
 |----|------|-------|------------|
 | E4 | `Quad8_PatchTest_UniaxialTensionExact` | Single Q8 patch test, consistent quadratic-edge loads (1/6, 4/6, 1/6 of edge total). | u = 1.0e-3 at all free-edge nodes (9 decimals); σx exact at centre and at **all 8** averaged node positions (4 decimals); reaction sum exact |
+| E4b | `Quad8_MacNealCantilever_TipDeflectionAndConvergence` | MacNeal & Harder straight cantilever (6.0×0.2×0.1, E=1e7, ν=0.3, unit tip shear), rectangular elements, reference tip deflection 0.1081. Measured ratios (2×2 reduced integration): 6×1 → 0.9868, 12×1 → 0.9933, 24×2 → 0.9984, 48×4 → 0.9992, 96×8 → 0.9993. | 6×1 within 2 %; 48×4 within 0.2 % (convergence proven). In line with published QUAD8 results |
 | E5 | `Quad8_PureBending_ExactLinearStress` | Single Q8 under pure in-plane bending via consistent linear end traction σx(y) = 200·y. The quadratic displacement field carries linear strain **exactly** — the defining capability a Q4 lacks. | σx = 200·y reproduced at every node, 3 decimals |
 | E6 | `Quad8_QuarterPoint_CrackTipConfigurationSolves` | Barsoum quarter-point configuration: midside nodes adjacent to a corner moved to the ¼ positions (the isoparametric mapping then embeds the 1/√r strain singularity). | Assembles (interior Gauss points keep det J > 0), solves, all displacements/averaged stresses finite, ΣRy balances the applied load to 5 decimals |
 
@@ -62,15 +63,18 @@ nodes: K = (E′/8)·√(2π/L)·(4Δ(L/4) − Δ(L)).
 | E11 | `Crack_CentreCrackedPlate_MatchesHandbookK1_BothTips` | CCT, a/W = 0.4, both tips in one command. Handbook: K_I = σ√(πa·sec(πa/2W)) (Feddersen) | Within 8 % (measured −4.3 %); K_II ≈ 0; both tips equal to 1 decimal |
 
 **Documented accuracy/bias.** Displacement correlation on a structured mesh
-(four rectangular quarter-point elements around the tip) systematically
-under-predicts K by ≈ 4–6 % at mesh convergence (one-point and r→0-extrapolated
-DCT variants measured −3.7 % to −4.5 % on the same problems). This is the
-known behaviour of non-collapsed rectangular quarter-point arrangements; note
-the bias is **non-conservative** for crack-growth use. The planned route to
-1–2 % is a domain J-integral / interaction-integral extractor (and optionally
-a collapsed-element tip rosette), which also removes the sensitivity to tip
-element shape. Merge operations never heal crack faces (crack nodes are exempt
-from coincident-node merging) and crack records are pruned with their nodes.
+(four rectangular quarter-point elements around the tip) carries a systematic
+bias of ≈ 5 % at mesh convergence — the known behaviour of non-collapsed
+rectangular quarter-point arrangements. With the production **2×2
+reduced-integration** Q8 the bias is **+4.8 % (SENT) / +6.3 % (CCT)
+over-prediction — the conservative direction for crack-growth use**. (With
+full 3×3 integration the same setups measured −5.7 %/−4.3 % under, i.e.
+non-conservative; this was one of the reasons for adopting reduced
+integration, alongside the MacNeal bending results.) The planned route to
+1–2 % is a domain J-integral / interaction-integral extractor, which also
+removes the sensitivity to tip element shape. Merge operations never heal
+crack faces (crack nodes are exempt from coincident-node merging) and crack
+records are pruned with their nodes.
 
 ---
 

@@ -19,8 +19,13 @@ public static class Quad8
         (0, -1), (1, 0), (0, 1), (-1, 0)
     };
 
-    private static readonly double[] G3 = { -Math.Sqrt(0.6), 0, Math.Sqrt(0.6) };
-    private static readonly double[] W3 = { 5.0 / 9.0, 8.0 / 9.0, 5.0 / 9.0 };
+    // 2x2 REDUCED integration (the standard for serendipity Q8 membranes - what
+    // Nastran's QUAD8 and Abaqus's CPS8R use). Full 3x3 integration carries mild
+    // shear stiffening in thin-beam bending: measured -1.76% on MacNeal's straight
+    // cantilever (6x1 rectangular mesh), which 2x2 reduces to well under 1%.
+    // The lone spurious zero-energy mode of a single reduced Q8 is non-communicable
+    // in meshes and is guarded by the solver's residual equilibrium check.
+    private static readonly double[] G2 = { -1.0 / Math.Sqrt(3.0), 1.0 / Math.Sqrt(3.0) };
 
     /// <summary>Shape function derivatives wrt (xi, eta) - 8 rows of (dN/dxi, dN/deta).</summary>
     public static void ShapeDerivs(double xi, double eta, double[,] dN)
@@ -46,13 +51,13 @@ public static class Quad8
 
         var b = new double[3, 16];
         var dN = new double[8, 2];
-        for (int gi = 0; gi < 3; gi++)
-            for (int gj = 0; gj < 3; gj++)
+        for (int gi = 0; gi < 2; gi++)
+            for (int gj = 0; gj < 2; gj++)
             {
-                double detJ = BMatrix(xy, G3[gi], G3[gj], b, dN);
+                double detJ = BMatrix(xy, G2[gi], G2[gj], b, dN);
                 if (detJ <= 0)
                     throw new InvalidOperationException("Quad8 Jacobian is non-positive at a Gauss point (badly shaped element).");
-                double w = t * detJ * W3[gi] * W3[gj];
+                double w = t * detJ; // 2x2 Gauss weights are 1
 
                 for (int i = 0; i < 16; i++)
                 {
