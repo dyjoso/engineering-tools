@@ -909,12 +909,49 @@ public partial class MainWindow : Window
         var d = new FormDialog(this, $"Bars Along {nodes.Count} Node(s)")
             .AddField("E", "Modulus E", 10.5e6)
             .AddField("A", "Area A", 0.05)
-            .AddNote("Nodes are chained along their dominant direction; N nodes give N-1 bars.");
+            .AddCheck("detach", "Detach from membrane (bars get their own coincident nodes)", false)
+            .AddNote("Nodes are chained along their dominant direction; N nodes give N-1 bars. " +
+                     "Detached bars carry no load until you connect them - add springs at the " +
+                     "coincident node pairs (e.g. Create Springs at Spring Points). Tip: select " +
+                     "only the intended fastener locations so every detached bar node gets a spring.");
         if (!d.Run()) return;
         Snapshot();
         var bars = Mesher.CreateBarsAlongNodes(_model, nodes.Select(n => n.Id).ToList(), d.Num("E"), d.Num("A"));
-        ModelChanged();
-        Log($"{bars.Count} bar(s) created.");
+        if (d.Check("detach"))
+        {
+            int dups = Mesher.DetachBars(_model, bars.Select(b => b.Id).ToList());
+            ModelChanged();
+            Log($"{bars.Count} bar(s) created and detached ({dups} coincident node(s) duplicated). " +
+                "Connect them with springs before solving.");
+        }
+        else
+        {
+            ModelChanged();
+            Log($"{bars.Count} bar(s) created.");
+        }
+    }
+
+    private void MenuDetachBars_Click(object sender, RoutedEventArgs e)
+    {
+        if (_renderer.SelectedBars.Count == 0)
+        {
+            Prompt("Select bar(s) first (Select: Bars, click or box).");
+            return;
+        }
+        try
+        {
+            Snapshot();
+            int dups = Mesher.DetachBars(_model, _renderer.SelectedBars.ToList());
+            ClearSelection();
+            ModelChanged();
+            Log($"{dups} coincident node(s) duplicated - the selected bars no longer share nodes " +
+                "with the membrane. Connect them with springs before solving.");
+        }
+        catch (Exception ex)
+        {
+            Log("Detach failed: " + ex.Message);
+            MessageBox.Show(this, ex.Message, "Detach failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
     }
 
     private void MenuSpring_Click(object sender, RoutedEventArgs e)

@@ -811,6 +811,64 @@ public static class Mesher
     }
 
     /// <summary>
+    /// Detach the given bars from everything else: every node they share with
+    /// membrane elements, springs, RBE2s or other bars gets a coincident duplicate
+    /// (membraneId = null, no BCs), and ONLY the given bars re-reference it. Bars in
+    /// the set that share a node keep sharing its single duplicate (the chain stays
+    /// connected). The detached bar then has no stiffness path to the mesh until
+    /// springs (or constraints) connect it - the load-transfer fastener idealisation.
+    /// Returns the number of nodes duplicated.
+    /// </summary>
+    public static int DetachBars(FeModel model, IReadOnlyCollection<int> barIds)
+    {
+        var barSet = barIds.ToHashSet();
+        var bars = model.FeBars.Where(b => barSet.Contains(b.Id)).ToList();
+        if (bars.Count == 0) throw new InvalidOperationException("No bars to detach.");
+        var nodeById = model.FeNodes.ToDictionary(n => n.Id);
+
+        // A node needs duplicating if anything OTHER than the selected bars uses it
+        var usedElsewhere = new HashSet<int>();
+        foreach (var el in model.FeElements) usedElsewhere.UnionWith(el.NodeIds);
+        foreach (var sp in model.FeSprings) { usedElsewhere.Add(sp.FeNodeId1); usedElsewhere.Add(sp.FeNodeId2); }
+        foreach (var b in model.FeBars.Where(b => !barSet.Contains(b.Id)))
+        {
+            usedElsewhere.Add(b.FeNodeId1);
+            usedElsewhere.Add(b.FeNodeId2);
+        }
+        foreach (var r in model.Rbe2s)
+        {
+            usedElsewhere.Add(r.IndependentNodeId);
+            usedElsewhere.UnionWith(r.DependentNodeIds);
+        }
+
+        int nextId = model.FeNodes.Max(n => n.Id) + 1;
+        var dupOf = new Dictionary<int, int>();
+        int Dup(int origId)
+        {
+            if (dupOf.TryGetValue(origId, out var d)) return d;
+            var orig = nodeById[origId];
+            var dup = new FeNode
+            {
+                Id = nextId++,
+                X = orig.X,
+                Y = orig.Y,
+                MembraneId = null,   // free bar node, not part of any surface mesh
+                Bc = null            // BCs stay with the original (membrane) node
+            };
+            model.FeNodes.Add(dup);
+            dupOf[origId] = dup.Id;
+            return dup.Id;
+        }
+
+        foreach (var b in bars)
+        {
+            if (usedElsewhere.Contains(b.FeNodeId1)) b.FeNodeId1 = Dup(b.FeNodeId1);
+            if (usedElsewhere.Contains(b.FeNodeId2)) b.FeNodeId2 = Dup(b.FeNodeId2);
+        }
+        return dupOf.Count;
+    }
+
+    /// <summary>
     /// Create bar elements chaining the given FE nodes, ordered along their dominant axis
     /// (same behaviour as the webtool's Create Bars). Two nodes give a single bar.
     /// </summary>

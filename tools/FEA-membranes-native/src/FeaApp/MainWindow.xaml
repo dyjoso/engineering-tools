@@ -73,6 +73,7 @@
                 </MenuItem>
                 <MenuItem Header="Create Elements">
                     <MenuItem Header="_Bars Along Selected Nodes…" Click="MenuBars_Click"/>
+                    <MenuItem Header="De_tach Selected Bars from Membrane" Click="MenuDetachBars_Click"/>
                     <MenuItem Header="_Spring Between 2 Selected Nodes…" Click="MenuSpring_Click"/>
                     <MenuItem Header="Springs at Spring P_oints…" Click="MenuSpringsAtPoints_Click"/>
                     <MenuItem Header="RBE_2 from Selected Nodes…" Click="MenuRbe2_Click"/>

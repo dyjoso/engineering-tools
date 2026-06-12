@@ -1038,6 +1038,89 @@ public class SolverTests
     }
 
     [Fact]
+    public void DetachBars_DuplicatesSharedNodesAndKeepsChainConnected()
+    {
+        var model = new FeModel();
+        var s = Mesher.AddSurface(model, new[] { (0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0) }, 1e7, 0.3, 0.1);
+        Mesher.MeshMembrane(model, s, 2, 2);
+        int meshNodes = model.FeNodes.Count;
+
+        var topIds = model.FeNodes.Where(n => Math.Abs(n.Y - 10) < 1e-9).OrderBy(n => n.X).Select(n => n.Id).ToList();
+        var bars = Mesher.CreateBarsAlongNodes(model, topIds, 1e7, 0.1); // 2 bars sharing the middle node
+        var topNode = model.FeNodes.First(n => n.Id == topIds[1]);
+        topNode.Bc = Load(50, 0); // BC on a node about to be detached: stays with the membrane node
+
+        int dups = Mesher.DetachBars(model, bars.Select(b => b.Id).ToList());
+
+        Assert.Equal(3, dups);
+        Assert.Equal(meshNodes + 3, model.FeNodes.Count);
+        var nodeById = model.FeNodes.ToDictionary(n => n.Id);
+        // Bars no longer reference any membrane node
+        var membraneNodeIds = model.FeElements.SelectMany(el => el.NodeIds).ToHashSet();
+        foreach (var b in bars)
+        {
+            Assert.DoesNotContain(b.FeNodeId1, membraneNodeIds);
+            Assert.DoesNotContain(b.FeNodeId2, membraneNodeIds);
+        }
+        // The chain still shares its middle node (one duplicate, used by both bars)
+        Assert.Equal(bars[0].FeNodeId2, bars[1].FeNodeId1);
+        // Duplicates are coincident, free of surfaces and BCs; original keeps its load
+        foreach (var b in bars)
+            foreach (var id in new[] { b.FeNodeId1, b.FeNodeId2 })
+            {
+                var dup = nodeById[id];
+                Assert.Null(dup.MembraneId);
+                Assert.Null(dup.Bc);
+                Assert.Contains(model.FeNodes, n => n.Id != id && Math.Abs(n.X - dup.X) < 1e-12 && Math.Abs(n.Y - dup.Y) < 1e-12);
+            }
+        Assert.NotNull(topNode.Bc); // membrane node kept the load
+
+        // Unconnected detached bars are a mechanism: the orphan diagnostic names them
+        foreach (var n in model.FeNodes)
+            if (n.MembraneId is not null && n.X < 1e-9) n.Bc = Fixed(true, true);
+        var ex = Assert.Throws<InvalidOperationException>(() => Solver.Solve(model));
+        Assert.Contains("no stiffness", ex.Message);
+    }
+
+    [Fact]
+    public void DetachedBar_FastenedBySprings_TransfersLoadIntoSkin()
+    {
+        // The full stringer idealisation: skin plate clamped at the left, a detached
+        // bar along the top edge fastened to the skin by a spring at EVERY bar node,
+        // axial load applied to the bar's free-end node. All load must flow
+        // bar -> springs -> skin -> support, and the bar must carry force.
+        var model = new FeModel();
+        var s = Mesher.AddSurface(model, new[] { (0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0) }, 1e7, 0.3, 0.1);
+        Mesher.MeshMembrane(model, s, 4, 4);
+
+        var topIds = model.FeNodes.Where(n => Math.Abs(n.Y - 10) < 1e-9).OrderBy(n => n.X).Select(n => n.Id).ToList();
+        var bars = Mesher.CreateBarsAlongNodes(model, topIds, 1e7, 0.1);
+        Mesher.DetachBars(model, bars.Select(b => b.Id).ToList());
+
+        // Fasteners: a spring at every coincident pair along the top edge
+        Mesher.AddSpringPointGrid(model, 0, 10, 10, 0, topIds.Count, 1);
+        var created = Mesher.CreateSpringsAtSpringPoints(model, 1e-6, 1e6);
+        Assert.Equal(topIds.Count, created.Created);
+
+        foreach (var n in model.FeNodes)
+            if (n.MembraneId is not null && n.X < 1e-9) n.Bc = Fixed(true, true); // clamp skin
+        // Load the bar's free right-end node (a detached node at (10, 10))
+        var barEnd = model.FeNodes.Single(n => n.MembraneId is null &&
+            Math.Abs(n.X - 10) < 1e-9 && Math.Abs(n.Y - 10) < 1e-9);
+        barEnd.Bc = Load(1000, 0);
+
+        var r = Solver.Solve(model);
+
+        Assert.Equal(-1000, r.Reactions.Sum(x => x.Rx), 4);            // full transfer to the skin
+        Assert.True(Math.Abs(r.SpringLoads.Sum(sl => sl.Fx)) > 0);     // springs carry shear
+        double sumSpringFx = r.SpringLoads.Sum(sl => Math.Abs(sl.Fx));
+        Assert.True(sumSpringFx >= 999, $"springs transfer the load (sum |Fx| = {sumSpringFx:G5})");
+        // The bar next to the loaded end carries most of the applied force
+        var endBar = r.BarLoads.OrderByDescending(b => Math.Abs(b.P)).First();
+        Assert.True(Math.Abs(endBar.P) > 500, $"end bar P = {endBar.P:G5}");
+    }
+
+    [Fact]
     public void Mesher_SpringPointGrid_CountsAndSpacing()
     {
         var model = new FeModel();
