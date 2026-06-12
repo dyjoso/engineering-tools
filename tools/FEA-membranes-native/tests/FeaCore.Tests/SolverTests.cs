@@ -520,6 +520,81 @@ public class SolverTests
         return endN.Select(nd => r.Displacements.Single(d => d.NodeId == nd.Id).Dy).Average();
     }
 
+    /// <summary>
+    /// MacNeal cantilever built from 6 trapezoidal SURFACES (one Q8 element each,
+    /// adjacent surfaces sharing corner points), stitched with a coincident-node
+    /// merge. Interior boundaries slant alternately by the given edge angle from
+    /// vertical; the outer ends stay vertical.
+    /// </summary>
+    private static double MacNealTrapezoidTip(double edgeAngleDeg)
+    {
+        const double h = 0.2;
+        double delta = (h / 2) * Math.Tan(edgeAngleDeg * Math.PI / 180);
+        var bot = new double[7];
+        var top = new double[7];
+        for (int i = 0; i <= 6; i++)
+        {
+            double s = (i == 0 || i == 6) ? 0 : (i % 2 == 1 ? 1 : -1);
+            bot[i] = i - s * delta;
+            top[i] = i + s * delta;
+        }
+
+        var model = new FeModel();
+        int prevBotId = -1, prevTopId = -1;
+        for (int k = 0; k < 6; k++)
+        {
+            var corners = new (double X, double Y, int? ExistingPointId)[]
+            {
+                (bot[k], 0, k > 0 ? prevBotId : null),
+                (bot[k + 1], 0, null),
+                (top[k + 1], h, null),
+                (top[k], h, k > 0 ? prevTopId : null)
+            };
+            var s = Mesher.AddSurface(model, corners, 1e7, 0.3, 0.1);
+            prevBotId = s.NodeIds[1]; // this surface's right-boundary points become
+            prevTopId = s.NodeIds[2]; // the next surface's left boundary
+            Mesher.MeshMembrane(model, s, 1, 1, quadratic: true);
+        }
+
+        // Stitch the seams (corner + midside FE nodes coincide exactly)
+        var (merged, _, _) = Mesher.MergeCoincidentNodes(model, 1e-9);
+        Assert.Equal(15, merged); // 3 nodes per interior boundary x 5
+
+        foreach (var nd in model.FeNodes)
+            if (Math.Abs(nd.X) < 1e-9) nd.Bc = Fixed(true, true); // vertical clamped root
+        var endN = model.FeNodes.Where(nd => Math.Abs(nd.X - 6) < 1e-9).OrderBy(nd => nd.Y).ToList();
+        Assert.Equal(3, endN.Count);
+        endN[0].Bc = Load(0, 1.0 / 6);
+        endN[1].Bc = Load(0, 4.0 / 6);
+        endN[2].Bc = Load(0, 1.0 / 6);
+
+        var r = Solver.Solve(model);
+        return endN.Select(nd => r.Displacements.Single(d => d.NodeId == nd.Id).Dy).Average();
+    }
+
+    [Fact]
+    public void Quad8_MacNealCantilever_TrapezoidalElements()
+    {
+        // MacNeal's trapezoidal-element variant, built the way a user would:
+        // 6 trapezoidal surfaces sharing corner points, one Q8 per surface,
+        // stitched with Merge Coincident Nodes. Interior boundaries slant
+        // alternately by the edge angle; reference tip deflection 0.1081.
+        //
+        // Measured (2x2 reduced integration):
+        //   rectangular (0 deg): 0.9868   30 deg: 0.9816   45 deg: 0.9666
+        // Mild, graceful trapezoidal sensitivity - well clear of the severe
+        // trapezoidal locking that afflicts lower-order elements on this test.
+        const double reference = 0.1081;
+
+        double t30 = MacNealTrapezoidTip(30);
+        Assert.True(Math.Abs(t30 - reference) / reference < 0.03,
+            $"30deg tip {t30:G6} vs {reference} ({(t30 / reference - 1) * 100:F2}% off)");
+
+        double t45 = MacNealTrapezoidTip(45);
+        Assert.True(Math.Abs(t45 - reference) / reference < 0.05,
+            $"45deg tip {t45:G6} vs {reference} ({(t45 / reference - 1) * 100:F2}% off)");
+    }
+
     [Fact]
     public void Quad8_MacNealCantilever_TipDeflectionAndConvergence()
     {
