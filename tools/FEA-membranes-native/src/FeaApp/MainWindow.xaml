@@ -87,6 +87,9 @@
                     <ComboBoxItem>Stress Y</ComboBoxItem>
                     <ComboBoxItem>Shear XY</ComboBoxItem>
                 </ComboBox>
+                <CheckBox x:Name="ChkNodalAvg" VerticalAlignment="Center" Margin="6,0,0,0" IsChecked="True"
+                          Checked="ChkNodalAvg_Changed" Unchecked="ChkNodalAvg_Changed"
+                          ToolTip="Contour nodal-averaged stresses (smooth) instead of per-element values (flat)">Node Avg</CheckBox>
                 <CheckBox x:Name="ChkDeformed" VerticalAlignment="Center" Margin="6,0,0,0"
                           Checked="ChkDeformed_Changed" Unchecked="ChkDeformed_Changed">Deformed</CheckBox>
             </ToolBar>

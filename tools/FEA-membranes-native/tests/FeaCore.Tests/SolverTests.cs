@@ -309,6 +309,66 @@ public class SolverTests
     }
 
     [Fact]
+    public void NodalStresses_UniformField_EqualElementStress()
+    {
+        // Uniform uniaxial stress: every node's averaged stress must equal the
+        // element stress exactly (corner values = centre value = 1000 psi).
+        var model = new FeModel();
+        var s = Mesher.AddSurface(model, new[] { (0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0) }, 1e7, 0.0, 0.1);
+        Mesher.MeshMembrane(model, s, 2, 2);
+        foreach (var n in model.FeNodes)
+        {
+            if (n.X < 1e-9) n.Bc = Fixed(true, n.Y < 1e-9);
+            // Consistent nodal loads for uniform traction: edge corners take half
+            else if (n.X > 10 - 1e-9)
+                n.Bc = Load(n.Y < 1e-9 || n.Y > 10 - 1e-9 ? 250 : 500, 0);
+        }
+
+        var r = Solver.Solve(model);
+
+        Assert.Equal(model.FeNodes.Count, r.NodalStresses.Count);
+        foreach (var ns in r.NodalStresses)
+        {
+            Assert.Equal(1000, ns.Sxx, 4);
+            Assert.Equal(0, ns.Syy, 4);
+            Assert.Equal(1000, ns.SigmaVM, 4);
+        }
+        // Interior node of a 2x2 mesh touches 4 elements, corners touch 1
+        Assert.Contains(r.NodalStresses, ns => ns.ElementCount == 4);
+        Assert.Contains(r.NodalStresses, ns => ns.ElementCount == 1);
+    }
+
+    [Fact]
+    public void NodalStresses_StepChange_AveragesAtSharedNodes()
+    {
+        // Two elements in series with different thickness: sx = P/(t*w) differs per
+        // element; at the shared nodes the average of the two corner values is reported.
+        var model = new FeModel();
+        var s = Mesher.AddSurface(model, new[] { (0.0, 0.0), (20.0, 0.0), (20.0, 10.0), (0.0, 10.0) }, 1e7, 0.0, 0.1);
+        Mesher.MeshMembrane(model, s, 2, 1); // 2 elements side by side
+        var left = model.FeElements.First(e => model.FeNodes.First(n => n.Id == e.NodeIds[0]).X < 5);
+        var right = model.FeElements.First(e => e.Id != left.Id);
+        left.PropT = 0.2;   // sx = 1000/(0.2*10) = 500
+        right.PropT = 0.1;  // sx = 1000/(0.1*10) = 1000
+
+        foreach (var n in model.FeNodes)
+        {
+            if (n.X < 1e-9) n.Bc = Fixed(true, n.Y < 1e-9);
+            else if (n.X > 20 - 1e-9) n.Bc = Load(500, 0);
+        }
+
+        var r = Solver.Solve(model);
+
+        var nodeById = model.FeNodes.ToDictionary(n => n.Id);
+        foreach (var ns in r.NodalStresses)
+        {
+            var n = nodeById[ns.NodeId];
+            double expected = n.X < 5 ? 500 : n.X > 15 ? 1000 : (500 + 1000) / 2.0; // shared mid-nodes average
+            Assert.Equal(expected, ns.Sxx, 3);
+        }
+    }
+
+    [Fact]
     public void Mesher_AddSurface_SharedPoints()
     {
         var model = new FeModel();

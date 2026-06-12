@@ -182,21 +182,36 @@ public partial class MainWindow : Window
         if (_renderer.SelectedNodes.Count > 0)
         {
             var dispById = _result?.Displacements.ToDictionary(d => d.NodeId);
+            var nodalById = _result?.NodalStresses.ToDictionary(s => s.NodeId);
             var selected = _model.FeNodes
                 .Where(n => _renderer.SelectedNodes.Contains(n.Id))
                 .OrderBy(n => n.Id).ToList();
             sb.AppendLine($"Nodes ({selected.Count}):");
             sb.AppendLine(dispById is not null
-                ? $"{"ID",6} {"X",10} {"Y",10} {"DX",12} {"DY",12}"
+                ? $"{"ID",6} {"DX",12} {"DY",12} {"SX avg",12} {"SY avg",12} {"SXY avg",12} {"VM avg",12}"
                 : $"{"ID",6} {"X",10} {"Y",10}  BC");
             foreach (var n in selected.Take(maxRows))
             {
                 if (dispById is not null && dispById.TryGetValue(n.Id, out var dsp))
-                    sb.AppendLine($"{n.Id,6} {n.X,10:G5} {n.Y,10:G5} {dsp.Dx,12:E3} {dsp.Dy,12:E3}");
+                {
+                    var ns = nodalById?.GetValueOrDefault(n.Id);
+                    sb.AppendLine(ns is not null
+                        ? $"{n.Id,6} {dsp.Dx,12:E3} {dsp.Dy,12:E3} {ns.Sxx,12:G5} {ns.Syy,12:G5} {ns.Sxy,12:G5} {ns.SigmaVM,12:G5}"
+                        : $"{n.Id,6} {dsp.Dx,12:E3} {dsp.Dy,12:E3} {"-",12} {"-",12} {"-",12} {"-",12}");
+                }
                 else
                     sb.AppendLine($"{n.Id,6} {n.X,10:G5} {n.Y,10:G5}  {n.Bc?.Type ?? "-"}");
             }
             if (selected.Count > maxRows) sb.AppendLine($"  … {selected.Count - maxRows} more not shown");
+            if (nodalById is not null)
+            {
+                var withStress = selected.Where(n => nodalById.ContainsKey(n.Id)).Select(n => nodalById[n.Id]).ToList();
+                if (withStress.Count > 0)
+                {
+                    sb.AppendLine();
+                    sb.AppendLine($"VM avg  min {withStress.Min(s => s.SigmaVM):G5}  max {withStress.Max(s => s.SigmaVM):G5}");
+                }
+            }
             sb.AppendLine();
         }
 
@@ -738,6 +753,13 @@ public partial class MainWindow : Window
     {
         _renderer.ShowDeformed = ChkDeformed.IsChecked == true;
         Canvas.InvalidateVisual();
+    }
+
+    private void ChkNodalAvg_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_renderer is null) return;
+        _renderer.NodalAveraged = ChkNodalAvg.IsChecked == true;
+        Canvas?.InvalidateVisual();
     }
 
     // ====================== keyboard ======================

@@ -21,6 +21,17 @@ public sealed class ElementStress
     public double SigmaVM { get; init; }
 }
 
+/// <summary>Stress components averaged at a node from all attached elements' corner values.</summary>
+public sealed class NodalStress
+{
+    public int NodeId { get; init; }
+    public double Sxx { get; init; }
+    public double Syy { get; init; }
+    public double Sxy { get; init; }
+    public double SigmaVM { get; init; }   // from the AVERAGED components
+    public int ElementCount { get; init; } // how many elements contributed
+}
+
 public sealed class SpringLoad
 {
     public int Id { get; init; }
@@ -47,6 +58,7 @@ public sealed class SolveResult
 {
     public required IReadOnlyList<NodeResult> Displacements { get; init; }
     public required IReadOnlyList<ElementStress> ElementStresses { get; init; }
+    public required IReadOnlyList<NodalStress> NodalStresses { get; init; }
     public required IReadOnlyList<SpringLoad> SpringLoads { get; init; }
     public required IReadOnlyList<BarLoad> BarLoads { get; init; }
     public required IReadOnlyList<Reaction> Reactions { get; init; }
@@ -273,6 +285,8 @@ public static class Solver
         }).ToList();
 
         var stresses = new List<ElementStress>(model.FeElements.Count);
+        // Nodal averaging accumulators: sum of each element's corner stress at the node
+        var nodalSum = new Dictionary<int, (double sx, double sy, double sxy, int n)>();
         foreach (var el in model.FeElements)
         {
             if (el.Type != "quad" || el.NodeIds.Count != 4) continue;
@@ -292,7 +306,30 @@ public static class Solver
             var (sx, sy, sxy) = Quad4.StressAtCenter(xy, ue, e, nu);
             double vm = Math.Sqrt(sx * sx + sy * sy - sx * sy + 3 * sxy * sxy);
             stresses.Add(new ElementStress { ElementId = el.Id, Sxx = sx, Syy = sy, Sxy = sxy, SigmaVM = vm });
+
+            // Corner stresses for nodal averaging
+            var corners = Quad4.StressAtCorners(xy, ue, e, nu);
+            for (int a = 0; a < 4; a++)
+            {
+                int nid = el.NodeIds[a];
+                var acc = nodalSum.GetValueOrDefault(nid);
+                nodalSum[nid] = (acc.sx + corners[a].sx, acc.sy + corners[a].sy, acc.sxy + corners[a].sxy, acc.n + 1);
+            }
         }
+
+        // Average components per node, then form von Mises from the averaged components
+        var nodalStresses = nodalSum.Select(kv =>
+        {
+            var (sx, sy, sxy, count) = kv.Value;
+            sx /= count; sy /= count; sxy /= count;
+            return new NodalStress
+            {
+                NodeId = kv.Key,
+                Sxx = sx, Syy = sy, Sxy = sxy,
+                SigmaVM = Math.Sqrt(sx * sx + sy * sy - sx * sy + 3 * sxy * sxy),
+                ElementCount = count
+            };
+        }).ToList();
 
         var springLoads = model.FeSprings.Select(s =>
         {
@@ -323,6 +360,7 @@ public static class Solver
         {
             Displacements = disps,
             ElementStresses = stresses,
+            NodalStresses = nodalStresses,
             SpringLoads = springLoads,
             BarLoads = barLoads,
             Reactions = reactions,
@@ -369,8 +407,27 @@ public static class Quad4
     }
 
     public static (double sx, double sy, double sxy) StressAtCenter(double[,] xy, double[] ue, double e, double nu)
+        => StressAt(xy, ue, e, nu, 0, 0);
+
+    /// <summary>
+    /// Stress at each element corner (natural coordinates +-1), in node order.
+    /// Used for nodal averaging: corner values from all attached elements are
+    /// averaged per node.
+    /// </summary>
+    public static (double sx, double sy, double sxy)[] StressAtCorners(double[,] xy, double[] ue, double e, double nu)
     {
-        var (b, _) = BMatrix(xy, 0, 0);
+        var result = new (double, double, double)[4];
+        // Natural corner coordinates matching node order: (-1,-1) (1,-1) (1,1) (-1,1)
+        result[0] = StressAt(xy, ue, e, nu, -1, -1);
+        result[1] = StressAt(xy, ue, e, nu, 1, -1);
+        result[2] = StressAt(xy, ue, e, nu, 1, 1);
+        result[3] = StressAt(xy, ue, e, nu, -1, 1);
+        return result;
+    }
+
+    private static (double sx, double sy, double sxy) StressAt(double[,] xy, double[] ue, double e, double nu, double xi, double eta)
+    {
+        var (b, _) = BMatrix(xy, xi, eta);
         double ex = 0, ey = 0, gxy = 0;
         for (int i = 0; i < 8; i++)
         {

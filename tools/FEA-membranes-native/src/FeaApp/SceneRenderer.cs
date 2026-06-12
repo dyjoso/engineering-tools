@@ -36,11 +36,16 @@ public sealed class SceneRenderer
     private (SKPoint a, SKPoint b, bool sel, string label)[] _springs = [];
     private (SKPoint a, SKPoint b, bool sel, string label)[] _bars = [];
     private (SKPoint[] pts, double vm, double sx, double sy, double sxy)[] _stressPolys = [];
+    // Smooth (nodal-averaged) contour: 2 triangles per quad with per-vertex values
+    private SKPoint[] _smoothPos = [];
+    private (double vm, double sx, double sy, double sxy)[] _smoothVals = [];
     private (SKPoint[] outline, bool sel, int id)[] _surfaces = [];
     private (SKPoint p, bool sel, int id)[] _geoPoints = [];
     private Dictionary<int, (double dx, double dy)> _disp = new();
 
     public StressView StressView { get; set; } = StressView.None;
+    /// <summary>Contour from nodal-averaged stresses (smooth) instead of per-element values (flat).</summary>
+    public bool NodalAveraged { get; set; } = true;
     public bool ShowDeformed { get; set; }
     public bool ShowGrid { get; set; }
     public bool ShowLabels { get; set; } = true;
@@ -178,8 +183,37 @@ public sealed class SceneRenderer
                 polys.Add((pts, st.SigmaVM, st.Sxx, st.Syy, st.Sxy));
             }
             _stressPolys = polys.ToArray();
+
+            // Smooth contour data: triangulate each quad (0-1-2, 0-2-3) with
+            // nodal-averaged values at each vertex
+            var nodal = _result.NodalStresses.ToDictionary(s => s.NodeId);
+            var pos = new List<SKPoint>();
+            var vals = new List<(double, double, double, double)>();
+            foreach (var el in _model.FeElements)
+            {
+                if (el.MembraneId is { } mid && hidden.Contains(mid)) continue;
+                if (el.Type != "quad" || el.NodeIds.Count != 4) continue;
+                var p = new SKPoint[4];
+                var v = new (double, double, double, double)[4];
+                bool ok = true;
+                for (int a = 0; a < 4; a++)
+                {
+                    if (!nodeById.TryGetValue(el.NodeIds[a], out var nd) ||
+                        !nodal.TryGetValue(el.NodeIds[a], out var ns)) { ok = false; break; }
+                    p[a] = new SKPoint((float)nd.X, (float)nd.Y);
+                    v[a] = (ns.SigmaVM, ns.Sxx, ns.Syy, ns.Sxy);
+                }
+                if (!ok) continue;
+                foreach (int a in new[] { 0, 1, 2, 0, 2, 3 })
+                {
+                    pos.Add(p[a]);
+                    vals.Add(v[a]);
+                }
+            }
+            _smoothPos = pos.ToArray();
+            _smoothVals = vals.ToArray();
         }
-        else _stressPolys = [];
+        else { _stressPolys = []; _smoothPos = []; _smoothVals = []; }
     }
 
     public void Render(SKCanvas canvas, float scale, SKPoint offset, int width, int height)
@@ -202,7 +236,8 @@ public sealed class SceneRenderer
 
         if (ShowGrid) DrawGrid(canvas, scale, offset, width, height, px);
 
-        if (StressView != StressView.None && _stressPolys.Length > 0) DrawStress(canvas);
+        if (StressView != StressView.None && NodalAveraged && _smoothPos.Length > 0) DrawSmoothStress(canvas);
+        else if (StressView != StressView.None && _stressPolys.Length > 0) DrawStress(canvas);
         else { ContourTitle = ""; ContourRange = null; }
 
         // Mesh
@@ -407,6 +442,47 @@ public sealed class SceneRenderer
         t = MathF.Floor(Math.Clamp(t, 0f, 0.9999f) * bands) / (bands - 1);
         float hue = 240f * (1f - t);
         return SKColor.FromHsl(hue, 100f, 50f);
+    }
+
+    /// <summary>Continuous colormap for the smooth (nodal-averaged) contour.</summary>
+    public static SKColor ColorMapSmooth(float t)
+    {
+        float hue = 240f * (1f - Math.Clamp(t, 0f, 1f));
+        return SKColor.FromHsl(hue, 100f, 50f);
+    }
+
+    /// <summary>Smooth contour: Gouraud-shaded triangles with nodal-averaged values at the vertices.</summary>
+    private void DrawSmoothStress(SKCanvas canvas)
+    {
+        int comp = StressView switch { StressView.Sxx => 1, StressView.Syy => 2, StressView.Sxy => 3, _ => 0 };
+        ContourTitle = StressView switch
+        {
+            StressView.Sxx => "Stress X (avg)",
+            StressView.Syy => "Stress Y (avg)",
+            StressView.Sxy => "Shear XY (avg)",
+            _ => "Von Mises (avg)"
+        };
+        double Val((double vm, double sx, double sy, double sxy) v) =>
+            comp switch { 1 => v.sx, 2 => v.sy, 3 => v.sxy, _ => v.vm };
+
+        double min = double.PositiveInfinity, max = double.NegativeInfinity;
+        foreach (var v in _smoothVals)
+        {
+            double x = Val(v);
+            if (x < min) min = x;
+            if (x > max) max = x;
+        }
+        if (max <= min) max = min + (min == 0 ? 1 : Math.Abs(min) * 1e-4);
+        ContourRange = (min, max);
+
+        var colors = new SKColor[_smoothPos.Length];
+        for (int i = 0; i < _smoothVals.Length; i++)
+            colors[i] = ColorMapSmooth((float)((Val(_smoothVals[i]) - min) / (max - min)));
+
+        using var vertices = SKVertices.CreateCopy(SKVertexMode.Triangles, _smoothPos, colors);
+        using var paint = new SKPaint { IsAntialias = false };
+        // Vertex colors are SRC in drawVertices blending; Src shows them unmodified
+        canvas.DrawVertices(vertices, SKBlendMode.Src, paint);
     }
 
     private void DrawLegend(SKCanvas canvas, int width)
