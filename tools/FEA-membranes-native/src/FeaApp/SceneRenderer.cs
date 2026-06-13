@@ -61,6 +61,9 @@ public sealed class SceneRenderer
     public double? VectorScale { get; set; }
     public bool ShowGrid { get; set; }
     public bool ShowLabels { get; set; } = true;
+    public bool ShowFeNodes { get; set; } = true; // node crosses (off for dense report figures)
+    /// <summary>Optional contour ceiling - clamps the legend range (useful at crack-tip singularities).</summary>
+    public double? ContourCap { get; set; }
     public string ContourTitle { get; private set; } = "";
     public (double min, double max)? ContourRange { get; private set; }
 
@@ -350,7 +353,7 @@ public sealed class SceneRenderer
         }
 
         // Nodes as small crosses (FEMAP style)
-        DrawNodeCrosses(canvas, _nodesPlain, NodeColor, 2.5f * px, px);
+        if (ShowFeNodes) DrawNodeCrosses(canvas, _nodesPlain, NodeColor, 2.5f * px, px);
         DrawNodeCrosses(canvas, _nodesSelected, SelectColor, 4f * px, 1.8f * px);
 
         // Geometry corner points as filled squares (cyan; white when selected)
@@ -682,6 +685,7 @@ public sealed class SceneRenderer
             _ => "Von Mises"
         };
         double min = _stressPolys.Min(value), max = _stressPolys.Max(value);
+        if (ContourCap is { } cap2 && cap2 > min) max = Math.Min(max, cap2);
         if (max <= min) max = min + (min == 0 ? 1 : Math.Abs(min) * 1e-4);
         ContourRange = (min, max);
 
@@ -736,6 +740,7 @@ public sealed class SceneRenderer
             if (x < min) min = x;
             if (x > max) max = x;
         }
+        if (ContourCap is { } cap && cap > min) max = Math.Min(max, cap);
         if (max <= min) max = min + (min == 0 ? 1 : Math.Abs(min) * 1e-4);
         ContourRange = (min, max);
 

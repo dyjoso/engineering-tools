@@ -496,6 +496,133 @@ public partial class MainWindow : Window
 
     private void MenuExit_Click(object sender, RoutedEventArgs e) => Close();
 
+    private void MenuExportPng_Click(object sender, RoutedEventArgs e)
+    {
+        if (_model.FeNodes.Count == 0 && _model.Nodes.Count == 0) { Prompt("Nothing to export."); return; }
+        var dlg = new SaveFileDialog
+        {
+            Filter = "PNG image (*.png)|*.png",
+            FileName = (_filePath is null ? "view" : Path.GetFileNameWithoutExtension(_filePath)) + ".png"
+        };
+        if (dlg.ShowDialog(this) != true) return;
+        try
+        {
+            // Render the current view at 2x the on-screen pixel size for crisp report figures
+            int w = (int)Canvas.CanvasSize.Width * 2, h = (int)Canvas.CanvasSize.Height * 2;
+            using var surface = SKSurface.Create(new SKImageInfo(w, h));
+            _renderer.Render(surface.Canvas, (float)(_scale * 2), new SKPoint(_offset.X * 2, _offset.Y * 2), w, h);
+            using var image = surface.Snapshot();
+            using var data = image.Encode(SKEncodedImageFormat.Png, 95);
+            using var fs = File.Create(dlg.FileName);
+            data.SaveTo(fs);
+            Log($"View exported to {Path.GetFileName(dlg.FileName)} ({w}x{h}).");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "PNG export failed", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void MenuExportCsv_Click(object sender, RoutedEventArgs e)
+    {
+        if (_model.FeNodes.Count == 0) { Prompt("Nothing to export."); return; }
+        var dlg = new SaveFileDialog
+        {
+            Filter = "CSV file (*.csv)|*.csv",
+            FileName = (_filePath is null ? "results" : Path.GetFileNameWithoutExtension(_filePath)) + "-results.csv"
+        };
+        if (dlg.ShowDialog(this) != true) return;
+        try
+        {
+            var sb = new System.Text.StringBuilder();
+            var inv = System.Globalization.CultureInfo.InvariantCulture;
+            string F(double v) => v.ToString("G9", inv);
+
+            var dispById = _result?.Displacements.ToDictionary(d => d.NodeId);
+            var nodalById = _result?.NodalStresses.ToDictionary(s => s.NodeId);
+            var reactById = _result?.Reactions.ToDictionary(r => r.NodeId);
+
+            sb.AppendLine("NODES");
+            sb.AppendLine("Id,X,Y,BC,DX,DY,RX,RY,SXavg,SYavg,SXYavg,VMavg");
+            foreach (var n in _model.FeNodes.OrderBy(n => n.Id))
+            {
+                var d = dispById?.GetValueOrDefault(n.Id);
+                var ns = nodalById?.GetValueOrDefault(n.Id);
+                var re = reactById?.GetValueOrDefault(n.Id);
+                sb.AppendLine($"{n.Id},{F(n.X)},{F(n.Y)},{n.Bc?.Type ?? ""}," +
+                    $"{(d is null ? "" : F(d.Dx))},{(d is null ? "" : F(d.Dy))}," +
+                    $"{(re is null ? "" : F(re.Rx))},{(re is null ? "" : F(re.Ry))}," +
+                    $"{(ns is null ? "" : F(ns.Sxx))},{(ns is null ? "" : F(ns.Syy))}," +
+                    $"{(ns is null ? "" : F(ns.Sxy))},{(ns is null ? "" : F(ns.SigmaVM))}");
+            }
+
+            var stressById = _result?.ElementStresses.ToDictionary(s => s.ElementId);
+            sb.AppendLine();
+            sb.AppendLine("ELEMENTS");
+            sb.AppendLine("Id,Type,Surface,SX,SY,SXY,VM");
+            foreach (var el in _model.FeElements.OrderBy(x => x.Id))
+            {
+                var st = stressById?.GetValueOrDefault(el.Id);
+                sb.AppendLine($"{el.Id},{el.Type},{el.MembraneId}," +
+                    $"{(st is null ? "" : F(st.Sxx))},{(st is null ? "" : F(st.Syy))}," +
+                    $"{(st is null ? "" : F(st.Sxy))},{(st is null ? "" : F(st.SigmaVM))}");
+            }
+
+            if (_model.FeSprings.Count > 0)
+            {
+                var loadById = _result?.SpringLoads.ToDictionary(s => s.Id);
+                sb.AppendLine();
+                sb.AppendLine("SPRINGS");
+                sb.AppendLine("Id,Node1,Node2,k,FX,FY,FR");
+                foreach (var s in _model.FeSprings.OrderBy(x => x.Id))
+                {
+                    var sl = loadById?.GetValueOrDefault(s.Id);
+                    double? fr = sl is null ? null : Math.Sqrt(sl.Fx * sl.Fx + sl.Fy * sl.Fy);
+                    sb.AppendLine($"{s.Id},{s.FeNodeId1},{s.FeNodeId2},{F(s.Stiffness)}," +
+                        $"{(sl is null ? "" : F(sl.Fx))},{(sl is null ? "" : F(sl.Fy))},{(fr is null ? "" : F(fr.Value))}");
+                }
+            }
+
+            if (_model.FeBars.Count > 0)
+            {
+                var barById = _result?.BarLoads.ToDictionary(b => b.Id);
+                sb.AppendLine();
+                sb.AppendLine("BARS");
+                sb.AppendLine("Id,Node1,Node2,E,A,P,Stress,Length");
+                foreach (var b in _model.FeBars.OrderBy(x => x.Id))
+                {
+                    var bl = barById?.GetValueOrDefault(b.Id);
+                    sb.AppendLine($"{b.Id},{b.FeNodeId1},{b.FeNodeId2},{F(b.E)},{F(b.A)}," +
+                        $"{(bl is null ? "" : F(bl.P))},{(bl is null ? "" : F(bl.Stress))},{(bl is null ? "" : F(bl.Length))}");
+                }
+            }
+
+            if (_model.Cracks.Count > 0)
+            {
+                var sifById = _result?.CrackSifs.ToDictionary(s => s.CrackId);
+                sb.AppendLine();
+                sb.AppendLine("CRACKS");
+                sb.AppendLine("Id,TipNode,K1,K2,K1_DCT,K2_DCT,FaceL,DomainElements");
+                foreach (var c2 in _model.Cracks.OrderBy(x => x.Id))
+                {
+                    var sif = sifById?.GetValueOrDefault(c2.Id);
+                    sb.AppendLine($"{c2.Id},{c2.TipNodeId}," +
+                        $"{(sif is null ? "" : F(sif.K1))},{(sif is null ? "" : F(sif.K2))}," +
+                        $"{(sif is null ? "" : F(sif.K1Dct))},{(sif is null ? "" : F(sif.K2Dct))}," +
+                        $"{(sif is null ? "" : F(sif.FaceElementLength))},{sif?.DomainElements}");
+                }
+            }
+
+            File.WriteAllText(dlg.FileName, sb.ToString());
+            Log($"Results exported to {Path.GetFileName(dlg.FileName)}" +
+                (_result is null ? " (model only - no results; solve first for result columns)." : "."));
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "CSV export failed", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
     // ====================== edit menu ======================
 
     private void MenuUndo_Click(object sender, RoutedEventArgs e) => Undo();

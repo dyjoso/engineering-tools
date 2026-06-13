@@ -32,6 +32,9 @@
                 <MenuItem Header="_Save" Click="MenuSave_Click" InputGestureText="Ctrl+S"/>
                 <MenuItem Header="Save _As…" Click="MenuSaveAs_Click"/>
                 <Separator/>
+                <MenuItem Header="Export View as _PNG…" Click="MenuExportPng_Click"/>
+                <MenuItem Header="Export _Results as CSV…" Click="MenuExportCsv_Click"/>
+                <Separator/>
                 <MenuItem Header="E_xit" Click="MenuExit_Click"/>
             </MenuItem>
             <MenuItem Header="_Edit">

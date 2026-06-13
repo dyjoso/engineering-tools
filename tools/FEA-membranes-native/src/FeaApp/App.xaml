@@ -1,7 +1,7 @@
 <Application x:Class="FeaApp.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             StartupUri="MainWindow.xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- Window creation happens in App.OnStartup (supports headless ‑‑render mode) -->
     <Application.Resources>
     </Application.Resources>
 </Application>

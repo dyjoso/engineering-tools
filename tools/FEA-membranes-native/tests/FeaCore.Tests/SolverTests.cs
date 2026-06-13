@@ -633,11 +633,70 @@ public class SolverTests
             $"45deg tip {p45:G6} vs {reference} ({(p45 / reference - 1) * 100:F2}% off)");
     }
 
-    [Fact]
-    public void MacNealModels_SaveForReview()
+    /// <summary>SENT benchmark model (same construction as Crack_EdgeCrackedPlate test).</summary>
+    private static FeModel BuildSentBenchmark()
     {
-        // Regenerate the MacNeal benchmark models into validation/ so they can be
-        // opened and reviewed in the app (BCs included; solve to reproduce).
+        const double W = 10, H = 15, a = 3, sigma = 100, t = 0.1;
+        var model = new FeModel();
+        var s = Mesher.AddSurface(model, new[] { (0.0, -H), (W, -H), (W, H), (0.0, H) }, 1e7, 0.3, t);
+        Mesher.MeshMembrane(model, s, 40, 120, quadratic: true);
+        var pathIds = model.FeNodes
+            .Where(n => Math.Abs(n.Y) < 1e-9 && n.X <= a + 1e-9)
+            .Select(n => n.Id).ToList();
+        Mesher.CreateCrack(model, pathIds, tipAtStart: false, tipAtEnd: true);
+        var topIds = model.FeNodes.Where(n => Math.Abs(n.Y - H) < 1e-9).Select(n => n.Id).ToList();
+        var botIds = model.FeNodes.Where(n => Math.Abs(n.Y + H) < 1e-9).Select(n => n.Id).ToList();
+        Mesher.ApplyDistributedLoad(model, topIds, 0, sigma * t, isTotal: false);
+        Mesher.ApplyDistributedLoad(model, botIds, 0, -sigma * t, isTotal: false);
+        model.FeNodes.First(n => Math.Abs(n.X - W) < 1e-9 && Math.Abs(n.Y) < 1e-9).Bc = Fixed(true, true);
+        model.FeNodes.First(n => Math.Abs(n.X - W) < 1e-9 && Math.Abs(n.Y - H / 2) < 1e-9).Bc = Fixed(true, false);
+        return model;
+    }
+
+    /// <summary>CCT benchmark model (same construction as Crack_CentreCrackedPlate test).</summary>
+    private static FeModel BuildCctBenchmark()
+    {
+        const double W2 = 20, H = 20, sigma = 100, t = 0.1;
+        var model = new FeModel();
+        var s = Mesher.AddSurface(model, new[] { (0.0, -H), (W2, -H), (W2, H), (0.0, H) }, 1e7, 0.3, t);
+        Mesher.MeshMembrane(model, s, 40, 80, quadratic: true);
+        var pathIds = model.FeNodes
+            .Where(n => Math.Abs(n.Y) < 1e-9 && n.X >= 6 - 1e-9 && n.X <= 14 + 1e-9)
+            .Select(n => n.Id).ToList();
+        Mesher.CreateCrack(model, pathIds, tipAtStart: true, tipAtEnd: true);
+        var topIds = model.FeNodes.Where(n => Math.Abs(n.Y - H) < 1e-9).Select(n => n.Id).ToList();
+        var botIds = model.FeNodes.Where(n => Math.Abs(n.Y + H) < 1e-9).Select(n => n.Id).ToList();
+        Mesher.ApplyDistributedLoad(model, topIds, 0, sigma * W2 * t, isTotal: true);
+        Mesher.ApplyDistributedLoad(model, botIds, 0, -sigma * W2 * t, isTotal: true);
+        model.FeNodes.First(n => Math.Abs(n.X) < 1e-9 && Math.Abs(n.Y) < 1e-9).Bc = Fixed(true, true);
+        model.FeNodes.First(n => Math.Abs(n.X - W2) < 1e-9 && Math.Abs(n.Y) < 1e-9).Bc = Fixed(false, true);
+        return model;
+    }
+
+    /// <summary>Stringer load-transfer demo: skin + detached bar + fastener springs.</summary>
+    private static FeModel BuildStringerDemo()
+    {
+        var model = new FeModel();
+        var s = Mesher.AddSurface(model, new[] { (0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0) }, 1e7, 0.3, 0.1);
+        Mesher.MeshMembrane(model, s, 4, 4);
+        var topIds = model.FeNodes.Where(n => Math.Abs(n.Y - 10) < 1e-9).OrderBy(n => n.X).Select(n => n.Id).ToList();
+        var bars = Mesher.CreateBarsAlongNodes(model, topIds, 1e7, 0.1);
+        Mesher.DetachBars(model, bars.Select(b => b.Id).ToList());
+        Mesher.AddSpringPointGrid(model, 0, 10, 10, 0, topIds.Count, 1);
+        Mesher.CreateSpringsAtSpringPoints(model, 1e-6, 1e6);
+        foreach (var n in model.FeNodes)
+            if (n.MembraneId is not null && n.X < 1e-9) n.Bc = Fixed(true, true);
+        model.FeNodes.Single(n => n.MembraneId is null &&
+            Math.Abs(n.X - 10) < 1e-9 && Math.Abs(n.Y - 10) < 1e-9).Bc = Load(1000, 0);
+        return model;
+    }
+
+    [Fact]
+    public void BenchmarkModels_SaveForReview()
+    {
+        // Regenerate the benchmark models into validation/ so they can be opened,
+        // reviewed and rendered (BCs included; solve to reproduce). Used by the
+        // validation manual's image generation.
         var dir = AppContext.BaseDirectory;
         string? valDir = null;
         for (int i = 0; i < 8 && dir is not null; i++)
@@ -653,6 +712,9 @@ public class SolverTests
         MacNealDistortedBuild(45, parallelogram: false).model.Save(Path.Combine(valDir!, "macneal-trapezoid-45.json"));
         MacNealDistortedBuild(30, parallelogram: true).model.Save(Path.Combine(valDir!, "macneal-parallelogram-30.json"));
         MacNealDistortedBuild(45, parallelogram: true).model.Save(Path.Combine(valDir!, "macneal-parallelogram-45.json"));
+        BuildSentBenchmark().Save(Path.Combine(valDir!, "crack-sent-benchmark.json"));
+        BuildCctBenchmark().Save(Path.Combine(valDir!, "crack-cct-benchmark.json"));
+        BuildStringerDemo().Save(Path.Combine(valDir!, "stringer-load-transfer.json"));
     }
 
     [Fact]
