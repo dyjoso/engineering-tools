@@ -30,11 +30,16 @@
   spring/.style={decorate,decoration={zigzag,segment length=2.6mm,amplitude=1.2mm,pre length=2mm,post length=2mm},violet,thick},
   mesh/.style={gray!60,thin},
   elem/.style={draw=black,thick},
+  rbe/.style={blue!60!black,thick},
   dim/.style={gray, <->, >={Stealth[length=1.6mm]}},
 }
 \newcommand{\wall}[3]{%
   \draw[thick] (#1,#2) -- (#1,#3);
   \fill[pattern=north east lines] (#1-0.18,#2) rectangle (#1,#3);
+}
+\newcommand{\pin}[2]{%
+  \draw[thick,fill=cyan!60!black] (#1,#2) -- (#1-0.13,#2-0.22) -- (#1+0.13,#2-0.22) -- cycle;
+  \draw[thick] (#1-0.2,#2-0.26) -- (#1+0.2,#2-0.26);
 }
 \newcommand{\nast}{\textcolor{gray}{---}} % placeholder for NASTRAN comparison values
 
@@ -200,6 +205,20 @@ Single 8-node element, same plate as V1, consistent quadratic-edge loads
 generates this distribution automatically and is itself verified to reproduce
 the exact field (tests \texttt{DistributedLoad\_*}).
 
+\begin{figure}[H]\centering
+\begin{tikzpicture}[scale=0.85]
+  \wall{0}{0}{2}
+  \draw[elem] (0,0) rectangle (2,2);
+  \foreach \x/\y in {0/0,2/0,2/2,0/2} \node[fnode] at (\x,\y) {};
+  \foreach \x/\y in {1/0,2/1,1/2,0/1} \node[mnode] at (\x,\y) {};
+  \draw[load] (2,0) -- (2.55,0) node[right] {\small $P/6$};
+  \draw[load] (2,1) -- (3.1,1) node[right] {\small $4P/6$};
+  \draw[load] (2,2) -- (2.55,2) node[right] {\small $P/6$};
+\end{tikzpicture}
+\caption{V2 setup: Quad8 patch test (open circles are midside nodes) with
+consistent quadratic-edge loads.}
+\end{figure}
+
 \begin{table}[H]\centering\small
 \begin{tabular}{@{}lcccc@{}}
 \toprule
@@ -218,6 +237,22 @@ A single Q8 ($20\times10$) under pure bending applied as a consistent linear
 end traction $\sigma_x(y)=200\,y$. The quadratic displacement field carries
 linear strain exactly --- the defining capability the bilinear element lacks.
 
+\begin{figure}[H]\centering
+\begin{tikzpicture}[scale=0.85]
+  \wall{0}{-1}{1}
+  \draw[elem] (0,-1) rectangle (3,1);
+  \foreach \x/\y in {0/-1,3/-1,3/1,0/1} \node[fnode] at (\x,\y) {};
+  \foreach \x/\y in {1.5/-1,3/0,1.5/1,0/0} \node[mnode] at (\x,\y) {};
+  \draw[load] (3,1) -- (3.9,1) node[right] {\small $+$};
+  \draw[load] (3,-1) -- (2.1,-1); \node[red!70!black] at (4.0,-1) {\small $-$};
+  \draw[blue!60!black,thick] (4.6,-0.8) -- (5.4,0.8);
+  \draw[gray] (5.0,-0.9) -- (5.0,0.9);
+  \node[blue!60!black] at (5.6,1.05) {\small $\sigma_x=200y$};
+\end{tikzpicture}
+\caption{V3 setup: single Quad8 in pure bending; the recovered stress profile
+is exactly linear.}
+\end{figure}
+
 \begin{table}[H]\centering\small
 \begin{tabular}{@{}lcccc@{}}
 \toprule
@@ -230,6 +265,60 @@ $\sigma_x$ at every node & $200\,y$ & $200\,y$ & $<10^{-3}$ & \nast \\
 \end{table}
 
 \section{V4 --- Bar, spring, enforced displacement, RBE2}
+
+\begin{figure}[H]\centering
+\begin{minipage}[t]{0.48\textwidth}\centering
+\begin{tikzpicture}[scale=0.85]
+  \pin{0}{0}
+  \node[fnode] at (0,0) {};
+  \draw[very thick,orange!60!black] (0,0) -- (3,0);
+  \node[fnode] at (3,0) {};
+  \draw[very thick,orange!60!black] (3,0) -- (3,-1.6);
+  \pin{3}{-1.6}
+  \node[fnode] at (3,-1.6) {};
+  \draw[load] (3,0) -- (4.1,0) node[right] {\small $P=1000$};
+  \draw[dim] (0,0.5) -- (3,0.5) node[midway,above] {\small $L=10$};
+\end{tikzpicture}\\[1mm]
+\small (a) Bar: axial elongation $PL/EA$.
+\end{minipage}\hfill
+\begin{minipage}[t]{0.48\textwidth}\centering
+\begin{tikzpicture}[scale=0.85]
+  \pin{0}{0}
+  \node[fnode] at (0,0) {};
+  \draw[spring] (0,0) -- (2.6,0);
+  \node[fnode] at (2.6,0) {};
+  \draw[load] (2.6,0) -- (3.7,0) node[right] {\small $F=100$};
+  \node[violet] at (1.3,0.55) {\small $k_x = k_y = 10^5$};
+\end{tikzpicture}\\[1mm]
+\small (b) Spring: decoupled $F=k\delta$ per direction.
+\end{minipage}\\[5mm]
+\begin{minipage}[t]{0.48\textwidth}\centering
+\begin{tikzpicture}[scale=0.85]
+  \wall{0}{0}{2}
+  \draw[elem] (0,0) rectangle (2,2);
+  \draw[enf] (2,0) -- (2.9,0);
+  \draw[enf] (2,2) -- (2.9,2) node[right] {\small $d_x = 2\times10^{-3}$};
+\end{tikzpicture}\\[1mm]
+\small (c) Enforced edge displacement (dashed green).
+\end{minipage}\hfill
+\begin{minipage}[t]{0.48\textwidth}\centering
+\begin{tikzpicture}[scale=0.85]
+  \wall{0}{0}{2}
+  \draw[elem] (0,0) rectangle (2,2);
+  \draw[mesh] (1,0) -- (1,2); \draw[mesh] (0,1) -- (2,1);
+  \foreach \y in {0,1,2} \node[fnode] at (2,\y) {};
+  \node[rbe,circle,draw,inner sep=1.6pt] (ind) at (2.8,1) {};
+  \draw[rbe] (ind) -- (2,0); \draw[rbe] (ind) -- (2,1); \draw[rbe] (ind) -- (2,2);
+  \node[rbe] at (3.55,1.45) {\small RBE2 [X]};
+  \draw[load] (2,1) -- (2.9,0.45) node[below right] {\small $P$ on one node};
+\end{tikzpicture}\\[1mm]
+\small (d) RBE2 spider tying the edge in X.
+\end{minipage}
+\caption{V4 setups: (a) axial bar with transverse support bar; (b) XY-decoupled
+fastener spring; (c) enforced displacement by direct elimination; (d) RBE2
+exact multipoint constraint with the load on one node of the tied group.}
+\end{figure}
+
 \begin{table}[H]\centering\small
 \begin{tabular}{@{}llccc@{}}
 \toprule
