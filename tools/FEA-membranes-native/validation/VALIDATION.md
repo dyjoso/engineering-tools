@@ -72,28 +72,28 @@ every test run, so they always match the tested geometry.
 
 The crack command splits the mesh into faces along a selected node path and
 moves the tip-adjacent midside nodes to the quarter points (Barsoum). K_I/K_II
-are extracted by two-point displacement correlation on the quarter-point face
-nodes: K = (E′/8)·√(2π/L)·(4Δ(L/4) − Δ(L)).
+are extracted by a **domain interaction integral** (primary, `InteractionIntegral.cs`):
+Williams auxiliary fields for unit K_I/K_II, radial q-function over an annulus
+of ≈3 face-element lengths, K = (E′/2)·I — mesh-insensitive and accurate to
+≈0.1 % on the benchmarks below. Two-point displacement correlation on the
+quarter-point face nodes is retained as a cross-check (`K1Dct`/`K2Dct`).
 
 | ID | Test | Basis | Acceptance |
 |----|------|-------|------------|
 | E9 | `Crack_SplitTopology_FacesSeparateAndTipIsQuarterPoint` | Edge crack in a 4×4 Q8 plate: 4 path nodes duplicated (tip shared), element references intact, face midsides moved to tip+L/4 exactly, faces separate under tension, K_I > 0 | Topology exact; quarter-point coordinates to 9 decimals |
-| E10 | `Crack_EdgeCrackedPlate_MatchesHandbookK1` | SENT, a/W = 0.3, H/W = 1.5, remote tension via consistent tractions. Handbook: K_I = Y·σ√(πa), Y per Gross & Brown polynomial | Within 8 % (measured −5.7 %, mesh-converged); K_II ≈ 0 (< 5 % of K_I) |
-| E11 | `Crack_CentreCrackedPlate_MatchesHandbookK1_BothTips` | CCT, a/W = 0.4, both tips in one command. Handbook: K_I = σ√(πa·sec(πa/2W)) (Feddersen) | Within 8 % (measured −4.3 %); K_II ≈ 0; both tips equal to 1 decimal |
+| E10 | `Crack_EdgeCrackedPlate_MatchesHandbookK1` | SENT, a/W = 0.3, H/W = 1.5, remote tension via consistent tractions. Handbook: K_I = Y·σ√(πa), Y per Gross & Brown polynomial | Within 1 % (measured **−0.1 %**); K_II ≈ 0 (< 2 % of K_I) |
+| E11 | `Crack_CentreCrackedPlate_MatchesHandbookK1_BothTips` | CCT, a/W = 0.4, both tips in one command. Handbook: K_I = σ√(πa·sec(πa/2W)) (Feddersen) | Within 1 % (measured **−0.1 %**); K_II ≈ 0; both tips equal to 1 decimal |
+| E11b | `Crack_InteractionIntegral_DomainIndependence` | Same SENT solution evaluated over integration annuli of 2L, 3L, 4L and 6L — the defining correctness property of a domain integral | All four K_I within 1 % of their mean |
 
-**Documented accuracy/bias.** Displacement correlation on a structured mesh
-(four rectangular quarter-point elements around the tip) carries a systematic
-bias of ≈ 5 % at mesh convergence — the known behaviour of non-collapsed
-rectangular quarter-point arrangements. With the production **2×2
-reduced-integration** Q8 the bias is **+4.8 % (SENT) / +6.3 % (CCT)
-over-prediction — the conservative direction for crack-growth use**. (With
-full 3×3 integration the same setups measured −5.7 %/−4.3 % under, i.e.
-non-conservative; this was one of the reasons for adopting reduced
-integration, alongside the MacNeal bending results.) The planned route to
-1–2 % is a domain J-integral / interaction-integral extractor, which also
-removes the sensitivity to tip element shape. Merge operations never heal
-crack faces (crack nodes are exempt from coincident-node merging) and crack
-records are pruned with their nodes.
+**Method accuracy.** The interaction integral measures **−0.1 %** on both
+handbook benchmarks and is domain-independent to < 1 % (E11b) — report-grade.
+The retained DCT cross-check carries the known ≈5 % bias of non-collapsed
+rectangular quarter-point arrangements (≈ +5–6 % over with the production
+2×2 reduced-integration Q8; −4 to −6 % under with full 3×3 integration). A
+large divergence between the primary K and the DCT value in a real model is
+a flag to inspect the tip mesh. Merge operations never heal crack faces
+(crack nodes are exempt from coincident-node merging) and crack records are
+pruned with their nodes.
 
 ---
 

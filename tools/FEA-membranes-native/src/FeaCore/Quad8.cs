@@ -27,6 +27,19 @@ public static class Quad8
     // in meshes and is guarded by the solver's residual equilibrium check.
     private static readonly double[] G2 = { -1.0 / Math.Sqrt(3.0), 1.0 / Math.Sqrt(3.0) };
 
+    /// <summary>Shape function values at (xi, eta) - 8 entries in node order.</summary>
+    public static void Shape(double xi, double eta, double[] n)
+    {
+        n[0] = -(1 - xi) * (1 - eta) * (1 + xi + eta) / 4;
+        n[1] = -(1 + xi) * (1 - eta) * (1 - xi + eta) / 4;
+        n[2] = -(1 + xi) * (1 + eta) * (1 - xi - eta) / 4;
+        n[3] = -(1 - xi) * (1 + eta) * (1 + xi - eta) / 4;
+        n[4] = (1 - xi * xi) * (1 - eta) / 2;
+        n[5] = (1 + xi) * (1 - eta * eta) / 2;
+        n[6] = (1 - xi * xi) * (1 + eta) / 2;
+        n[7] = (1 - xi) * (1 - eta * eta) / 2;
+    }
+
     /// <summary>Shape function derivatives wrt (xi, eta) - 8 rows of (dN/dxi, dN/deta).</summary>
     public static void ShapeDerivs(double xi, double eta, double[,] dN)
     {

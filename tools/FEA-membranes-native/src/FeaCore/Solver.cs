@@ -54,14 +54,17 @@ public sealed class Reaction
     public double Ry { get; init; }
 }
 
-/// <summary>Stress intensity factors extracted at a crack tip (displacement correlation).</summary>
+/// <summary>Stress intensity factors extracted at a crack tip.</summary>
 public sealed class CrackSif
 {
     public int CrackId { get; init; }
     public int TipNodeId { get; init; }
-    public double K1 { get; init; }          // opening mode
-    public double K2 { get; init; }          // sliding mode
+    public double K1 { get; init; }          // opening mode (interaction integral - primary)
+    public double K2 { get; init; }          // sliding mode (interaction integral - primary)
+    public double K1Dct { get; init; }       // displacement-correlation cross-check
+    public double K2Dct { get; init; }
     public double FaceElementLength { get; init; } // L of the quarter-point face element
+    public int DomainElements { get; init; } // elements in the J-integral domain
 }
 
 public sealed class SolveResult
@@ -469,13 +472,24 @@ public static class Solver
             double du1 = dq_x * tx + dq_y * ty, du2 = dc_x * tx + dc_y * ty; // sliding
 
             double factor = ePrime / 8.0 * Math.Sqrt(2 * Math.PI / faceL);
+            double k1Dct = factor * (4 * dv1 - dv2);
+            double k2Dct = factor * (4 * du1 - du2);
+
+            // Primary extraction: domain interaction integral over an annulus of
+            // ~3 face-element lengths (mesh-insensitive, 1-2% class accuracy).
+            var dispMap = disps.ToDictionary(d2 => d2.NodeId, d2 => (d2.Dx, d2.Dy));
+            var jInt = InteractionIntegral.Compute(model, crack, dispMap, 3.0 * faceL);
+
             crackSifs.Add(new CrackSif
             {
                 CrackId = crack.Id,
                 TipNodeId = crack.TipNodeId,
-                K1 = factor * (4 * dv1 - dv2),
-                K2 = factor * (4 * du1 - du2),
-                FaceElementLength = faceL
+                K1 = jInt?.K1 ?? k1Dct,
+                K2 = jInt?.K2 ?? k2Dct,
+                K1Dct = k1Dct,
+                K2Dct = k2Dct,
+                FaceElementLength = faceL,
+                DomainElements = jInt?.DomainElements ?? 0
             });
         }
 

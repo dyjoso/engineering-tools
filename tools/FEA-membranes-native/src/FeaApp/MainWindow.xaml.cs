@@ -1068,7 +1068,8 @@ public partial class MainWindow : Window
             Log(msg);
             foreach (var sif in _result.CrackSifs)
                 Log($"Crack {sif.CrackId} (tip node {sif.TipNodeId}): " +
-                    $"K_I = {sif.K1:G6}, K_II = {sif.K2:G6}  (quarter-point face L = {sif.FaceElementLength:G4})");
+                    $"K_I = {sif.K1:G6}, K_II = {sif.K2:G6} (interaction integral, {sif.DomainElements} elements)" +
+                    $" | DCT cross-check: K_I = {sif.K1Dct:G6}, K_II = {sif.K2Dct:G6}");
             if (CmbView.SelectedIndex == 0) CmbView.SelectedIndex = 1; // default to Von Mises after solve
         }
         catch (Exception ex)

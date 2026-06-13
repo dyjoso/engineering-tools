@@ -908,6 +908,40 @@ public class SolverTests
     }
 
     [Fact]
+    public void Crack_InteractionIntegral_DomainIndependence()
+    {
+        // The defining property of a correct domain integral: K must be (nearly)
+        // independent of the integration domain size. Solve the SENT benchmark once
+        // and evaluate the interaction integral over annuli of 2L, 3L, 4L and 6L.
+        const double W = 10, H = 15, a = 3, sigma = 100, t = 0.1;
+        var model = new FeModel();
+        var s = Mesher.AddSurface(model, new[] { (0.0, -H), (W, -H), (W, H), (0.0, H) }, 1e7, 0.3, t);
+        Mesher.MeshMembrane(model, s, 40, 120, quadratic: true);
+        var pathIds = model.FeNodes
+            .Where(n => Math.Abs(n.Y) < 1e-9 && n.X <= a + 1e-9)
+            .Select(n => n.Id).ToList();
+        var crack = Mesher.CreateCrack(model, pathIds, tipAtStart: false, tipAtEnd: true).Single();
+        var topIds = model.FeNodes.Where(n => Math.Abs(n.Y - H) < 1e-9).Select(n => n.Id).ToList();
+        var botIds = model.FeNodes.Where(n => Math.Abs(n.Y + H) < 1e-9).Select(n => n.Id).ToList();
+        Mesher.ApplyDistributedLoad(model, topIds, 0, sigma * t, isTotal: false);
+        Mesher.ApplyDistributedLoad(model, botIds, 0, -sigma * t, isTotal: false);
+        model.FeNodes.First(n => Math.Abs(n.X - W) < 1e-9 && Math.Abs(n.Y) < 1e-9).Bc = Fixed(true, true);
+        model.FeNodes.First(n => Math.Abs(n.X - W) < 1e-9 && Math.Abs(n.Y - H / 2) < 1e-9).Bc = Fixed(true, false);
+
+        var r = Solver.Solve(model);
+        var disp = r.Displacements.ToDictionary(d => d.NodeId, d => (d.Dx, d.Dy));
+        double faceL = r.CrackSifs.Single().FaceElementLength;
+
+        var ks = new[] { 2.0, 3.0, 4.0, 6.0 }
+            .Select(k => InteractionIntegral.Compute(model, crack, disp, k * faceL)!.K1)
+            .ToList();
+        double mean = ks.Average();
+        foreach (var k1 in ks)
+            Assert.True(Math.Abs(k1 - mean) / mean < 0.01,
+                $"domain spread too large: {string.Join(", ", ks.Select(v => v.ToString("G6")))}");
+    }
+
+    [Fact]
     public void Crack_SplitTopology_FacesSeparateAndTipIsQuarterPoint()
     {
         // 4x4 Quad8 plate, edge crack from the left boundary to mid-plate at mid-height.
@@ -959,13 +993,11 @@ public class SolverTests
         // Handbook (Gross & Brown / Tada): K1 = Y * sigma * sqrt(pi*a),
         // Y = 1.122 - 0.231r + 10.55r^2 - 21.71r^3 + 30.382r^4, r = a/W.
         //
-        // Accuracy note: displacement correlation on a structured mesh (four
-        // rectangular quarter-point elements around the tip) carries a known
-        // systematic bias of ~5%. Measured here with the production 2x2
-        // reduced-integration Q8: +4.8% (over-prediction - CONSERVATIVE for
-        // crack growth). With full 3x3 integration the same setup measured
-        // -5.7% (non-conservative). The 8% acceptance reflects the method;
-        // a J-integral extractor is the planned route to 1-2%.
+        // Accuracy: the primary K is now the domain INTERACTION INTEGRAL
+        // (InteractionIntegral.cs) - measured -0.1% on this benchmark (1%
+        // acceptance). The displacement-correlation value is retained as
+        // K1Dct/K2Dct for cross-checking; on this setup DCT measures ~+5%
+        // (the known bias of non-collapsed rectangular quarter-point DCT).
         const double W = 10, H = 15, a = 3, sigma = 100, t = 0.1, E = 1e7, nu = 0.3;
         var model = new FeModel();
         var s = Mesher.AddSurface(model, new[] { (0.0, -H), (W, -H), (W, H), (0.0, H) }, E, nu, t);
@@ -993,9 +1025,9 @@ public class SolverTests
         double kTarget = y * sigma * Math.Sqrt(Math.PI * a);
 
         var sif = Assert.Single(r.CrackSifs);
-        Assert.True(Math.Abs(sif.K1 - kTarget) / kTarget < 0.08,
+        Assert.True(Math.Abs(sif.K1 - kTarget) / kTarget < 0.01,
             $"K1 = {sif.K1:G5} vs handbook {kTarget:G5} ({(sif.K1 / kTarget - 1) * 100:F1}% off)");
-        Assert.True(Math.Abs(sif.K2) < 0.05 * kTarget, $"K2 = {sif.K2:G5} should be ~0 for pure mode I");
+        Assert.True(Math.Abs(sif.K2) < 0.02 * kTarget, $"K2 = {sif.K2:G5} should be ~0 for pure mode I");
     }
 
     [Fact]
@@ -1003,8 +1035,8 @@ public class SolverTests
     {
         // CCT: plate width 2W = 20, half-crack a = 4 (a/W = 0.4), height 2H = 40,
         // remote tension. Handbook (Feddersen): K1 = sigma * sqrt(pi*a * sec(pi*a/(2W))).
-        // Measured accuracy: +6.3% over (see the SENT note - same systematic DCT
-        // bias, conservative direction with reduced-integration Q8).
+        // Interaction-integral accuracy: -0.1% measured (1% acceptance).
+        // The DCT cross-check value on this setup is ~+6%.
         const double W2 = 20, H = 20, aHalf = 4, sigma = 100, t = 0.1;
         var model = new FeModel();
         var s = Mesher.AddSurface(model, new[] { (0.0, -H), (W2, -H), (W2, H), (0.0, H) }, 1e7, 0.3, t);
@@ -1029,9 +1061,9 @@ public class SolverTests
         Assert.Equal(2, r.CrackSifs.Count);
         foreach (var sif in r.CrackSifs)
         {
-            Assert.True(Math.Abs(sif.K1 - kTarget) / kTarget < 0.08,
+            Assert.True(Math.Abs(sif.K1 - kTarget) / kTarget < 0.01,
                 $"K1 = {sif.K1:G5} vs handbook {kTarget:G5} ({(sif.K1 / kTarget - 1) * 100:F1}% off)");
-            Assert.True(Math.Abs(sif.K2) < 0.05 * kTarget, $"K2 = {sif.K2:G5} should be ~0");
+            Assert.True(Math.Abs(sif.K2) < 0.02 * kTarget, $"K2 = {sif.K2:G5} should be ~0");
         }
         // Symmetric problem: both tips equal
         Assert.Equal(r.CrackSifs[0].K1, r.CrackSifs[1].K1, 1);
