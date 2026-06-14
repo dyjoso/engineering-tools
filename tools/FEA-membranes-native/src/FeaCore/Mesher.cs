@@ -224,11 +224,40 @@ public static class Mesher
     }
 
     /// <summary>
+    /// Map a uniform division index to a biased parameter in [0,1] using a geometric
+    /// grading: element lengths form a geometric progression whose largest/smallest
+    /// ratio is <paramref name="bias"/>. bias=1 is uniform; bias&gt;1 concentrates fine
+    /// elements toward t=0; bias&lt;1 toward t=1.
+    /// </summary>
+    public static double BiasedT(int i, int n, double bias)
+    {
+        if (n <= 0) return 0;
+        if (bias <= 0 || bias == 1.0 || !double.IsFinite(bias) || n == 1) return (double)i / n;
+        double g = Math.Pow(bias, 1.0 / (n - 1));      // common ratio of successive elements
+        return (Math.Pow(g, i) - 1) / (Math.Pow(g, n) - 1);
+    }
+
+    // Biased parameter for a Quad8 fine-grid index (fi in [0,2n]): corners take the
+    // biased node parameter; a midside sits at the parameter midpoint of its element.
+    // The uniform case returns fi/(2n) directly so an unbiased Quad8 mesh is bit-for-bit
+    // identical to the pre-grading mesher (no spurious coordinate churn).
+    private static double FineBiasedT(int fi, int n, double bias)
+    {
+        if (n <= 1 || bias <= 0 || bias == 1.0 || !double.IsFinite(bias)) return (double)fi / (2 * n);
+        int k = fi / 2;
+        return fi % 2 == 0 ? BiasedT(k, n, bias)
+                           : 0.5 * (BiasedT(k, n, bias) + BiasedT(k + 1, n, bias));
+    }
+
+    /// <summary>
     /// Mesh a 4-sided membrane M x N (re-meshing replaces any existing mesh).
     /// quadratic=true creates 8-node serendipity quads (corner + midside nodes).
+    /// biasM/biasN apply a geometric grading along edge 1-2 / edge 2-3 respectively
+    /// (1 = uniform; &gt;1 fine toward corner 1 / corner 2, &lt;1 fine toward the far end).
     /// Returns (nodesCreated, elementsCreated).
     /// </summary>
-    public static (int nodes, int elements) MeshMembrane(FeModel model, Membrane membrane, int m, int n, bool quadratic = false)
+    public static (int nodes, int elements) MeshMembrane(FeModel model, Membrane membrane, int m, int n,
+        bool quadratic = false, double biasM = 1.0, double biasN = 1.0)
     {
         if (membrane.NodeIds.Count != 4)
             throw new InvalidOperationException($"Surface {membrane.Id} is not 4-sided.");
@@ -272,7 +301,7 @@ public static class Mesher
             for (int i = 0; i <= m; i++)
                 for (int j = 0; j <= n; j++)
                 {
-                    var (sx, sy) = Coons((double)i / m, (double)j / n);
+                    var (sx, sy) = Coons(BiasedT(i, m, biasM), BiasedT(j, n, biasN));
                     var node = new FeNode { Id = nextNodeId++, X = sx, Y = sy, MembraneId = membrane.Id };
                     model.FeNodes.Add(node);
                     grid[i, j] = node.Id;
@@ -302,7 +331,7 @@ public static class Mesher
                 for (int j = 0; j <= fn; j++)
                 {
                     if (i % 2 == 1 && j % 2 == 1) { grid[i, j] = -1; continue; }
-                    var (sx, sy) = Coons((double)i / fm, (double)j / fn);
+                    var (sx, sy) = Coons(FineBiasedT(i, m, biasM), FineBiasedT(j, n, biasN));
                     var node = new FeNode { Id = nextNodeId++, X = sx, Y = sy, MembraneId = membrane.Id };
                     model.FeNodes.Add(node);
                     grid[i, j] = node.Id;
@@ -331,6 +360,8 @@ public static class Mesher
         membrane.MeshM = m;
         membrane.MeshN = n;
         membrane.MeshQuadratic = quadratic;
+        membrane.MeshBiasM = biasM;
+        membrane.MeshBiasN = biasN;
         return (created, els);
     }
 
@@ -355,7 +386,7 @@ public static class Mesher
             if (!isMeshed) continue;
             if (s.MeshM is { } m && s.MeshN is { } n)
             {
-                MeshMembrane(model, s, m, n, s.MeshQuadratic); // clears old mesh first
+                MeshMembrane(model, s, m, n, s.MeshQuadratic, s.MeshBiasM, s.MeshBiasN); // clears old mesh first
                 remeshed.Add(s.Id);
             }
             else
@@ -452,6 +483,195 @@ public static class Mesher
         }
         model.Membranes.Add(membrane);
         return membrane;
+    }
+
+    /// <summary>Which pair of opposite edges a surface split bisects.</summary>
+    public enum SplitAxis
+    {
+        /// <summary>Bisect edges 1-2 and 3-4; the cut runs in the N direction (halves M).</summary>
+        HalveM,
+        /// <summary>Bisect edges 2-3 and 4-1; the cut runs in the M direction (halves N).</summary>
+        HalveN
+    }
+
+    public sealed record SplitResult(
+        Membrane A, Membrane B, int NodesMerged, int NeighbourStitchNodes, bool Remeshed, bool WasMeshed);
+
+    /// <summary>
+    /// Split a 4-sided membrane into two 4-sided membranes by bisecting a pair of
+    /// opposite edges and joining the two edge midpoints with a new straight internal
+    /// edge. The two halves SHARE the two new midpoint geometry points, so the cut
+    /// stays connected at the geometry level (moving a midpoint re-meshes both halves).
+    ///
+    /// Arc (radius) edges are preserved on the half-edges - an edge midpoint sits ON
+    /// its arc and the two sub-edges keep the parent's effective (post-clamp) radius,
+    /// so they trace the same circle; the new internal edge is straight. Material,
+    /// thickness and visibility are copied to both halves.
+    ///
+    /// If the original was meshed with known divisions, both halves are re-meshed
+    /// (preserving the Quad4/Quad8 type; element size is preserved exactly for an even
+    /// division and approximately otherwise - a 1-division axis is refined to 2) and
+    /// the coincident nodes are merged so the result is a single conformal mesh. The
+    /// merge also re-fuses the halves to any neighbouring surface this one was
+    /// previously coincident-merge STITCHED to, so the split never silently opens a
+    /// hidden free edge (NeighbourStitchNodes reports how many such nodes were rejoined).
+    /// Re-meshing replaces the original surface's mesh, so any loads/constraints,
+    /// springs, bars, RBE2s or cracks carried by those FE nodes are lost (the same
+    /// behaviour as moving a geometry point).
+    /// </summary>
+    public static SplitResult SplitMembrane(FeModel model, int membraneId, SplitAxis axis)
+    {
+        var membrane = model.Membranes.FirstOrDefault(m => m.Id == membraneId)
+            ?? throw new InvalidOperationException($"Surface {membraneId} not found.");
+        if (membrane.NodeIds.Count != 4)
+            throw new InvalidOperationException($"Surface {membraneId} is not 4-sided.");
+
+        var corners = membrane.NodeIds
+            .Select(id => model.Nodes.FirstOrDefault(g => g.Id == id)
+                ?? throw new InvalidOperationException($"Surface {membraneId}: geometry node {id} missing."))
+            .ToArray();
+        double R(int i) => i < membrane.EdgeRadii.Count ? membrane.EdgeRadii[i] : 0;
+
+        // Signed radius to store on a sub-edge (x0,y0)->(x1,y1) of parent edge so it
+        // traces the SAME circle as the parent arc. Naively copying the parent radius
+        // fails for clamped/strongly-curved edges: ArcPoint reconstructs a circle from
+        // two points + a radius, and the sub-chord's different orientation can flip
+        // which of the two candidate centres the sign selects. We therefore compute the
+        // parent's (post-clamp) centre and pick the sub-edge sign that reproduces it.
+        double SubR(int parentEdge, double x0, double y0, double x1, double y1)
+        {
+            double r = R(parentEdge);
+            if (r == 0) return 0;
+            var pa = corners[parentEdge]; var pb = corners[(parentEdge + 1) % 4];
+            double dx = pb.X - pa.X, dy = pb.Y - pa.Y, len = Math.Sqrt(dx * dx + dy * dy);
+            double absR = Math.Abs(r);
+            if (absR < len / 2) { r = Math.Sign(r) * len / 2; absR = len / 2; } // parent clamp
+            double mx = (pa.X + pb.X) / 2, my = (pa.Y + pb.Y) / 2;
+            double hh = Math.Sqrt(Math.Max(0, absR * absR - len * len / 4));
+            double nx = dy / len, ny = -dx / len;
+            double cx = mx - (r > 0 ? hh : -hh) * nx, cy = my - (r > 0 ? hh : -hh) * ny; // parent centre
+            double sdx = x1 - x0, sdy = y1 - y0, sl = Math.Sqrt(sdx * sdx + sdy * sdy);
+            double smx = (x0 + x1) / 2, smy = (y0 + y1) / 2;
+            double snx = sdy / sl, sny = -sdx / sl;
+            return (smx - cx) * snx + (smy - cy) * sny >= 0 ? absR : -absR;
+        }
+
+        // The two opposite edges that receive a midpoint. Each midpoint lies on its
+        // (possibly curved) edge at the arc-length midpoint.
+        (int eP, int eQ) = axis == SplitAxis.HalveM ? (0, 2) : (1, 3);
+        (double X, double Y) MidOf(int edge)
+        {
+            var a = corners[edge];
+            var b = corners[(edge + 1) % 4];
+            return ArcPoint(a.X, a.Y, b.X, b.Y, R(edge), 0.5);
+        }
+        var (px, py) = MidOf(eP);
+        var (qx, qy) = MidOf(eQ);
+
+        int nextGeoId = model.Nodes.Count == 0 ? 1 : model.Nodes.Max(g => g.Id) + 1;
+        var midP = new GeometryNode { Id = nextGeoId++, X = px, Y = py };
+        var midQ = new GeometryNode { Id = nextGeoId++, X = qx, Y = qy };
+        model.Nodes.Add(midP);
+        model.Nodes.Add(midQ);
+
+        int nextMemId = model.Membranes.Count == 0 ? 1 : model.Membranes.Max(m => m.Id) + 1;
+        Membrane Make(int id, int[] cornerIds, double[] radii) => new()
+        {
+            Id = id,
+            NodeIds = cornerIds.ToList(),
+            EdgeRadii = radii.ToList(),
+            MaterialE = membrane.MaterialE,
+            MaterialNu = membrane.MaterialNu,
+            MaterialT = membrane.MaterialT,
+            Visible = membrane.Visible
+        };
+
+        int c0 = corners[0].Id, c1 = corners[1].Id, c2 = corners[2].Id, c3 = corners[3].Id;
+        Membrane a, b;
+        var k0 = corners[0]; var k1 = corners[1]; var k2 = corners[2]; var k3 = corners[3];
+        if (axis == SplitAxis.HalveM)
+        {
+            // midP on edge0 (c0->c1), midQ on edge2 (c2->c3). Internal edge midP->midQ.
+            a = Make(nextMemId, new[] { c0, midP.Id, midQ.Id, c3 },
+                new[] { SubR(0, k0.X, k0.Y, px, py), 0.0, SubR(2, qx, qy, k3.X, k3.Y), R(3) });
+            b = Make(nextMemId + 1, new[] { midP.Id, c1, c2, midQ.Id },
+                new[] { SubR(0, px, py, k1.X, k1.Y), R(1), SubR(2, k2.X, k2.Y, qx, qy), 0.0 });
+        }
+        else
+        {
+            // midP on edge1 (c1->c2), midQ on edge3 (c3->c0). Internal edge midQ->midP.
+            a = Make(nextMemId, new[] { c0, c1, midP.Id, midQ.Id },
+                new[] { R(0), SubR(1, k1.X, k1.Y, px, py), 0.0, SubR(3, qx, qy, k0.X, k0.Y) });
+            b = Make(nextMemId + 1, new[] { midQ.Id, midP.Id, c2, c3 },
+                new[] { 0.0, SubR(1, px, py, k2.X, k2.Y), R(2), SubR(3, k3.X, k3.Y, qx, qy) });
+        }
+
+        bool wasMeshed = model.FeElements.Any(e => e.MembraneId == membrane.Id);
+        bool canRemesh = wasMeshed && membrane.MeshM is not null && membrane.MeshN is not null;
+
+        // FE nodes referenced by the original surface's mesh. After ClearMesh, the
+        // survivors among these are exactly the boundary nodes a coincident-merge
+        // previously STITCHED to a neighbour (kept because the neighbour still
+        // references them); re-fusing the halves to them keeps the split from silently
+        // un-stitching the neighbour into a hidden free edge.
+        var originalMeshNodeIds = model.FeElements
+            .Where(e => e.MembraneId == membrane.Id)
+            .SelectMany(e => e.NodeIds).ToHashSet();
+
+        // Replace the original surface: drop its mesh but keep its corner geometry
+        // points (the halves reference them); then install the two halves.
+        ClearMesh(model, membrane.Id);
+        // The original-mesh nodes ClearMesh KEPT are exactly the boundary nodes a prior
+        // coincident-merge stitched to a neighbour. Capture them now, before re-meshing
+        // reuses any freed ids (MeshMembrane always allocates above the current max, so
+        // these captured ids can never collide with the halves' new nodes).
+        var stitchSurvivorIds = model.FeNodes
+            .Where(n => originalMeshNodeIds.Contains(n.Id)).Select(n => n.Id).ToList();
+        model.Membranes.Remove(membrane);
+        model.Membranes.Add(a);
+        model.Membranes.Add(b);
+
+        int merged = 0, neighbourStitch = 0;
+        bool remeshed = false;
+        if (canRemesh)
+        {
+            int mDiv = membrane.MeshM!.Value, nDiv = membrane.MeshN!.Value;
+            bool q8 = membrane.MeshQuadratic;
+            double bm = membrane.MeshBiasM, bn = membrane.MeshBiasN;
+            if (axis == SplitAxis.HalveM)
+            {
+                MeshMembrane(model, a, Math.Max(1, (mDiv + 1) / 2), nDiv, q8, bm, bn);
+                MeshMembrane(model, b, Math.Max(1, mDiv / 2), nDiv, q8, bm, bn);
+            }
+            else
+            {
+                MeshMembrane(model, a, mDiv, Math.Max(1, (nDiv + 1) / 2), q8, bm, bn);
+                MeshMembrane(model, b, mDiv, Math.Max(1, nDiv / 2), q8, bm, bn);
+            }
+
+            // Merge the two halves' nodes (fuses the internal seam) together with the
+            // surviving stitched-neighbour boundary nodes (re-fuses the stitch). Scope
+            // is restricted to exactly these so untouched coincidences are preserved.
+            var mergeScope = model.FeNodes
+                .Where(n => n.MembraneId == a.Id || n.MembraneId == b.Id)
+                .Select(n => n.Id)
+                .Concat(stitchSurvivorIds)
+                .ToList();
+            double minX = double.PositiveInfinity, minY = double.PositiveInfinity;
+            double maxX = double.NegativeInfinity, maxY = double.NegativeInfinity;
+            foreach (var g in new[] { corners[0], corners[1], corners[2], corners[3], midP, midQ })
+            {
+                minX = Math.Min(minX, g.X); maxX = Math.Max(maxX, g.X);
+                minY = Math.Min(minY, g.Y); maxY = Math.Max(maxY, g.Y);
+            }
+            double diag = Math.Sqrt((maxX - minX) * (maxX - minX) + (maxY - minY) * (maxY - minY));
+            double tol = 1e-6 * (diag > 0 ? diag : 1);
+            (merged, _, _) = MergeCoincidentNodes(model, tol, mergeScope);
+            neighbourStitch = stitchSurvivorIds.Count;
+            remeshed = true;
+        }
+
+        return new SplitResult(a, b, merged, neighbourStitch, remeshed, wasMeshed);
     }
 
     /// <summary>
@@ -808,6 +1028,187 @@ public static class Mesher
         var sharedIds = model.Membranes.Where(x => x.Id != membraneId).SelectMany(x => x.NodeIds).ToHashSet();
         model.Nodes.RemoveAll(g => membrane.NodeIds.Contains(g.Id) && !sharedIds.Contains(g.Id));
         model.Membranes.Remove(membrane);
+    }
+
+    /// <summary>Options for <see cref="CreateReentrantCorner"/>.</summary>
+    public sealed record ReentrantCornerOptions
+    {
+        public double ApexX { get; init; }               // the sharp re-entrant corner point
+        public double ApexY { get; init; }
+        public double Radius { get; init; }              // r: fillet radius at the corner, > 0
+        public double Offset { get; init; }              // d: ring thickness into the material, > 0
+        public double LegX { get; init; } = 60;          // straight-leg length beyond the fillet (x leg)
+        public double LegY { get; init; } = 60;          // straight-leg length beyond the fillet (y leg)
+        public int QuarterTurns { get; init; }           // 0..3: rotate the notch into another quadrant
+        public int DivLegX { get; init; } = 6;           // divisions along the x leg
+        public int DivLegY { get; init; } = 6;           // divisions along the y leg
+        public int DivCorner { get; init; } = 6;         // divisions around the 90-degree fillet
+        public int DivRadial { get; init; } = 4;         // divisions across the ring (free edge -> into material)
+        public double RadialBias { get; init; } = 1.0;   // > 1 concentrates elements toward the free (inner) edge
+        public bool Quadratic { get; init; }
+        public double E { get; init; } = 10.5e6;
+        public double Nu { get; init; } = 0.33;
+        public double Thickness { get; init; } = 0.05;
+        public bool CreateFrameBars { get; init; }       // chain bars along the free edge (edge stiffener)
+        public double FrameE { get; init; } = 10.5e6;
+        public double FrameArea { get; init; } = 0.1;
+    }
+
+    public sealed record ReentrantCornerResult(
+        IReadOnlyList<int> PatchIds, IReadOnlyList<int> InnerEdgeNodeIds,
+        IReadOnlyList<int> OuterEdgeNodeIds, int FrameBars, int NodesMerged);
+
+    /// <summary>
+    /// Build a structured ring along a re-entrant (concave, 90-degree) filleted corner:
+    /// two straight rectangle leg patches plus one annular-sector fillet patch, from the
+    /// free (inner) edge inward by <c>Offset</c>. Every patch is a convex 4-sided Coons
+    /// surface (no degenerate or inverted corners); the radial direction can be graded
+    /// toward the free edge to resolve the re-entrant-corner stress concentration; the
+    /// patches share tangent geometry points with the seam nodes merged into one
+    /// conformal mesh. Optionally chains bar elements along the free edge as a stiffener.
+    ///
+    /// Built in a canonical frame (notch in the +x,+y quadrant from the apex) then rotated
+    /// by QuarterTurns*90 degrees about the apex (rotation preserves winding). Mesh the
+    /// surrounding part up to the outer boundary and merge coincident nodes to stitch.
+    /// Returns the patch ids, the inner (free-edge) and outer FE node paths, the number of
+    /// stiffener bars and the number of seam nodes merged.
+    /// </summary>
+    public static ReentrantCornerResult CreateReentrantCorner(FeModel model, ReentrantCornerOptions o)
+    {
+        double r = o.Radius, d = o.Offset, ax = o.ApexX, ay = o.ApexY;
+        if (r <= 0) throw new InvalidOperationException("Fillet radius must be positive.");
+        if (d <= 0) throw new InvalidOperationException("Ring thickness (offset) must be positive.");
+        if (o.LegX <= 0 || o.LegY <= 0) throw new InvalidOperationException("Leg lengths must be positive.");
+        if (o.DivLegX < 1 || o.DivLegY < 1 || o.DivCorner < 1 || o.DivRadial < 1)
+            throw new InvalidOperationException("All division counts must be >= 1.");
+
+        // Canonical frame: apex at (ax,ay), notch in the +x,+y quadrant, material in the
+        // rest. The y leg's free edge is x=ax (extending +y); the x leg's free edge is
+        // y=ay (extending +x); the fillet centre F is in the notch.
+        double fx = ax + r, fy = ay + r;
+
+        int nextGeoId = model.Nodes.Count == 0 ? 1 : model.Nodes.Max(g => g.Id) + 1;
+        var geoIds = new List<int>();
+        int Pt(double x, double y) { model.Nodes.Add(new GeometryNode { Id = nextGeoId, X = x, Y = y }); geoIds.Add(nextGeoId); return nextGeoId++; }
+
+        int IBt = Pt(ax, ay + r),     IBb = Pt(ax, ay + r + o.LegY);     // y leg, inner (free) edge
+        int OBt = Pt(ax - d, ay + r), OBb = Pt(ax - d, ay + r + o.LegY); // y leg, outer edge
+        int IRl = Pt(ax + r, ay),     IRr = Pt(ax + r + o.LegX, ay);     // x leg, inner (free) edge
+        int ORl = Pt(ax + r, ay - d), ORr = Pt(ax + r + o.LegX, ay - d); // x leg, outer edge
+
+        var geo = model.Nodes.ToDictionary(g => g.Id);
+        // Signed radius so ArcPoint(p0,p1,.) reconstructs the fillet centre F.
+        double SignR(int p0, int p1, double absR)
+        {
+            var (x0, y0) = (geo[p0].X, geo[p0].Y);
+            var (x1, y1) = (geo[p1].X, geo[p1].Y);
+            double mx = (x0 + x1) / 2, my = (y0 + y1) / 2, sdx = x1 - x0, sdy = y1 - y0;
+            double sl = Math.Sqrt(sdx * sdx + sdy * sdy), nx = sdy / sl, ny = -sdx / sl;
+            return (mx - fx) * nx + (my - fy) * ny >= 0 ? absR : -absR;
+        }
+
+        int nextMemId = model.Membranes.Count == 0 ? 1 : model.Membranes.Max(m => m.Id) + 1;
+        var patches = new List<(Membrane mem, int m, int n)>();
+        void Add(int[] ids, double[] radii, int mm, int nn)
+        {
+            var mem = new Membrane
+            {
+                Id = nextMemId++, NodeIds = ids.ToList(), EdgeRadii = radii.ToList(),
+                MaterialE = o.E, MaterialNu = o.Nu, MaterialT = o.Thickness
+            };
+            model.Membranes.Add(mem);
+            patches.Add((mem, mm, nn));
+        }
+        // Corners 0,1 on the free (inner) edge, 2,3 outer; positive winding; n is radial,
+        // v=0 at the free edge so RadialBias concentrates there. edge0 inner, edge2 outer.
+        Add(new[] { IBt, IBb, OBb, OBt }, new[] { 0.0, 0, 0, 0 }, o.DivLegY, o.DivRadial);     // y leg
+        Add(new[] { IRr, IRl, ORl, ORr }, new[] { 0.0, 0, 0, 0 }, o.DivLegX, o.DivRadial);     // x leg
+        Add(new[] { IRl, IBt, OBt, ORl },
+            new[] { SignR(IRl, IBt, r), 0, SignR(OBt, ORl, r + d), 0 }, o.DivCorner, o.DivRadial); // fillet
+
+        foreach (var (mem, mm, nn) in patches)
+            MeshMembrane(model, mem, mm, nn, o.Quadratic, 1.0, o.RadialBias);
+
+        // Tolerance tracks the SMALLEST node spacing (radial-graded / fillet / leg), not
+        // the part size, so a thin ring or heavy grading never over-merges distinct nodes.
+        double minRadialStep = double.PositiveInfinity;
+        for (int j = 0; j < o.DivRadial; j++)
+            minRadialStep = Math.Min(minRadialStep,
+                d * (BiasedT(j + 1, o.DivRadial, o.RadialBias) - BiasedT(j, o.DivRadial, o.RadialBias)));
+        double minSpacing = Math.Min(Math.Min(minRadialStep, Math.PI / 2 * r / o.DivCorner),
+            Math.Min(o.LegX / o.DivLegX, o.LegY / o.DivLegY));
+        double tol = 1e-3 * minSpacing;
+
+        var patchIds = patches.Select(p => p.mem.Id).ToHashSet();
+        var ringNodeIds = model.FeNodes.Where(nd => nd.MembraneId is { } id && patchIds.Contains(id))
+            .Select(nd => nd.Id).ToList();
+        var (merged, _, _) = MergeCoincidentNodes(model, tol, ringNodeIds);
+
+        // Inner (free) and outer edge membership, in the canonical frame.
+        double Dist(double x, double y) => Math.Sqrt((x - fx) * (x - fx) + (y - fy) * (y - fy));
+        bool OnInner(double x, double y) =>
+            (Math.Abs(x - ax) < tol && y >= ay + r - tol && y <= ay + r + o.LegY + tol) ||
+            (Math.Abs(y - ay) < tol && x >= ax + r - tol && x <= ax + r + o.LegX + tol) ||
+            (Math.Abs(Dist(x, y) - r) < tol && x >= ax - tol && y >= ay - tol);
+        bool OnOuter(double x, double y) =>
+            (Math.Abs(x - (ax - d)) < tol && y >= ay + r - tol && y <= ay + r + o.LegY + tol) ||
+            (Math.Abs(y - (ay - d)) < tol && x >= ax + r - tol && x <= ax + r + o.LegX + tol) ||
+            (Math.Abs(Dist(x, y) - (r + d)) < tol && x >= ax - d - tol && y >= ay - d - tol);
+
+        var ringNodes = model.FeNodes.Where(nd => nd.MembraneId is { } id && patchIds.Contains(id)).ToList();
+        // Both the free (inner) and outer edges are open L-paths; (x - y) increases
+        // monotonically along each, giving a usable path order.
+        var innerOrdered = ringNodes.Where(nd => OnInner(nd.X, nd.Y)).OrderBy(nd => nd.X - nd.Y).ToList();
+        var outerNodes = ringNodes.Where(nd => OnOuter(nd.X, nd.Y)).OrderBy(nd => nd.X - nd.Y).ToList();
+
+        // Defensive: a collapsed ring would not yield the expected free-edge node count.
+        int seg = o.DivLegX + o.DivLegY + o.DivCorner;
+        int expectedInner = (o.Quadratic ? 2 : 1) * seg + 1;
+        if (innerOrdered.Count != expectedInner)
+            throw new InvalidOperationException(
+                $"Re-entrant ring collapsed: expected {expectedInner} free-edge nodes but got {innerOrdered.Count}. " +
+                "The geometry is too degenerate for these divisions - increase the offset/legs or reduce divisions.");
+
+        // Edge stiffener: chain bars along the free edge (open chain, in path order).
+        int frameBars = 0;
+        if (o.CreateFrameBars && innerOrdered.Count >= 2)
+        {
+            int nextBarId = model.FeBars.Count == 0 ? 1 : model.FeBars.Max(bar => bar.Id) + 1;
+            for (int i = 0; i + 1 < innerOrdered.Count; i++)
+            {
+                model.FeBars.Add(new FeBar
+                {
+                    Id = nextBarId++, FeNodeId1 = innerOrdered[i].Id, FeNodeId2 = innerOrdered[i + 1].Id,
+                    E = o.FrameE, A = o.FrameArea
+                });
+                frameBars++;
+            }
+        }
+
+        // Rotate the whole feature by QuarterTurns*90 degrees about the apex (winding
+        // preserved). Geometry points and FE nodes move together; stored arc radii stay
+        // valid (rotation is orientation-preserving).
+        int turns = ((o.QuarterTurns % 4) + 4) % 4;
+        if (turns != 0)
+        {
+            (double X, double Y) Rot(double x, double y)
+            {
+                double dx = x - ax, dy = y - ay;
+                return turns switch
+                {
+                    1 => (ax - dy, ay + dx),
+                    2 => (ax - dx, ay - dy),
+                    _ => (ax + dy, ay - dx), // 3
+                };
+            }
+            foreach (var id in geoIds) { var g = geo[id]; (g.X, g.Y) = Rot(g.X, g.Y); }
+            foreach (var nd in ringNodes) (nd.X, nd.Y) = Rot(nd.X, nd.Y);
+        }
+
+        return new ReentrantCornerResult(
+            patches.Select(p => p.mem.Id).ToList(),
+            innerOrdered.Select(n => n.Id).ToList(), outerNodes.Select(n => n.Id).ToList(),
+            frameBars, merged);
     }
 
     /// <summary>

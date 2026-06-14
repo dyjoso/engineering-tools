@@ -252,6 +252,297 @@ public class SolverTests
     }
 
     [Fact]
+    public void Mesher_SplitMembrane_HalvesGeometryAndMergesSeamIntoConformalMesh()
+    {
+        // 10x10 plate, E=1e7, nu=0, t=0.1, meshed 4x2 Quad4 (15 nodes, 8 elements).
+        var model = new FeModel();
+        var s = Mesher.AddSurface(model, new[] { (0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0) }, 1e7, 0.0, 0.1);
+        Mesher.MeshMembrane(model, s, 4, 2);
+        int nodesBefore = model.FeNodes.Count, elsBefore = model.FeElements.Count;
+        Assert.Equal(15, nodesBefore);
+        Assert.Equal(8, elsBefore);
+
+        var r = Mesher.SplitMembrane(model, s.Id, Mesher.SplitAxis.HalveM);
+
+        // Geometry: original surface gone, replaced by two 4-sided surfaces that SHARE
+        // exactly the two new midpoint geometry points, which sit on the bisected edges.
+        Assert.DoesNotContain(model.Membranes, m => m.Id == s.Id);
+        Assert.Equal(2, model.Membranes.Count);
+        Assert.All(model.Membranes, m => Assert.Equal(4, m.NodeIds.Count));
+        Assert.Equal(2, r.A.NodeIds.Intersect(r.B.NodeIds).Count());
+        Assert.Contains(model.Nodes, g => Math.Abs(g.X - 5) < 1e-9 && Math.Abs(g.Y) < 1e-9);      // mid of edge 1-2
+        Assert.Contains(model.Nodes, g => Math.Abs(g.X - 5) < 1e-9 && Math.Abs(g.Y - 10) < 1e-9); // mid of edge 3-4
+
+        // Mesh: the seam row merged, so the conformal result has the SAME node and
+        // element counts as the unsplit 4x2 mesh (no duplicated free edge), and every
+        // element still references live nodes.
+        Assert.True(r.Remeshed);
+        Assert.Equal(3, r.NodesMerged);           // N=2 -> 3 nodes shared on the internal seam
+        Assert.Equal(0, r.NeighbourStitchNodes);  // isolated surface: no neighbour stitch
+        Assert.Equal(nodesBefore, model.FeNodes.Count);
+        Assert.Equal(elsBefore, model.FeElements.Count);
+        Assert.All(model.FeElements, el => Assert.All(el.NodeIds, id => Assert.Contains(model.FeNodes, n => n.Id == id)));
+
+        // Physics: pull the split plate in uniaxial tension. If the seam were NOT
+        // fused the two halves would be a mechanism; instead the exact bilinear field
+        // is recovered, proving load crosses the merged seam.
+        foreach (var n in model.FeNodes)
+            n.Bc = n.X < 1e-6 ? Fixed(true, true)
+                 : n.X > 10 - 1e-6 ? Load(Math.Abs(n.Y - 5) < 1e-6 ? 500 : 250, 0) // 250/500/250 total 1000
+                 : null;
+        var sol = Solver.Solve(model);
+        Assert.All(sol.Displacements.Where(d => model.FeNodes.First(n => n.Id == d.NodeId).X > 10 - 1e-6),
+            d => Assert.Equal(1e-3, d.Dx, 9));      // u = sigma*L/E = 1000*10/1e7
+        Assert.All(sol.ElementStresses, st => Assert.Equal(1000, st.Sxx, 5));
+        Assert.Equal(-1000, sol.Reactions.Sum(x => x.Rx), 5);
+    }
+
+    [Fact]
+    public void Mesher_SplitMembrane_PreservesArcEdgeAndIsConnectedForRemesh()
+    {
+        // Plate whose edge 4 (c3->c0) is a circular arc (R=200), as in the webtool
+        // sample. Splitting along N keeps that arc on one half-edge and leaves the
+        // two halves sharing the bisected-edge midpoints.
+        var model = new FeModel();
+        var s = Mesher.AddSurface(model, new[] { (0.0, 0.0), (100.0, 0.0), (100.0, 50.0), (0.0, 50.0) }, 1e7, 0.3, 0.1);
+        s.EdgeRadii = new() { 0, 0, 0, 200 };       // edge 4 (index 3) curved
+        Mesher.MeshMembrane(model, s, 6, 4, quadratic: true);
+
+        var r = Mesher.SplitMembrane(model, s.Id, Mesher.SplitAxis.HalveN);
+        Assert.True(r.Remeshed);
+        Assert.True(r.NodesMerged > 0);
+
+        // Bisecting the curved edge gives each half a sub-arc that keeps R=200, while
+        // the new internal edge on each half is straight (radius 0).
+        Assert.All(new[] { r.A, r.B }, m =>
+        {
+            Assert.Contains(200.0, m.EdgeRadii);
+            Assert.Contains(0.0, m.EdgeRadii);
+        });
+
+        // Mid of edge 4 on the R=200 arc is the webtool's known point (-1.5687, 25),
+        // and it is shared by both halves (the cut stays connected).
+        var shared = r.A.NodeIds.Intersect(r.B.NodeIds)
+            .Select(id => model.Nodes.First(g => g.Id == id)).ToList();
+        Assert.Equal(2, shared.Count);
+        Assert.Contains(shared, g => Math.Abs(g.X - (-1.5687)) < 1e-3 && Math.Abs(g.Y - 25) < 1e-6);
+
+        // Solves as one connected body (clamp the straight edge, pull the arc edge).
+        foreach (var n in model.FeNodes) n.Bc = n.X > 99.999 ? Fixed(true, true) : null;
+        foreach (var n in model.FeNodes.Where(n => n.X < 1e-6)) n.Bc = Load(-50, 0);
+        var sol = Solver.Solve(model);
+        Assert.All(sol.Displacements, d => Assert.True(double.IsFinite(d.Dx) && double.IsFinite(d.Dy)));
+    }
+
+    [Fact]
+    public void Mesher_SplitMembrane_RestoresStitchToNeighbourSurface()
+    {
+        // Two 10x10 plates side by side, each meshed 2x2, stitched along x=10 by a
+        // global coincident-node merge (3 fused nodes) -> 15 FE nodes, one body.
+        var model = new FeModel();
+        var left = Mesher.AddSurface(model, new[] { (0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0) }, 1e7, 0.3, 0.1);
+        var right = Mesher.AddSurface(model, new[] { (10.0, 0.0), (20.0, 0.0), (20.0, 10.0), (10.0, 10.0) }, 1e7, 0.3, 0.1);
+        Mesher.MeshMembrane(model, left, 2, 2);
+        Mesher.MeshMembrane(model, right, 2, 2);
+        var (stitched, _, _) = Mesher.MergeCoincidentNodes(model, 1e-6);
+        Assert.Equal(3, stitched);
+        Assert.Equal(15, model.FeNodes.Count);
+
+        // Split the left plate. The shared x=10 interface must survive: re-meshing makes
+        // new nodes there, and the split must re-fuse them to the neighbour's survivors.
+        var r = Mesher.SplitMembrane(model, left.Id, Mesher.SplitAxis.HalveM);
+        Assert.True(r.NeighbourStitchNodes >= 3); // the x=10 stitched row was rejoined
+
+        // Decisive conformality check: NOTHING coincident is left unfused anywhere
+        // (internal seam fused AND the neighbour stitch preserved).
+        var (leftover, _, _) = Mesher.MergeCoincidentNodes(model, 1e-6);
+        Assert.Equal(0, leftover);
+
+        // And it solves as ONE connected body: clamp x=0, pull x=20. If the stitch were
+        // broken the right plate would be a detached mechanism and the solve would throw.
+        foreach (var n in model.FeNodes)
+            n.Bc = n.X < 1e-6 ? Fixed(true, true)
+                 : n.X > 20 - 1e-6 ? Load(Math.Abs(n.Y - 5) < 1e-6 ? 500 : 250, 0)
+                 : null;
+        var sol = Solver.Solve(model);
+        Assert.All(sol.Displacements, dd => Assert.True(double.IsFinite(dd.Dx)));
+        Assert.Equal(-1000, sol.Reactions.Sum(x => x.Rx), 4); // full load reaches the clamp through the stitch
+    }
+
+    [Fact]
+    public void Mesher_SplitMembrane_ClampedArcEdge_HalfEdgesStayOnParentArc()
+    {
+        // Edge 1-2 of a 10x10 plate has radius 3, BELOW the half-chord (5), so ArcPoint
+        // clamps it to a semicircle of radius 5 centred at (5,0). The half-edges must
+        // trace that SAME parent circle, not re-clamp to their own shorter half-chords.
+        var model = new FeModel();
+        var s = Mesher.AddSurface(model, new[] { (0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0) }, 1e7, 0.3, 0.1);
+        s.EdgeRadii = new() { 3, 0, 0, 0 };
+        Mesher.MeshMembrane(model, s, 2, 2);
+
+        var r = Mesher.SplitMembrane(model, s.Id, Mesher.SplitAxis.HalveM);
+
+        // Half A owns edge 0 = c0 -> midP (the first half of the bisected arc edge).
+        double rad = r.A.EdgeRadii[0];
+        Assert.Equal(5.0, Math.Abs(rad), 9); // stored as the parent's effective (clamped) radius
+        var c0 = model.Nodes.First(g => g.Id == r.A.NodeIds[0]);
+        var midP = model.Nodes.First(g => g.Id == r.A.NodeIds[1]);
+        // Several points along the half-edge must lie on the parent circle (centre (5,0), R=5).
+        foreach (var t in new[] { 0.25, 0.5, 0.75 })
+        {
+            var (qx, qy) = Mesher.ArcPoint(c0.X, c0.Y, midP.X, midP.Y, rad, t);
+            Assert.Equal(5.0, Math.Sqrt((qx - 5) * (qx - 5) + qy * qy), 6);
+        }
+    }
+
+    [Fact]
+    public void Mesher_SplitMembrane_OddDivisions_StaysConformalAndSolves()
+    {
+        // Odd division (3) and a 1-division axis: still conformal, still solves.
+        var model = new FeModel();
+        var s = Mesher.AddSurface(model, new[] { (0.0, 0.0), (12.0, 0.0), (12.0, 4.0), (0.0, 4.0) }, 1e7, 0.0, 0.1);
+        Mesher.MeshMembrane(model, s, 3, 1);
+
+        var r = Mesher.SplitMembrane(model, s.Id, Mesher.SplitAxis.HalveM); // 3 -> 2 + 1 along M
+        Assert.True(r.Remeshed);
+        var (leftover, _, _) = Mesher.MergeCoincidentNodes(model, 1e-6);
+        Assert.Equal(0, leftover); // no coincident-unmerged nodes: seam fused
+
+        foreach (var n in model.FeNodes)
+            n.Bc = n.X < 1e-6 ? Fixed(true, true) : n.X > 12 - 1e-6 ? Load(500, 0) : null;
+        var sol = Solver.Solve(model);
+        Assert.All(sol.Displacements, dd => Assert.True(double.IsFinite(dd.Dx)));
+    }
+
+    private static double QuadArea(FeElement el, Dictionary<int, FeNode> byId)
+    {
+        var p = el.NodeIds.Take(4).Select(id => byId[id]).ToList();
+        double s = 0;
+        for (int i = 0; i < 4; i++) s += p[i].X * p[(i + 1) % 4].Y - p[(i + 1) % 4].X * p[i].Y;
+        return 0.5 * s;
+    }
+
+    [Fact]
+    public void Mesher_CreateReentrantCorner_ConformalValidRingWithStiffener()
+    {
+        var model = new FeModel();
+        var res = Mesher.CreateReentrantCorner(model, new Mesher.ReentrantCornerOptions
+        {
+            ApexX = 0, ApexY = 0, Radius = 10, Offset = 15, LegX = 50, LegY = 40,
+            DivLegX = 6, DivLegY = 5, DivCorner = 4, DivRadial = 3, RadialBias = 3.0,
+            E = 1e7, Nu = 0.3, Thickness = 0.1, CreateFrameBars = true, FrameE = 1e7, FrameArea = 0.2
+        });
+
+        // 3 four-sided patches: 2 legs + 1 fillet sector.
+        Assert.Equal(3, res.PatchIds.Count);
+        Assert.Equal(3, model.Membranes.Count);
+        Assert.All(model.Membranes, m => Assert.Equal(4, m.NodeIds.Count));
+
+        // Conformal: the internal merge left NOTHING coincident-but-unfused anywhere.
+        var (leftover, _, _) = Mesher.MergeCoincidentNodes(model, 1e-6);
+        Assert.Equal(0, leftover);
+
+        // Free edge is an open L-path: nodes = DivLegX + DivLegY + DivCorner + 1 = 16
+        // (Quad4); the stiffener is an open chain of 15 bars; outer path has the same count.
+        Assert.Equal(16, res.InnerEdgeNodeIds.Count);
+        Assert.Equal(16, res.OuterEdgeNodeIds.Count);
+        Assert.Equal(15, res.FrameBars);
+        Assert.Equal(15, model.FeBars.Count);
+
+        // Free-edge geometry: leg ends (0,50) & (60,0), and the fillet apex point
+        // (closest free-edge point to the re-entrant apex) at F + r*(-1,-1)/sqrt2.
+        Assert.Contains(model.FeNodes, n => Math.Abs(n.X) < 1e-9 && Math.Abs(n.Y - 50) < 1e-9);
+        Assert.Contains(model.FeNodes, n => Math.Abs(n.X - 60) < 1e-9 && Math.Abs(n.Y) < 1e-9);
+        Assert.Contains(model.FeNodes, n => Math.Abs(n.X - 2.9289) < 1e-3 && Math.Abs(n.Y - 2.9289) < 1e-3);
+
+        // No inverted/degenerate elements (solver requires strictly positive winding).
+        var byId = model.FeNodes.ToDictionary(n => n.Id);
+        Assert.All(model.FeElements, el => Assert.True(QuadArea(el, byId) > 1e-9));
+
+        // Solves as one body: clamp the outer edge, pull the free edge. Clean solve
+        // confirms connectivity (legs fused to the fillet) and positive Jacobians.
+        foreach (var id in res.OuterEdgeNodeIds) byId[id].Bc = Fixed(true, true);
+        foreach (var id in res.InnerEdgeNodeIds) byId[id].Bc = Load(20, 20);
+        var sol = Solver.Solve(model);
+        Assert.All(sol.Displacements, dd => Assert.True(double.IsFinite(dd.Dx) && double.IsFinite(dd.Dy)));
+    }
+
+    [Fact]
+    public void Mesher_CreateReentrantCorner_Quad8RotatedSolvesAndValidatesInputs()
+    {
+        // Quad8 + a quarter-turn orientation: rotation must preserve winding so it still
+        // solves, and the Quad8 free edge has 2*(segments)+1 nodes.
+        var model = new FeModel();
+        var res = Mesher.CreateReentrantCorner(model, new Mesher.ReentrantCornerOptions
+        {
+            ApexX = 100, ApexY = 50, Radius = 12, Offset = 18, LegX = 40, LegY = 40,
+            DivLegX = 4, DivLegY = 4, DivCorner = 3, DivRadial = 2, RadialBias = 2.0,
+            QuarterTurns = 1, Quadratic = true, E = 1e7, Nu = 0.3, Thickness = 0.1
+        });
+        Assert.Equal(3, res.PatchIds.Count);
+        var (leftover, _, _) = Mesher.MergeCoincidentNodes(model, 1e-6);
+        Assert.Equal(0, leftover);                          // Quad8 midside seam nodes fuse too
+        Assert.Equal(2 * (4 + 4 + 3) + 1, res.InnerEdgeNodeIds.Count); // 23
+
+        var byId = model.FeNodes.ToDictionary(n => n.Id);
+        Assert.All(model.FeElements, el => Assert.True(QuadArea(el, byId) > 1e-9)); // winding survives the rotation
+        foreach (var id in res.OuterEdgeNodeIds) byId[id].Bc = Fixed(true, true);
+        byId[res.InnerEdgeNodeIds[0]].Bc = Load(100, 100);
+        var sol = Solver.Solve(model);
+        Assert.All(sol.Displacements, dd => Assert.True(double.IsFinite(dd.Dx)));
+
+        // Input validation.
+        Assert.Throws<InvalidOperationException>(() => Mesher.CreateReentrantCorner(new FeModel(),
+            new Mesher.ReentrantCornerOptions { Radius = 0, Offset = 5, LegX = 10, LegY = 10 }));   // r <= 0
+        Assert.Throws<InvalidOperationException>(() => Mesher.CreateReentrantCorner(new FeModel(),
+            new Mesher.ReentrantCornerOptions { Radius = 5, Offset = 0, LegX = 10, LegY = 10 }));   // offset <= 0
+    }
+
+    [Fact]
+    public void Mesher_CreateReentrantCorner_ThinRingHeavyGrading_StaysConformal()
+    {
+        // Large legs, very thin ring, many heavily-graded radial divisions: the merge
+        // tolerance must track the (tiny) radial spacing, not the part size, or distinct
+        // boundary nodes fuse and the ring collapses.
+        var model = new FeModel();
+        var res = Mesher.CreateReentrantCorner(model, new Mesher.ReentrantCornerOptions
+        {
+            ApexX = 0, ApexY = 0, Radius = 200, Offset = 0.5, LegX = 5000, LegY = 4000,
+            DivLegX = 8, DivLegY = 6, DivCorner = 6, DivRadial = 12, RadialBias = 50.0,
+            E = 1e7, Nu = 0.3, Thickness = 0.1
+        });
+        Assert.Equal(8 + 6 + 6 + 1, res.InnerEdgeNodeIds.Count); // 21, topology intact (no over-merge)
+        var (leftover, _, _) = Mesher.MergeCoincidentNodes(model, 1e-9);
+        Assert.Equal(0, leftover);
+        var byId = model.FeNodes.ToDictionary(n => n.Id);
+        Assert.All(model.FeElements, el => Assert.True(QuadArea(el, byId) > 0)); // no collapsed/inverted elements
+    }
+
+    [Fact]
+    public void Mesher_BiasedMesh_GeometricGradingAlongEdge()
+    {
+        // BiasedT: geometric grading, largest/smallest element ratio == bias.
+        Assert.Equal(0.0, Mesher.BiasedT(0, 4, 4), 12);
+        Assert.Equal(1.0, Mesher.BiasedT(4, 4, 4), 12);
+        for (int i = 0; i <= 5; i++) Assert.Equal(i / 5.0, Mesher.BiasedT(i, 5, 1.0), 12); // bias=1 uniform
+
+        var model = new FeModel();
+        var s = Mesher.AddSurface(model, new[] { (0.0, 0.0), (10.0, 0.0), (10.0, 2.0), (0.0, 2.0) }, 1e7, 0.3, 0.1);
+        Mesher.MeshMembrane(model, s, 4, 1, quadratic: false, biasM: 4.0);
+        Assert.Equal(4.0, s.MeshBiasM, 12);
+
+        // x-coordinates of the bottom row, sorted, follow the geometric grading.
+        var xs = model.FeNodes.Where(nd => Math.Abs(nd.Y) < 1e-9).Select(nd => nd.X).OrderBy(v => v).ToList();
+        Assert.Equal(5, xs.Count);
+        Assert.Equal(0.0, xs[0], 9);
+        Assert.Equal(10.0, xs[4], 9);
+        var sizes = Enumerable.Range(0, 4).Select(i => xs[i + 1] - xs[i]).ToList();
+        Assert.All(sizes, sz => Assert.True(sz > 0));
+        Assert.Equal(4.0, sizes[3] / sizes[0], 6);       // largest/smallest element ratio == bias
+        Assert.True(sizes[0] < sizes[1] && sizes[1] < sizes[2] && sizes[2] < sizes[3]); // monotonic
+    }
+
+    [Fact]
     public void Mesher_ArcEdge_MatchesWebtoolSample()
     {
         // The webtool sample (curved-plate-with-bars.json) has edge 4 of a 100x50 plate
@@ -715,6 +1006,17 @@ public class SolverTests
         BuildSentBenchmark().Save(Path.Combine(valDir!, "crack-sent-benchmark.json"));
         BuildCctBenchmark().Save(Path.Combine(valDir!, "crack-cct-benchmark.json"));
         BuildStringerDemo().Save(Path.Combine(valDir!, "stringer-load-transfer.json"));
+
+        // Re-entrant filleted corner ring (radially graded toward the free edge) with a
+        // free-edge stiffener.
+        var rec = new FeModel();
+        Mesher.CreateReentrantCorner(rec, new Mesher.ReentrantCornerOptions
+        {
+            ApexX = 0, ApexY = 0, Radius = 25, Offset = 50, LegX = 120, LegY = 120,
+            DivLegX = 8, DivLegY = 8, DivCorner = 8, DivRadial = 6, RadialBias = 5.0,
+            E = 1e7, Nu = 0.3, Thickness = 0.1, CreateFrameBars = true, FrameE = 1e7, FrameArea = 0.3
+        });
+        rec.Save(Path.Combine(valDir!, "reentrant-corner-demo.json"));
     }
 
     [Fact]

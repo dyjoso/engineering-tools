@@ -40,6 +40,8 @@
             <MenuItem Header="_Edit">
                 <MenuItem Header="_Undo" Click="MenuUndo_Click" InputGestureText="Ctrl+Z"/>
                 <Separator/>
+                <MenuItem Header="Edit _Properties of Selection…" Click="MenuEditProperties_Click" InputGestureText="F2"/>
+                <Separator/>
                 <MenuItem Header="_Delete Selection" Click="MenuDeleteSelected_Click" InputGestureText="Del"/>
                 <MenuItem Header="_Clear Selection" Click="MenuClearSelection_Click" InputGestureText="Esc"/>
                 <Separator/>
@@ -51,7 +53,9 @@
                     <MenuItem Header="By _Corner Points…" Click="MenuSurfaceByCorners_Click"/>
                     <MenuItem Header="By _Picking (4 clicks, snaps to points)" Click="MenuSurfacePick_Click"/>
                 </MenuItem>
+                <MenuItem Header="Re-entrant _Corner Ring (filleted)…" Click="MenuReentrantCorner_Click"/>
                 <MenuItem Header="Surface P_roperties…" Click="MenuSurfaceProps_Click"/>
+                <MenuItem Header="_Split Selected Surface in Half…" Click="MenuSplitSurface_Click"/>
                 <Separator/>
                 <MenuItem Header="Edge _Radius (pick edge)…" Click="MenuEdgeRadius_Click"/>
                 <MenuItem Header="Edit Point Coordina_tes…" Click="MenuEditPoint_Click"/>
@@ -80,6 +84,10 @@
                     <MenuItem Header="_Spring Between 2 Selected Nodes…" Click="MenuSpring_Click"/>
                     <MenuItem Header="Springs at Spring P_oints…" Click="MenuSpringsAtPoints_Click"/>
                     <MenuItem Header="RBE_2 from Selected Nodes…" Click="MenuRbe2_Click"/>
+                </MenuItem>
+                <MenuItem Header="Edit Properties">
+                    <MenuItem Header="Selected _Bar Properties (E, A)…" Click="MenuBarProps_Click"/>
+                    <MenuItem Header="Selected _Spring Properties (k)…" Click="MenuSpringProps_Click"/>
                 </MenuItem>
                 <Separator/>
                 <MenuItem Header="Create Crac_k Along Selected Nodes…" Click="MenuCrack_Click"/>

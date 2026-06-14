@@ -56,6 +56,10 @@ public sealed class Membrane
     public int? MeshM { get; set; }
     public int? MeshN { get; set; }
     public bool MeshQuadratic { get; set; } // last mesh used quad8 elements
+    // Last mesh grading bias (1 = uniform; >1 concentrates elements toward the start
+    // of the edge, <1 toward the end). M is along edge 1-2, N along edge 2-3.
+    public double MeshBiasM { get; set; } = 1.0;
+    public double MeshBiasN { get; set; } = 1.0;
 }
 
 public sealed class FeNode

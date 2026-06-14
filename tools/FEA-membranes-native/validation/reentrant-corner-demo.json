@@ -1,0 +1,3105 @@
+{
+  "nodes": [
+    {
+      "id": 1,
+      "x": 0,
+      "y": 25
+    },
+    {
+      "id": 2,
+      "x": 0,
+      "y": 145
+    },
+    {
+      "id": 3,
+      "x": -50,
+      "y": 25
+    },
+    {
+      "id": 4,
+      "x": -50,
+      "y": 145
+    },
+    {
+      "id": 5,
+      "x": 25,
+      "y": 0
+    },
+    {
+      "id": 6,
+      "x": 145,
+      "y": 0
+    },
+    {
+      "id": 7,
+      "x": 25,
+      "y": -50
+    },
+    {
+      "id": 8,
+      "x": 145,
+      "y": -50
+    }
+  ],
+  "membranes": [
+    {
+      "id": 1,
+      "nodeIds": [
+        1,
+        2,
+        4,
+        3
+      ],
+      "materialE": 10000000,
+      "materialNu": 0.3,
+      "materialT": 0.1,
+      "edgeRadii": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "visible": true,
+      "meshM": 8,
+      "meshN": 6,
+      "meshQuadratic": false,
+      "meshBiasM": 1,
+      "meshBiasN": 5
+    },
+    {
+      "id": 2,
+      "nodeIds": [
+        6,
+        5,
+        7,
+        8
+      ],
+      "materialE": 10000000,
+      "materialNu": 0.3,
+      "materialT": 0.1,
+      "edgeRadii": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "visible": true,
+      "meshM": 8,
+      "meshN": 6,
+      "meshQuadratic": false,
+      "meshBiasM": 1,
+      "meshBiasN": 5
+    },
+    {
+      "id": 3,
+      "nodeIds": [
+        5,
+        1,
+        3,
+        7
+      ],
+      "materialE": 10000000,
+      "materialNu": 0.3,
+      "materialT": 0.1,
+      "edgeRadii": [
+        -25,
+        0,
+        75,
+        0
+      ],
+      "visible": true,
+      "meshM": 8,
+      "meshN": 6,
+      "meshQuadratic": false,
+      "meshBiasM": 1,
+      "meshBiasN": 5
+    }
+  ],
+  "springPoints": [],
+  "feNodes": [
+    {
+      "id": 1,
+      "x": 0,
+      "y": 25,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 2,
+      "x": -3.2187854036905468,
+      "y": 25,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 3,
+      "x": -7.659839099040802,
+      "y": 25,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 4,
+      "x": -13.787292610657486,
+      "y": 25,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 5,
+      "x": -22.241521969859708,
+      "y": 25,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 6,
+      "x": -33.906072981547275,
+      "y": 25,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 7,
+      "x": -50,
+      "y": 25,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 8,
+      "x": 0,
+      "y": 40,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 9,
+      "x": -3.2187854036905468,
+      "y": 39.99999999999999,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 10,
+      "x": -7.659839099040801,
+      "y": 39.99999999999999,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 11,
+      "x": -13.78729261065749,
+      "y": 39.99999999999999,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 12,
+      "x": -22.241521969859708,
+      "y": 40,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 13,
+      "x": -33.906072981547275,
+      "y": 40,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 14,
+      "x": -50,
+      "y": 40,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 15,
+      "x": 0,
+      "y": 55,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 16,
+      "x": -3.2187854036905468,
+      "y": 55,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 17,
+      "x": -7.659839099040802,
+      "y": 55,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 18,
+      "x": -13.787292610657486,
+      "y": 54.999999999999986,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 19,
+      "x": -22.241521969859708,
+      "y": 55,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 20,
+      "x": -33.90607298154726,
+      "y": 55,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 21,
+      "x": -50,
+      "y": 55,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 22,
+      "x": 0,
+      "y": 70,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 23,
+      "x": -3.2187854036905463,
+      "y": 70,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 24,
+      "x": -7.659839099040802,
+      "y": 70,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 25,
+      "x": -13.787292610657492,
+      "y": 69.99999999999999,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 26,
+      "x": -22.241521969859715,
+      "y": 70,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 27,
+      "x": -33.906072981547254,
+      "y": 70,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 28,
+      "x": -50,
+      "y": 70,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 29,
+      "x": 0,
+      "y": 85,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 30,
+      "x": -3.2187854036905468,
+      "y": 84.99999999999999,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 31,
+      "x": -7.659839099040802,
+      "y": 85,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 32,
+      "x": -13.787292610657486,
+      "y": 84.99999999999999,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 33,
+      "x": -22.241521969859715,
+      "y": 85,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 34,
+      "x": -33.90607298154726,
+      "y": 85,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 35,
+      "x": -50,
+      "y": 85,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 36,
+      "x": 0,
+      "y": 100,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 37,
+      "x": -3.2187854036905463,
+      "y": 99.99999999999999,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 38,
+      "x": -7.659839099040802,
+      "y": 99.99999999999999,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 39,
+      "x": -13.787292610657495,
+      "y": 99.99999999999999,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 40,
+      "x": -22.241521969859715,
+      "y": 99.99999999999999,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 41,
+      "x": -33.906072981547254,
+      "y": 100,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 42,
+      "x": -50,
+      "y": 100,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 43,
+      "x": 0,
+      "y": 115,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 44,
+      "x": -3.2187854036905468,
+      "y": 115,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 45,
+      "x": -7.659839099040802,
+      "y": 115,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 46,
+      "x": -13.787292610657486,
+      "y": 115,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 47,
+      "x": -22.241521969859708,
+      "y": 114.99999999999999,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 48,
+      "x": -33.906072981547275,
+      "y": 114.99999999999999,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 49,
+      "x": -50,
+      "y": 115,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 50,
+      "x": 0,
+      "y": 130,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 51,
+      "x": -3.218785403690546,
+      "y": 130,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 52,
+      "x": -7.659839099040801,
+      "y": 130,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 53,
+      "x": -13.78729261065749,
+      "y": 130,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 54,
+      "x": -22.241521969859715,
+      "y": 130,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 55,
+      "x": -33.90607298154726,
+      "y": 130,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 56,
+      "x": -50,
+      "y": 130,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 57,
+      "x": 0,
+      "y": 145,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 58,
+      "x": -3.218785403690546,
+      "y": 145,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 59,
+      "x": -7.659839099040802,
+      "y": 145,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 60,
+      "x": -13.78729261065749,
+      "y": 145,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 61,
+      "x": -22.241521969859715,
+      "y": 145,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 62,
+      "x": -33.90607298154726,
+      "y": 145,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 63,
+      "x": -50,
+      "y": 145,
+      "membraneId": 1,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 64,
+      "x": 145,
+      "y": 0,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 65,
+      "x": 145,
+      "y": -3.2187854036905468,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 66,
+      "x": 145,
+      "y": -7.659839099040802,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 67,
+      "x": 145,
+      "y": -13.787292610657486,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 68,
+      "x": 145,
+      "y": -22.241521969859708,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 69,
+      "x": 145,
+      "y": -33.906072981547275,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 70,
+      "x": 145,
+      "y": -50,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 71,
+      "x": 130,
+      "y": 0,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 72,
+      "x": 130,
+      "y": -3.2187854036905468,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 73,
+      "x": 130,
+      "y": -7.659839099040801,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 74,
+      "x": 130,
+      "y": -13.78729261065749,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 75,
+      "x": 130,
+      "y": -22.241521969859708,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 76,
+      "x": 130,
+      "y": -33.906072981547275,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 77,
+      "x": 130,
+      "y": -50,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 78,
+      "x": 115,
+      "y": 0,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 79,
+      "x": 115,
+      "y": -3.2187854036905468,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 80,
+      "x": 115,
+      "y": -7.659839099040802,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 81,
+      "x": 115,
+      "y": -13.787292610657486,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 82,
+      "x": 115,
+      "y": -22.241521969859708,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 83,
+      "x": 115,
+      "y": -33.90607298154726,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 84,
+      "x": 115,
+      "y": -50,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 85,
+      "x": 100,
+      "y": 0,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 86,
+      "x": 99.99999999999999,
+      "y": -3.2187854036905463,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 87,
+      "x": 99.99999999999999,
+      "y": -7.659839099040802,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 88,
+      "x": 99.99999999999999,
+      "y": -13.787292610657492,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 89,
+      "x": 99.99999999999999,
+      "y": -22.241521969859715,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 90,
+      "x": 100,
+      "y": -33.906072981547254,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 91,
+      "x": 100,
+      "y": -50,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 92,
+      "x": 85,
+      "y": 0,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 93,
+      "x": 85,
+      "y": -3.2187854036905468,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 94,
+      "x": 85,
+      "y": -7.659839099040802,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 95,
+      "x": 85,
+      "y": -13.787292610657486,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 96,
+      "x": 85,
+      "y": -22.241521969859715,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 97,
+      "x": 85,
+      "y": -33.90607298154726,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 98,
+      "x": 85,
+      "y": -50,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 99,
+      "x": 70,
+      "y": 0,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 100,
+      "x": 70,
+      "y": -3.2187854036905463,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 101,
+      "x": 70,
+      "y": -7.659839099040802,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 102,
+      "x": 70,
+      "y": -13.787292610657495,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 103,
+      "x": 70,
+      "y": -22.241521969859715,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 104,
+      "x": 70,
+      "y": -33.906072981547254,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 105,
+      "x": 70,
+      "y": -50,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 106,
+      "x": 55,
+      "y": 0,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 107,
+      "x": 55,
+      "y": -3.2187854036905468,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 108,
+      "x": 55,
+      "y": -7.659839099040802,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 109,
+      "x": 54.999999999999986,
+      "y": -13.787292610657486,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 110,
+      "x": 55,
+      "y": -22.241521969859708,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 111,
+      "x": 55,
+      "y": -33.906072981547275,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 112,
+      "x": 55,
+      "y": -50,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 113,
+      "x": 40,
+      "y": 0,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 114,
+      "x": 39.99999999999999,
+      "y": -3.218785403690546,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 115,
+      "x": 39.99999999999999,
+      "y": -7.659839099040801,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 116,
+      "x": 39.99999999999999,
+      "y": -13.78729261065749,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 117,
+      "x": 40,
+      "y": -22.241521969859715,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 118,
+      "x": 40,
+      "y": -33.90607298154726,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 119,
+      "x": 40,
+      "y": -50,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 120,
+      "x": 25,
+      "y": 0,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 121,
+      "x": 25,
+      "y": -3.218785403690546,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 122,
+      "x": 25,
+      "y": -7.659839099040802,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 123,
+      "x": 25,
+      "y": -13.78729261065749,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 124,
+      "x": 25,
+      "y": -22.241521969859715,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 125,
+      "x": 25,
+      "y": -33.90607298154726,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 126,
+      "x": 25,
+      "y": -50,
+      "membraneId": 2,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 134,
+      "x": 20.122741949596794,
+      "y": 0.48036798991923746,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 135,
+      "x": 19.49478806868998,
+      "y": -2.6765693547972202,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 136,
+      "x": 18.628381473173185,
+      "y": -7.032289448677123,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 137,
+      "x": 17.432974594453025,
+      "y": -13.042005659225852,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 138,
+      "x": 15.783636266368063,
+      "y": -21.333789371884226,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 139,
+      "x": 13.507995253324367,
+      "y": -32.77420930665999,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 140,
+      "x": 10.368225848790352,
+      "y": -48.55889603024228,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 141,
+      "x": 15.432914190872758,
+      "y": 1.9030116872178304,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 142,
+      "x": 14.201138344541807,
+      "y": -1.0707582667979438,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 143,
+      "x": 12.501620673087501,
+      "y": -5.173756878715659,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 144,
+      "x": 10.156745731604499,
+      "y": -10.834785764512722,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 145,
+      "x": 6.9214522224232695,
+      "y": -18.645475232635665,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 146,
+      "x": 2.4576218042729856,
+      "y": -29.422115168267617,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 147,
+      "x": -3.701257427381776,
+      "y": -44.29096493834649,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 148,
+      "x": 11.110744174509954,
+      "y": 4.213259692436367,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 149,
+      "x": 9.322482817741502,
+      "y": 1.5369374407446976,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 150,
+      "x": 6.855165581363192,
+      "y": -2.1556637535429664,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 151,
+      "x": 3.450934806097532,
+      "y": -7.250455149248761,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 152,
+      "x": -1.2459833689956143,
+      "y": -14.27988995686143,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 153,
+      "x": -7.726460692627904,
+      "y": -23.978609664232543,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 154,
+      "x": -16.66776747647016,
+      "y": -37.3602209226909,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 155,
+      "x": 7.322330470336315,
+      "y": 7.322330470336311,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 156,
+      "x": 5.046305484202449,
+      "y": 5.046305484202449,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 157,
+      "x": 1.906006300606709,
+      "y": 1.9060063006067072,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 158,
+      "x": -2.426757628862778,
+      "y": -2.4267576288627746,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 159,
+      "x": -8.404800538461075,
+      "y": -8.404800538461066,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 160,
+      "x": -16.65288365832174,
+      "y": -16.652883658321738,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 161,
+      "x": -28.033008588991073,
+      "y": -28.03300858899106,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 162,
+      "x": 4.213259692436367,
+      "y": 11.110744174509946,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 163,
+      "x": 1.536937440744695,
+      "y": 9.322482817741497,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 164,
+      "x": -2.155663753542969,
+      "y": 6.855165581363188,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 165,
+      "x": -7.2504551492487685,
+      "y": 3.450934806097532,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 166,
+      "x": -14.279889956861442,
+      "y": -1.2459833689956081,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 167,
+      "x": -23.978609664232543,
+      "y": -7.726460692627896,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 168,
+      "x": -37.36022092269091,
+      "y": -16.667767476470146,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 169,
+      "x": 1.9030116872178304,
+      "y": 15.43291419087275,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 170,
+      "x": -1.0707582667979452,
+      "y": 14.201138344541807,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 171,
+      "x": -5.173756878715663,
+      "y": 12.501620673087501,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 172,
+      "x": -10.834785764512732,
+      "y": 10.15674573160451,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 173,
+      "x": -18.645475232635683,
+      "y": 6.921452222423291,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 174,
+      "x": -29.42211516826763,
+      "y": 2.4576218042730176,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 175,
+      "x": -44.29096493834652,
+      "y": -3.7012574273817265,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 176,
+      "x": 0.48036798991923746,
+      "y": 20.122741949596787,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 177,
+      "x": -2.67656935479722,
+      "y": 19.49478806868998,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 178,
+      "x": -7.032289448677123,
+      "y": 18.62838147317319,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 179,
+      "x": -13.042005659225852,
+      "y": 17.432974594453032,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 180,
+      "x": -21.333789371884233,
+      "y": 15.783636266368063,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 181,
+      "x": -32.774209306659984,
+      "y": 13.507995253324381,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    },
+    {
+      "id": 182,
+      "x": -48.55889603024228,
+      "y": 10.368225848790374,
+      "membraneId": 3,
+      "isSpringConnectionPoint": false
+    }
+  ],
+  "feElements": [
+    {
+      "id": 1,
+      "type": "quad",
+      "nodeIds": [
+        1,
+        8,
+        9,
+        2
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 2,
+      "type": "quad",
+      "nodeIds": [
+        2,
+        9,
+        10,
+        3
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 3,
+      "type": "quad",
+      "nodeIds": [
+        3,
+        10,
+        11,
+        4
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 4,
+      "type": "quad",
+      "nodeIds": [
+        4,
+        11,
+        12,
+        5
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 5,
+      "type": "quad",
+      "nodeIds": [
+        5,
+        12,
+        13,
+        6
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 6,
+      "type": "quad",
+      "nodeIds": [
+        6,
+        13,
+        14,
+        7
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 7,
+      "type": "quad",
+      "nodeIds": [
+        8,
+        15,
+        16,
+        9
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 8,
+      "type": "quad",
+      "nodeIds": [
+        9,
+        16,
+        17,
+        10
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 9,
+      "type": "quad",
+      "nodeIds": [
+        10,
+        17,
+        18,
+        11
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 10,
+      "type": "quad",
+      "nodeIds": [
+        11,
+        18,
+        19,
+        12
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 11,
+      "type": "quad",
+      "nodeIds": [
+        12,
+        19,
+        20,
+        13
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 12,
+      "type": "quad",
+      "nodeIds": [
+        13,
+        20,
+        21,
+        14
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 13,
+      "type": "quad",
+      "nodeIds": [
+        15,
+        22,
+        23,
+        16
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 14,
+      "type": "quad",
+      "nodeIds": [
+        16,
+        23,
+        24,
+        17
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 15,
+      "type": "quad",
+      "nodeIds": [
+        17,
+        24,
+        25,
+        18
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 16,
+      "type": "quad",
+      "nodeIds": [
+        18,
+        25,
+        26,
+        19
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 17,
+      "type": "quad",
+      "nodeIds": [
+        19,
+        26,
+        27,
+        20
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 18,
+      "type": "quad",
+      "nodeIds": [
+        20,
+        27,
+        28,
+        21
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 19,
+      "type": "quad",
+      "nodeIds": [
+        22,
+        29,
+        30,
+        23
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 20,
+      "type": "quad",
+      "nodeIds": [
+        23,
+        30,
+        31,
+        24
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 21,
+      "type": "quad",
+      "nodeIds": [
+        24,
+        31,
+        32,
+        25
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 22,
+      "type": "quad",
+      "nodeIds": [
+        25,
+        32,
+        33,
+        26
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 23,
+      "type": "quad",
+      "nodeIds": [
+        26,
+        33,
+        34,
+        27
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 24,
+      "type": "quad",
+      "nodeIds": [
+        27,
+        34,
+        35,
+        28
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 25,
+      "type": "quad",
+      "nodeIds": [
+        29,
+        36,
+        37,
+        30
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 26,
+      "type": "quad",
+      "nodeIds": [
+        30,
+        37,
+        38,
+        31
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 27,
+      "type": "quad",
+      "nodeIds": [
+        31,
+        38,
+        39,
+        32
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 28,
+      "type": "quad",
+      "nodeIds": [
+        32,
+        39,
+        40,
+        33
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 29,
+      "type": "quad",
+      "nodeIds": [
+        33,
+        40,
+        41,
+        34
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 30,
+      "type": "quad",
+      "nodeIds": [
+        34,
+        41,
+        42,
+        35
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 31,
+      "type": "quad",
+      "nodeIds": [
+        36,
+        43,
+        44,
+        37
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 32,
+      "type": "quad",
+      "nodeIds": [
+        37,
+        44,
+        45,
+        38
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 33,
+      "type": "quad",
+      "nodeIds": [
+        38,
+        45,
+        46,
+        39
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 34,
+      "type": "quad",
+      "nodeIds": [
+        39,
+        46,
+        47,
+        40
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 35,
+      "type": "quad",
+      "nodeIds": [
+        40,
+        47,
+        48,
+        41
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 36,
+      "type": "quad",
+      "nodeIds": [
+        41,
+        48,
+        49,
+        42
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 37,
+      "type": "quad",
+      "nodeIds": [
+        43,
+        50,
+        51,
+        44
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 38,
+      "type": "quad",
+      "nodeIds": [
+        44,
+        51,
+        52,
+        45
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 39,
+      "type": "quad",
+      "nodeIds": [
+        45,
+        52,
+        53,
+        46
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 40,
+      "type": "quad",
+      "nodeIds": [
+        46,
+        53,
+        54,
+        47
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 41,
+      "type": "quad",
+      "nodeIds": [
+        47,
+        54,
+        55,
+        48
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 42,
+      "type": "quad",
+      "nodeIds": [
+        48,
+        55,
+        56,
+        49
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 43,
+      "type": "quad",
+      "nodeIds": [
+        50,
+        57,
+        58,
+        51
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 44,
+      "type": "quad",
+      "nodeIds": [
+        51,
+        58,
+        59,
+        52
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 45,
+      "type": "quad",
+      "nodeIds": [
+        52,
+        59,
+        60,
+        53
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 46,
+      "type": "quad",
+      "nodeIds": [
+        53,
+        60,
+        61,
+        54
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 47,
+      "type": "quad",
+      "nodeIds": [
+        54,
+        61,
+        62,
+        55
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 48,
+      "type": "quad",
+      "nodeIds": [
+        55,
+        62,
+        63,
+        56
+      ],
+      "membraneId": 1
+    },
+    {
+      "id": 49,
+      "type": "quad",
+      "nodeIds": [
+        64,
+        71,
+        72,
+        65
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 50,
+      "type": "quad",
+      "nodeIds": [
+        65,
+        72,
+        73,
+        66
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 51,
+      "type": "quad",
+      "nodeIds": [
+        66,
+        73,
+        74,
+        67
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 52,
+      "type": "quad",
+      "nodeIds": [
+        67,
+        74,
+        75,
+        68
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 53,
+      "type": "quad",
+      "nodeIds": [
+        68,
+        75,
+        76,
+        69
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 54,
+      "type": "quad",
+      "nodeIds": [
+        69,
+        76,
+        77,
+        70
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 55,
+      "type": "quad",
+      "nodeIds": [
+        71,
+        78,
+        79,
+        72
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 56,
+      "type": "quad",
+      "nodeIds": [
+        72,
+        79,
+        80,
+        73
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 57,
+      "type": "quad",
+      "nodeIds": [
+        73,
+        80,
+        81,
+        74
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 58,
+      "type": "quad",
+      "nodeIds": [
+        74,
+        81,
+        82,
+        75
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 59,
+      "type": "quad",
+      "nodeIds": [
+        75,
+        82,
+        83,
+        76
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 60,
+      "type": "quad",
+      "nodeIds": [
+        76,
+        83,
+        84,
+        77
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 61,
+      "type": "quad",
+      "nodeIds": [
+        78,
+        85,
+        86,
+        79
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 62,
+      "type": "quad",
+      "nodeIds": [
+        79,
+        86,
+        87,
+        80
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 63,
+      "type": "quad",
+      "nodeIds": [
+        80,
+        87,
+        88,
+        81
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 64,
+      "type": "quad",
+      "nodeIds": [
+        81,
+        88,
+        89,
+        82
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 65,
+      "type": "quad",
+      "nodeIds": [
+        82,
+        89,
+        90,
+        83
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 66,
+      "type": "quad",
+      "nodeIds": [
+        83,
+        90,
+        91,
+        84
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 67,
+      "type": "quad",
+      "nodeIds": [
+        85,
+        92,
+        93,
+        86
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 68,
+      "type": "quad",
+      "nodeIds": [
+        86,
+        93,
+        94,
+        87
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 69,
+      "type": "quad",
+      "nodeIds": [
+        87,
+        94,
+        95,
+        88
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 70,
+      "type": "quad",
+      "nodeIds": [
+        88,
+        95,
+        96,
+        89
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 71,
+      "type": "quad",
+      "nodeIds": [
+        89,
+        96,
+        97,
+        90
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 72,
+      "type": "quad",
+      "nodeIds": [
+        90,
+        97,
+        98,
+        91
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 73,
+      "type": "quad",
+      "nodeIds": [
+        92,
+        99,
+        100,
+        93
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 74,
+      "type": "quad",
+      "nodeIds": [
+        93,
+        100,
+        101,
+        94
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 75,
+      "type": "quad",
+      "nodeIds": [
+        94,
+        101,
+        102,
+        95
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 76,
+      "type": "quad",
+      "nodeIds": [
+        95,
+        102,
+        103,
+        96
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 77,
+      "type": "quad",
+      "nodeIds": [
+        96,
+        103,
+        104,
+        97
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 78,
+      "type": "quad",
+      "nodeIds": [
+        97,
+        104,
+        105,
+        98
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 79,
+      "type": "quad",
+      "nodeIds": [
+        99,
+        106,
+        107,
+        100
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 80,
+      "type": "quad",
+      "nodeIds": [
+        100,
+        107,
+        108,
+        101
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 81,
+      "type": "quad",
+      "nodeIds": [
+        101,
+        108,
+        109,
+        102
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 82,
+      "type": "quad",
+      "nodeIds": [
+        102,
+        109,
+        110,
+        103
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 83,
+      "type": "quad",
+      "nodeIds": [
+        103,
+        110,
+        111,
+        104
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 84,
+      "type": "quad",
+      "nodeIds": [
+        104,
+        111,
+        112,
+        105
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 85,
+      "type": "quad",
+      "nodeIds": [
+        106,
+        113,
+        114,
+        107
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 86,
+      "type": "quad",
+      "nodeIds": [
+        107,
+        114,
+        115,
+        108
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 87,
+      "type": "quad",
+      "nodeIds": [
+        108,
+        115,
+        116,
+        109
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 88,
+      "type": "quad",
+      "nodeIds": [
+        109,
+        116,
+        117,
+        110
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 89,
+      "type": "quad",
+      "nodeIds": [
+        110,
+        117,
+        118,
+        111
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 90,
+      "type": "quad",
+      "nodeIds": [
+        111,
+        118,
+        119,
+        112
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 91,
+      "type": "quad",
+      "nodeIds": [
+        113,
+        120,
+        121,
+        114
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 92,
+      "type": "quad",
+      "nodeIds": [
+        114,
+        121,
+        122,
+        115
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 93,
+      "type": "quad",
+      "nodeIds": [
+        115,
+        122,
+        123,
+        116
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 94,
+      "type": "quad",
+      "nodeIds": [
+        116,
+        123,
+        124,
+        117
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 95,
+      "type": "quad",
+      "nodeIds": [
+        117,
+        124,
+        125,
+        118
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 96,
+      "type": "quad",
+      "nodeIds": [
+        118,
+        125,
+        126,
+        119
+      ],
+      "membraneId": 2
+    },
+    {
+      "id": 97,
+      "type": "quad",
+      "nodeIds": [
+        120,
+        134,
+        135,
+        121
+      ],
+      "membraneId": 3
+    },
+    {
+      "id": 98,
+      "type": "quad",
+      "nodeIds": [
+        121,
+        135,
+        136,
+        122
+      ],
+      "membraneId": 3
+    },
+    {
+      "id": 99,
+      "type": "quad",
+      "nodeIds": [
+        122,
+        136,
+        137,
+        123
+      ],
+      "membraneId": 3
+    },
+    {
+      "id": 100,
+      "type": "quad",
+      "nodeIds": [
+        123,
+        137,
+        138,
+        124
+      ],
+      "membraneId": 3
+    },
+    {
+      "id": 101,
+      "type": "quad",
+      "nodeIds": [
+        124,
+        138,
+        139,
+        125
+      ],
+      "membraneId": 3
+    },
+    {
+      "id": 102,
+      "type": "quad",
+      "nodeIds": [
+        125,
+        139,
+        140,
+        126
+      ],
+      "membraneId": 3
+    },
+    {
+      "id": 103,
+      "type": "quad",
+      "nodeIds": [
+        134,
+        141,
+        142,
+        135
+      ],
+      "membraneId": 3
+    },
+    {
+      "id": 104,
+      "type": "quad",
+      "nodeIds": [
+        135,
+        142,
+        143,
+        136
+      ],
+      "membraneId": 3
+    },
+    {
+      "id": 105,
+      "type": "quad",
+      "nodeIds": [
+        136,
+        143,
+        144,
+        137
+      ],
+      "membraneId": 3
+    },
+    {
+      "id": 106,
+      "type": "quad",
+      "nodeIds": [
+        137,
+        144,
+        145,
+        138
+      ],
+      "membraneId": 3
+    },
+    {
+      "id": 107,
+      "type": "quad",
+      "nodeIds": [
+        138,
+        145,
+        146,
+        139
+      ],
+      "membraneId": 3
+    },
+    {
+      "id": 108,
+      "type": "quad",
+      "nodeIds": [
+        139,
+        146,
+        147,
+        140
+      ],
+      "membraneId": 3
+    },
+    {
+      "id": 109,
+      "type": "quad",
+      "nodeIds": [
+        141,
+        148,
+        149,
+        142
+      ],
+      "membraneId": 3
+    },
+    {
+      "id": 110,
+      "type": "quad",
+      "nodeIds": [
+        142,
+        149,
+        150,
+        143
+      ],
+      "membraneId": 3
+    },
+    {
+      "id": 111,
+      "type": "quad",
+      "nodeIds": [
+        143,
+        150,
+        151,
+        144
+      ],
+      "membraneId": 3
+    },
+    {
+      "id": 112,
+      "type": "quad",
+      "nodeIds": [
+        144,
+        151,
+        152,
+        145
+      ],
+      "membraneId": 3
+    },
+    {
+      "id": 113,
+      "type": "quad",
+      "nodeIds": [
+        145,
+        152,
+        153,
+        146
+      ],
+      "membraneId": 3
+    },
+    {
+      "id": 114,
+      "type": "quad",
+      "nodeIds": [
+        146,
+        153,
+        154,
+        147
+      ],
+      "membraneId": 3
+    },
+    {
+      "id": 115,
+      "type": "quad",
+      "nodeIds": [
+        148,
+        155,
+        156,
+        149
+      ],
+      "membraneId": 3
+    },
+    {
+      "id": 116,
+      "type": "quad",
+      "nodeIds": [
+        149,
+        156,
+        157,
+        150
+      ],
+      "membraneId": 3
+    },
+    {
+      "id": 117,
+      "type": "quad",
+      "nodeIds": [
+        150,
+        157,
+        158,
+        151
+      ],
+      "membraneId": 3
+    },
+    {
+      "id": 118,
+      "type": "quad",
+      "nodeIds": [
+        151,
+        158,
+        159,
+        152
+      ],
+      "membraneId": 3
+    },
+    {
+      "id": 119,
+      "type": "quad",
+      "nodeIds": [
+        152,
+        159,
+        160,
+        153
+      ],
+      "membraneId": 3
+    },
+    {
+      "id": 120,
+      "type": "quad",
+      "nodeIds": [
+        153,
+        160,
+        161,
+        154
+      ],
+      "membraneId": 3
+    },
+    {
+      "id": 121,
+      "type": "quad",
+      "nodeIds": [
+        155,
+        162,
+        163,
+        156
+      ],
+      "membraneId": 3
+    },
+    {
+      "id": 122,
+      "type": "quad",
+      "nodeIds": [
+        156,
+        163,
+        164,
+        157
+      ],
+      "membraneId": 3
+    },
+    {
+      "id": 123,
+      "type": "quad",
+      "nodeIds": [
+        157,
+        164,
+        165,
+        158
+      ],
+      "membraneId": 3
+    },
+    {
+      "id": 124,
+      "type": "quad",
+      "nodeIds": [
+        158,
+        165,
+        166,
+        159
+      ],
+      "membraneId": 3
+    },
+    {
+      "id": 125,
+      "type": "quad",
+      "nodeIds": [
+        159,
+        166,
+        167,
+        160
+      ],
+      "membraneId": 3
+    },
+    {
+      "id": 126,
+      "type": "quad",
+      "nodeIds": [
+        160,
+        167,
+        168,
+        161
+      ],
+      "membraneId": 3
+    },
+    {
+      "id": 127,
+      "type": "quad",
+      "nodeIds": [
+        162,
+        169,
+        170,
+        163
+      ],
+      "membraneId": 3
+    },
+    {
+      "id": 128,
+      "type": "quad",
+      "nodeIds": [
+        163,
+        170,
+        171,
+        164
+      ],
+      "membraneId": 3
+    },
+    {
+      "id": 129,
+      "type": "quad",
+      "nodeIds": [
+        164,
+        171,
+        172,
+        165
+      ],
+      "membraneId": 3
+    },
+    {
+      "id": 130,
+      "type": "quad",
+      "nodeIds": [
+        165,
+        172,
+        173,
+        166
+      ],
+      "membraneId": 3
+    },
+    {
+      "id": 131,
+      "type": "quad",
+      "nodeIds": [
+        166,
+        173,
+        174,
+        167
+      ],
+      "membraneId": 3
+    },
+    {
+      "id": 132,
+      "type": "quad",
+      "nodeIds": [
+        167,
+        174,
+        175,
+        168
+      ],
+      "membraneId": 3
+    },
+    {
+      "id": 133,
+      "type": "quad",
+      "nodeIds": [
+        169,
+        176,
+        177,
+        170
+      ],
+      "membraneId": 3
+    },
+    {
+      "id": 134,
+      "type": "quad",
+      "nodeIds": [
+        170,
+        177,
+        178,
+        171
+      ],
+      "membraneId": 3
+    },
+    {
+      "id": 135,
+      "type": "quad",
+      "nodeIds": [
+        171,
+        178,
+        179,
+        172
+      ],
+      "membraneId": 3
+    },
+    {
+      "id": 136,
+      "type": "quad",
+      "nodeIds": [
+        172,
+        179,
+        180,
+        173
+      ],
+      "membraneId": 3
+    },
+    {
+      "id": 137,
+      "type": "quad",
+      "nodeIds": [
+        173,
+        180,
+        181,
+        174
+      ],
+      "membraneId": 3
+    },
+    {
+      "id": 138,
+      "type": "quad",
+      "nodeIds": [
+        174,
+        181,
+        182,
+        175
+      ],
+      "membraneId": 3
+    },
+    {
+      "id": 139,
+      "type": "quad",
+      "nodeIds": [
+        176,
+        1,
+        2,
+        177
+      ],
+      "membraneId": 3
+    },
+    {
+      "id": 140,
+      "type": "quad",
+      "nodeIds": [
+        177,
+        2,
+        3,
+        178
+      ],
+      "membraneId": 3
+    },
+    {
+      "id": 141,
+      "type": "quad",
+      "nodeIds": [
+        178,
+        3,
+        4,
+        179
+      ],
+      "membraneId": 3
+    },
+    {
+      "id": 142,
+      "type": "quad",
+      "nodeIds": [
+        179,
+        4,
+        5,
+        180
+      ],
+      "membraneId": 3
+    },
+    {
+      "id": 143,
+      "type": "quad",
+      "nodeIds": [
+        180,
+        5,
+        6,
+        181
+      ],
+      "membraneId": 3
+    },
+    {
+      "id": 144,
+      "type": "quad",
+      "nodeIds": [
+        181,
+        6,
+        7,
+        182
+      ],
+      "membraneId": 3
+    }
+  ],
+  "feSprings": [],
+  "feBars": [
+    {
+      "id": 1,
+      "feNodeId1": 57,
+      "feNodeId2": 50,
+      "e": 10000000,
+      "a": 0.3
+    },
+    {
+      "id": 2,
+      "feNodeId1": 50,
+      "feNodeId2": 43,
+      "e": 10000000,
+      "a": 0.3
+    },
+    {
+      "id": 3,
+      "feNodeId1": 43,
+      "feNodeId2": 36,
+      "e": 10000000,
+      "a": 0.3
+    },
+    {
+      "id": 4,
+      "feNodeId1": 36,
+      "feNodeId2": 29,
+      "e": 10000000,
+      "a": 0.3
+    },
+    {
+      "id": 5,
+      "feNodeId1": 29,
+      "feNodeId2": 22,
+      "e": 10000000,
+      "a": 0.3
+    },
+    {
+      "id": 6,
+      "feNodeId1": 22,
+      "feNodeId2": 15,
+      "e": 10000000,
+      "a": 0.3
+    },
+    {
+      "id": 7,
+      "feNodeId1": 15,
+      "feNodeId2": 8,
+      "e": 10000000,
+      "a": 0.3
+    },
+    {
+      "id": 8,
+      "feNodeId1": 8,
+      "feNodeId2": 1,
+      "e": 10000000,
+      "a": 0.3
+    },
+    {
+      "id": 9,
+      "feNodeId1": 1,
+      "feNodeId2": 176,
+      "e": 10000000,
+      "a": 0.3
+    },
+    {
+      "id": 10,
+      "feNodeId1": 176,
+      "feNodeId2": 169,
+      "e": 10000000,
+      "a": 0.3
+    },
+    {
+      "id": 11,
+      "feNodeId1": 169,
+      "feNodeId2": 162,
+      "e": 10000000,
+      "a": 0.3
+    },
+    {
+      "id": 12,
+      "feNodeId1": 162,
+      "feNodeId2": 155,
+      "e": 10000000,
+      "a": 0.3
+    },
+    {
+      "id": 13,
+      "feNodeId1": 155,
+      "feNodeId2": 148,
+      "e": 10000000,
+      "a": 0.3
+    },
+    {
+      "id": 14,
+      "feNodeId1": 148,
+      "feNodeId2": 141,
+      "e": 10000000,
+      "a": 0.3
+    },
+    {
+      "id": 15,
+      "feNodeId1": 141,
+      "feNodeId2": 134,
+      "e": 10000000,
+      "a": 0.3
+    },
+    {
+      "id": 16,
+      "feNodeId1": 134,
+      "feNodeId2": 120,
+      "e": 10000000,
+      "a": 0.3
+    },
+    {
+      "id": 17,
+      "feNodeId1": 120,
+      "feNodeId2": 113,
+      "e": 10000000,
+      "a": 0.3
+    },
+    {
+      "id": 18,
+      "feNodeId1": 113,
+      "feNodeId2": 106,
+      "e": 10000000,
+      "a": 0.3
+    },
+    {
+      "id": 19,
+      "feNodeId1": 106,
+      "feNodeId2": 99,
+      "e": 10000000,
+      "a": 0.3
+    },
+    {
+      "id": 20,
+      "feNodeId1": 99,
+      "feNodeId2": 92,
+      "e": 10000000,
+      "a": 0.3
+    },
+    {
+      "id": 21,
+      "feNodeId1": 92,
+      "feNodeId2": 85,
+      "e": 10000000,
+      "a": 0.3
+    },
+    {
+      "id": 22,
+      "feNodeId1": 85,
+      "feNodeId2": 78,
+      "e": 10000000,
+      "a": 0.3
+    },
+    {
+      "id": 23,
+      "feNodeId1": 78,
+      "feNodeId2": 71,
+      "e": 10000000,
+      "a": 0.3
+    },
+    {
+      "id": 24,
+      "feNodeId1": 71,
+      "feNodeId2": 64,
+      "e": 10000000,
+      "a": 0.3
+    }
+  ],
+  "rbe2s": [],
+  "cracks": []
+}

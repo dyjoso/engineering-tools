@@ -42,7 +42,9 @@
       "visible": true,
       "meshM": 4,
       "meshN": 4,
-      "meshQuadratic": false
+      "meshQuadratic": false,
+      "meshBiasM": 1,
+      "meshBiasN": 1
     }
   ],
   "springPoints": [

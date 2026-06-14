@@ -92,7 +92,9 @@
       "visible": true,
       "meshM": 1,
       "meshN": 1,
-      "meshQuadratic": true
+      "meshQuadratic": true,
+      "meshBiasM": 1,
+      "meshBiasN": 1
     },
     {
       "id": 2,
@@ -114,7 +116,9 @@
       "visible": true,
       "meshM": 1,
       "meshN": 1,
-      "meshQuadratic": true
+      "meshQuadratic": true,
+      "meshBiasM": 1,
+      "meshBiasN": 1
     },
     {
       "id": 3,
@@ -136,7 +140,9 @@
       "visible": true,
       "meshM": 1,
       "meshN": 1,
-      "meshQuadratic": true
+      "meshQuadratic": true,
+      "meshBiasM": 1,
+      "meshBiasN": 1
     },
     {
       "id": 4,
@@ -158,7 +164,9 @@
       "visible": true,
       "meshM": 1,
       "meshN": 1,
-      "meshQuadratic": true
+      "meshQuadratic": true,
+      "meshBiasM": 1,
+      "meshBiasN": 1
     },
     {
       "id": 5,
@@ -180,7 +188,9 @@
       "visible": true,
       "meshM": 1,
       "meshN": 1,
-      "meshQuadratic": true
+      "meshQuadratic": true,
+      "meshBiasM": 1,
+      "meshBiasN": 1
     },
     {
       "id": 6,
@@ -202,7 +212,9 @@
       "visible": true,
       "meshM": 1,
       "meshN": 1,
-      "meshQuadratic": true
+      "meshQuadratic": true,
+      "meshBiasM": 1,
+      "meshBiasN": 1
     }
   ],
   "springPoints": [],

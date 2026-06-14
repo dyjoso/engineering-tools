@@ -685,6 +685,54 @@ public partial class MainWindow : Window
         Log($"Surface {s.Id} created at ({x0:G6}, {y0:G6}), {lx:G6} x {ly:G6}.");
     }
 
+    private void MenuReentrantCorner_Click(object sender, RoutedEventArgs e)
+    {
+        var d = new FormDialog(this, "Re-entrant Corner Ring (filleted)")
+            .AddField("ax", "Apex (corner) X", 0).AddField("ay", "Apex (corner) Y", 0)
+            .AddField("r", "Fillet radius", 20).AddField("dd", "Ring thickness (into material)", 40)
+            .AddField("lx", "Leg length (X leg)", 80).AddField("ly", "Leg length (Y leg)", 80)
+            .AddField("turns", "Orientation (0-3 quarter turns)", 0)
+            .AddField("nlx", "Divisions along X leg", 6).AddField("nly", "Divisions along Y leg", 6)
+            .AddField("nc", "Divisions around fillet (90 deg)", 6).AddField("nr", "Radial divisions (free edge->in)", 4)
+            .AddField("rbias", "Radial bias (>1 = finer at the free edge)", 3)
+            .AddField("E", "Modulus E", 10.5e6).AddField("nu", "Poisson nu", 0.33).AddField("t", "Thickness t", 0.05)
+            .AddCheck("q8", "Quadratic elements (Quad8)", false)
+            .AddCheck("frame", "Create stiffener bars along the free edge", true)
+            .AddField("frE", "Stiffener bar modulus E", 10.5e6)
+            .AddField("frA", "Stiffener bar area", 0.2)
+            .AddNote("Builds a structured ring (2 legs + 1 fillet patch) along a concave " +
+                     "(re-entrant) filleted corner, graded toward the free edge. The notch " +
+                     "starts in the +X,+Y quadrant; use quarter turns to face it elsewhere. " +
+                     "Mesh the surrounding part up to the outer edge and Merge Coincident Nodes to stitch.");
+        if (!d.Run()) return;
+        try
+        {
+            Snapshot();
+            var res = Mesher.CreateReentrantCorner(_model, new Mesher.ReentrantCornerOptions
+            {
+                ApexX = d.Num("ax"), ApexY = d.Num("ay"), Radius = d.Num("r"), Offset = d.Num("dd"),
+                LegX = d.Num("lx"), LegY = d.Num("ly"), QuarterTurns = (int)d.Num("turns"),
+                DivLegX = (int)d.Num("nlx"), DivLegY = (int)d.Num("nly"),
+                DivCorner = (int)d.Num("nc"), DivRadial = (int)d.Num("nr"), RadialBias = d.Num("rbias"),
+                Quadratic = d.Check("q8"), E = d.Num("E"), Nu = d.Num("nu"), Thickness = d.Num("t"),
+                CreateFrameBars = d.Check("frame"), FrameE = d.Num("frE"), FrameArea = d.Num("frA")
+            });
+            ClearSelection();
+            ModelChanged(invalidateResults: false);
+            FitView();
+            Log($"Re-entrant corner created: {res.PatchIds.Count} patches, {res.InnerEdgeNodeIds.Count} free-edge nodes, " +
+                $"{res.NodesMerged} seam node(s) merged" +
+                (res.FrameBars > 0 ? $", {res.FrameBars} stiffener bar(s)." : "."));
+        }
+        catch (Exception ex)
+        {
+            if (_undo.Count > 0) { _model = FeModel.FromJson(_undo[^1]); _undo.RemoveAt(_undo.Count - 1); }
+            ModelChanged(invalidateResults: false);
+            Log("Re-entrant corner failed: " + ex.Message);
+            Prompt("Re-entrant corner failed: " + ex.Message);
+        }
+    }
+
     private void MenuSpringPointGrid_Click(object sender, RoutedEventArgs e)
     {
         var d = new FormDialog(this, "Spring Point Grid")
@@ -747,6 +795,85 @@ public partial class MainWindow : Window
     {
         _mode = Mode.PickEdge;
         Prompt("Pick a surface edge to set its radius (Esc to cancel).");
+    }
+
+    private void MenuSplitSurface_Click(object sender, RoutedEventArgs e)
+    {
+        var surfaces = SelectedSurfacesOrAll();
+        if (surfaces.Count != 1) { Prompt("Select exactly one 4-sided surface to split (Select: Surfaces, click)."); return; }
+        var s = surfaces[0];
+        if (s.NodeIds.Count != 4) { Prompt($"Surface {s.Id} is not 4-sided."); return; }
+
+        // Default to halving the longer span so the new cut runs the short way across.
+        var corners = s.NodeIds.Select(id => _model.Nodes.First(g => g.Id == id)).ToArray();
+        double EdgeLen(int i)
+        {
+            var a = corners[i]; var b = corners[(i + 1) % 4];
+            return Math.Sqrt((b.X - a.X) * (b.X - a.X) + (b.Y - a.Y) * (b.Y - a.Y));
+        }
+        double mSpan = (EdgeLen(0) + EdgeLen(2)) / 2, nSpan = (EdgeLen(1) + EdgeLen(3)) / 2;
+        bool meshed = _model.FeElements.Any(el => el.MembraneId == s.Id);
+
+        // Entities carried by this surface's mesh are destroyed by the re-mesh. Key on
+        // the surface's element node set (not MembraneId) so nodes whose MembraneId was
+        // reassigned by a prior stitch-merge are still counted.
+        var sNodes = _model.FeElements.Where(el => el.MembraneId == s.Id).SelectMany(el => el.NodeIds).ToHashSet();
+        int nBc = _model.FeNodes.Count(n => sNodes.Contains(n.Id) && n.Bc is not null);
+        int nSp = _model.FeSprings.Count(sp => sNodes.Contains(sp.FeNodeId1) || sNodes.Contains(sp.FeNodeId2));
+        int nBar = _model.FeBars.Count(bb => sNodes.Contains(bb.FeNodeId1) || sNodes.Contains(bb.FeNodeId2));
+        int nRbe = _model.Rbe2s.Count(rb => sNodes.Contains(rb.IndependentNodeId) || rb.DependentNodeIds.Any(sNodes.Contains));
+        int nCrk = _model.Cracks.Count(c => sNodes.Contains(c.TipNodeId) ||
+            sNodes.Contains(c.FaceAQuarterNodeId) || sNodes.Contains(c.FaceACornerNodeId) ||
+            sNodes.Contains(c.FaceBQuarterNodeId) || sNodes.Contains(c.FaceBCornerNodeId));
+
+        var d = new FormDialog(this, $"Split Surface {s.Id} in Half")
+            .AddCheck("halveN", "Cut parallel to edge 1-2 (halve the N / 2-3 direction)", nSpan > mSpan)
+            .AddNote("Makes two 4-sided surfaces sharing two new midpoint geometry points, " +
+                     "so the cut stays connected. Arc edges are preserved; the new internal " +
+                     "edge is straight.");
+        if (meshed)
+            d.AddNote(s.MeshM is not null && s.MeshN is not null
+                ? "Surface is meshed: both halves are re-meshed, the seam fused, and any stitch to a neighbouring surface is preserved (one conformal mesh)."
+                : "Surface is meshed but its divisions are unknown - the mesh is cleared; re-mesh the halves afterwards.");
+        if (meshed && (s.MeshM == 1 || s.MeshN == 1))
+            d.AddNote("A 1-division direction is refined to 2 elements when halved (element size changes there).");
+        var lost = new List<string>();
+        if (nBc > 0) lost.Add($"{nBc} node BC/load(s)");
+        if (nSp > 0) lost.Add($"{nSp} spring(s)");
+        if (nBar > 0) lost.Add($"{nBar} bar(s)");
+        if (nRbe > 0) lost.Add($"{nRbe} RBE2(s)");
+        if (nCrk > 0) lost.Add($"{nCrk} crack(s)");
+        if (lost.Count > 0)
+            d.AddNote("Re-meshing replaces this surface's nodes, so the following attached to its mesh " +
+                      $"will be REMOVED: {string.Join(", ", lost)}." +
+                      (nCrk > 0 ? " (A crack is expensive to recreate - cancel if you meant to keep it.)" : ""));
+        if (!d.Run()) return;
+
+        Snapshot();
+        try
+        {
+            var axis = d.Check("halveN") ? Mesher.SplitAxis.HalveN : Mesher.SplitAxis.HalveM;
+            var r = Mesher.SplitMembrane(_model, s.Id, axis);
+            ClearSelection();
+            _renderer.SelectedSurfaces.Add(r.A.Id);
+            _renderer.SelectedSurfaces.Add(r.B.Id);
+            ModelChanged();
+            string meshNote = r.Remeshed
+                ? $" Re-meshed; {r.NodesMerged} coincident node(s) fused" +
+                  (r.NeighbourStitchNodes > 0 ? $" (incl. {r.NeighbourStitchNodes} neighbour-stitch node(s) preserved)." : ".")
+                : (r.WasMeshed ? " Mesh cleared (unknown divisions) - re-mesh the halves." : "");
+            Log($"Surface {s.Id} split into surfaces {r.A.Id} and {r.B.Id}.{meshNote}");
+        }
+        catch (Exception ex)
+        {
+            // Roll back the partial mutation and drop the dangling snapshot so _model,
+            // the view and the undo stack stay consistent.
+            if (_undo.Count > 0) { _model = FeModel.FromJson(_undo[^1]); _undo.RemoveAt(_undo.Count - 1); }
+            ClearSelection();
+            ModelChanged();
+            Log("Split failed: " + ex.Message);
+            Prompt("Split failed: " + ex.Message);
+        }
     }
 
     private void MenuDeleteSurfaces_Click(object sender, RoutedEventArgs e) => DeleteSelected(surfacesOnly: true);
@@ -903,17 +1030,22 @@ public partial class MainWindow : Window
         var d = new FormDialog(this, $"Mesh {surfaces.Count} Surface(s)")
             .AddField("m", "Divisions along edge 1-2 (M)", 8)
             .AddField("n", "Divisions along edge 2-3 (N)", 4)
+            .AddField("bm", "Bias M (1 = uniform; >1 fine toward corner 1)", 1)
+            .AddField("bn", "Bias N (1 = uniform; >1 fine toward corner 2)", 1)
             .AddCheck("q8", "Quadratic elements (Quad8, corner + midside nodes)", false)
-            .AddNote("Quad8 gives quadratic displacement fields - better for stress gradients " +
-                     "and the basis for quarter-point crack-tip elements.");
+            .AddNote("Bias is the ratio of the largest to smallest element along that edge " +
+                     "(geometric grading) - use it to concentrate elements at a stress riser. " +
+                     "Quad8 gives quadratic displacement fields, better for stress gradients.");
         if (!d.Run()) return;
         Snapshot();
         int m = (int)d.Num("m"), n = (int)d.Num("n");
+        double bm = d.Num("bm"), bn = d.Num("bn");
         bool q8 = d.Check("q8");
         foreach (var s in surfaces)
         {
-            var (nodes, els) = Mesher.MeshMembrane(_model, s, m, n, q8);
-            Log($"Surface {s.Id} meshed {m}x{n} {(q8 ? "Quad8" : "Quad4")}: {nodes} nodes, {els} elements.");
+            var (nodes, els) = Mesher.MeshMembrane(_model, s, m, n, q8, bm, bn);
+            string bias = (bm != 1 || bn != 1) ? $" bias {bm:G4}/{bn:G4}" : "";
+            Log($"Surface {s.Id} meshed {m}x{n}{bias} {(q8 ? "Quad8" : "Quad4")}: {nodes} nodes, {els} elements.");
         }
         ModelChanged();
     }
@@ -1096,15 +1228,31 @@ public partial class MainWindow : Window
         Log($"Spring {nextId} created (k={d.Num("k")}).");
     }
 
-    private void MenuSurfaceProps_Click(object sender, RoutedEventArgs e)
+    // Edit the properties of the current selection in place (no delete/recreate).
+    // Dispatches by what is selected; per-type entry points are below.
+    private void MenuEditProperties_Click(object sender, RoutedEventArgs e)
+    {
+        if (_renderer.SelectedSurfaces.Count > 0) { EditSurfaceProps(); return; }
+        if (_renderer.SelectedBars.Count > 0) { EditBarProps(); return; }
+        if (_renderer.SelectedSprings.Count > 0) { EditSpringProps(); return; }
+        Prompt("Select a surface, bar or spring first, then Edit > Properties (F2).");
+    }
+
+    private void MenuSurfaceProps_Click(object sender, RoutedEventArgs e) => EditSurfaceProps();
+    private void MenuBarProps_Click(object sender, RoutedEventArgs e) => EditBarProps();
+    private void MenuSpringProps_Click(object sender, RoutedEventArgs e) => EditSpringProps();
+
+    private void EditSurfaceProps()
     {
         var surfaces = SelectedSurfacesOrAll();
-        if (surfaces.Count == 0) { Prompt("Select surface(s) first."); return; }
+        if (surfaces.Count == 0) { Prompt("Select surface(s) first (Select: Surfaces)."); return; }
         var s0 = surfaces[0];
         var d = new FormDialog(this, $"Properties for {surfaces.Count} Surface(s)")
             .AddField("E", "Modulus E", s0.MaterialE)
             .AddField("nu", "Poisson nu", s0.MaterialNu)
             .AddField("t", "Thickness t", s0.MaterialT);
+        if (surfaces.Count > 1 && surfaces.Any(s => s.MaterialE != s0.MaterialE || s.MaterialNu != s0.MaterialNu || s.MaterialT != s0.MaterialT))
+            d.AddNote("Selected surfaces differ; applying sets them all to these values.");
         if (!d.Run()) return;
         Snapshot();
         foreach (var s in surfaces)
@@ -1115,6 +1263,40 @@ public partial class MainWindow : Window
         }
         ModelChanged();
         Log($"Properties updated on {surfaces.Count} surface(s).");
+    }
+
+    private void EditBarProps()
+    {
+        var bars = _model.FeBars.Where(b => _renderer.SelectedBars.Contains(b.Id)).ToList();
+        if (bars.Count == 0) { Prompt("Select bar(s) first (Select: Bars, click or box)."); return; }
+        var b0 = bars[0];
+        var d = new FormDialog(this, $"Properties for {bars.Count} Bar(s)")
+            .AddField("E", "Modulus E", b0.E)
+            .AddField("A", "Area A", b0.A);
+        if (bars.Count > 1 && bars.Any(b => b.E != b0.E || b.A != b0.A))
+            d.AddNote("Selected bars differ; applying sets them all to these values.");
+        if (!d.Run()) return;
+        Snapshot();
+        foreach (var b in bars) { b.E = d.Num("E"); b.A = d.Num("A"); }
+        ModelChanged();
+        Log($"Properties updated on {bars.Count} bar(s).");
+    }
+
+    private void EditSpringProps()
+    {
+        var springs = _model.FeSprings.Where(s => _renderer.SelectedSprings.Contains(s.Id)).ToList();
+        if (springs.Count == 0) { Prompt("Select spring(s) first (Select: Springs, click or box)."); return; }
+        var s0 = springs[0];
+        var d = new FormDialog(this, $"Properties for {springs.Count} Spring(s)")
+            .AddField("k", "Stiffness k (X and Y)", s0.Stiffness)
+            .AddNote("Independent k in X and Y (fastener idealisation), not axial.");
+        if (springs.Count > 1 && springs.Any(s => s.Stiffness != s0.Stiffness))
+            d.AddNote("Selected springs differ; applying sets them all to this value.");
+        if (!d.Run()) return;
+        Snapshot();
+        foreach (var s in springs) s.Stiffness = d.Num("k");
+        ModelChanged();
+        Log($"Stiffness updated on {springs.Count} spring(s).");
     }
 
     private void DeleteSelected(bool surfacesOnly = false)
@@ -1300,6 +1482,11 @@ public partial class MainWindow : Window
                 DeleteSelected();
                 e.Handled = true;
                 break;
+            case Key.F2:
+                MenuEditProperties_Click(this, new RoutedEventArgs());
+                e.Handled = true;
+                break;
+
             case Key.F:
                 FitView();
                 e.Handled = true;
