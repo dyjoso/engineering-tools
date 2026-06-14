@@ -65,6 +65,23 @@ class CrackGeometry {
     }
 
     /**
+     * Net-section stress in the ligament between a crack tip and the free
+     * edge it grows toward. Used as the trigger for the ligament-yield
+     * plastic-zone-correction mode: PZC activates once this reaches the
+     * material yield stress.
+     * Default: the geometry's net-section stress (single-crack geometries).
+     * Override for per-tip ligament definitions (e.g. TC23).
+     * @param {number} a      - Crack length at this tip [in]
+     * @param {number} sigma  - Gross applied stress [ksi]
+     * @param {object} params - Geometry parameters
+     * @param {string} [side] - 'left' or 'right' for dual-crack geometries
+     * @returns {number} Ligament net-section stress [ksi]
+     */
+    getLigamentStress(a, sigma, params, side) {
+        return this.getNetSectionStress(a, sigma, params, side);
+    }
+
+    /**
      * Return an array of input field definitions for this geometry.
      * Each field: { id, label, unit, default, step, min }
      * Used by the UI to dynamically build the geometry input section.

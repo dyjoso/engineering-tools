@@ -20,14 +20,22 @@
             <span class="header-badge">SOUTHWARD CONSULTING</span>
         </header>
 
-        <!-- ── Sidebar ── -->
-        <aside class="sidebar">
-            <button class="btn-primary" id="run-btn" onclick="runAnalysis()" style="margin-bottom: 20px;">Run
-                Analysis</button>
-            <div id="error-msg" class="error-msg" style="margin-bottom: 10px;"></div>
+        <!-- ── Top section: diagram (left) + inputs across the top ── -->
+        <section class="top-section">
+
+            <div class="left-col">
+                <button class="btn-primary" id="run-btn" onclick="runAnalysis()">Run Analysis</button>
+                <div id="error-msg" class="error-msg"></div>
+                <div class="diagram-card">
+                    <h3>Geometry</h3>
+                    <canvas id="geom-canvas" width="280" height="200"></canvas>
+                </div>
+            </div>
+
+            <div class="inputs-panel">
 
             <!-- Geometry Selection -->
-            <div class="card">
+            <div class="card geometry-card">
                 <div class="card-title">Geometry Case</div>
                 <div class="input-group">
                     <select id="geometry-select"></select>
@@ -37,30 +45,42 @@
 
             <!-- Loading -->
             <div class="card">
-                <div class="card-title">Loading (S0 — Tension)</div>
+                <div class="card-title">Loading</div>
                 <div class="input-group">
-                    <label>Max Stress, σ<sub>max</sub> <span class="unit">(ksi)</span></label>
+                    <label>Max Stress, σ<sub>max</sub> (S0) <span class="unit">(ksi)</span></label>
                     <input type="number" id="sigma-max" value="15" step="0.5" min="0">
                 </div>
                 <div class="input-group">
                     <label>Stress Ratio, R</label>
                     <input type="number" id="R-ratio" value="0" step="0.05" min="-2" max="0.99">
                 </div>
-            </div>
-
-            <div class="card">
-                <div class="card-title">Loading (S1/S2 — Bending)</div>
                 <div class="input-group">
-                    <label>Bending Stress <span class="unit">(ksi)</span></label>
+                    <label>Bending Stress (S2) <span class="unit">(ksi)</span></label>
                     <input type="number" id="S2-bending" value="0" step="1">
                 </div>
-            </div>
-
-            <div class="card">
-                <div class="card-title">Loading (S3 — Bearing)</div>
                 <div class="input-group">
-                    <label>Bearing Stress <span class="unit">(ksi)</span></label>
+                    <label>Bearing Stress (S3) <span class="unit">(ksi)</span></label>
                     <input type="number" id="S3-bearing" value="0" step="1" min="0">
+                </div>
+
+                <hr style="border: 0; border-top: 1px solid rgba(100,116,139,0.2); margin: 14px 0;">
+
+                <div class="card-title">Options</div>
+                <div class="input-group">
+                    <label>Max Cycles</label>
+                    <input type="text" id="max-cycles" value="1e7">
+                </div>
+                <div class="input-group">
+                    <label>Output Interval <span class="unit">(cycles)</span></label>
+                    <input type="number" id="log-every" value="1000" step="100" min="1">
+                </div>
+                <div class="input-group">
+                    <label>Plastic Zone Correction</label>
+                    <select id="pzc-mode">
+                        <option value="ligament" selected>On at ligament yield</option>
+                        <option value="always">Always on</option>
+                        <option value="off">Off</option>
+                    </select>
                 </div>
             </div>
 
@@ -189,29 +209,11 @@
                 </div>
             </div>
 
-            <!-- Analysis Options -->
-            <div class="card">
-                <div class="collapse-header" onclick="toggleCollapse(this)">
-                    <div class="card-title">Options</div>
-                    <span class="collapse-arrow">▼</span>
-                </div>
-                <div class="collapse-body">
-                    <div class="input-group">
-                        <label>Max Cycles</label>
-                        <input type="text" id="max-cycles" value="1e7">
-                    </div>
-                    <div class="input-group checkbox-group">
-                        <input type="checkbox" id="use-pzc" checked>
-                        <label for="use-pzc">Irwin Plastic Zone Correction (PZC)</label>
-                    </div>
-                </div>
-            </div>
+            </div><!-- /inputs-panel -->
+        </section><!-- /top-section -->
 
-            <!-- (Run button moved to top) -->
-        </aside>
-
-        <!-- ── Main Results ── -->
-        <main class="main-content">
+        <!-- ── Outputs ── -->
+        <main class="outputs-section">
 
             <!-- Summary Stats -->
             <div class="stats-grid">
@@ -233,7 +235,13 @@
                 </div>
             </div>
 
-            <!-- Charts -->
+            <!-- Textual results (interval per the Output Interval option) -->
+            <div class="log-card">
+                <h3>Analysis Log</h3>
+                <pre id="analysis-log">Run an analysis to see results...</pre>
+            </div>
+
+            <!-- Charts (secondary — kept at the bottom) -->
             <div class="charts-row">
                 <div class="chart-card">
                     <h3>Crack Length vs Cycles</h3>
@@ -249,18 +257,6 @@
                 </div>
             </div>
 
-            <!-- Diagram + Log -->
-            <div class="bottom-row">
-                <div class="diagram-card">
-                    <h3>Geometry</h3>
-                    <canvas id="geom-canvas" width="280" height="200"></canvas>
-                </div>
-                <div class="log-card">
-                    <h3>Analysis Log</h3>
-                    <pre id="analysis-log">Run an analysis to see results...</pre>
-                </div>
-            </div>
-
         </main>
     </div>
 
@@ -270,6 +266,9 @@
     <script src="js/geometry/tc01.js"></script>
     <script src="js/geometry/tc23-phi1-table.js"></script>
     <script src="js/geometry/tc23.js"></script>
+    <script src="js/geometry/bridging.js"></script>
+    <script src="js/geometry/tc23b-fea-table.js"></script>
+    <script src="js/geometry/tc23-bridged.js"></script>
     <script src="js/geometry/tc05-data.js"></script>
     <script src="js/geometry/tc05.js"></script>
     <script src="js/nasgro.js"></script>

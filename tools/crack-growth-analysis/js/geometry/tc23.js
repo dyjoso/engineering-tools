@@ -438,7 +438,8 @@ class TC23Geometry extends CrackGeometry {
         const bB1 = this._betaA1(cThis, cOther, R);  // B1 = A1 (Bowie factor)
         const bB2 = this._betaB2(c0, b, W, side);     // Φ₁ table lookup
 
-        return bB1 * bB2;
+        const b_stif = this.getStiffenerShielding(c, params, side);
+        return bB1 * bB2 * b_stif;
     }
 
     /**
@@ -489,15 +490,71 @@ class TC23Geometry extends CrackGeometry {
         const cOther = (side === 'left') ? c2 : c1;
         const bA1 = this._betaA1(cThis, cOther, R);
         const bB2 = this._betaB2(c0, b, W, side);
-        const bC3 = (6.0 * e / W) * bA1 * bB2;
+        const b_stif = this.getStiffenerShielding(c, params, side);
+        const bC3 = (6.0 * e / W) * bA1 * bB2 * b_stif;
 
         return 0.5 * (bC1 + bC2 + bC3);
     }
 
     /**
+     * Effective bearing beta — the factor multiplying S̄₃·√(πc) in K.
+     *
+     * Two selectable models (params.bearingModel):
+     *
+     *  'nasgro' (default): NASGRO TC23 Solution C compounding,
+     *      bp = (D/W)·βC = (D/W)·½(βC1+βC2+βC3).
+     *      The C2 chain models the pin load as a point wedge force on the
+     *      crack faces — asymptotically correct for cracks long relative to
+     *      the hole (c ≳ 2D) but conservative at short cracks, where the
+     *      real distributed bore-pressure field decays much faster (see
+     *      AFGROW 2016 workshop, Harter & Litvinov: analytical bearing betas
+     *      vs FEM; and NASGRO TC05 FEM pin tables).
+     *
+     *  'hybrid05': NASGRO TC05 FEM pin-load betas (Table C7, two cracks at a
+     *      hole, strip↔row equivalence D/H = D/W, x = c/(W−D)) for short
+     *      cracks, blending linearly in c/D to the TC23 Solution C between
+     *      c = 0.5D and c = D, beyond which the point-force model takes over
+     *      and carries the offset/finite-width effects absent from TC05.
+     *
+     * @returns {number} bp such that K_bearing = bp · S̄₃ · √(πc)
+     */
+    getBearingBeta(c, params, side) {
+        // Effective-width local-reaction model: the transferred load spreads
+        // from the hole at ~35° (Inglis) and is reacted across W_eff ≈ 7D
+        // rather than the full panel width, so the bearing case behaves like
+        // a remote tension of S₃·D/W_eff acting on the cracked hole:
+        //   K_bear = (D/W_eff)·βA·S̄₃·√(πc),  W_eff = min(kBrg·D, W), kBrg = 7
+        if (params.bearingModel === 'effwidth') {
+            const Weff = Math.min(params.W, (params.kBrg || 7) * params.D);
+            const bA = this.getBeta(c, params, side);
+            return bA > 0 ? (params.D / Weff) * bA : 0;
+        }
+
+        const betaC = this.getBetaC(c, params, side);
+        const bp23 = (params.D / params.W) * betaC;
+        if (params.bearingModel !== 'hybrid05') return bp23;
+
+        // Transition band in c/D (default: pure TC05 below c = 0.5D, pure
+        // TC23 above c = D). Override with params.blendLo / params.blendHi.
+        const lo = params.blendLo !== undefined ? params.blendLo : 0.5;
+        const hi = params.blendHi !== undefined ? params.blendHi : 1.0;
+        const r = c / params.D;
+        const T = Math.min(1, Math.max(0, (r - lo) / Math.max(hi - lo, 1e-9)));
+        if (T >= 1) return bp23;
+
+        const DH = Math.min(0.9, Math.max(0.05, params.D / params.W));
+        const x = Math.min(0.99, Math.max(0, c / Math.max(params.W - params.D, 1e-9)));
+        const bp05 = interpolateTable(TC05_DATA.C7, x, DH);
+        return (1 - T) * bp05 + T * bp23;
+    }
+
+    /**
      * Combined SIF including tension (S₀), bending (S₂), and bearing (S₃).
      *
-     *   K = (β^A · S₀ + β^B · S₂ + (D/W) · β^C · S̄₃) · √(πc)
+     *   K = (β^A · S₀ + β^B · S₂ + bp · S̄₃) · √(πc)
+     *
+     * where bp is the effective bearing beta from getBearingBeta()
+     * ((D/W)·β^C for the NASGRO model).
      *
      * @param {number} c      - Crack length at this tip
      * @param {number} S0     - Remote tension stress
@@ -525,9 +582,7 @@ class TC23Geometry extends CrackGeometry {
 
         // Solution C: bearing/pin-load
         if (S3 > 0) {
-            const betaC = this.getBetaC(c, params, side);
-            const DoverW = params.D / params.W;
-            K += DoverW * betaC * S3;
+            K += this.getBearingBeta(c, params, side) * S3;
         }
 
         return K * Math.sqrt(Math.PI * c);
@@ -574,13 +629,15 @@ class TC23Geometry extends CrackGeometry {
         const aOverW = aEdge / params.W;
         const S2 = params.S2 || 0;
 
-        // Tension + bearing (both use membrane SENT beta)
+        // Tension + bearing (both use membrane SENT beta, which has b_stif incorporated via betaEdge)
         const S_membrane = S0 + (S3 > 0 ? (params.D / params.W) * S3 : 0);
         const K_membrane = S_membrane * sqrtPiA * betaEdge;
 
         // Pure bending (Gross-Srawley beta, separate from membrane beta)
+        // We scale bending by b_stif for consistency
+        const b_stif = this.getStiffenerShieldingEdge(aEdge, params);
         const K_bending = S2 !== 0
-            ? S2 * sqrtPiA * this._betaSENT_bending(aOverW)
+            ? S2 * sqrtPiA * this._betaSENT_bending(aOverW) * b_stif
             : 0;
 
         return K_membrane + K_bending;
@@ -617,7 +674,8 @@ class TC23Geometry extends CrackGeometry {
         const aOverW = aEdge / params.W;
         if (aOverW >= 0.95) return -1;
         const eta = params.eta !== undefined ? params.eta : 0;
-        return this._betaSENT(aOverW, eta);
+        const b_stif = this.getStiffenerShieldingEdge(aEdge, params);
+        return this._betaSENT(aOverW, eta) * b_stif;
     }
 
     /**
@@ -645,6 +703,73 @@ class TC23Geometry extends CrackGeometry {
         const netWidth = params.W - aEdge;
         if (netWidth <= 0) return Infinity;
         return sigma * params.W / netWidth;
+    }
+
+    // ══════════════════════════════════════════════════════════
+    //  Stiffener Shielding Helpers
+    // ══════════════════════════════════════════════════════════
+
+    getStiffenerShielding(c, params, side) {
+        if (params.useStif !== 'yes') return 1.0;
+
+        const R = params.D / 2;
+        const W = params.W;
+        const m = params.m !== undefined ? params.m : W / 2;
+        const B = W - m;
+        const dst = params.dStif;
+
+        // Tate & Rosenfeld compliance calculations
+        const t = params.t;
+        const tSt = params.tStif;
+        const E_fast = params.EFast;
+        const D_fast = params.DFast;
+        const E_skin = params.ESkin;
+        const E_stif = params.EStif;
+        const A_stif = params.AStif;
+        const p_fast = params.pFast;
+
+        const C_fast = (1.0 / (E_fast * D_fast)) * (1.7 + 3.6 * (D_fast / t + D_fast / tSt))
+                     + (1.0 / (E_skin * t))
+                     + (1.0 / (E_stif * tSt));
+
+        const mu = (E_stif * A_stif) / (E_skin * W * t);
+        const eta_conn = 1.0 / (1.0 + 0.3 * E_skin * t * C_fast * p_fast);
+        const C_eff = 3.5 * eta_conn;
+        const betaMin = 1.0 / Math.sqrt(1.0 + C_eff * mu);
+
+        let s = (side === 'left') ? (dst + R + c) : (dst - R - c);
+        const alpha = (s >= 0) ? 2.5 : 1.0;
+        return 1.0 - (1.0 - betaMin) * Math.exp(-alpha * Math.abs(s) / dst);
+    }
+
+    getStiffenerShieldingEdge(aEdge, params) {
+        if (params.useStif !== 'yes') return 1.0;
+
+        const m = params.m !== undefined ? params.m : params.W / 2;
+        const dst = params.dStif;
+
+        // Tate & Rosenfeld compliance calculations
+        const t = params.t;
+        const tSt = params.tStif;
+        const E_fast = params.EFast;
+        const D_fast = params.DFast;
+        const E_skin = params.ESkin;
+        const E_stif = params.EStif;
+        const A_stif = params.AStif;
+        const p_fast = params.pFast;
+
+        const C_fast = (1.0 / (E_fast * D_fast)) * (1.7 + 3.6 * (D_fast / t + D_fast / tSt))
+                     + (1.0 / (E_skin * t))
+                     + (1.0 / (E_stif * tSt));
+
+        const mu = (E_stif * A_stif) / (E_skin * params.W * t);
+        const eta_conn = 1.0 / (1.0 + 0.3 * E_skin * t * C_fast * p_fast);
+        const C_eff = 3.5 * eta_conn;
+        const betaMin = 1.0 / Math.sqrt(1.0 + C_eff * mu);
+
+        const s = (m - dst) - aEdge;
+        const alpha = (s >= 0) ? 2.5 : 1.0;
+        return 1.0 - (1.0 - betaMin) * Math.exp(-alpha * Math.abs(s) / dst);
     }
 
     // ══════════════════════════════════════════════════════════
@@ -697,7 +822,8 @@ class TC23Geometry extends CrackGeometry {
         const bA3 = this._betaA3(R, B, W, side);
         if (bA3 < 0) return -1;
 
-        return bA1 * bA2 * bA3;
+        const b_stif = this.getStiffenerShielding(c, params, side);
+        return bA1 * bA2 * bA3 * b_stif;
     }
 
     /**
@@ -754,6 +880,25 @@ class TC23Geometry extends CrackGeometry {
     }
 
     /**
+     * Per-tip ligament net-section stress: the load tributary to one side of
+     * the hole must pass through the remaining ligament between that crack
+     * tip and its free edge.
+     *
+     *   left tip:   σ_lig = σ · B / (B − R − c₁),  B = W − m
+     *   right tip:  σ_lig = σ · m / (m − R − c₂)
+     *
+     * Used as the trigger for the ligament-yield PZC mode.
+     */
+    getLigamentStress(c, sigma, params, side) {
+        const R = params.D / 2;
+        const m = params.m !== undefined ? params.m : params.W / 2;
+        const trib = side === 'left' ? (params.W - m) : m;
+        const lig = trib - R - c;
+        if (lig <= 0) return Infinity;
+        return sigma * trib / lig;
+    }
+
+    /**
      * Input field definitions for the UI.
      */
     getInputFields() {
@@ -764,7 +909,17 @@ class TC23Geometry extends CrackGeometry {
             { id: 'm', label: 'Right Margin (hole centre to right edge), m', unit: 'in', default: 5.0, step: 0.05, min: 0 },
             { id: 'a0', label: 'Left Crack, c₁₀', unit: 'in', default: 0.05, step: 0.005, min: 0.001 },
             { id: 'a0_2', label: 'Right Crack, c₂₀', unit: 'in', default: 0.05, step: 0.005, min: 0.001 },
-            { id: 'eta', label: 'Bending Restraint, η (0=free, 1=fixed)', unit: '—', default: 0, step: 0.1, min: 0, max: 1 }
+            { id: 'eta', label: 'Bending Restraint, η (0=free, 1=fixed)', unit: '—', default: 0, step: 0.1, min: 0, max: 1 },
+            { id: 'bearingModel', label: 'Bearing β Model (S₃)', type: 'select', options: [{ value: 'nasgro', label: 'NASGRO TC23 Solution C' }, { value: 'hybrid05', label: 'Hybrid: TC05 FEM → TC23 (c/D=0.5…1)' }, { value: 'effwidth', label: 'Effective width (W_eff = 7D, local reaction)' }], default: 'nasgro' },
+            { id: 'useStif', label: 'Use Stiffener', type: 'select', options: [{ value: 'no', label: 'No' }, { value: 'yes', label: 'Yes' }], default: 'no' },
+            { id: 'dStif', label: 'Stiffener Distance from Hole Center, d_stif', unit: 'in', default: 2.0, step: 0.05, min: 0.01 },
+            { id: 'AStif', label: 'Stiffener Area, A_stif', unit: 'in²', default: 0.10, step: 0.01, min: 0.001 },
+            { id: 'tStif', label: 'Stiffener Thickness, t_stif', unit: 'in', default: 0.10, step: 0.01, min: 0.001 },
+            { id: 'EStif', label: 'Stiffener Modulus, E_stif', unit: 'ksi', default: 10300.0, step: 100, min: 1.0 },
+            { id: 'ESkin', label: 'Skin Modulus, E_skin', unit: 'ksi', default: 10300.0, step: 100, min: 1.0 },
+            { id: 'DFast', label: 'Fastener Diameter, D_fast', unit: 'in', default: 0.1875, step: 0.01, min: 0.01 },
+            { id: 'pFast', label: 'Fastener Pitch (spacing), p_fast', unit: 'in', default: 1.0, step: 0.1, min: 0.1 },
+            { id: 'EFast', label: 'Fastener Modulus, E_fast', unit: 'ksi', default: 10300.0, step: 100, min: 1.0 }
         ];
     }
 
@@ -921,6 +1076,113 @@ class TC23Geometry extends CrackGeometry {
             drawArrowhead(ctx, rightEdgeX, mDimY, 'left', '#06b6d4');
             ctx.fillStyle = '#06b6d4';
             ctx.fillText('m', (holeCx + rightEdgeX) / 2, mDimY - 5);
+        }
+
+        // ── Stiffener + Fasteners (if enabled) ──
+        if (params.useStif === 'yes' && params.dStif > 0) {
+            const stifCx = holeCx + params.dStif * scale;
+            const stifWidthPx = 14;
+
+            // Only draw if stiffener falls inside the plate
+            if (stifCx > x0 && stifCx < x0 + plateW) {
+                // ── Stiffener body ──
+                // Soft translucent fill with a subtle gradient
+                const stifGrad = ctx.createLinearGradient(
+                    stifCx - stifWidthPx / 2, 0, stifCx + stifWidthPx / 2, 0
+                );
+                stifGrad.addColorStop(0, 'rgba(37, 99, 235, 0.06)');
+                stifGrad.addColorStop(0.5, 'rgba(37, 99, 235, 0.14)');
+                stifGrad.addColorStop(1, 'rgba(37, 99, 235, 0.06)');
+                ctx.fillStyle = stifGrad;
+                ctx.fillRect(stifCx - stifWidthPx / 2, y0, stifWidthPx, plateH);
+
+                // Border lines (left and right edges of stiffener)
+                ctx.strokeStyle = 'rgba(37, 99, 235, 0.35)';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([]);
+                ctx.beginPath();
+                ctx.moveTo(stifCx - stifWidthPx / 2, y0);
+                ctx.lineTo(stifCx - stifWidthPx / 2, y0 + plateH);
+                ctx.moveTo(stifCx + stifWidthPx / 2, y0);
+                ctx.lineTo(stifCx + stifWidthPx / 2, y0 + plateH);
+                ctx.stroke();
+
+                // Stiffener centerline (thin dashed)
+                ctx.strokeStyle = 'rgba(37, 99, 235, 0.22)';
+                ctx.lineWidth = 0.5;
+                ctx.setLineDash([3, 4]);
+                ctx.beginPath();
+                ctx.moveTo(stifCx, y0);
+                ctx.lineTo(stifCx, y0 + plateH);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // ── Fastener dots ──
+                if (params.pFast > 0) {
+                    const pPx = params.pFast * scale;
+                    const fastR = Math.max(2, Math.min(3.5, params.DFast * scale / 2));
+
+                    // Draw fasteners symmetrically about the crack plane (cy)
+                    // going upward and downward from cy
+                    const maxDist = plateH / 2 - 4;
+                    // Center fastener at crack plane
+                    const drawFastener = (fx, fy) => {
+                        ctx.beginPath();
+                        ctx.arc(fx, fy, fastR, 0, 2 * Math.PI);
+                        ctx.fillStyle = 'rgba(37, 99, 235, 0.7)';
+                        ctx.fill();
+                        ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+                        ctx.lineWidth = 0.8;
+                        ctx.stroke();
+                    };
+
+                    // Fastener at crack plane
+                    drawFastener(stifCx, cy);
+
+                    // Fasteners above and below
+                    for (let dist = pPx; dist <= maxDist; dist += pPx) {
+                        drawFastener(stifCx, cy - dist);
+                        drawFastener(stifCx, cy + dist);
+                    }
+                }
+
+                // ── Dimension: d_stif (hole center to stiffener) ──
+                const dStifDimY = cy - holeRadPx - 40;
+                ctx.strokeStyle = '#6366f1';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([]);
+                ctx.beginPath();
+                ctx.moveTo(holeCx, dStifDimY);
+                ctx.lineTo(stifCx, dStifDimY);
+                ctx.stroke();
+                drawArrowhead(ctx, holeCx, dStifDimY, 'right', '#6366f1');
+                drawArrowhead(ctx, stifCx, dStifDimY, 'left', '#6366f1');
+                // Leader lines
+                ctx.strokeStyle = '#6366f1';
+                ctx.setLineDash([3, 3]);
+                ctx.beginPath();
+                ctx.moveTo(holeCx, cy - holeRadPx - 2);
+                ctx.lineTo(holeCx, dStifDimY - 3);
+                ctx.moveTo(stifCx, cy - 2);
+                ctx.lineTo(stifCx, dStifDimY - 3);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                // Label
+                ctx.fillStyle = '#6366f1';
+                ctx.font = '10px Inter, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('d_stif', (holeCx + stifCx) / 2, dStifDimY - 5);
+
+                // ── Stiffener label ──
+                ctx.fillStyle = 'rgba(37, 99, 235, 0.6)';
+                ctx.font = '9px Inter, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.save();
+                ctx.translate(stifCx + stifWidthPx / 2 + 9, cy);
+                ctx.rotate(-Math.PI / 2);
+                ctx.fillText('STIFFENER', 0, 0);
+                ctx.restore();
+            }
         }
 
         // ── Dimension: W ──

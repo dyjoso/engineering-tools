@@ -21,6 +21,12 @@ const CrackGrowthEngine = {
      * @param {object} config.material     - Material properties object
      * @param {number} [config.maxCycles=1e7]  - Maximum cycles before stopping
      * @param {number} [config.maxSteps=50000] - Maximum integration steps
+     * @param {string} [config.pzcMode]    - Plastic zone correction mode:
+     *     'off' | 'ligament' (Irwin correction activates only once the
+     *     ligament between a crack tip and its free edge reaches net-section
+     *     yield) | 'always'. Back-compat: derived from config.usePzc when
+     *     absent (true → 'always', false → 'off').
+     * @param {number} [config.logEvery=1000] - Log output interval [cycles]
      * @returns {object} Analysis results
      */
     run(config) {
@@ -30,6 +36,12 @@ const CrackGrowthEngine = {
             return this._runDual(config, geom);
         }
         return this._runSingle(config, geom);
+    },
+
+    /** Resolve the plastic-zone-correction mode (with usePzc back-compat). */
+    _pzcMode(config) {
+        if (config.pzcMode) return config.pzcMode;
+        return config.usePzc === false ? 'off' : 'always';
     },
 
     // ── Single-crack engine (TC01 and simple geometries) ──────
@@ -56,6 +68,11 @@ const CrackGrowthEngine = {
         let step = 0;
         let failureMode = 'Running';
 
+        const pzcMode = this._pzcMode(config);
+        const logEvery = config.logEvery > 0 ? config.logEvery : 1000;
+        let nextLog = logEvery;
+        let pzcAnnounced = false;
+
         const data = {
             N: [0], a: [a], twoA: [2 * a],
             Kmax: [0], dK: [0], dadN: [0], beta: [0]
@@ -68,7 +85,15 @@ const CrackGrowthEngine = {
             let Kmax = geom.getK(a, sigmaMax, config.geomParams);
             if (Kmax < 0) { failureMode = 'Geometry Limit'; break; }
 
-            if (config.usePzc !== false) {
+            let pzcActive = pzcMode === 'always';
+            if (pzcMode === 'ligament') {
+                pzcActive = geom.getLigamentStress(a, sigmaMax, config.geomParams) >= mat.Yield;
+                if (pzcActive && !pzcAnnounced) {
+                    pzcAnnounced = true;
+                    logEntries.push(this._logEntry(N, a, Kmax, 0, 0, 0, 'PZC ON (lig. yield)'));
+                }
+            }
+            if (pzcActive) {
                 const sigma_flow = (mat.Yield + mat.UTS) / 2.0;
                 const alpha_pz = mat.alpha || 1.5;
                 const pzFactor = 1.0 / (2.0 * alpha_pz * Math.PI);
@@ -105,8 +130,9 @@ const CrackGrowthEngine = {
             const delta_a = this._adaptiveStep(Kmax, Kc, a, aMax, baseStep);
             const delta_N = delta_a / result.dadN;
 
-            if (step === 0 || step % 50 === 0) {
+            if (step === 0 || N >= nextLog) {
                 logEntries.push(this._logEntry(N, a, Kmax, result.dK, result.dadN, beta));
+                nextLog = (Math.floor(N / logEvery) + 1) * logEvery;
             }
 
             a += delta_a;
@@ -166,7 +192,7 @@ const CrackGrowthEngine = {
         const c2Max = geom.getMaxCrack(config.geomParams, 'right');
 
         let baseStep = undefined;
-        if (config.geometryId === 'TC23') {
+        if (config.geometryId.startsWith('TC23')) {
             const m = config.geomParams.m !== undefined ? config.geomParams.m : config.geomParams.W / 2;
             const r = config.geomParams.D / 2;
             const leftLig = (config.geomParams.W - m) - r;
@@ -181,6 +207,14 @@ const CrackGrowthEngine = {
         let step = 0;
         let failureMode = 'Running';
         let failureSide = null;
+
+        const pzcMode = this._pzcMode(config);
+        const logEvery = config.logEvery > 0 ? config.logEvery : 1000;
+        let nextLog = logEvery;
+        let pzcOn1 = false, pzcOn2 = false;
+        // Gross stress for the ligament-yield PZC trigger (incl. bearing)
+        const S_gross_pzc = sigmaMax +
+            (S3 > 0 ? (config.geomParams.D / config.geomParams.W) * S3 : 0);
 
         // Output data arrays (track both cracks)
         const data = {
@@ -225,14 +259,30 @@ const CrackGrowthEngine = {
 
             // Irwin plastic zone correction (2 iterations)
             // r_y = K² / (2·α·π·σ_flow²)
-            if (config.usePzc !== false) {
+            // 'ligament' mode: a tip is corrected only once the ligament
+            // between it and its free edge reaches net-section yield.
+            let pzc1 = pzcMode === 'always';
+            let pzc2 = pzc1;
+            if (pzcMode === 'ligament') {
+                pzc1 = geom.getLigamentStress(c1, S_gross_pzc, config.geomParams, 'left') >= mat.Yield;
+                pzc2 = geom.getLigamentStress(c2, S_gross_pzc, config.geomParams, 'right') >= mat.Yield;
+                if (pzc1 && !pzcOn1) {
+                    pzcOn1 = true;
+                    logEntries.push(this._logEntryDual(N, c1, c2, K1, K2, 0, 0, 0, 0, 0, 'PZC ON L (lig. yield)'));
+                }
+                if (pzc2 && !pzcOn2) {
+                    pzcOn2 = true;
+                    logEntries.push(this._logEntryDual(N, c1, c2, K1, K2, 0, 0, 0, 0, 0, 'PZC ON R (lig. yield)'));
+                }
+            }
+            if (pzc1 || pzc2) {
                 const sigma_flow = (mat.Yield + mat.UTS) / 2.0;
                 const alpha_pz = mat.alpha || 1.5;
                 const pzFactor = 1.0 / (2.0 * alpha_pz * Math.PI);
 
                 for (let pzIter = 0; pzIter < 2; pzIter++) {
-                    const ry1 = (K1 > 0) ? pzFactor * Math.pow(K1 / sigma_flow, 2) : 0;
-                    const ry2 = (K2 > 0) ? pzFactor * Math.pow(K2 / sigma_flow, 2) : 0;
+                    const ry1 = (pzc1 && K1 > 0) ? pzFactor * Math.pow(K1 / sigma_flow, 2) : 0;
+                    const ry2 = (pzc2 && K2 > 0) ? pzFactor * Math.pow(K2 / sigma_flow, 2) : 0;
 
                     // Recalculate K with effective crack lengths
                     config.geomParams._c1 = c1 + ry1;
@@ -241,8 +291,8 @@ const CrackGrowthEngine = {
                     const K2_corr = calcK(c2 + ry2, 'right');
 
                     // Only accept correction if geometry is still valid
-                    if (K1_corr > 0) K1 = K1_corr;
-                    if (K2_corr > 0) K2 = K2_corr;
+                    if (pzc1 && K1_corr > 0) K1 = K1_corr;
+                    if (pzc2 && K2_corr > 0) K2 = K2_corr;
                 }
             }
 
@@ -311,10 +361,11 @@ const CrackGrowthEngine = {
             const dc1 = res1.dadN > 0 ? res1.dadN * delta_N : 0;
             const dc2 = res2.dadN > 0 ? res2.dadN * delta_N : 0;
 
-            // Log at intervals
-            if (step === 0 || step % 50 === 0) {
+            // Log at the requested cycle interval
+            if (step === 0 || N >= nextLog) {
                 logEntries.push(this._logEntryDual(N, c1, c2, K1, K2,
                     res1.dK, res1.dadN, res2.dadN, beta1, beta2));
+                nextLog = (Math.floor(N / logEvery) + 1) * logEvery;
             }
 
             c1 += dc1;
@@ -401,7 +452,7 @@ const CrackGrowthEngine = {
         const aEdgeMax = geom.getMaxCrackEdge(config.geomParams);
 
         let baseStep = undefined;
-        if (config.geometryId === 'TC23') {
+        if (config.geometryId.startsWith('TC23')) {
             baseStep = config.geomParams.W / 1000;
         }
 
@@ -409,16 +460,12 @@ const CrackGrowthEngine = {
         let step = step_start;
         let failureMode = 'Running';
 
-        // ─── DEBUG: Log SENT phase stress breakdown ───
-        const S3_DW = S3 > 0 ? (config.geomParams.D / config.geomParams.W) * S3 : 0;
-        console.log('═══ SENT Phase Entry ═══');
-        console.log(`  S₀ (bypass):        ${sigmaMax.toFixed(3)} ksi`);
-        console.log(`  S₃ (bearing):       ${S3.toFixed(3)} ksi`);
-        console.log(`  D/W:                ${(config.geomParams.D / config.geomParams.W).toFixed(5)}`);
-        console.log(`  S₃·D/W:            ${S3_DW.toFixed(3)} ksi`);
-        console.log(`  S_gross = S₀+S₃D/W: ${(sigmaMax + S3_DW).toFixed(3)} ksi`);
-        console.log(`  a_edge₀:            ${aEdge.toFixed(5)} in`);
-        console.log('════════════════════════');
+        const pzcMode = this._pzcMode(config);
+        const logEvery = config.logEvery > 0 ? config.logEvery : 1000;
+        let nextLog = (Math.floor(N_start / logEvery) + 1) * logEvery;
+        let pzcAnnounced = false;
+        const S_gross_pzc = sigmaMax +
+            (S3 > 0 ? (config.geomParams.D / config.geomParams.W) * S3 : 0);
 
         while (step < maxSteps) {
             if (aEdge >= aEdgeMax) { failureMode = 'Geometry Limit (SENT a/W)'; break; }
@@ -434,7 +481,15 @@ const CrackGrowthEngine = {
             let Kmax = calcKEdge(aEdge);
 
             // Irwin plastic zone correction (2 iterations)
-            if (config.usePzc !== false) {
+            let pzcActive = pzcMode === 'always';
+            if (pzcMode === 'ligament') {
+                pzcActive = geom.getNetSectionStressEdge(aEdge, S_gross_pzc, config.geomParams) >= mat.Yield;
+                if (pzcActive && !pzcAnnounced) {
+                    pzcAnnounced = true;
+                    logEntries.push(this._logEntry(N, aEdge, Kmax, 0, 0, 0, 'PZC ON (lig. yield)'));
+                }
+            }
+            if (pzcActive) {
                 const sigma_flow = (mat.Yield + mat.UTS) / 2.0;
                 const alpha_pz = mat.alpha || 1.5;
                 const pzFactor = 1.0 / (2.0 * alpha_pz * Math.PI);
@@ -443,12 +498,6 @@ const CrackGrowthEngine = {
                     const K_corr = calcKEdge(aEdge + ry);
                     if (K_corr > 0) Kmax = K_corr;  // Only accept if geometry valid
                 }
-            }
-            // ─── DEBUG: Log first few SENT steps ───
-            if (step - step_start < 3) {
-                const S_eff = sigmaMax + (S3 > 0 ? (config.geomParams.D / config.geomParams.W) * S3 : 0);
-                const K_pure = geom.getKEdge(aEdge, sigmaMax, config.geomParams);
-                console.log(`  SENT step ${step}: a_edge=${aEdge.toFixed(5)}, K_total=${Kmax.toFixed(3)}, K_pure(S0 only)=${K_pure.toFixed(3)}, S_eff=${S_eff.toFixed(3)}`);
             }
             if (Kmax < 0) { failureMode = 'Geometry Limit (SENT)'; break; }
             const betaEdge = geom.getBetaEdge(aEdge, config.geomParams);
@@ -479,8 +528,9 @@ const CrackGrowthEngine = {
             const delta_a = this._adaptiveStep(Kmax, Kc, aEdge, aEdgeMax, baseStep);
             const delta_N = delta_a / result.dadN;
 
-            if ((step - step_start) === 0 || (step - step_start) % 50 === 0) {
+            if ((step - step_start) === 0 || N >= nextLog) {
                 logEntries.push(this._logEntry(N, aEdge, Kmax, result.dK, result.dadN, betaEdge, 'SENT'));
+                nextLog = (Math.floor(N / logEvery) + 1) * logEvery;
             }
 
             c1 += delta_a;  // left crack grows

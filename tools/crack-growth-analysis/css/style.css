@@ -42,15 +42,12 @@ body {
 /* ── Layout ──────────────────────────────── */
 
 .app-container {
-    display: grid;
-    grid-template-columns: 380px 1fr;
-    grid-template-rows: auto 1fr;
-    gap: 0;
+    display: flex;
+    flex-direction: column;
     min-height: 100vh;
 }
 
 .app-header {
-    grid-column: 1 / -1;
     background: var(--bg-secondary);
     border-bottom: 1px solid var(--border-color);
     padding: 16px 28px;
@@ -83,16 +80,43 @@ body {
     text-transform: uppercase;
 }
 
-/* ── Sidebar ─────────────────────────────── */
+/* ── Top section: diagram left + inputs across ── */
 
-.sidebar {
+.top-section {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 20px;
+    padding: 20px 24px 0;
+    align-items: start;
     background: var(--bg-secondary);
-    border-right: 1px solid var(--border-color);
-    overflow-y: auto;
-    padding: 20px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 20px;
+}
+
+.left-col {
     display: flex;
     flex-direction: column;
+    gap: 12px;
+    position: sticky;
+    top: 12px;
+}
+
+.inputs-panel {
+    display: grid;
+    grid-template-columns: minmax(300px, 1.3fr) minmax(220px, 0.8fr) minmax(280px, 1.1fr);
     gap: 16px;
+    align-items: start;
+}
+
+/* two-column field layout inside the geometry card */
+.geometry-card #geom-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 12px;
+}
+
+.geometry-card #geom-fields .input-group {
+    margin-bottom: 10px;
 }
 
 .card {
@@ -257,10 +281,9 @@ body {
     transform: translateY(0);
 }
 
-/* ── Main Content Area ───────────────────── */
+/* ── Outputs Area ────────────────────────── */
 
-.main-content {
-    overflow-y: auto;
+.outputs-section {
     padding: 24px;
     display: flex;
     flex-direction: column;
@@ -363,7 +386,7 @@ body {
 
 #geom-canvas {
     width: 100%;
-    height: 200px;
+    height: 280px;
     border-radius: var(--radius-sm);
     background: rgba(15, 23, 42, 0.6);
     border: 1px solid var(--border-color);
@@ -433,31 +456,31 @@ body {
     background: rgba(100, 116, 139, 0.6);
 }
 
-/* ── Bottom row for diagram + log ────────── */
-
-.bottom-row {
-    display: grid;
-    grid-template-columns: 320px 1fr;
-    gap: 20px;
-}
-
 /* ── Responsive ──────────────────────────── */
+
+@media (max-width: 1350px) {
+    .inputs-panel {
+        grid-template-columns: 1fr 1fr;
+    }
+}
 
 @media (max-width: 1100px) {
     .charts-row {
         grid-template-columns: 1fr;
     }
-}
-
-@media (max-width: 900px) {
-    .app-container {
+    .top-section {
         grid-template-columns: 1fr;
     }
-    .sidebar {
-        border-right: none;
-        border-bottom: 1px solid var(--border-color);
+    .left-col {
+        position: static;
     }
-    .bottom-row {
+}
+
+@media (max-width: 800px) {
+    .inputs-panel {
+        grid-template-columns: 1fr;
+    }
+    .geometry-card #geom-fields {
         grid-template-columns: 1fr;
     }
 }

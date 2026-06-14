@@ -1,0 +1,444 @@
+\documentclass[11pt]{article}
+
+\usepackage[a4paper,margin=25mm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{tikz}
+\usepackage[colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue]{hyperref}
+
+\title{\textbf{SCT--CG1 Theory Manual: Crack Case TC23B}\\[4pt]
+\large Cracked Stringer at a Fastener Hole with Skin Bridging}
+\author{Southward Consulting Ltd}
+\date{June 2026 \quad(rev.\ A)}
+
+% lightweight "Assumptions" list
+\newenvironment{assume}{\par\smallskip\noindent\textit{Assumptions:}\begin{itemize}[leftmargin=1.5em,topsep=2pt,itemsep=1pt]}{\end{itemize}\par\smallskip}
+
+\newcommand{\ksi}{\,\mathrm{ksi}}
+\newcommand{\inch}{\,\mathrm{in}}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+TC23B extends NASGRO crack case TC23 (unequal through cracks at an offset hole
+in a finite-width plate) to a stringer, modelled by its unfolded width, that is
+attached to a background fuselage skin by a single vertical row of fasteners
+through the critical hole. As the stringer crack opens, the fasteners shed load
+into the intact skin, which bridges the crack and retards growth. This manual
+documents the complete theory and, in dedicated sections, every assumption made
+in the application of (i) bending restraint, (ii) the bearing-load model
+options, and (iii) the skin far-field stress state. It also documents the
+skin-bridging formulation, its two stress-intensity-reduction routes, and the
+FEA-derived correction surface used in the post-link-up phase. LEFM and the
+NASGRO crack-growth equation are assumed known and are summarised only briefly.
+\end{abstract}
+
+\tableofcontents
+
+% ====================================================================
+\section{Scope, conventions and nomenclature}
+
+\subsection{Configuration}
+The cracked member is a stringer represented by its \emph{unfolded width} $W$
+(a flat membrane of thickness $t$). A fastener hole of diameter $D$ lies a
+distance $m$ from one edge (the right margin). Two through cracks $c_1$ (wide
+side) and $c_2$ (edge side) grow from the hole. A single vertical row of
+fasteners at pitch $p$ passes through the hole, parallel to the load, attaching
+the stringer to a background \emph{infinite} skin (modulus $E_2$, thickness
+$t_2$). Loading comprises remote tension $S_0$, in-plane bending $S_2$, and
+pin/bearing $S_3$.
+
+\subsection{Conventions}
+\begin{itemize}[leftmargin=1.5em,topsep=2pt,itemsep=1pt]
+\item Units are consistent Imperial: ksi, in, kip (and ksi$\sqrt{\text{in}}$ for $K$).
+\item Hole offset: $m$ = hole-centre to right edge; $B = W-m$ = hole-centre to
+  left edge; eccentricity $e = W/2 - B = m - W/2$.
+\item Plane stress throughout. Stress ratio $R = \sigma_{\min}/\sigma_{\max}$.
+\item $S_2>0$ places tension at the crack mouth (opens the crack); $S_3$ is the
+  bearing stress $P/(Dt)$, clipped to $\ge 0$.
+\end{itemize}
+
+% ====================================================================
+\section{Baseline stress intensity (inherited TC23)}
+
+For each crack tip $i$ the SIF is the NASGRO Appendix~C compounded solution
+\begin{equation}
+K_i = \Bigl(\beta_i^{A} S_0 + \beta_i^{B} S_2 + b_{p,i}\,\bar S_3\Bigr)\sqrt{\pi c_i},
+\label{eq:Ktc23}
+\end{equation}
+with the remote-tension factor $\beta^A = \beta^{A1}\beta^{A2}\beta^{A3}$
+(Tweed--Rooke/Bowie unequal-crack fit $\times$ the $\varphi_1/\varphi_2$
+finite-width corrections), the in-plane-bending factor $\beta^B$ (Solution~B,
+\S\ref{sec:bend}), and the bearing factor $b_p$ (Solution~C, \S\ref{sec:bearing}).
+Equation~\eqref{eq:Ktc23} is verified term-by-term against the NASGRO~8.2
+manual; this document treats it as the validated baseline onto which the TC23B
+extensions are applied.
+
+% ====================================================================
+\section{Bending restraint}
+\label{sec:bend}
+
+Two physically distinct ``bending'' effects appear in TC23B and must not be
+conflated: (a) \emph{applied in-plane bending} $S_2$ of the stringer
+cross-section, and (b) \emph{load-line-eccentricity bending} of the post-link-up
+single-edge-notch-tension (SENT) ligament, which is what the bending-restraint
+parameter $\eta$ controls.
+
+\subsection{Applied in-plane bending, $S_2$ (Solution B)}
+In the two-crack phase the bending factor uses NASGRO TC23 Solution~B:
+$\beta_i^{B}=\beta_i^{B1}\,\beta_i^{B2}$, where $\beta^{B1}$ is the Bowie hole
+factor (=$\beta^{A1}$) and $\beta^{B2}=\Phi_1(d_1,d_2)$ is interpolated from the
+NASGRO FEM benchmark table for a crack of size $2c_0$ in a finite plate under
+in-plane bending, with $d_1=(b-c_0)/W$, $d_2=(b+c_0)/W$ and
+$\beta_2^{B2}=-\Phi_1(1-d_2,1-d_1)$. In the post-link-up phase $S_2$ uses the
+TC02 Solution~B (Gross--Srawley) edge-crack factor
+\begin{equation}
+F_B(\lambda)=1.122-1.40\lambda+7.33\lambda^2-13.08\lambda^3+14.0\lambda^4,
+\qquad \lambda=a/W .
+\end{equation}
+
+\begin{assume}
+\item $S_2$ is the \emph{extreme-fibre} in-plane bending stress at the cracked
+  cross-section ($=6M/BW^2$); the linear stress distribution is integrated
+  internally by $\Phi_1$ / $F_B$, so only the surface value is supplied.
+\item Sign: $S_2>0$ opens the crack and is added with its sign for any
+  eccentricity $e$. The TC23 two-crack convention (tension on the right face)
+  is continuous with the post-link-up SENT crack mouth at the right edge.
+\item $\Phi_1$ is bilinearly interpolated from the discrete FEM grid; values
+  outside the grid are clamped to the grid edge.
+\item In-plane bending is treated as an independent load system superposed
+  linearly on tension and bearing (LEFM superposition); no plasticity or
+  load-redistribution coupling between systems is modelled.
+\end{assume}
+
+\subsection{Load-line-eccentricity bending of the SENT ligament ($\eta$)}
+After link-up the remaining ligament is an edge crack growing across the
+stringer. Because the crack offsets the load path, an SENT coupon develops
+secondary bending; the resulting tip SIF depends on how strongly the
+surrounding structure restrains the rotation. This is captured by linearly
+interpolating between the two limiting Tada/Paris/Irwin SENT solutions:
+\begin{align}
+F_{\text{unrestr}}(\lambda) &= 1.122-0.231\lambda+10.550\lambda^2-21.710\lambda^3+30.382\lambda^4 \quad(\eta=0),\\
+F_{\text{restr}}(\lambda)   &= 1.122-0.561\lambda-0.205\lambda^2+0.471\lambda^3-0.190\lambda^4 \quad(\eta=1),\\
+\beta_{\text{SENT}}(\lambda,\eta) &= F_{\text{unrestr}} + \eta\,(F_{\text{restr}}-F_{\text{unrestr}}).
+\label{eq:bsent}
+\end{align}
+
+\begin{assume}
+\item $\eta\in[0,1]$ is a user input. $\eta=0$ = pinned/free ends (free
+  rotation, maximum secondary bending, highest $K$); $\eta=1$ =
+  clamped/built-in ends (rotation suppressed, lowest $K$). Since
+  $F_{\text{restr}}<F_{\text{unrestr}}$, increasing $\eta$ monotonically reduces
+  $\beta_{\text{SENT}}$ and $K$.
+\item The interpolation is \emph{linear} in $\eta$; intermediate $\eta$ has no
+  independent solution and is a pragmatic blend, not an exact boundary-value
+  result. The user must choose $\eta$ to represent the actual rotational
+  restraint of the installation (e.g.\ continuity of the stringer beyond the
+  bay, frame/clip attachment).
+\item The two end-member polynomials carry their handbook accuracy ($\approx
+  0.5\%$; the unrestrained fit is quoted to $a/W\le0.6$, the restrained fit for
+  any $a/W$). Accuracy of intermediate $\eta$ is not separately validated.
+\item $\eta$ acts only in the post-link-up SENT phase. In the two-crack phase
+  the symmetric hole geometry carries no load-line eccentricity and $\eta$ is
+  not applied.
+\item $\eta$ multiplies the membrane SENT factor only; the separate $S_2$
+  in-plane-bending term ($F_B$) is scaled by the same stiffener-shielding factor
+  but is not a function of $\eta$.
+\item Default $\eta=0$ (conservative: maximum SENT bending).
+\end{assume}
+
+% ====================================================================
+\section{Bearing-load model options}
+\label{sec:bearing}
+
+The bearing (pin-load) factor $b_p$ such that $K_{\text{bear}}=b_p\,\bar
+S_3\sqrt{\pi c}$ is selectable. The effective pin-load stress is clipped,
+$\bar S_3=\max(S_3,0)$, and the gross-section stress used elsewhere is
+$S_{\text{gross}}=S_0+(D/W)\bar S_3$.
+
+\subsection{Option 1 --- NASGRO TC23 Solution C (default)}
+The Appendix~C compounding $b_p=(D/W)\,\beta^C$, with
+$\beta_i^C=\tfrac12(\beta_i^{C1}+\beta_i^{C2}+\beta_i^{C3})$; $\beta^{C1}=\beta^A$;
+$\beta^{C2}=\beta^{C2{:}1}\beta^{C2{:}2}\beta^{C2{:}3}\beta^{C2{:}4}$ with the
+radial-pressure factor $e^{0.15(\rho_i^2-1)}$, the unequal-crack factor
+$\beta^{C2{:}3}=\tfrac{W}{\pi c_0}\sqrt{(c_0\mp\zeta)/(c_0\pm\zeta)}$,
+$\zeta=(c_1-c_2)/2$, and the finite-width factor $\beta^{C2{:}4}$; and
+$\beta^{C3}=(6e/W)\beta^{B1}\beta^{B2}$ (the bending raised by the pin
+eccentricity).
+\begin{assume}
+\item The pin load is idealised as a point wedge force on the crack faces (the
+  $W/\pi c_0$ term). This is asymptotically correct for cracks long relative to
+  the hole ($c\gtrsim 2D$) but \emph{conservative at short cracks}, where the
+  real distributed bore-pressure field decays faster than a point force.
+\item Reacted on one side (one-sided reaction), consistent with NASGRO; the
+  bearing contribution adds $(D/W)\bar S_3$ to the gross stress.
+\item Compression is clipped ($\bar S_3\ge0$): a pin cannot pull on the bore.
+\end{assume}
+
+\subsection{Option 2 --- Hybrid TC05 FEM $\rightarrow$ TC23}
+NASGRO TC05 FEM pin-load beta tables (Table~C7, two cracks at a loaded hole,
+strip$\leftrightarrow$row equivalence $D/H=D/W$, $x=c/(W-D)$) are used at short
+cracks, blended linearly in $c/D$ to Solution~C over the band $c/D=0.5\ldots1.0$:
+\begin{equation}
+b_p(c)=(1-T)\,F_{3,\text{TC05}}\!\Bigl(\tfrac{c}{W-D},\tfrac{D}{W}\Bigr)
+       + T\,(D/W)\beta^C_{\text{TC23}},\qquad
+T=\mathrm{clamp}\!\Bigl(\tfrac{c/D-0.5}{0.5},0,1\Bigr).
+\end{equation}
+\begin{assume}
+\item The TC05 FEM data are the more accurate short-crack solution (they capture
+  the bore-field decay); the point-force Solution~C is more accurate once the
+  crack is long relative to the bore and carries the offset/finite-width effects
+  TC05 lacks. The blend band ($0.5D$--$1.0D$) is a modelling choice, not derived.
+\item The strip is mapped to the TC05 hole row at pitch $H=W$; $D/H$ and the
+  normalised crack length are clamped to the table ranges.
+\item Continuity of $b_p(c)$ through the band is enforced and regression-tested.
+\end{assume}
+
+\subsection{Option 3 --- Effective width ($W_{\text{eff}}=7D$)}
+The transferred load is reacted locally over an effective width of a few
+diameters (the $\sim35^\circ$ Inglis load-spread), so the bearing case behaves
+like a remote tension acting on the cracked hole:
+\begin{equation}
+b_p(c)=\frac{D}{W_{\text{eff}}}\,\beta^A(c),\qquad
+W_{\text{eff}}=\min(k_{\text{brg}}D,\,W),\quad k_{\text{brg}}=7 .
+\end{equation}
+\begin{assume}
+\item The bearing load does not see plate edges farther than $\sim$$W_{\text{eff}}/2$
+  (AFGROW wide-panel guidance: keep the hole within $\sim6D$ of an edge for
+  bearing). $k_{\text{brg}}=7$ is the default and is user-overridable.
+\item The bearing beta is obtained by scaling the full-width tension beta
+  $\beta^A$ by $D/W_{\text{eff}}$; it therefore inherits $\beta^A$'s
+  long-crack edge magnification (a known difference from a beta computed in the
+  $W_{\text{eff}}$ sub-geometry).
+\item This option reproduces an external benchmark's bearing betas to within a
+  few percent and is the least conservative of the three at short cracks.
+\end{assume}
+
+\paragraph{Ordering.} At the geometries examined the three options rank
+NASGRO Solution~C (most severe) $>$ Hybrid $>$ Effective-width (least severe) at
+short cracks; they cross over at long cracks. The choice is the analyst's and
+should be recorded in the substantiation.
+
+% ====================================================================
+\section{Skin far-field stress state}
+\label{sec:skin}
+
+The skin's longitudinal strain relative to the stringer governs how much load
+the fasteners transfer in the far field. Three modes are provided, entering the
+bridging compatibility solve (\S\ref{sec:bridge}) as a relative slip
+$\Delta\varepsilon\,y_i$ per fastener (measured from the crack plane). Under
+\emph{proportional loading} the skin stresses are specified at the peak stringer
+stress $\hat\sigma$ and scale with it through the cycle.
+
+\begin{description}[leftmargin=1.5em]
+\item[Strain-matched (default).] $\Delta\varepsilon=0$. The skin and stringer
+  far-field longitudinal strains are equal (edges effectively coincident);
+  fastener loads arise from crack opening only.
+\item[Strain-matched $+$ hoop $\sigma_H$ (Poisson).] Longitudinal compatibility
+  is retained and a transverse (hoop) stress contracts the skin via Poisson:
+  \begin{equation}
+  \Delta\varepsilon/\sigma=\frac{\nu_{\text{skin}}\,\sigma_H}{E_{\text{skin}}\,\hat\sigma}.
+  \end{equation}
+\item[Fully specified $(\sigma_L,\sigma_H)$.]
+  \begin{equation}
+  \Delta\varepsilon/\sigma=\frac{1}{E_{\text{str}}}
+   -\frac{\sigma_L-\nu_{\text{skin}}\sigma_H}{E_{\text{skin}}\,\hat\sigma}.
+  \end{equation}
+  Equivalent to the hoop mode when $\sigma_L=\hat\sigma\,E_{\text{skin}}/E_{\text{str}}$.
+\end{description}
+
+\begin{assume}
+\item \textbf{Proportional loading}: $\sigma_L,\sigma_H$ scale with the stringer
+  stress, so the strain mismatch per unit stress is constant; the bridging
+  restraint is then stress-independent and the constant-amplitude integration is
+  unchanged. Non-proportional skin loading is not modelled.
+\item \textbf{Input stress is the stringer far-field stress.} $\hat\sigma$ is the
+  stress actually in the stringer remote from the joint, already net of any
+  global stiffness-ratio load sharing. Consequently the strain mismatch enters
+  bridging only through the crack-\emph{driven} fastener-load increment: the
+  no-crack baseline $\sum_j F_j(0)$ is subtracted (\S\ref{sec:bridge}).
+\item \textbf{Second-order effect on life.} Because its primary action is a
+  uniform far-field load share already present in $\hat\sigma$, the biaxial/hoop
+  state has only a few-percent effect on crack-growth life through the bridging
+  route. To make a hoop/biaxial load share retard the crack as a first-order
+  effect it must instead be applied as a reduction of the input far-field
+  stringer stress (a separate stiffness-ratio calculation outside this tool).
+\item ``Fully specified'' with $\sigma_L=0$ represents a longitudinally
+  \emph{unloaded} skin (a pure doubler) --- a valid but distinct case from the
+  hoop case; the warning in the input reflects this.
+\item Load attraction (skin strained more than the stringer, large $\sigma_L$)
+  reverses the mismatch sign and is admitted (the restraint factor may exceed
+  unity, clamped to $[0.05,2]$).
+\item Plane-stress, linear-elastic skin; in-plane (not out-of-plane / pillowing)
+  behaviour only.
+\end{assume}
+
+% ====================================================================
+\section{Skin bridging}
+\label{sec:bridge}
+
+\subsection{Displacement-compatibility solve}
+By symmetry the fasteners act in pairs at $y_j=\pm jp$ (the fastener in the
+cracked hole lies on the crack plane and carries no bridging load). With pair
+forces $F_j$ and fastener flexibility $f$, compatibility of the relative
+stringer--skin displacement at each fastener gives
+\begin{equation}
+\bigl[f\,\mathbf I + \mathbf G^{\text{str}} + \mathbf G^{\text{sk}}\bigr]\mathbf F
+   = \mathbf V_0\,\sigma + \Delta\varepsilon\,\mathbf y,
+\label{eq:compat}
+\end{equation}
+solved each step at the current effective half-crack $a$. $V_0$ is the
+Westergaard crack-opening of the stringer at each fastener; $\mathbf G^{\text{sk}}$
+is the intact-skin 2-D Kelvin (Muskhelishvili) point-force compliance;
+$\mathbf G^{\text{str}}$ is the cracked-sheet compliance (uncracked Kelvin field
+plus the exact crack-release correction from the Betti/Rice weight-function
+identity $v^{\text{corr}}_{ij}=-(t_1/E_1)\int_0^a[K^+_iK^+_j+K^-_iK^-_j]\,da'$).
+
+\subsection{Fastener flexibility --- modified Tate \& Rosenfeld}
+\begin{equation}
+f=\frac{0.375}{E_f t_1}+\frac{0.375}{E_f t_2}
+ +\frac{0.9}{E_1 t_1}+\frac{0.9}{E_2 t_2}
+ +\frac{32(1+\nu_f)(t_1+t_2)}{9E_f\pi d^2}
+ +\frac{8\,(t_1^3+5t_1^2t_2+5t_1t_2^2+t_2^3)}{5E_f\pi d^4}\;\;[\text{in/kip}].
+\end{equation}
+
+\subsection{Reducing the tip SIF --- two routes}
+The solved fastener loads reduce the membrane (tension) contribution to $K$.
+Two routes are implemented; they account for the \emph{same} $F_j$ and must not
+both be applied.
+\begin{description}[leftmargin=1.5em]
+\item[Weight-function (crack-tip shielding).]
+  $R=\bigl(\sqrt{\pi a}+\sum_j F_j K^+_j(a)\bigr)/\sqrt{\pi a}$. Each fastener's
+  contribution is weighted by its centre-crack SIF Green's function $K^+_j$, so
+  near-tip fasteners shield more than far ones.
+\item[Load bypass (load-path).]
+  $R_{\text{bp}}=1-P_{\text{tot}}/(S_{\text{gross}}Wt)$ with
+  $P_{\text{tot}}=\sum_j F_j(a)-\sum_j F_j(0)$ (the crack-driven one-sided
+  bypassed load; the no-crack baseline is subtracted). The membrane $K$ uses the
+  bypass stress $S_{\text{byp}}=R_{\text{bp}}S_0$; bending and bearing keep $S_0$.
+\end{description}
+Both are applied to the membrane term only:
+$K=R\,\beta\,S_0\sqrt{\pi c}+K_{\text{bend}}+K_{\text{bear}}$, with $\beta$ the
+pure geometry factor (the restraint shows as a separate $S_{\text{byp}}/S_0$
+column in the log). $R$ is clamped to $[0.05,2]$.
+
+\begin{assume}
+\item The displacement-compatibility solve uses infinite-sheet elastic fields
+  for the stringer; finite width enters only through the TC23 $\beta$ factors
+  (standard compounding). Plane stress throughout.
+\item The hole is omitted from the bridging displacement field (centre-crack
+  idealisation $2c_0=c_1+D+c_2$); the fastener line passes through the flaw
+  centre (exact for $c_1=c_2$).
+\item The Kelvin self-term is regularised over a cut-off radius $d/2$;
+  deformation inside that radius is represented by the empirical fastener
+  flexibility, not double-counted.
+\item Fastener loads scale linearly with stress $\Rightarrow R$ is
+  stress-independent (constant-amplitude integration unaffected).
+\item Fasteners are XY load-transfer springs (single shear flexibility $f$); no
+  preload, friction, bearing nonlinearity, or progressive fastener failure
+  (an optional shear-allowable check only flags exceedance).
+\end{assume}
+
+\subsection{Validation and the FEA correction surface}
+\label{sec:fea}
+An independent finite-element model (FEA-membranes, interaction-integral $K$,
+validated to $-0.1\%$ on SENT/CCT handbook benchmarks) of the cracked-stringer +
+skin + fastener-row configuration gives the true restraint ratio
+$R_{\text{FEA}}=K_{\text{with fasteners}}/K_{\text{without fasteners}}$. At the
+anchor point ($a/W=0.35$) it gives $R_{\text{FEA}}=0.811$, against which the
+weight-function route ($0.819$, $+1.0\%$) is far more accurate than the load-bypass
+route ($0.886$, $+9.3\%$). The weight-function (crack-tip-shielding) route is
+therefore the validated analytical method; the load-bypass route under-predicts
+the bridging (higher $K$, shorter life) in the SENT phase.
+
+For the post-link-up SENT phase a 1-D FEA \emph{correction surface}
+$R(a/W)=K_{\text{bridged}}/K_{\text{unbridged}}$ is tabulated for a fixed
+configuration and interpolated at run time (the same FEM-table approach used for
+$\Phi_1$ bending and TC05 bearing): $K_{\text{SENT}}=R(a/W)\,\beta_{\text{SENT}}
+S_0\sqrt{\pi a}$.
+\begin{assume}
+\item The FEA restraint ratio cancels mesh and SENT-$\beta$ idealisation (a
+  ratio from the same mesh), so it isolates the bridging knock-down.
+\item The 1-D table is valid only for its tabulated configuration (geometry,
+  fastener stiffness, skin/stringer stiffness ratio); a geometry mismatch is
+  flagged. Outside the tabulated $a/W$ range the endpoints are held (flat
+  extrapolation).
+\item The benchmark FEA panel uses a near-uniform crack-plane field (St-Venant);
+  the dimensionless restraint ratio is insensitive to the exact far-field load
+  introduction.
+\end{assume}
+
+% ====================================================================
+\section{Post-link-up SENT phase}
+When the edge-side ligament fails ($c_2$ reaches the plate edge) the analysis
+continues as a single edge crack of depth $a_{\text{edge}}=c_1+D+(W/2-e-R)$
+growing from the right edge. The tip SIF combines tension and bearing on the
+membrane SENT factor $\beta_{\text{SENT}}(a/W,\eta)$ and bending on $F_B$,
+reduced by the bridging restraint (\S\ref{sec:bridge}, or the FEA surface
+\S\ref{sec:fea}). In the bridging model the edge crack is idealised as a half
+centre-crack centred on the plate edge, fastener line at depth $m$, with
+free-edge image sources at $-m$.
+
+% ====================================================================
+\section{Crack-growth integration}
+The NASGRO equation
+$da/dN=C[(1-f_N)/(1-R)\,\Delta K]^n(1-\Delta K_{th}/\Delta K)^p/(1-K_{\max}/K_c)^q$
+is integrated with adaptive crack-step control; both tips advance independently
+with a shared $\Delta N$. Plastic-zone correction has three modes:
+\emph{off}; \emph{ligament} (default --- the Irwin correction activates per tip
+only once the ligament net-section stress $\sigma\,\text{trib}/(\text{trib}-R-c)$
+reaches yield); \emph{always}. Termination: fracture ($K_{\max}\ge K_c$),
+net-section yield on flow stress, geometry limit, or max cycles. Results are
+logged at a user cycle interval.
+
+\begin{assume}
+\item Constant-amplitude loading; no load-interaction/retardation beyond the
+  selected PZC mode.
+\item Net-section yield uses the gross stress (including the bearing-equivalent
+  membrane term) and ignores the load shed to the skin (conservative).
+\end{assume}
+
+% ====================================================================
+\section{Consolidated assumptions and limitations}
+\begin{enumerate}[leftmargin=1.6em,topsep=2pt,itemsep=1pt]
+\item Linear-elastic plane stress; isotropic sheets; small-displacement LEFM
+  with linear superposition of $S_0$, $S_2$, $S_3$ and bridging.
+\item TC23 compounded $\beta$ factors carry their NASGRO Appendix~C accuracy;
+  finite width enters bridging only through them.
+\item Bending restraint $\eta$ is a linear blend of two SENT end-members and a
+  user judgement of installation rotational restraint (\S\ref{sec:bend}).
+\item Bearing model is analyst-selected among three options with the documented
+  short/long-crack trade-offs (\S\ref{sec:bearing}).
+\item Skin far-field state assumes proportional loading and that the input
+  stringer stress is already net of global load sharing (\S\ref{sec:skin}).
+\item The validated bridging $K$-reduction is the weight-function route; the
+  SENT phase may instead use the FEA correction surface (\S\ref{sec:fea}).
+\item No progressive fastener failure, contact/friction, residual stress,
+  out-of-plane (pillowing) bending, or environmental effects.
+\end{enumerate}
+
+% ====================================================================
+\begin{thebibliography}{9}
+\bibitem{nasgro} NASGRO Reference Manual v8.2, SwRI --- Appendix~C, crack cases
+  TC23, TC05, TC02.
+\bibitem{tada} H.~Tada, P.~C. Paris, G.~R. Irwin, \emph{The Stress Analysis of
+  Cracks Handbook}, 3rd ed., ASME Press, 2000 (SENT and edge-crack factors).
+\bibitem{gross} B.~Gross, J.~E. Srawley, NASA TN~D-2603, 1965 (single-edge-notch
+  bending/tension factors).
+\bibitem{swift} T.~Swift, ``Fracture Analysis of Stiffened Structure,'' ASTM
+  STP~842, 1984; ``Repairs to Damage Tolerant Aircraft,'' FAA-AIR-90-01, 1990.
+\bibitem{tate} M.~B. Tate, S.~J. Rosenfeld, NACA TN-1051, 1946 (fastener
+  flexibility; modified form with 0.375/0.9 hole-compliance numerators).
+\bibitem{musk} N.~I. Muskhelishvili, \emph{Some Basic Problems of the
+  Mathematical Theory of Elasticity} (point-force potentials).
+\bibitem{rice} J.~R. Rice, ``Some Remarks on Elastic Crack-Tip Stress Fields,''
+  Int.\ J.\ Solids Structures 8, 1972 (weight-function relations).
+\bibitem{harter} J.~A. Harter, A.~V. Litvinov, ``Modeling Bearing Load in Wide
+  Panels Using AFGROW,'' AFGROW European Workshop, 2016 (effective-width bearing).
+\bibitem{newman} J.~C. Newman Jr., ``A crack opening stress equation for fatigue
+  crack growth,'' Int.\ J.\ Fracture, 1984.
+\end{thebibliography}
+
+\end{document}

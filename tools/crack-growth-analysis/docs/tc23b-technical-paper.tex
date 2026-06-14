@@ -1,0 +1,462 @@
+\documentclass[11pt]{article}
+
+\usepackage[a4paper,margin=25mm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{tikz}
+\usepackage[colorlinks=true,linkcolor=blue,citecolor=blue]{hyperref}
+
+\title{TC23B: Crack Growth in a Skin-Bridged Stringer at a Fastener Hole\\
+\large Implementation Notes and Benchmark Reconciliation for SCT-CG1}
+\author{Southward Consulting Ltd}
+\date{June 2026}
+
+\newcommand{\ksi}{\,\mathrm{ksi}}
+\newcommand{\inch}{\,\mathrm{in}}
+\newcommand{\ksqin}{\,\mathrm{ksi\sqrt{in}}}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+This note documents the TC23B crack case implemented in the SCT-CG1 crack
+growth tool: NASGRO crack case TC23 (unequal through cracks at an offset hole
+in a finite-width strip) extended with (i) selectable bearing-load $\beta$
+models, and (ii) crack bridging by a fuselage skin attached through a single
+vertical line of fasteners passing through the critical hole, solved by the
+Swift displacement-compatibility method with fastener stiffness from the
+modified Tate \& Rosenfeld equation. Verification against first-principles
+limit cases and reconciliation against an independent benchmark code are
+summarised, and the open questions for discussion with the benchmark author
+are identified. Basic LEFM and NASGRO theory are assumed known and are not
+repeated.
+\end{abstract}
+
+\section{Scope and configuration}
+
+The intended application is fatigue cracking in a stringer, modelled by its
+unfolded width $W$, containing a fastener hole of diameter $D$ at distance
+$m$ from one edge, with through cracks $c_1$ (wide side) and $c_2$ (edge
+side) growing from the hole. The stringer is attached to a background
+\emph{infinite} skin by a single vertical row of fasteners at pitch $p$
+passing through the critical hole (Fig.~\ref{fig:config}). As the crack
+opens, the fasteners above and below the crack plane transfer load into the
+intact skin, restraining the opening displacement and retarding growth.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[scale=0.9]
+  % stringer strip
+  \draw[thick] (0,0) rectangle (3.0,6.0);
+  % fastener line
+  \draw[dashed,gray] (2.0,0.2) -- (2.0,5.8);
+  % fasteners
+  \foreach \y in {1.0,1.8,4.2,5.0} \fill[blue!60] (2.0,\y) circle (0.07);
+  % hole + cracks
+  \draw[thick] (2.0,3.0) circle (0.22);
+  \draw[red,very thick] (0.6,3.0) -- (1.78,3.0);
+  \draw[red,very thick] (2.22,3.0) -- (2.75,3.0);
+  % dimensions
+  \draw[<->] (2.0,-0.4) -- (3.0,-0.4) node[midway,below] {$m$};
+  \draw[<->] (0,-0.9) -- (3.0,-0.9) node[midway,below] {$W$};
+  \draw[<->] (2.25,4.2) -- (2.25,5.0) node[midway,right] {$p$};
+  \node[red] at (1.2,3.25) {$c_1$};
+  \node[red] at (2.5,3.3) {$c_2$};
+  % load arrows
+  \foreach \x in {0.5,1.5,2.5} {
+    \draw[->] (\x,6.1) -- (\x,6.6);
+    \draw[->] (\x,-1.2) -- (\x,-1.7);
+  }
+  \node at (3.5,6.4) {$S_0$};
+  % skin note
+  \node[blue!60,anchor=west] at (3.4,3.0)
+    {\footnotesize fastener row attached to infinite skin ($E_2,t_2,\nu_2$)};
+\end{tikzpicture}
+\caption{TC23B configuration. The crack plane is normal to the load; the
+fastener row is collinear with the load through the critical hole.}
+\label{fig:config}
+\end{figure}
+
+\section{Baseline TC23 implementation}
+
+The unbridged solution follows NASGRO~8.2 Appendix~C, crack case TC23,
+verified term-by-term against the manual:
+
+\begin{itemize}
+\item \textbf{Solution A} (remote tension): $\beta_i^A=\beta_i^{A1}\beta_i^{A2}\beta_i^{A3}$
+  with the Tweed--Rooke/Bowie fit for unequal cracks at a hole in an
+  infinite plate ($\beta_r$ polynomial and $\beta_u$ rational fit) and the
+  $\varphi_1/\varphi_2$ finite-width corrections for crack-edge (A2) and
+  hole-edge (A3) interaction.
+\item \textbf{Solution B} (in-plane bending): $\beta^{B1}$ compounding with the
+  $\Phi_1(d_1,d_2)$ FEM benchmark table (pp.~C-40/41).
+\item \textbf{Solution C} (pin load): $\beta_i^C=\tfrac12(\beta_i^{C1}+\beta_i^{C2}+\beta_i^{C3})$,
+  $K_i=\bigl(\beta_i^A S_0+\beta_i^B S_2+\tfrac{D}{W}\beta_i^C \bar S_3\bigr)\sqrt{\pi c_i}$,
+  with eccentricity convention $e=W/2-B$ per the manual. Alternative bearing
+  models are discussed in \S\ref{sec:bearing}.
+\item \textbf{Growth law}: full NASGRO equation (Newman closure, $C_{th}^{\pm}$
+  threshold fanning, thickness-corrected $K_c$); net-section yield on flow
+  stress $(\sigma_{ys}+\sigma_u)/2$; optional every-cycle Irwin plastic-zone
+  correction (two fixed-point iterations on $c+r_y$).
+\item \textbf{Post-link-up}: when the edge-side ligament fails the analysis
+  continues as a single edge crack (SENT $\beta$, $\eta$-interpolated, with
+  the Gross--Srawley bending factor for $S_2$) rather than terminating.
+\end{itemize}
+
+Dual tips are integrated independently with a shared $\Delta N$ per step and
+adaptive $\Delta c$ keyed to the fracture margin.
+
+\section{Benchmark reconciliation}
+\label{sec:bench}
+
+Two cases were compared against an independent benchmark code
+(V1Aerospace, v1.2.3): $D=0.2$, $t=0.05$, $c_{1,0}=0.01$, $c_{2,0}=0.05$,
+$S_0=15\ksi$, $R=0$, $S_3=15\ksi$, 2024-T3 clad:
+Case~1 $W=2.0/m=0.4$; Case~2 $W=4.0/m=1.5$ (inches throughout).
+
+\subsection{Items that reconcile}
+
+\begin{itemize}
+\item \textbf{Tension solution}: identical. At the first step of Case~1 the
+  benchmark reports $\beta^{S}_1=3.138$, $\beta^{S}_2=1.902$ and tension-only
+  $\Delta K_1=8.344\ksqin$; this implementation gives $3.138/1.907$ and
+  $8.34\ksqin$.
+\item \textbf{Tension-only life}: benchmark $12{,}482$ vs.\ $12{,}602$ cycles
+  (Case~1, $S_3=0$, our PZC off) --- within $1\%$. Material representation and
+  integration are therefore equivalent for practical purposes.
+\item \textbf{Plastic zone treatment}: the benchmark applies its plasticity
+  logic only near instability (\texttt{IZPC} entries at the end of its
+  output), whereas our optional Irwin correction inflates $K$ at every cycle
+  ($\approx 9\%$ life reduction in these cases). Like-for-like comparisons
+  should be run with our PZC off.
+\item \textbf{Termination}: the benchmark's ``net section failure --
+  ligament'' at $c_2\approx0.25$ vs.\ our link-up at $c_2=0.30$ differ by
+  $<10$ cycles; growth through the last ligament fraction is effectively
+  instantaneous and the criterion choice is immaterial here.
+\end{itemize}
+
+\subsection{The bearing-load discrepancy}
+\label{sec:bearing}
+
+The entire life discrepancy traces to the bearing (pin-load) $\beta$. The
+benchmark's bearing betas (its BP columns) are far below the NASGRO TC23
+Solution~C values at short cracks, and below the NASGRO TC05 FEM pin-load
+tables as well (Table~\ref{tab:bp}).
+
+\begin{table}[h]
+\centering
+\caption{Case 1 bearing $\beta$ (factor on $S_3\sqrt{\pi c_i}$) at the
+initial crack state $c_1=0.01$, $c_2=0.05$.}
+\label{tab:bp}
+\begin{tabular}{lcc}
+\toprule
+Model & tip 1 & tip 2\\
+\midrule
+NASGRO TC23 Solution C            & 1.144 & 0.554\\
+NASGRO TC05 FEM table (C7)        & 0.813 & 0.452\\
+Effective width $W_{\rm eff}=7D$  & 0.450 & 0.272\\
+Benchmark                          & 0.451 & 0.300\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Three observations from the benchmark's own output:
+\begin{enumerate}
+\item The ratio of its bearing to tension betas is nearly constant at the
+  same value in both cases despite the width doubling:
+  $\mathrm{BP}_1/\mathrm{BS}_1 \approx 0.143\ldots0.149 \approx 1/7$.
+  This is the signature of an \emph{effective-width} bearing model,
+  \begin{equation}
+    K_{\rm bear} = \frac{D}{W_{\rm eff}}\,\beta^A\,\bar S_3\sqrt{\pi c},
+    \qquad W_{\rm eff}=\min(7D,\,W),
+    \label{eq:effw}
+  \end{equation}
+  i.e.\ the transferred load reacted locally over a few diameters
+  (consistent with the $\sim35^\circ$ Inglis load-spread argument and the
+  AFGROW guidance that bearing solutions should not see edges farther than
+  $\sim6D$).
+\item Its tip-2 ratio decays with crack growth ($0.141\to0.123$ over the
+  Case~2 extract), i.e.\ its bearing beta lacks the long-crack
+  edge-proximity magnification of the full-width $\beta^A$ --- suggesting the
+  beta is evaluated in the $W_{\rm eff}$ sub-geometry rather than scaled
+  from the full-width tension beta.
+\item Eq.~\eqref{eq:effw} implemented directly reproduces the benchmark's
+  BP$_1$ within $1$--$6\%$ at all extracted points in both cases, and lives
+  within $+4\%$ (Case~1) / $-15\%$ (Case~2), Table~\ref{tab:lives}.
+\end{enumerate}
+
+NASGRO's Solution~C models the pin load as a point wedge force on the crack
+faces (the $W/\pi c_0$ term in C2:3); this is asymptotically correct for
+$c\gtrsim 2D$ but conservative at short cracks where the distributed
+bore-pressure field decays rapidly --- the same conservatism documented for
+analytical bearing betas vs.\ FEM in the AFGROW 2016 workshop (factor
+$\approx3$ at $c=0.2D$). Three selectable bearing models are therefore
+provided:
+
+\begin{enumerate}
+\item \textbf{NASGRO Solution C} (default; most conservative);
+\item \textbf{Hybrid TC05$\to$TC23}: NASGRO TC05 FEM pin-load tables
+  (Table~C7, strip$\leftrightarrow$row equivalence $D/H=D/W$,
+  $x=c/(W-D)$) at short cracks, tapering linearly in $c/D$ to Solution~C
+  over $c/D=0.5\ldots1.0$;
+\item \textbf{Effective width}, Eq.~\eqref{eq:effw}, $k_{\rm brg}=7$
+  (user-overridable) --- closest to the benchmark.
+\end{enumerate}
+
+\begin{table}[h]
+\centering
+\caption{Predicted lives (cycles), PZC off, vs.\ benchmark.}
+\label{tab:lives}
+\begin{tabular}{lcc}
+\toprule
+ & Case 1 ($W{=}2$, $m{=}0.4$) & Case 2 ($W{=}4$, $m{=}1.5$)\\
+\midrule
+No bearing ($S_3=0$)        & 12{,}602 & 33{,}206\\
+NASGRO Solution C           &  5{,}524 & 20{,}493\\
+Hybrid TC05$\to$TC23        &  6{,}588 & 20{,}263\\
+Effective width $7D$        &  7{,}917 & 20{,}766\\
+\textbf{Benchmark}          &  \textbf{7{,}594} & \textbf{24{,}508}\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Questions for the benchmark author}
+
+\begin{enumerate}
+\item What is the basis of the bearing $\beta$ solution --- an effective-width
+  construction per Eq.~\eqref{eq:effw}, a dedicated FEM table for the
+  offset-hole strip, or other? Is the factor $1/7$ explicit?
+\item Is the bearing beta evaluated in the $W_{\rm eff}$ sub-geometry (which
+  would explain the declining tip-2 ratio at longer cracks), and how is the
+  near free edge treated when $m<W_{\rm eff}/2$ (Case~1 shows the bearing
+  beta turning back up near link-up, BP$_2=0.374$ at $c_2=0.25$)?
+\item How is the pin load reacted in the bearing sub-problem (one end, as in
+  NASGRO, or symmetrically)? The conventions differ by an open-hole tension
+  case at $\tfrac12(D/W)S_3$ and require different tension inputs for the
+  same physical joint.
+\item Confirmation that ``Bearing Cut Off'' does not alter the bearing
+  $\beta$ (verified empirically: identical life with the flag cleared).
+\item At short cracks the benchmark's betas sit below the NASGRO TC05 FEM
+  family ($0.30$ vs.\ $0.41$--$0.45$ at $c_2=0.05$); what validation
+  supports the lower values?
+\end{enumerate}
+
+\section{Skin bridging (TC23B)}
+
+\subsection{Displacement compatibility}
+
+Bridging follows Swift's displacement-compatibility method. By symmetry the
+fasteners act in pairs at $y_j=\pm jp$, $j=1\ldots n$ (the fastener in the
+cracked hole lies on the crack plane and transfers no bridging load). With
+pair forces $F_j$ and fastener flexibility $f$, compatibility of the
+relative stringer--skin displacement at each fastener requires
+\begin{equation}
+  \bigl[\,f\,\mathbf{I} + \mathbf{G}^{\rm str} + \mathbf{G}^{\rm sk}\,\bigr]\,
+  \mathbf{F} \;=\; \mathbf{V}_0\,\sigma \;+\; \Delta\varepsilon\,\mathbf{y},
+  \label{eq:compat}
+\end{equation}
+solved at each integration step for the current effective half-crack
+$a=c_0=(c_1+D+c_2)/2$ (centre-crack idealisation of hole plus cracks).
+
+\paragraph{Opening term.} $V_0(y_j)$ is the crack-induced opening of the
+stringer at the fastener under unit remote stress, from the Westergaard
+field (plane stress):
+\begin{equation}
+  V_0(x,y)=\frac1{E_1}\Bigl[\,2\,\mathrm{Im}\bigl(\sqrt{z^2-a^2}-z\bigr)
+  -(1+\nu_1)\,y\,\Bigl(\mathrm{Re}\tfrac{z}{\sqrt{z^2-a^2}}-1\Bigr)\Bigr],
+  \quad z=x+\mathrm{i}y .
+\end{equation}
+
+\paragraph{Skin influence.} $G^{\rm sk}_{ij}$ is the displacement of the
+intact infinite skin at fastener $i$ due to the reacted pair at $j$,
+evaluated from the exact Muskhelishvili point-force (Kelvin) potentials
+\begin{equation}
+  \varphi(z)=A\ln(z-z_0),\quad
+  \psi(z)=-\kappa\bar A\ln(z-z_0)-\bar z_0 A/(z-z_0),\quad
+  A=-\tfrac{f_x+\mathrm{i}f_y}{2\pi(1+\kappa)},
+\end{equation}
+with $\kappa=(3-\nu)/(1+\nu)$. The self-term log singularity is regularised
+by averaging over a circle of radius $d/2$ (deformation inside the cutoff is
+represented by the empirical fastener flexibility).
+
+\paragraph{Cracked-sheet influence.} $G^{\rm str}_{ij}$ adds to the Kelvin
+field a crack-release correction obtained \emph{exactly} from the
+Betti/Rice weight-function identity, which collapses to a compliance
+integral of the pair SIF Green's functions:
+\begin{equation}
+  v^{\rm corr}_{ij}
+  = -\frac{t_1}{E_1}\int_0^{a}
+     \bigl[K^+_i(a')K^+_j(a')+K^-_i(a')K^-_j(a')\bigr]\,\mathrm{d}a' ,
+  \label{eq:betti}
+\end{equation}
+where $K^{\pm}_j(a')$ is the centre-crack SIF at the $\pm a'$ tip due to a
+unit restraining pair at $y_j$, by Bueckner superposition of the Kelvin
+crack-line stress through the centre-crack weight functions:
+\begin{equation}
+  K^{\pm}_j(a')=\frac{1}{\sqrt{\pi a'}}\int_{-a'}^{a'}
+  \sigma^{\rm pair}_{yy}(x,0)\,\frac{a'\pm x}{\sqrt{a'^2-x^2}}\,\mathrm{d}x
+  \qquad\text{(Gauss--Chebyshev quadrature).}
+\end{equation}
+No fitted influence functions are used anywhere in the chain.
+
+\paragraph{Biaxial skin stress.} An off-axis biaxial skin state alters the
+stringer/skin load-sharing through Poisson contraction. Under proportional
+loading (skin stresses $\sigma_L,\sigma_H$ specified at peak stringer stress
+$\hat\sigma$ and scaling with it), the far-field strain mismatch per unit
+stringer stress is
+\begin{equation}
+  \Delta\varepsilon/\sigma=\frac1{E_1}
+  -\frac{\sigma_L-\nu_2\,\sigma_H}{E_2\,\hat\sigma},
+\end{equation}
+entering Eq.~\eqref{eq:compat} as the relative slip $\Delta\varepsilon\,y_i$
+measured from the crack plane. Strain-matched skin ($\Delta\varepsilon=0$) is
+the default. As noted in \S\ref{sec:bypass}, the mismatch acts mainly as a
+no-crack load-share (subtracted from $P_{\rm tot}$) and so has only a
+second-order effect on crack-growth life under the bypass route.
+
+\subsection{SIF reduction --- load bypass}
+\label{sec:bypass}
+
+The solved pair forces reduce the tip SIF through a \emph{load-bypass}
+statement: the load shed into the skin bypasses the crack section, so the
+membrane stress reaching the crack is the bypass stress
+\begin{equation}
+  P_{\rm app}=S_{\rm gross}\,W\,t,\quad
+  P_{\rm tot}=\sum_j F_j(a)-\sum_j F_j(0),\quad
+  R_{\rm bp}=\frac{S_{\rm byp}}{S_{\rm gross}}
+            =1-\frac{P_{\rm tot}}{S_{\rm gross}\,W\,t},
+\end{equation}
+with $S_{\rm gross}=\sigma+(D/W)S_3$, applied to the membrane (tension)
+contribution of $K$ only:
+\begin{equation}
+  K^{\rm TC23B}=R_{\rm bp}\,K_{\rm tension}+K_{\rm bending}+K_{\rm bearing},
+\end{equation}
+since in-plane bending ($S_2$) and pin-bearing ($S_3$) are separate load
+paths that do not bypass. $P_{\rm tot}$ is the \emph{crack-driven} one-sided
+bypassed load ($F_j$ = upper fastener of pair $j$; the lower returns it below
+the crack). The no-crack baseline $\sum_j F_j(0)$ is subtracted because the
+far-field strain mismatch (\S\,biaxial) produces distributed load-sharing that
+exists with no crack and does not bypass it; it also removes a
+finite-fastener-row artefact in which the raw $\sum_j F_j$ grows with the
+modelled row length. The baseline is identically zero in strain-matched mode.
+$R_{\rm bp}>1$ (load attraction) is admitted when the skin is strained more
+than the stringer ($R_{\rm bp}$ clamped to $[0.05,2]$). Because
+$F_j\propto\sigma$ under proportional loading, $R_{\rm bp}$ is
+stress-independent and the constant-amplitude engine is unchanged.
+
+This replaces the weight-function crack-face-traction reduction
+$R=\bigl(\sqrt{\pi a}+\sum_j F_j K^+_j(a)\bigr)/\sqrt{\pi a}$ (retained as a
+diagnostic). The two routes account for the \emph{same} fastener loads --- the
+bypass route is the global load-path statement, the weight-function route the
+local crack-tip-shielding statement --- so applying both would double-count.
+The compatibility solve itself is unchanged: it uses the rigorous
+crack-release compliance, Eq.~\eqref{eq:betti}, to obtain the correct
+equilibrium $F_j$; only the $K$-from-$F_j$ step changed.
+
+A consequence is that the far-field strain mismatch (\S\,biaxial) becomes a
+\emph{minor} influence on crack-growth life under the bypass route: its primary
+action is a uniform stringer/skin load-share that exists with no crack (the
+subtracted baseline) and is already represented in the input stringer stress;
+only the small crack--mismatch coupling remains. To make a hoop/biaxial
+load-share retard the crack as a first-order effect it must instead be applied
+as a reduction of the input far-field stringer stress (a stiffness-ratio
+load-sharing calculation outside this tool's scope), not through crack bypass.
+
+In the post-link-up SENT phase the edge crack of depth $a_e$ is modelled as
+a half centre-crack with the model centre at the free edge, the fastener
+line at depth $m$, and free-edge image sources at $-m$; the skin (which has
+no free edge) sees the real forces only.
+
+\subsection{Fastener flexibility --- modified Tate \& Rosenfeld}
+
+\begin{equation}
+  f=\underbrace{\frac{0.375}{E_f t_1}+\frac{0.375}{E_f t_2}}_{\text{fastener bearing}}
+  +\underbrace{\frac{0.9}{E_1 t_1}+\frac{0.9}{E_2 t_2}}_{\text{sheet hole compliance}}
+  +\frac{32(1+\nu_f)(t_1+t_2)}{9\,E_f\,\pi d^2}
+  +\frac{8\,(t_1^3+5t_1^2t_2+5t_1t_2^2+t_2^3)}{5\,E_f\,\pi d^4},
+\end{equation}
+in $\mathrm{in/kip}$ with $E$ in ksi (sheet 1 = stringer, sheet 2 = skin).
+
+\subsection{Outputs and checks}
+
+Per-fastener bridging loads $F_j\sigma$ are reported at the final crack size
+together with the peak over the run, and checked against an optional shear
+allowable. Fastener failure is \emph{not} progressively released; results
+beyond first exceedance are flagged as unconservative. Net-section yield
+ignores the load shed to the skin (conservative). With a biaxial mismatch
+the outermost fastener loads represent joint end transfer and depend on the
+modelled row length $n$; the near-crack loads and the SIF restraint do not.
+
+\section{Verification}
+
+All checks run headless (\texttt{node tests/run-tests.mjs}; 36 assertions):
+
+\begin{itemize}
+\item \textbf{Wedge-force limit}: $K^{\pm}$ of a restraining pair
+  $\to -P/(t\sqrt{\pi a})$ as the pair height $\to0$ (Richardson-extrapolated,
+  $2\%$).
+\item \textbf{Equilibrium}: $\int\sigma^{\rm pair}_{yy}(x,0)\,\mathrm{d}x=-1/t$
+  for the half-plane containing one force of the pair.
+\item \textbf{Field consistency}: $\partial v/\partial y=
+  (\sigma_{yy}-\nu\sigma_{xx})/E$ for the Kelvin displacement vs.\ stress
+  fields.
+\item \textbf{Independent cross-check}: the closed-form Westergaard $V_0$
+  equals the Betti route
+  $-(t_1/E_1)\int\sqrt{\pi a'}\,(K^++K^-)\,\mathrm{d}a'$ built from the
+  Kelvin stresses and weight functions ($0.5\%$) --- validating the entire
+  Green's-function pipeline.
+\item \textbf{Reciprocity}: the assembled influence matrix is symmetric
+  (Betti) to $10^{-6}$.
+\item \textbf{Regression}: bridging off (or $f\to\infty$) reproduces plain
+  TC23 exactly; the bypass factor equals $1-P_{\rm tot}/P_{\rm app}$, is
+  stress-independent, and reduces the membrane term only; bypass deepens with
+  crack length; bridged life exceeds unbridged; the no-crack bypass factor is
+  $\approx1$ in every skin-stress mode (baseline correctly removed); biaxial
+  life stays within a few percent of strain-matched life; the modified
+  Tate \& Rosenfeld value is pinned by hand calculation.
+\item \textbf{Benchmark}: tension-only life within $1\%$; bearing betas and
+  lives per \S\ref{sec:bench}.
+\end{itemize}
+
+\section{Assumptions and limitations}
+
+\begin{enumerate}
+\item Bridging influence functions use infinite-sheet elasticity for the
+  stringer; finite width enters only through the TC23 $\beta$ factors
+  (standard compounding). Plane stress throughout.
+\item The hole is omitted from the bridging displacement field (centre-crack
+  idealisation $2c_0=c_1+D+c_2$); the fastener line is taken through the
+  flaw centre (exact for $c_1=c_2$).
+\item The restraint ratio is identical at both tips in the two-crack phase.
+\item Constant amplitude, proportional loading; no load-interaction or
+  progressive fastener failure modelling.
+\item The SENT-phase half-model approximates the free edge by image sources;
+  the bridging correction there carries the usual edge-crack/centre-crack
+  approximation.
+\end{enumerate}
+
+\begin{thebibliography}{9}
+\bibitem{nasgro} NASGRO Reference Manual v8.2, Southwest Research
+  Institute --- Appendix~C, crack cases TC23 (pp.~C-36--43) and TC05.
+\bibitem{swift84} T.~Swift, ``Fracture Analysis of Stiffened Structure,''
+  in \emph{Damage Tolerance of Metallic Structures}, ASTM STP 842, 1984.
+\bibitem{swift90} T.~Swift, ``Repairs to Damage Tolerant Aircraft,''
+  FAA-AIR-90-01, 1990.
+\bibitem{tate} M.~B. Tate and S.~J. Rosenfeld, ``Preliminary Investigation
+  of the Loads Carried by Individual Bolts in Bolted Joints,'' NACA TN-1051,
+  1946 (modified form with 0.375/0.9 hole-compliance numerators as used in
+  industry practice).
+\bibitem{musk} N.~I. Muskhelishvili, \emph{Some Basic Problems of the
+  Mathematical Theory of Elasticity}, Noordhoff (point-force potentials).
+\bibitem{rice} J.~R. Rice, ``Some Remarks on Elastic Crack-Tip Stress
+  Fields,'' \emph{Int.\ J. Solids Structures}, 8, 1972 (weight-function
+  relations).
+\bibitem{harter} J.~A. Harter and A.~V. Litvinov, ``Modeling Bearing Load in
+  Wide Panels Using AFGROW,'' AFGROW European Workshop, 2016 (analytical
+  vs.\ FEM bearing betas; effective-width guidance).
+\bibitem{tada} H.~Tada, P.~C. Paris and G.~R. Irwin, \emph{The Stress
+  Analysis of Cracks Handbook}, 3rd ed., ASME Press, 2000.
+\end{thebibliography}
+
+\end{document}

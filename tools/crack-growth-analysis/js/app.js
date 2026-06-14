@@ -87,6 +87,12 @@ function onGeometryChange() {
         container.appendChild(group);
     });
 
+    // Live geometry preview: redraw the diagram on any geometry input change
+    container.querySelectorAll('input, select').forEach(el => {
+        el.addEventListener('input', () => drawGeomDiagram(geom));
+        el.addEventListener('change', () => drawGeomDiagram(geom));
+    });
+
     drawGeomDiagram(geom);
 }
 
@@ -176,6 +182,7 @@ function runAnalysis() {
 
         geomParams.S2 = S2_bending;
         geomParams.S3 = S3_bearing;
+        geomParams._sigmaMax = sigmaMax;   // used by TC23B biaxial skin mismatch
 
         const KcOverrideStr = document.getElementById('mat-Kc-override').value;
         const KcOverride = KcOverrideStr ? parseFloat(KcOverrideStr) : undefined;
@@ -187,6 +194,57 @@ function runAnalysis() {
         if (R >= 1) throw new Error('R must be < 1.');
         if (geomParams.a0 <= 0) throw new Error('Initial crack must be positive.');
 
+        if (geomId === 'TC23' && geomParams.useStif === 'yes') {
+            const R_hole = geomParams.D / 2;
+            const m = geomParams.m !== undefined ? geomParams.m : geomParams.W / 2;
+            if (geomParams.dStif <= R_hole) {
+                throw new Error('Stiffener distance (d_stif) must be greater than the hole radius (D/2).');
+            }
+            if (geomParams.dStif >= m) {
+                throw new Error('Stiffener must be to the left of the right edge (d_stif must be less than right margin m).');
+            }
+            if (geomParams.tStif <= 0) {
+                throw new Error('Stiffener thickness must be positive.');
+            }
+            if (geomParams.AStif <= 0) {
+                throw new Error('Stiffener area must be positive.');
+            }
+            if (geomParams.DFast <= 0) {
+                throw new Error('Fastener diameter must be positive.');
+            }
+            if (geomParams.pFast <= 0) {
+                throw new Error('Fastener pitch must be positive.');
+            }
+        }
+
+        if (geomId === 'TC23B' && geomParams.useBridge === 'yes') {
+            if (geomParams.pFast <= 0) {
+                throw new Error('Fastener pitch must be positive.');
+            }
+            if (geomParams.DFast <= 0) {
+                throw new Error('Fastener diameter must be positive.');
+            }
+            if (geomParams.pFast <= geomParams.DFast) {
+                throw new Error('Fastener pitch must exceed the fastener diameter.');
+            }
+            if (geomParams.tSkin <= 0 || geomParams.ESkin <= 0) {
+                throw new Error('Skin thickness and modulus must be positive.');
+            }
+            if (geomParams.EStr <= 0 || geomParams.EFast <= 0) {
+                throw new Error('Stringer and fastener moduli must be positive.');
+            }
+            if (!(geomParams.nFast >= 1)) {
+                throw new Error('At least one fastener each side of the crack is required.');
+            }
+            if (geomParams.skinStress === 'biaxial'
+                && (!isFinite(geomParams.sigL) || !isFinite(geomParams.sigH))) {
+                throw new Error('Skin biaxial stresses σ_L and σ_H must be specified.');
+            }
+            if (geomParams.skinStress === 'hoop' && !isFinite(geomParams.sigH)) {
+                throw new Error('Skin hoop stress σ_H must be specified.');
+            }
+        }
+
         const engineConfig = {
             geometryId: geomId,
             geomParams: geomParams,
@@ -195,7 +253,8 @@ function runAnalysis() {
             R: R,
             material: mat,
             maxCycles: maxCycles,
-            usePzc: document.getElementById('use-pzc').checked
+            pzcMode: document.getElementById('pzc-mode').value,
+            logEvery: parseFloat(document.getElementById('log-every').value) || 1000
         };
 
         if (KcOverride !== undefined && !isNaN(KcOverride)) {
@@ -269,6 +328,11 @@ function runAnalysis() {
 
         // ── Render log ──
         renderLog(result);
+
+        // ── Fastener bridging report (TC23B) ──
+        if (geomId === 'TC23B' && geomParams.useBridge === 'yes') {
+            renderFastenerReport(result, geom, geomParams, sigmaMax);
+        }
 
     } catch (err) {
         errorEl.textContent = err.message;
@@ -539,27 +603,46 @@ function renderLogSingle(result, logEl) {
 }
 
 function renderLogDual(result, logEl) {
+    // Optional load-bypass column (TC23B with bridging): S_bypass/S₀ applied to
+    // the membrane stress. β columns remain the pure geometry factors.
+    const geom = getGeometry(currentGeomId);
+    const params = readGeomParams();
+    const showByp = typeof geom.getBypassFactor === 'function'
+        && params.useBridge === 'yes';
+    const bypDual = (e) => {
+        if (!showByp) return '';
+        const c1 = parseFloat(e.c1), c2 = parseFloat(e.c2);
+        params._c1 = c1; params._c2 = c2;
+        return padCol(geom.getBypassFactor(c2, params, 'right').toFixed(4), 10);
+    };
+    const bypEdge = (e) => {
+        if (!showByp || typeof geom.getBypassFactorEdge !== 'function') return '';
+        return padCol(geom.getBypassFactorEdge(parseFloat(e.a), params).toFixed(4), 10);
+    };
+    const bypHead = showByp ? padCol('Sbyp/S₀', 10) : '';
+
     let header = `Crack Growth Analysis (Dual) — ${result.failureMode}\n`;
     header += `Kc = ${result.Kc.toFixed(2)} ksi√in | Steps = ${result.totalSteps} | Cycles = ${Math.round(result.totalCycles).toLocaleString()}\n`;
-    header += '─'.repeat(110) + '\n';
+    if (showByp) header += 'β columns are pure geometry factors; K = β · (Sbyp/S₀)·S₀ · √(πc) on the membrane term.\n';
+    header += '─'.repeat(120) + '\n';
     header += padCol('Cycle', 12) + padCol('c₁', 10) + padCol('c₂', 10) +
         padCol('K₁', 10) + padCol('K₂', 10) +
         padCol('da/dN₁', 12) + padCol('da/dN₂', 12) +
-        padCol('β₁', 8) + padCol('β₂', 8) + 'Note\n';
-    header += '─'.repeat(110) + '\n';
+        padCol('β₁', 8) + padCol('β₂', 8) + bypHead + 'Note\n';
+    header += '─'.repeat(120) + '\n';
 
     let body = '';
     let sentHeaderShown = false;
     result.logEntries.forEach(e => {
         if (e.isDual === false && !sentHeaderShown) {
             // Transition separator
-            body += '\n' + '═'.repeat(110) + '\n';
+            body += '\n' + '═'.repeat(120) + '\n';
             body += `  LINK-UP at N = ${result.transitionCycle ? Math.round(result.transitionCycle).toLocaleString() : '?'} — Transition to SENT Edge Crack\n`;
-            body += '═'.repeat(110) + '\n';
+            body += '═'.repeat(120) + '\n';
             body += padCol('Cycle', 12) + padCol('a_edge', 12) +
                 padCol('Kmax', 12) + padCol('ΔK', 12) +
-                padCol('β', 10) + padCol('da/dN', 14) + 'Note\n';
-            body += '─'.repeat(90) + '\n';
+                padCol('β', 10) + padCol('da/dN', 14) + bypHead + 'Note\n';
+            body += '─'.repeat(100) + '\n';
             sentHeaderShown = true;
         }
 
@@ -571,6 +654,7 @@ function renderLogDual(result, logEl) {
                 padCol(e.dK, 12) +
                 padCol(e.beta, 10) +
                 padCol(e.dadN, 14) +
+                bypEdge(e) +
                 e.tag + '\n';
         } else {
             // TC23-phase dual-crack entry
@@ -583,6 +667,7 @@ function renderLogDual(result, logEl) {
                 padCol(e.dadN2, 12) +
                 padCol(e.beta1, 8) +
                 padCol(e.beta2, 8) +
+                bypDual(e) +
                 e.tag + '\n';
         }
     });
@@ -592,4 +677,71 @@ function renderLogDual(result, logEl) {
 
 function padCol(val, width) {
     return String(val).padEnd(width);
+}
+
+// ── Fastener Bridging Report (TC23B) ────────
+
+/**
+ * Appends a fastener bridging summary to the analysis log:
+ * restraint ratio and per-fastener loads at the final crack size, the peak
+ * fastener load over the whole run, and an allowable-exceedance warning.
+ */
+function renderFastenerReport(result, geom, geomParams, sigmaMax) {
+    if (typeof geom.getFastenerState !== 'function') return;
+    const logEl = document.getElementById('analysis-log');
+    const data = result.data;
+
+    // helper: fastener state at a history index
+    const stateAt = (i) => {
+        const inSent = result.hasTransition && data.N[i] >= result.transitionCycle;
+        return inSent
+            ? { aEdge: data.a[i] }
+            : { c1: data.c1[i], c2: data.c2[i] };
+    };
+
+    // Sweep the crack history for the peak fastener load (linear in σ, so
+    // the peak occurs at the largest restrained crack — but sweep anyway).
+    const nPts = data.N.length;
+    const nSamples = Math.min(60, nPts);
+    let peakF = 0, peakN = 0, peakA = 0;
+    for (let s = 0; s < nSamples; s++) {
+        const i = Math.min(nPts - 1, Math.round(s * (nPts - 1) / Math.max(nSamples - 1, 1)));
+        const st = geom.getFastenerState(geomParams, stateAt(i), sigmaMax);
+        if (st && st.maxF > peakF) {
+            peakF = st.maxF;
+            peakN = data.N[i];
+            peakA = data.a[i];
+        }
+    }
+
+    const stFinal = geom.getFastenerState(geomParams, stateAt(nPts - 1), sigmaMax);
+    if (!stFinal) return;
+
+    let txt = '\n' + '═'.repeat(90) + '\n';
+    txt += '  FASTENER BRIDGING SUMMARY (Swift displacement compatibility, modified Tate & Rosenfeld)\n';
+    txt += '═'.repeat(90) + '\n';
+    txt += `At final crack — load bypass reduction of membrane K:\n`;
+    txt += `   P_applied (stringer)  = ${stFinal.Papplied.toFixed(3)} kip\n`;
+    txt += `   P_total  (to skin)    = ${stFinal.Ptot.toFixed(3)} kip  (Σ fastener loads, one side)\n`;
+    txt += `   S_bypass / S_gross    = ${stFinal.R.toFixed(4)}   (membrane K scaled by this)\n`;
+    txt += `Peak fastener load over run:     ${peakF.toFixed(3)} kip  (at N ≈ ${Math.round(peakN).toLocaleString()}, a ≈ ${peakA.toFixed(3)} in)\n`;
+    txt += 'Fastener pair loads at final crack size (per fastener, kip):\n';
+    stFinal.F.forEach((F, j) => {
+        if (j < 8 || F > 0.01 * stFinal.maxF) {
+            txt += `   y = ±${stFinal.y[j].toFixed(2)} in:  ${F.toFixed(3)}\n`;
+        }
+    });
+
+    const allow = geomParams.FfAllow || 0;
+    if (allow > 0) {
+        if (peakF > allow) {
+            txt += `\n⚠ WARNING: peak fastener load ${peakF.toFixed(3)} kip exceeds the shear allowable ` +
+                `${allow.toFixed(3)} kip.\n  Fastener failure is NOT modelled — bridging restraint beyond this ` +
+                `point is unconservative.\n  Re-run with Skin Bridging = Off (or fewer effective fasteners) to bound the result.\n`;
+        } else {
+            txt += `\nFastener check: peak load ${peakF.toFixed(3)} kip ≤ allowable ${allow.toFixed(3)} kip  ✓\n`;
+        }
+    }
+
+    logEl.textContent += txt;
 }

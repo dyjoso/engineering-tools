@@ -73,7 +73,24 @@ t₀ = 2.5 · (K₁c / σys)²
 where Ak, Bk are material parameters controlling the thinning effect.
 For thin sheet, Kc > K₁c (less constraint → more toughness).
 
-### 1.4 Failure Criteria
+### 1.4 Plastic Zone Correction Modes
+
+The Irwin correction (rₑ = K²/(2απσ_flow²), two fixed-point iterations on the
+effective crack length) has three modes:
+
+- **On at ligament yield** (default): the correction activates per crack tip
+  only once the net-section stress in the ligament between that tip and the
+  free edge it grows toward reaches the material yield stress. For TC23-type
+  geometries the per-tip ligament stress is σ·m/(m−R−c₂) (right) and
+  σ·B/(B−R−c₁) (left), with σ the gross stress including the bearing
+  contribution. Activation is marked in the log (`PZC ON`). This matches the
+  observed end-of-life-only plasticity treatment of the external benchmark
+  code.
+- **Always on**: correction applied at every cycle (previous behaviour;
+  conservative, ≈9% life reduction in the benchmark cases).
+- **Off**: pure LEFM.
+
+### 1.5 Failure Criteria
 
 The analysis terminates when any of:
 1. **Fracture**: Kmax ≥ Kc at either crack tip
@@ -273,7 +290,56 @@ A previous (incorrect) implementation folded S₂ into the membrane stress with 
 hardcoded subtraction, which was wrong in sign for offset geometries and wrong in
 magnitude in all cases.
 
-### 3.6 Key Decisions — TC23
+### 3.6 Bearing β Model Options (Solution C)
+
+Two selectable models for the pin-load/bearing beta (`Bearing β Model` input):
+
+**NASGRO TC23 Solution C** (default): the Appendix C compounding
+βC = ½(βC1+βC2+βC3) with the C2 chain modelling the pin load as a point
+wedge force on the crack faces (the W/πc₀ term in C2:3). Verified
+term-by-term against the NASGRO 8.2 Appendix C manual (pp. C-41…C-43),
+including the e = W/2 − B eccentricity convention. The point-force
+idealisation is asymptotically correct for cracks long relative to the hole
+(c ≳ 2D) but **conservative at short cracks** — the real distributed
+bore-pressure field decays much faster than the point-force field. Industry
+FEM benchmarking shows the same signature for analytical bearing betas
+(AFGROW 2016 European workshop, Harter & Litvinov: analytical β ≈ 3× FEM at
+c = 0.2D, converging with crack growth).
+
+**Hybrid TC05 FEM → TC23**: uses the NASGRO TC05 FEM pin-load beta tables
+(Table C7, two cracks at a loaded hole) at short cracks, where the FEM data
+correctly captures the local bore-field decay, blending linearly in c/D to
+the TC23 Solution C between c = 0.5D and c = D, beyond which the point-force
+model takes over and carries the offset-hole/finite-width effects absent
+from the TC05 geometry:
+
+```
+bp(c) = (1−T)·F3_TC05(c/(W−D), D/W) + T·(D/W)·βC_TC23(c),
+T = clamp((c/D − 0.5)/0.5, 0, 1)
+(band override: params.blendLo / params.blendHi, in c/D)
+```
+
+The strip of width W is mapped to the TC05 hole row at pitch H = W (the
+standard strip↔row equivalence); D/H and x are clamped to the table ranges.
+Continuity of bp(c) through the transition band is regression-tested.
+
+**Effective width (W_eff = 7D)**: treats the transferred load as reacted
+locally — applied loads spread from the hole at ~35° (Inglis), so the
+bearing load is carried across an effective width of a few diameters rather
+than the full panel:
+
+```
+bp(c) = (D/W_eff)·βA(c),   W_eff = min(kBrg·D, W),   kBrg = 7 (override via params.kBrg)
+```
+
+This reproduces the bearing betas of the external benchmark code (V1Aerospace)
+within a few percent at short-to-mid crack lengths in two benchmark cases
+(W=2/m=0.4 and W=4/m=1.5: BP/BS ≈ 0.143 ≈ 1/7, width-independent), and is
+consistent with the local-reaction guidance in the AFGROW 2016 workshop
+(hole within ~6D of edges for bearing). The benchmark's beta decays somewhat
+faster than βA·(D/W_eff) at longer cracks, so lives agree within ~4–15%.
+
+### 3.7 Key Decisions — TC23
 
 - **SIF model**: Full NASGRO TC23 compounding (A1 × A2 × A3) from Appendix C.
   A1 uses β_r (Bowie polynomial) and β_u (unequal crack correction).
@@ -290,7 +356,227 @@ magnitude in all cases.
 
 ---
 
-## 4. Material Properties
+## 4. TC23B — Cracked Stringer at Hole with Skin Bridging
+
+*Extends TC23 for a stringer (modelled by its unfolded width) attached to a
+fuselage skin by a single vertical row of fasteners through the critical hole.*
+
+### 4.1 Configuration
+
+The cracked plate is the stringer; the crack is at a fastener hole in the
+attachment row. The fasteners run in the load direction at user-defined pitch
+p, connecting the stringer to a background **infinite** skin. As the crack
+opens, fasteners above and below the crack plane transfer load into the intact
+skin, restraining the crack-opening displacement and retarding growth.
+
+```
+        │ σ (stringer)
+   ╔════╪════╗
+   ║    ●    ║   ● fasteners at pitch p (vertical line
+   ║    ●    ║     through the critical hole), attached
+   ║ ──╴○╶── ║     to a background infinite skin
+   ║    ●    ║   ○ critical hole + cracks c₁, c₂
+   ║    ●    ║
+   ╚════╪════╝
+        │ σ
+```
+
+### 4.2 Method — Swift Displacement Compatibility
+
+The bridging analysis follows the displacement-compatibility method of Swift
+(stiffened panel / repair analysis). With fastener pair forces F (one fastener
+above and its mirror below the crack plane, by symmetry), compatibility at
+each fastener location requires:
+
+```
+[ f·I + G_str + G_sk ] · F  =  V₀ · σ
+```
+
+| Term | Meaning |
+|------|---------|
+| f | fastener shear flexibility (modified Tate & Rosenfeld, §4.3) |
+| V₀(y_j) | crack-induced opening of the stringer at fastener j under remote σ (Westergaard field, plane stress) |
+| G_str(i,j) | reduction of stringer opening at i per unit restraining pair at j, in the cracked sheet |
+| G_sk(i,j) | stretch of the intact infinite skin at i per unit reacted pair at j (2-D Kelvin point-force field) |
+
+The cracked-sheet influence G_str is computed exactly as the sum of the
+uncracked Kelvin field and a crack-release correction obtained from the
+Betti/Rice weight-function identity:
+
+```
+v_corr(i,j) = −(t₁/E₁) · ∫₀^a [ K₊ᵢ(a′)K₊ⱼ(a′) + K₋ᵢ(a′)K₋ⱼ(a′) ] da′
+```
+
+where K±ⱼ(a′) is the centre-crack SIF Green's function of fastener pair j,
+evaluated by Bueckner superposition of the Kelvin crack-line stress through
+the centre-crack weight functions:
+
+```
+K± = (1/√(πa)) ∫ σ_yy^pair(x,0) · (a ± x)/√(a² − x²) dx
+```
+
+Kelvin self-influence uses a cutoff radius d/2 (deformation inside the cutoff
+is represented by the empirical fastener flexibility).
+
+**SIF reduction — load bypass.** The displacement-compatibility solve gives
+the equilibrium fastener loads F_j. The bridging then reduces K through the
+load-bypass mechanism: the load shed into the skin bypasses the crack
+section, so the membrane stress reaching the crack is the bypass stress.
+
+```
+P_applied = S_gross · W · t                 (total stringer load, S_gross = σ + (D/W)·S₃)
+P_total   = Σ_j F_j(a) − Σ_j F_j(0)          (crack-driven bypassed load, one side)
+S_bypass  = S_gross · (P_applied − P_total) / P_applied
+R_bypass  = S_bypass / S_gross = 1 − P_total / (S_gross · W · t)   (clamped [0.05, 2])
+
+K_bridged = R_bypass · K_tension + K_bending + K_bearing
+```
+
+Only the membrane (tension) contribution to K is scaled by R_bypass; the
+in-plane bending (S₂) and pin-bearing (S₃) contributions are separate load
+paths and are not bypassed. Because the fastener loads scale with the remote
+stress, P_total/(S_gross·W·t) is stress-independent, so R_bypass and the
+constant-amplitude life are stress-independent. Each F_j is the upper fastener
+of pair j (the lower returns the load below the crack), so Σ_j F_j is the
+one-sided transferred load. R_bypass > 1 (load attraction) is admitted when the
+skin is strained more than the stringer.
+
+**No-crack baseline.** P_total subtracts the no-crack value Σ_j F_j(0). The
+far-field strain mismatch (biaxial/hoop skin stress, §4.4) drives distributed
+stringer↔skin load-sharing that exists with **no crack present** and therefore
+does not bypass the crack — it is a global load-share already represented in the
+input stringer stress. Subtracting the baseline leaves only the crack-driven
+increment as the bypassed load (and removes a finite-fastener-row artefact, in
+which the raw Σ_j F_j grows with the number of modelled fasteners). The baseline
+is identically zero in strain-matched mode.
+
+This replaces the earlier weight-function crack-face-traction reduction
+(R = (√(πc₀) + Σ F_j·K_tip,j)/√(πc₀)), which is still computed in bridging.js
+as a diagnostic. Applying both would double-count the same fastener loads:
+the bypass route is the global load-path statement, the weight-function route
+is the local crack-tip-shielding statement, and they account for the *same*
+F_j. The compatibility solve itself is unchanged — it uses the rigorous
+crack-release compliance to obtain the correct equilibrium F_j; only the
+K-from-F_j step changed.
+
+- **Two-crack phase**: effective centre crack 2c₀ = c₁ + D + c₂; the fastener
+  line is taken through the flaw centre (exact for c₁ = c₂).
+- **SENT phase**: the edge crack a_edge is modelled as a half centre crack
+  (model centre at the right plate edge) with the fastener line at depth m and
+  free-edge image sources at −m; the skin sees the real forces only. P_applied
+  still uses the full stringer section W·t.
+
+**Reporting convention.** The bypass is applied to the membrane *stress*, not
+folded into β: the analysis-log β columns are the pure TC23 geometry SIF
+factors, and the reduction appears in a separate `Sbyp/S₀` column, so that
+K = β · (Sbyp/S₀)·S₀ · √(πc) on the membrane term. This matches standard DTA
+practice (β = geometry factor, stress carries the load magnitude) and keeps the
+bypass visible.
+
+### 4.3 Fastener Flexibility — Modified Tate & Rosenfeld
+
+```
+f = 0.375/(Ef·t₁) + 0.375/(Ef·t₂)              (fastener bearing on holes)
+  + 0.9/(E₁·t₁)   + 0.9/(E₂·t₂)                (sheet hole compliance)
+  + 32(1+νf)(t₁+t₂)/(9·Ef·π·d²)                (fastener shear)
+  + 8(t₁³+5t₁²t₂+5t₁t₂²+t₂³)/(5·Ef·π·d⁴)       (fastener bending)
+```
+
+Units: ksi, in → f in in/kip. Sheet 1 = stringer, sheet 2 = skin.
+
+### 4.4 Biaxial Skin Stress (Poisson Mismatch)
+
+The skin may carry an off-axis biaxial far-field stress state (e.g., fuselage
+hoop + longitudinal). The skin's longitudinal strain is then
+
+```
+ε_skin,y = (σ_L − ν_skin·σ_H) / E_skin
+```
+
+so tensile hoop stress σ_H contracts the skin longitudinally (Poisson),
+creating a far-field strain mismatch with the stringer that increases the
+fastener load transfer. The mismatch enters the compatibility system as an
+additional relative slip, measured from the crack plane (symmetric datum):
+
+```
+[ f·I + G_str + G_sk ] · F  =  V₀·σ + Δε·y
+
+Δε/σ = 1/E_str − (σ_L − ν_skin·σ_H)/(E_skin·σ̂_max)
+```
+
+**Proportional loading assumption**: σ_L and σ_H are specified at the peak
+stringer stress σ̂_max and are assumed to scale proportionally with the
+stringer stress through the cycle (the standard pressurization-cycle
+assumption). This keeps fastener loads linear in σ and the restraint ratio
+stress-independent, consistent with the constant-amplitude engine.
+
+Modes:
+- **Strain-matched** (default): Δε = 0, bridging from crack opening only —
+  the stringer and skin far-field edges are effectively coincident.
+- **Strain-matched + hoop (Poisson)**: longitudinal strain compatibility is
+  retained and only the hoop stress is specified:
+  Δε/σ = ν_skin·σ_H/(E_skin·σ̂). This is the intended fuselage case — hoop
+  tension contracts the skin via Poisson, increasing fastener load transfer
+  and crack restraint.
+- **Fully specified (σ_L, σ_H absolute)**: Δε/σ = 1/E_str −
+  (σ_L − ν_skin·σ_H)/(E_skin·σ̂). Use when the skin operates at a known,
+  different stress level. Equivalent to the hoop mode when
+  σ_L = σ̂·E_skin/E_str. A skin strained *more* than the stringer (large σ_L)
+  reverses the mismatch sign.
+
+**Interaction with the load-bypass K reduction (important).** Under the
+load-bypass model (§4.2), the strain mismatch enters only through the
+crack-driven increment P_total = Σ_j F_j(a) − Σ_j F_j(0). The mismatch's
+*primary* action is a uniform far-field load-share between stringer and skin
+that exists with no crack — this is the no-crack baseline that is subtracted,
+because it is already represented in the input stringer stress σ̂. What remains
+(the coupling between crack opening and the mismatch field) is a small,
+second-order effect. **Consequently, under the bypass route the biaxial/hoop
+skin stress has only a minor effect on predicted crack-growth life** — within a
+few percent in typical cases — in contrast to its large apparent effect under
+the earlier weight-function reduction. If a designer wants the hoop/biaxial
+load-share to retard the crack as a first-order effect, that must be applied as
+a reduction of the input far-field stringer stress σ̂ (a separate stiffness-ratio
+load-sharing calculation this tool does not perform), not through the
+crack-bypass mechanism.
+
+Note: with a mismatch present, the *outermost* fasteners of the finite row
+carry joint end-transfer loads that depend on the row length n; the
+near-crack loads and the SIF restraint are insensitive to n. Size n to cover
+the physical joint when the biaxial option is used with a fastener allowable.
+
+### 4.5 Outputs and Checks
+
+- Fastener pair loads F_j·σ are reported in the analysis log at the final
+  crack size, with the peak load over the whole run.
+- An optional fastener shear allowable flags exceedance. **Fastener failure
+  is not progressively modelled** — beyond first exceedance the bridging
+  restraint is unconservative; bound the result with bridging off.
+
+### 4.6 Assumptions / Key Decisions — TC23B
+
+- Bridging influence functions use **infinite-sheet** elastic fields for the
+  stringer; finite width enters through the TC23 β factors (standard
+  compounding approximation).
+- In strain-matched mode the skin and stringer share the same far-field
+  strain (no pre-existing joint load transfer) and bridging forces arise from
+  crack opening only; the biaxial option (§4.4) adds the Poisson-driven
+  far-field mismatch. Bearing load transfer at the critical hole can still
+  be applied via S₃.
+- The fastener in the cracked hole lies on the crack plane and transfers no
+  bridging load; the row is j = 1..n each side at y = ±j·p.
+- Plane stress throughout; restraint ratio is identical at both tips
+  (two-crack phase, symmetric model).
+- Net-section yield checks ignore the load shed to the skin (conservative).
+- Verified against: central wedge-force limit of the SIF Green's function,
+  half-plane equilibrium of the Kelvin field, strain-consistency of the
+  Kelvin displacement field, Betti reciprocity of the influence matrix, and
+  an independent closed-form ↔ K-integral cross-check of the opening
+  displacement (see `tests/run-tests.mjs`).
+
+---
+
+## 5. Material Properties
 
 Default materials stored in Imperial units (ksi, in):
 
@@ -313,7 +599,7 @@ Default materials stored in Imperial units (ksi, in):
 
 ---
 
-## 5. References
+## 6. References
 
 1. Newman, J.C. Jr. — "A crack opening stress equation for fatigue crack growth",
    Int. J. Fracture, 1984
@@ -329,3 +615,16 @@ Default materials stored in Imperial units (ksi, in):
 7. Gross, B., Srawley, J.E. — "Stress-Intensity Factors for Single-Edge-Notch
    Specimens in Bending or Combined Bending and Tension by Boundary Collocation
    of a Stress Function", NASA TN D-2603, 1965
+8. Swift, T. — "Fracture Analysis of Stiffened Structure", in Damage Tolerance
+   of Metallic Structures, ASTM STP 842, 1984 (displacement-compatibility
+   method for fastener-bridged cracks)
+9. Swift, T. — "Repairs to Damage Tolerant Aircraft", FAA-AIR-90-01, 1990
+10. Tate, M.B., Rosenfeld, S.J. — "Preliminary Investigation of the Loads
+    Carried by Individual Bolts in Bolted Joints", NACA TN-1051, 1946
+    (fastener flexibility; the modified form with 0.375/0.9 hole-compliance
+    numerators is used here)
+11. Muskhelishvili, N.I. — "Some Basic Problems of the Mathematical Theory of
+    Elasticity" (point-force potentials used for the Kelvin influence fields)
+12. Rice, J.R. — "Some Remarks on Elastic Crack-Tip Stress Fields", Int. J.
+    Solids Structures, 1972 (weight-function relation used for the
+    crack-release compliance integrals)
