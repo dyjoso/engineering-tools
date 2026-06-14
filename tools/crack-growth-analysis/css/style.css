@@ -108,15 +108,71 @@ body {
     align-items: start;
 }
 
-/* two-column field layout inside the geometry card */
+/* geometry fields: a column of (optionally titled) sub-regions */
 .geometry-card #geom-fields {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
 }
 
-.geometry-card #geom-fields .input-group {
+/* a titled sub-region (e.g. Stringer / Skin / Fastener Properties) */
+.field-group {
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: rgba(15, 23, 42, 0.35);
+    padding: 12px 14px;
+}
+
+.field-group-title {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--accent-blue);
     margin-bottom: 10px;
+}
+
+/* fields stack one per row inside a region: label left, value right (compact) */
+.field-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.field-grid .input-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 0;
+}
+
+.field-grid .input-group label {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin-bottom: 0;
+    line-height: 1.3;
+}
+
+.field-grid .input-group input,
+.field-grid .input-group select {
+    flex: 0 0 auto;
+    width: 96px;
+}
+
+/* full-width fields (long labels, descriptive selects): label above a full control */
+.field-grid .input-group.full {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 5px;
+}
+
+.field-grid .input-group.full label {
+    flex: none;
+}
+
+.field-grid .input-group.full input,
+.field-grid .input-group.full select {
+    width: 100%;
 }
 
 .card {
@@ -226,6 +282,18 @@ body {
     transition: border-color 0.2s, box-shadow 0.2s;
 }
 
+/* Remove the default up/down spinner buttons on number inputs */
+.input-group input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
+.input-group input[type="number"]::-webkit-outer-spin-button,
+.input-group input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
 .input-group input:focus,
 .input-group select:focus {
     outline: none;
@@ -253,6 +321,75 @@ body {
     background: rgba(30, 41, 59, 0.4);
     color: var(--text-muted);
     border-style: dashed;
+}
+
+/* ── Toggle switch (binary on/off options) ─── */
+
+.input-group.toggle-group {
+    display: flex;
+    align-items: center;
+}
+
+.toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    margin-bottom: 0;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    user-select: none;
+}
+
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 40px;
+    height: 22px;
+    flex-shrink: 0;
+}
+
+.toggle-switch input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-track {
+    position: absolute;
+    inset: 0;
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    border-radius: 11px;
+    transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+
+.toggle-track::before {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    left: 2px;
+    top: 2px;
+    background: var(--text-muted);
+    border-radius: 50%;
+    transition: transform 0.2s, background 0.2s;
+}
+
+.toggle-switch input:checked + .toggle-track {
+    background: var(--accent-blue-glow);
+    border-color: var(--accent-blue);
+}
+
+.toggle-switch input:checked + .toggle-track::before {
+    transform: translateX(18px);
+    background: var(--accent-blue);
+}
+
+.toggle-switch input:focus-visible + .toggle-track {
+    box-shadow: 0 0 0 3px var(--accent-blue-glow);
 }
 
 /* ── Buttons ─────────────────────────────── */
@@ -478,9 +615,6 @@ body {
 
 @media (max-width: 800px) {
     .inputs-panel {
-        grid-template-columns: 1fr;
-    }
-    .geometry-card #geom-fields {
         grid-template-columns: 1fr;
     }
 }

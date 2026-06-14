@@ -342,30 +342,41 @@ class TC23BGeometry extends TC23Geometry {
     // ══════════════════════════════════════════════════════════
 
     getInputFields() {
+        const G_STR = 'Stringer Properties';
+        const G_OPT = 'Analysis Options';
+        const G_SKIN = 'Skin Properties';
+        const G_FAST = 'Fastener Properties';
         return [
-            { id: 'W', label: 'Stringer Unfolded Width, W', unit: 'in', default: 4.0, step: 0.1, min: 0.01 },
-            { id: 't', label: 'Stringer Thickness, t', unit: 'in', default: 0.063, step: 0.001, min: 0.001 },
-            { id: 'D', label: 'Hole Diameter, D', unit: 'in', default: 0.25, step: 0.01, min: 0.01 },
-            { id: 'm', label: 'Right Margin (hole centre to right edge), m', unit: 'in', default: 2.0, step: 0.05, min: 0 },
-            { id: 'a0', label: 'Left Crack, c₁₀', unit: 'in', default: 0.05, step: 0.005, min: 0.001 },
-            { id: 'a0_2', label: 'Right Crack, c₂₀', unit: 'in', default: 0.05, step: 0.005, min: 0.001 },
-            { id: 'eta', label: 'Bending Restraint, η (0=free, 1=fixed)', unit: '—', default: 0, step: 0.1, min: 0, max: 1 },
-            { id: 'bearingModel', label: 'Bearing β Model (S₃)', type: 'select', options: [{ value: 'nasgro', label: 'NASGRO TC23 Solution C' }, { value: 'hybrid05', label: 'Hybrid: TC05 FEM → TC23 (c/D=0.5…1)' }, { value: 'effwidth', label: 'Effective width (W_eff = 7D, local reaction)' }], default: 'nasgro' },
-            { id: 'EStr', label: 'Stringer Modulus, E_str', unit: 'ksi', default: 10300.0, step: 100, min: 1.0 },
-            { id: 'nuStr', label: 'Stringer Poisson Ratio, ν_str', unit: '—', default: 0.33, step: 0.01, min: 0, max: 0.49 },
-            { id: 'useBridge', label: 'Skin Bridging', type: 'select', options: [{ value: 'yes', label: 'On' }, { value: 'no', label: 'Off' }], default: 'yes' },
-            { id: 'ESkin', label: 'Skin Modulus, E_skin', unit: 'ksi', default: 10300.0, step: 100, min: 1.0 },
-            { id: 'tSkin', label: 'Skin Thickness, t_skin', unit: 'in', default: 0.05, step: 0.001, min: 0.001 },
-            { id: 'nuSkin', label: 'Skin Poisson Ratio, ν_skin', unit: '—', default: 0.33, step: 0.01, min: 0, max: 0.49 },
-            { id: 'skinStress', label: 'Skin Far-Field Stress State', type: 'select', options: [{ value: 'match', label: 'Strain-matched to stringer' }, { value: 'hoop', label: 'Strain-matched + hoop σ_H (Poisson)' }, { value: 'biaxial', label: 'Fully specified σ_L, σ_H (absolute)' }], default: 'match' },
-            { id: 'sigL', label: 'Skin Longitudinal Stress at σ_max, σ_L (fully-specified mode only; 0 = unloaded skin/doubler)', unit: 'ksi', default: 0, step: 0.5 },
-            { id: 'sigH', label: 'Skin Hoop (Transverse) Stress at σ_max, σ_H', unit: 'ksi', default: 0, step: 0.5 },
-            { id: 'pFast', label: 'Fastener Vertical Pitch, p', unit: 'in', default: 1.0, step: 0.05, min: 0.05 },
-            { id: 'DFast', label: 'Fastener Diameter, d', unit: 'in', default: 0.1875, step: 0.01, min: 0.01 },
-            { id: 'EFast', label: 'Fastener Modulus, E_fast', unit: 'ksi', default: 10300.0, step: 100, min: 1.0 },
-            { id: 'nuFast', label: 'Fastener Poisson Ratio, ν_fast', unit: '—', default: 0.33, step: 0.01, min: 0, max: 0.49 },
-            { id: 'nFast', label: 'Fasteners Each Side of Crack, n', unit: '—', default: 12, step: 1, min: 1, max: 60 },
-            { id: 'FfAllow', label: 'Fastener Shear Allowable (0 = no check)', unit: 'kip', default: 0, step: 0.05, min: 0 }
+            // ── Stringer (the cracked member) ──
+            { group: G_STR, id: 'W', label: 'Stringer Unfolded Width, W', unit: 'in', default: 4.0, step: 0.1, min: 0.01 },
+            { group: G_STR, id: 't', label: 'Stringer Thickness, t', unit: 'in', default: 0.063, step: 0.001, min: 0.001 },
+            { group: G_STR, id: 'D', label: 'Hole Diameter, D', unit: 'in', default: 0.25, step: 0.01, min: 0.01 },
+            { group: G_STR, id: 'm', label: 'Right Margin (hole centre to right edge), m', unit: 'in', default: 2.0, step: 0.05, min: 0 },
+            { group: G_STR, id: 'a0', label: 'Left Crack, c₁₀', unit: 'in', default: 0.05, step: 0.005, min: 0.001 },
+            { group: G_STR, id: 'a0_2', label: 'Right Crack, c₂₀', unit: 'in', default: 0.05, step: 0.005, min: 0.001 },
+            { group: G_STR, id: 'EStr', label: 'Stringer Modulus, E_str', unit: 'ksi', default: 10300.0, step: 100, min: 1.0 },
+            { group: G_STR, id: 'nuStr', label: 'Stringer Poisson Ratio, ν_str', unit: '—', default: 0.33, step: 0.01, min: 0, max: 0.49 },
+
+            // ── Analysis options (method / modelling choices) ──
+            { group: G_OPT, id: 'useBridge', label: 'Skin Bridging', type: 'toggle', default: 'yes', onValue: 'yes', offValue: 'no', full: true },
+            { group: G_OPT, id: 'bearingModel', label: 'Bearing β Model (S₃)', type: 'select', options: [{ value: 'nasgro', label: 'NASGRO TC23 Solution C' }, { value: 'hybrid05', label: 'Hybrid: TC05 FEM → TC23 (c/D=0.5…1)' }, { value: 'effwidth', label: 'Effective width (W_eff = 7D, local reaction)' }], default: 'nasgro', full: true },
+            { group: G_OPT, id: 'eta', label: 'Bending Restraint, η (0=free, 1=fixed)', unit: '—', default: 0, step: 0.1, min: 0, max: 1 },
+
+            // ── Skin (bridging sheet) ──
+            { group: G_SKIN, id: 'ESkin', label: 'Skin Modulus, E_skin', unit: 'ksi', default: 10300.0, step: 100, min: 1.0 },
+            { group: G_SKIN, id: 'tSkin', label: 'Skin Thickness, t_skin', unit: 'in', default: 0.05, step: 0.001, min: 0.001 },
+            { group: G_SKIN, id: 'nuSkin', label: 'Skin Poisson Ratio, ν_skin', unit: '—', default: 0.33, step: 0.01, min: 0, max: 0.49 },
+            { group: G_SKIN, id: 'skinStress', label: 'Skin Far-Field Stress State', type: 'select', options: [{ value: 'match', label: 'Strain-matched to stringer' }, { value: 'hoop', label: 'Strain-matched + hoop σ_H (Poisson)' }, { value: 'biaxial', label: 'Fully specified σ_L, σ_H (absolute)' }], default: 'match', full: true },
+            { group: G_SKIN, id: 'sigL', label: 'Skin Longitudinal Stress at σ_max, σ_L (fully-specified mode only; 0 = unloaded skin/doubler)', unit: 'ksi', default: 0, step: 0.5, full: true },
+            { group: G_SKIN, id: 'sigH', label: 'Skin Hoop (Transverse) Stress at σ_max, σ_H', unit: 'ksi', default: 0, step: 0.5, full: true },
+
+            // ── Fasteners (stringer-to-skin attachment) ──
+            { group: G_FAST, id: 'pFast', label: 'Fastener Vertical Pitch, p', unit: 'in', default: 1.0, step: 0.05, min: 0.05 },
+            { group: G_FAST, id: 'DFast', label: 'Fastener Diameter, d', unit: 'in', default: 0.1875, step: 0.01, min: 0.01 },
+            { group: G_FAST, id: 'EFast', label: 'Fastener Modulus, E_fast', unit: 'ksi', default: 10300.0, step: 100, min: 1.0 },
+            { group: G_FAST, id: 'nuFast', label: 'Fastener Poisson Ratio, ν_fast', unit: '—', default: 0.33, step: 0.01, min: 0, max: 0.49 },
+            { group: G_FAST, id: 'nFast', label: 'Fasteners Each Side of Crack, n', unit: '—', default: 12, step: 1, min: 1, max: 60 },
+            { group: G_FAST, id: 'FfAllow', label: 'Fastener Shear Allowable (0 = no check)', unit: 'kip', default: 0, step: 0.05, min: 0, full: true }
         ];
     }
 

@@ -41,7 +41,8 @@ class TC05 extends CrackGeometry {
                     { value: 'double_one', label: 'Double Crack (One Hole)' },
                     { value: 'double_all', label: 'Double Crack (All Holes)' }
                 ],
-                default: 'single'
+                default: 'single',
+                full: true
             }
         ];
     }
@@ -193,6 +194,18 @@ class TC05 extends CrackGeometry {
         const cPx = c * scale;
 
         ctx.clearRect(0, 0, width, height);
+
+        // Light plate background so the black/red schematic is visible on the
+        // dark canvas (matches the other geometry diagrams).
+        const platePad = 16;
+        ctx.fillStyle = '#e2e8f0';
+        ctx.strokeStyle = '#475569';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.rect(platePad, platePad, width - 2 * platePad, height - 2 * platePad);
+        ctx.fill();
+        ctx.stroke();
+
         ctx.strokeStyle = '#000';
         ctx.lineWidth = 2;
 

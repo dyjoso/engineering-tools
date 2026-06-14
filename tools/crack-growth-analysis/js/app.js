@@ -45,7 +45,68 @@ function populateMaterialSelector() {
 }
 
 /**
+ * Build the DOM for a single geometry input field.
+ * Supports type 'select', 'toggle' (binary yes/no switch) and the default
+ * numeric input. A field may set `full: true` to span both grid columns.
+ */
+function buildGeomField(f) {
+    const group = document.createElement('div');
+    group.className = 'input-group';
+    if (f.full) group.classList.add('full');
+
+    // Binary toggle: rendered as a switch, value is 'yes' / 'no'.
+    if (f.type === 'toggle') {
+        group.classList.add('toggle-group');
+        const onVal = f.onValue || 'yes';
+        const lab = document.createElement('label');
+        lab.className = 'toggle-label';
+        lab.innerHTML =
+            `<span class="toggle-switch">` +
+            `<input type="checkbox" id="geom-${f.id}">` +
+            `<span class="toggle-track"></span></span>` +
+            `<span>${f.label}</span>`;
+        const cb = lab.querySelector('input');
+        cb.dataset.onValue = onVal;
+        cb.dataset.offValue = f.offValue || 'no';
+        cb.checked = (f.default === undefined ? true : f.default === onVal);
+        group.appendChild(lab);
+        return group;
+    }
+
+    const label = document.createElement('label');
+    label.htmlFor = `geom-${f.id}`;
+    label.innerHTML = f.unit ? `${f.label} <span class="unit">(${f.unit})</span>` : f.label;
+
+    let input;
+    if (f.type === 'select') {
+        input = document.createElement('select');
+        input.id = `geom-${f.id}`;
+        f.options.forEach(opt => {
+            const optEl = document.createElement('option');
+            optEl.value = opt.value;
+            optEl.textContent = opt.label;
+            if (opt.value === f.default) optEl.selected = true;
+            input.appendChild(optEl);
+        });
+    } else {
+        input = document.createElement('input');
+        input.type = 'number';
+        input.id = `geom-${f.id}`;
+        input.value = f.default;
+        input.step = f.step;
+        if (f.min !== undefined) input.min = f.min;
+    }
+
+    group.appendChild(label);
+    group.appendChild(input);
+    return group;
+}
+
+/**
  * When geometry changes, rebuild the geometry-specific input fields.
+ * Fields carrying a `group` label are rendered as titled sub-regions
+ * (e.g. Stringer / Skin / Fastener Properties); ungrouped fields fall into
+ * a single untitled two-column block.
  */
 function onGeometryChange() {
     const geomId = document.getElementById('geometry-select').value;
@@ -54,37 +115,33 @@ function onGeometryChange() {
     container.innerHTML = '';
 
     const fields = geom.getInputFields();
+
+    // Preserve first-seen order of groups; '' is the default (untitled) block.
+    const order = [];
+    const byGroup = new Map();
     fields.forEach(f => {
-        const group = document.createElement('div');
-        group.className = 'input-group';
+        const g = f.group || '';
+        if (!byGroup.has(g)) { byGroup.set(g, []); order.push(g); }
+        byGroup.get(g).push(f);
+    });
 
-        const label = document.createElement('label');
-        label.htmlFor = `geom-${f.id}`;
-        label.innerHTML = f.unit ? `${f.label} <span class="unit">(${f.unit})</span>` : f.label;
+    order.forEach(g => {
+        const grid = document.createElement('div');
+        grid.className = 'field-grid';
+        byGroup.get(g).forEach(f => grid.appendChild(buildGeomField(f)));
 
-        let input;
-        if (f.type === 'select') {
-            input = document.createElement('select');
-            input.id = `geom-${f.id}`;
-            f.options.forEach(opt => {
-                const optEl = document.createElement('option');
-                optEl.value = opt.value;
-                optEl.textContent = opt.label;
-                if (opt.value === f.default) optEl.selected = true;
-                input.appendChild(optEl);
-            });
+        if (g === '') {
+            container.appendChild(grid);          // ungrouped: bare grid, no box
         } else {
-            input = document.createElement('input');
-            input.type = 'number';
-            input.id = `geom-${f.id}`;
-            input.value = f.default;
-            input.step = f.step;
-            if (f.min !== undefined) input.min = f.min;
+            const region = document.createElement('div');
+            region.className = 'field-group';
+            const title = document.createElement('div');
+            title.className = 'field-group-title';
+            title.textContent = g;
+            region.appendChild(title);
+            region.appendChild(grid);
+            container.appendChild(region);
         }
-
-        group.appendChild(label);
-        group.appendChild(input);
-        container.appendChild(group);
     });
 
     // Live geometry preview: redraw the diagram on any geometry input change
@@ -134,8 +191,14 @@ function readGeomParams() {
     const fields = geom.getInputFields();
     const params = {};
     fields.forEach(f => {
-        const val = document.getElementById(`geom-${f.id}`).value;
-        params[f.id] = f.type === 'select' ? val : parseFloat(val);
+        const el = document.getElementById(`geom-${f.id}`);
+        if (f.type === 'toggle') {
+            params[f.id] = el.checked ? el.dataset.onValue : el.dataset.offValue;
+        } else if (f.type === 'select') {
+            params[f.id] = el.value;
+        } else {
+            params[f.id] = parseFloat(el.value);
+        }
     });
     return params;
 }

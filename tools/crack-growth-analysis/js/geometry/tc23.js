@@ -911,7 +911,7 @@ class TC23Geometry extends CrackGeometry {
             { id: 'a0_2', label: 'Right Crack, c₂₀', unit: 'in', default: 0.05, step: 0.005, min: 0.001 },
             { id: 'eta', label: 'Bending Restraint, η (0=free, 1=fixed)', unit: '—', default: 0, step: 0.1, min: 0, max: 1 },
             { id: 'bearingModel', label: 'Bearing β Model (S₃)', type: 'select', options: [{ value: 'nasgro', label: 'NASGRO TC23 Solution C' }, { value: 'hybrid05', label: 'Hybrid: TC05 FEM → TC23 (c/D=0.5…1)' }, { value: 'effwidth', label: 'Effective width (W_eff = 7D, local reaction)' }], default: 'nasgro' },
-            { id: 'useStif', label: 'Use Stiffener', type: 'select', options: [{ value: 'no', label: 'No' }, { value: 'yes', label: 'Yes' }], default: 'no' },
+            { id: 'useStif', label: 'Use Stiffener', type: 'toggle', default: 'no', onValue: 'yes', offValue: 'no', full: true },
             { id: 'dStif', label: 'Stiffener Distance from Hole Center, d_stif', unit: 'in', default: 2.0, step: 0.05, min: 0.01 },
             { id: 'AStif', label: 'Stiffener Area, A_stif', unit: 'in²', default: 0.10, step: 0.01, min: 0.001 },
             { id: 'tStif', label: 'Stiffener Thickness, t_stif', unit: 'in', default: 0.10, step: 0.01, min: 0.001 },
@@ -1217,5 +1217,9 @@ class TC23Geometry extends CrackGeometry {
     }
 }
 
-// Register TC23
-registerGeometry(new TC23Geometry());
+// TC23 is retained as the base model for TC23B (which extends TC23Geometry)
+// and as the bridging-off validation reference, but is hidden from the UI
+// selector — TC23B with "Skin Bridging" off reproduces the plain TC23 case.
+const _tc23 = new TC23Geometry();
+_tc23.hidden = true;
+registerGeometry(_tc23);

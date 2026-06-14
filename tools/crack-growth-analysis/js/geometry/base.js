@@ -142,12 +142,17 @@ function getGeometry(id) {
 }
 
 /**
- * Get all registered geometry IDs and labels.
+ * Get all registered geometry IDs and labels for the UI selector.
+ * Geometries flagged `hidden` stay resolvable via getGeometry() (e.g. a base
+ * model retained for a subclass or as a validation reference) but are omitted
+ * from the user-facing list.
  * @returns {Array<{id: string, label: string}>}
  */
 function getGeometryList() {
-    return Object.values(GEOMETRY_REGISTRY).map(g => ({
-        id: g.id,
-        label: g.label
-    }));
+    return Object.values(GEOMETRY_REGISTRY)
+        .filter(g => !g.hidden)
+        .map(g => ({
+            id: g.id,
+            label: g.label
+        }));
 }
