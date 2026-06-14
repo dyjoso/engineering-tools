@@ -459,51 +459,72 @@ Reference values are quoted from those sources as tabulated in the
 reproduces both suites. Each case is an automated test (Appendix~A) and every
 figure is rendered from the committed model.
 
+These results are mesh-dependent, which is the point: the cases are run at the
+\emph{exact mesh density specified in the benchmark}, with both the bilinear
+\textbf{Quad4} and the quadratic \textbf{Quad8} element, to demonstrate not only
+that the software converges to the correct answer but how quickly. The quadratic
+element converges substantially faster --- decisively so at stress concentrations.
+
 \section{E1 --- NAFEMS LE1 elliptic membrane}
 Quarter elliptic membrane, plane stress: inner edge $(x/2)^2+y^2=1$, outer edge
 $(x/3.25)^2+(y/2.75)^2=1$; $E=210$\,GPa, $\nu=0.3$, $t=0.1$; uniform $10$\,MPa
 outward pressure on the outer edge; symmetry ($u_x=0$ on $x=0$, $u_y=0$ on $y=0$).
-The reference quantity is the tangential stress $\sigma_{yy}$ at point $D=(2,0)$.
+The reference quantity is the tangential stress $\sigma_{yy}$ at point $D=(2,0)$,
+benchmark value $92.7$\,MPa. Run at the two NAFEMS mesh densities --- coarse
+($4\times2$) and fine ($8\times4$ elements) --- with the bilinear Quad4 and
+quadratic Quad8 elements, to show the convergence rate.
 
 \begin{figure}[H]\centering
 \includegraphics[height=7.0cm]{ext-le1-vm.png}
-\caption{E1: LE1 elliptic membrane, von Mises field on the structured Quad8 mesh
-(boundary nodes lie exactly on the ellipses).}
+\caption{E1: LE1 elliptic membrane (fine Quad8 mesh), von Mises field; boundary
+nodes lie exactly on the ellipses.}
 \end{figure}
 
 \begin{table}[H]\centering\small
 \begin{tabular}{@{}lcccc@{}}
 \toprule
-Quantity & NAFEMS bench & FEA Membranes (Quad8) & Error & NX CQUAD8 \\
+$\sigma_{yy}$ at $D$ (MPa) & Quad4 & Quad8 & NX CQUAD4 & NX CQUAD8 \\
 \midrule
-$\sigma_{yy}$ at $D$ (MPa) & 92.7 & 92.61 & $-0.1\,\%$ & 89.9 ($-3.0\,\%$) \\
+Coarse ($4\times2$) & 64.6 & 79.8 & 62.1 & 82.1 \\
+Fine ($8\times4$)   & 83.0 & 90.2 & 79.6 & 89.9 \\
+\midrule
+Benchmark & \multicolumn{4}{c}{92.7} \\
 \bottomrule
 \end{tabular}
-\caption{E1 results (test \texttt{External\_NAFEMS\_LE1\_EllipticMembrane}). The
-structured mesh with nodes on the exact ellipse reaches the benchmark to within
-$0.1\,\%$ --- closer than the coarser parabolic-quad mesh tabulated by NX.}
+\caption{E1 convergence (test \texttt{External\_NAFEMS\_LE1\_EllipticMembrane}).
+Both elements converge upward toward the benchmark; the quadratic Quad8 leads the
+bilinear Quad4 at equal mesh density (90.2 vs 83.0 on the fine mesh, $-2.7\,\%$ vs
+$-10.5\,\%$), tracking the NX parabolic/linear quads.}
 \end{table}
 
 \section{E2 --- SFM/AFNOR SSLP01 plane shear panel}
 A $48\times12\times1$\,mm plate (plane stress), clamped at $x=0$, with a parabolic
-shear traction of resultant $40$\,N on the free end $x=48$; $E=30$\,GPa, $\nu=0.25$.
-The reference quantity is the in-plane tip displacement $u_y$.
+shear traction of resultant $40$\,N on the free end $x=48$; $E=30$\,GPa, $\nu=0.25$;
+spec mesh $20\times5$ (100 elements). The reference quantity is the in-plane tip
+displacement $u_y$.
 
 \begin{figure}[H]\centering
 \includegraphics[width=\textwidth]{ext-sslp01-vm.png}
-\caption{E2: SSLP01 deep cantilever under end shear, von Mises field with the
-deformed shape overlaid.}
+\caption{E2: SSLP01 deep cantilever under end shear ($20\times5$ Quad8), von Mises
+field with the deformed shape overlaid.}
 \end{figure}
 
 \begin{table}[H]\centering\small
-\begin{tabular}{@{}lcccc@{}}
+\begin{tabular}{@{}lcc@{}}
 \toprule
-Quantity & AFNOR bench & FEA Membranes (Quad8) & Timoshenko & NX CQUAD4 \\
+$u_y$ at tip (mm), $20\times5$ mesh & Quad4 & Quad8 \\
 \midrule
-$u_y$ at tip (mm) & 0.3413 & 0.3559 & 0.357 & 0.3408 \\
+FEA Membranes & 0.3486 & 0.3558 \\
+\midrule
+AFNOR bench (beam bending, $PL^3/3EI$) & \multicolumn{2}{c}{0.3413} \\
+Timoshenko (bending + shear) & \multicolumn{2}{c}{0.357} \\
+NX CQUAD4 & \multicolumn{2}{c}{0.3408} \\
 \bottomrule
 \end{tabular}
-\caption{E2 results (test \texttt{External\_SFM\_SSLP01\_PlaneShearCantilever}).}
+\caption{E2 results (test \texttt{External\_SFM\_SSLP01\_PlaneShearCantilever}). The
+quadratic Quad8 reaches the full plane-stress answer (bending + shear, $0.3558\approx$
+Timoshenko $0.357$). The bilinear Quad4 shear-locks and stiffens back below it
+($0.3486$), like NX's CQUAD4 ($0.3408$, close to the no-shear beam value).}
 \end{table}
 
 The AFNOR bench $0.3413=PL^3/3EI$ is the slender-beam (bending-only) value. The
@@ -518,36 +539,48 @@ no-shear value (NX's CQUAD4 gives $0.3408$).
 The damage-tolerance centrepiece. A quarter plate $100\times100$\,mm with a
 $r=10$\,mm circular hole, plane stress, $E=30$\,GPa, $\nu=0.25$, remote tension
 $\sigma=25$\,MPa; the hole-edge hoop stress is the classic open-hole stress
-concentration ($K_t=3$ for an infinite plate). The structured ring mesh is graded
-toward the hole.
+concentration ($K_t=3$). Spec mesh: $10\times10$ ring (100 elements) biased toward
+the hole; a refined $20\times20$ run shows convergence.
 
 \begin{figure}[H]\centering
 \includegraphics[height=7.4cm]{ext-sslp02-vm.png}
-\caption{E3: SSLP02 quarter plate with a circular hole, von Mises field (legend
-capped at 80\,MPa) showing the stress concentration at the hole edge.}
+\caption{E3: SSLP02 quarter plate with a circular hole ($10\times10$ Quad8 spec
+mesh), von Mises field (legend capped at 80\,MPa) showing the stress concentration
+at the hole edge.}
 \end{figure}
 
 \begin{table}[H]\centering\small
-\begin{tabular}{@{}lcccc@{}}
+\begin{tabular}{@{}lcc@{}}
 \toprule
-Quantity & AFNOR bench & FEA Membranes & Error & NX CQUAD4 \\
+$\sigma_{\theta\theta}$ at $\theta{=}0^\circ$ (MPa) & Quad4 & Quad8 \\
 \midrule
-$\sigma_{\theta\theta}$ at $\theta{=}0^\circ$ (MPa) & 75 & 76.2 & $+1.6\,\%$ & 75.3 \\
-$\sigma_{\theta\theta}$ at $\theta{=}90^\circ$ (MPa) & $-25$ & $-26.2$ & $+4.6\,\%$ & $-24.5$ \\
-$K_t = \sigma_{\theta\theta}/\sigma$ & 3.00 & 3.05 & $+1.6\,\%$ & \nast \\
+Spec mesh ($10\times10$) & 64.1 & 74.4 \\
+Refined ($20\times20$)   & 71.9 & 75.5 \\
+\midrule
+Benchmark ($K_t=3$) & \multicolumn{2}{c}{75} \\
 \bottomrule
 \end{tabular}
-\caption{E3 results (test
-\texttt{External\_SFM\_SSLP02\_PlateWithHole\_StressConcentration}). The small
-overshoot is the finite-width effect ($W/d=5$) plus discretisation; the hole-edge
-$K_t\approx3$ is recovered directly. Open-hole $K_t$ underlies fastener-hole and
-cutout crack-initiation and net-section/bypass assessment.}
+\caption{E3 convergence (test
+\texttt{External\_SFM\_SSLP02\_PlateWithHole\_StressConcentration}). At the spec
+mesh the quadratic Quad8 recovers the open-hole peak ($74.4$, $-0.8\,\%$; and
+$\sigma_{\theta\theta}=-25.1$ at $90^\circ$ vs $-25$). The bilinear Quad4 cannot
+represent the steep gradient at the hole and underpredicts the peak, converging
+upward toward 75 only under refinement (NX reaches $75.3$ with a more strongly
+biased CQUAD4). \textbf{For stress concentrations --- the crack-initiation sites in
+damage tolerance --- the quadratic Quad8 is the element of choice.} Open-hole $K_t$
+underlies fastener-hole and cutout crack-initiation and net-section/bypass.}
 \end{table}
 
 \section{E4 --- SFM/AFNOR SSLL11 articulated truss}
 A four-rod plane truss (bar elements): nodes $A(0,0)$, $B(1,0)$, $C(0.5,0.5)$,
 $D(2,1)$; rods $AC$, $CB$ ($A=2\times10^{-4}$), $CD$, $BD$
 ($A=1\times10^{-4}$); $E=2.1\times10^{11}$; $A,B$ pinned; $9.81$\,kN at $D$ in $-y$.
+
+\begin{figure}[H]\centering
+\includegraphics[width=0.78\textwidth]{ext-ssll11.png}
+\caption{E4: SSLL11 articulated truss --- pinned supports at $A,B$ (cyan), tip load
+at $D$ (red), and the solved rod forces (T tension, C compression).}
+\end{figure}
 
 \begin{table}[H]\centering\small
 \begin{tabular}{@{}lcc@{}}

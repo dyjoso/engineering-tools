@@ -523,44 +523,56 @@ public class SolverTests
     //  des progiciels"), as reproduced in the NX Nastran 9 Verification Manual.
     // ===================================================================
 
-    // Structured Quad8 mesh of a curved "ring": m elements circumferentially
+    // Structured Quad4/Quad8 mesh of a curved "ring": m elements circumferentially
     // (param s in [0,1]) x n radially (param t in [0,1], biased toward the inner
     // boundary). inner(s)/outer(s) give the two boundary curves; boundary nodes lie
-    // exactly on them. Returns the model and the fine-grid node-id table.
-    private static (FeModel model, int[,] grid) BuildQuad8Ring(
+    // exactly on them. Returns the model and the (fine-, for Quad8) node-id grid.
+    private static (FeModel model, int[,] grid) BuildRing(
         Func<double, (double X, double Y)> inner, Func<double, (double X, double Y)> outer,
-        int m, int n, double e, double nu, double thick, double radialBias = 1.0)
+        int m, int n, double e, double nu, double thick, double radialBias, bool quadratic)
     {
         var model = new FeModel();
         model.Membranes.Add(new Membrane { Id = 1, MaterialE = e, MaterialNu = nu, MaterialT = thick });
-        int fm = 2 * m, fn = 2 * n;
-        var grid = new int[fm + 1, fn + 1];
-        double Radial(int fj)
+        int sm = quadratic ? 2 * m : m, sn = quadratic ? 2 * n : n;
+        var grid = new int[sm + 1, sn + 1];
+        double Radial(int gj)
         {
-            int k = fj / 2;
-            return fj % 2 == 0 ? Mesher.BiasedT(k, n, radialBias)
+            if (!quadratic) return Mesher.BiasedT(gj, n, radialBias);
+            int k = gj / 2;
+            return gj % 2 == 0 ? Mesher.BiasedT(k, n, radialBias)
                                : 0.5 * (Mesher.BiasedT(k, n, radialBias) + Mesher.BiasedT(k + 1, n, radialBias));
         }
         int id = 1;
-        for (int fi = 0; fi <= fm; fi++)
-            for (int fj = 0; fj <= fn; fj++)
+        for (int gi = 0; gi <= sm; gi++)
+            for (int gj = 0; gj <= sn; gj++)
             {
-                if (fi % 2 == 1 && fj % 2 == 1) { grid[fi, fj] = -1; continue; }
-                double s = (double)fi / fm, rt = Radial(fj);
+                if (quadratic && gi % 2 == 1 && gj % 2 == 1) { grid[gi, gj] = -1; continue; }
+                double s = (double)gi / sm, rt = Radial(gj);
                 var (ix, iy) = inner(s); var (ox, oy) = outer(s);
                 model.FeNodes.Add(new FeNode { Id = id, X = ix + rt * (ox - ix), Y = iy + rt * (oy - iy), MembraneId = 1 });
-                grid[fi, fj] = id; id++;
+                grid[gi, gj] = id; id++;
             }
         for (int i = 0; i < m; i++)
             for (int j = 0; j < n; j++)
             {
-                int ci = 2 * i, cj = 2 * j;
-                model.FeElements.Add(new FeElement
+                if (quadratic)
                 {
-                    Id = i * n + j + 1, Type = "quad8", MembraneId = 1,
-                    NodeIds = { grid[ci, cj], grid[ci + 2, cj], grid[ci + 2, cj + 2], grid[ci, cj + 2],
-                                grid[ci + 1, cj], grid[ci + 2, cj + 1], grid[ci + 1, cj + 2], grid[ci, cj + 1] }
-                });
+                    int ci = 2 * i, cj = 2 * j;
+                    model.FeElements.Add(new FeElement
+                    {
+                        Id = i * n + j + 1, Type = "quad8", MembraneId = 1,
+                        NodeIds = { grid[ci, cj], grid[ci + 2, cj], grid[ci + 2, cj + 2], grid[ci, cj + 2],
+                                    grid[ci + 1, cj], grid[ci + 2, cj + 1], grid[ci + 1, cj + 2], grid[ci, cj + 1] }
+                    });
+                }
+                else
+                {
+                    model.FeElements.Add(new FeElement
+                    {
+                        Id = i * n + j + 1, Type = "quad", MembraneId = 1,
+                        NodeIds = { grid[i, j], grid[i + 1, j], grid[i + 1, j + 1], grid[i, j + 1] }
+                    });
+                }
             }
         // Solver requires positive winding; flip every element if the mapping is clockwise.
         var byId = model.FeNodes.ToDictionary(nn => nn.Id);
@@ -569,7 +581,9 @@ public class SolverTests
             {
                 var x = el.NodeIds.ToArray();
                 el.NodeIds.Clear();
-                el.NodeIds.AddRange(new[] { x[0], x[3], x[2], x[1], x[7], x[6], x[5], x[4] });
+                el.NodeIds.AddRange(quadratic
+                    ? new[] { x[0], x[3], x[2], x[1], x[7], x[6], x[5], x[4] }
+                    : new[] { x[0], x[3], x[2], x[1] });
             }
         return (model, grid);
     }
@@ -578,28 +592,35 @@ public class SolverTests
     // plane stress. Inner ellipse (x/2)^2+y^2=1, outer (x/3.25)^2+(y/2.75)^2=1. 10 MPa outward
     // pressure on the outer edge (consistent Quad8-edge loads along the chord-outward normal);
     // ux=0 on x=0, uy=0 on y=0. Reference sigma_yy at D=(2,0) = 92.7 MPa (NX Quad8 fine ~89.9).
-    private static FeModel BuildExtLE1()
+    private static FeModel BuildExtLE1(int m, int n, bool quadratic)
     {
         double ai = 2, bi = 1, ao = 3.25, bo = 2.75, p = 10, thick = 0.1;
         (double, double) Inner(double s) { double a = s * Math.PI / 2; return (ai * Math.Cos(a), bi * Math.Sin(a)); }
         (double, double) Outer(double s) { double a = s * Math.PI / 2; return (ao * Math.Cos(a), bo * Math.Sin(a)); }
-        int m = 24, n = 10;
-        var (model, grid) = BuildQuad8Ring(Inner, Outer, m, n, 210e3, 0.3, thick);
+        var (model, grid) = BuildRing(Inner, Outer, m, n, 210e3, 0.3, thick, 1.0, quadratic);
         var byId = model.FeNodes.ToDictionary(nn => nn.Id);
 
+        // Uniform outward pressure on the outer edge (consistent edge loads along the
+        // chord-outward normal: 1/2-1/2 for Quad4, 1/6-4/6-1/6 for Quad8).
         var f = new Dictionary<int, (double fx, double fy)>();
         void Acc(int idn, double fx, double fy) { var v = f.GetValueOrDefault(idn); f[idn] = (v.fx + fx, v.fy + fy); }
-        for (int fi = 0; fi < 2 * m; fi += 2)
+        int outerRow = quadratic ? 2 * n : n, stride = quadratic ? 2 : 1, sm = quadratic ? 2 * m : m;
+        for (int gi = 0; gi < sm; gi += stride)
         {
-            var a = byId[grid[fi, 2 * n]]; var mid = grid[fi + 1, 2 * n]; var c = byId[grid[fi + 2, 2 * n]];
+            var a = byId[grid[gi, outerRow]]; var c = byId[grid[gi + stride, outerRow]];
             double dx = c.X - a.X, dy = c.Y - a.Y, len = Math.Sqrt(dx * dx + dy * dy);
             double nx = dy, ny = -dx, nl = Math.Sqrt(nx * nx + ny * ny); nx /= nl; ny /= nl;
             double mx = (a.X + c.X) / 2, my = (a.Y + c.Y) / 2;
             if (nx * mx + ny * my < 0) { nx = -nx; ny = -ny; }   // outward
             double force = p * len * thick;
-            Acc(a.Id, force / 6 * nx, force / 6 * ny);
-            Acc(mid, force * 4 / 6 * nx, force * 4 / 6 * ny);
-            Acc(c.Id, force / 6 * nx, force / 6 * ny);
+            if (quadratic)
+            {
+                int mid = grid[gi + 1, outerRow];
+                Acc(a.Id, force / 6 * nx, force / 6 * ny);
+                Acc(mid, force * 4 / 6 * nx, force * 4 / 6 * ny);
+                Acc(c.Id, force / 6 * nx, force / 6 * ny);
+            }
+            else { Acc(a.Id, force / 2 * nx, force / 2 * ny); Acc(c.Id, force / 2 * nx, force / 2 * ny); }
         }
         foreach (var (idn, (fx, fy)) in f) byId[idn].Bc = Load(fx, fy);
         foreach (var nd in model.FeNodes) // symmetry overwrites the 2 corner shares (far from D)
@@ -608,25 +629,35 @@ public class SolverTests
         return model;
     }
 
+    private static double LE1StressAtD(int m, int n, bool quadratic)
+    {
+        var model = BuildExtLE1(m, n, quadratic);
+        var r = Solver.Solve(model);
+        var d = model.FeNodes.First(nd => Math.Abs(nd.X - 2) < 1e-9 && Math.Abs(nd.Y) < 1e-9);
+        return r.NodalStresses.First(ns => ns.NodeId == d.Id).Syy;
+    }
+
     [Fact]
     public void External_NAFEMS_LE1_EllipticMembrane()
     {
-        var model = BuildExtLE1();
-        var r = Solver.Solve(model);
-        var d = model.FeNodes.First(nd => Math.Abs(nd.X - 2) < 1e-9 && Math.Abs(nd.Y) < 1e-9); // point D
-        double syyD = r.NodalStresses.First(ns => ns.NodeId == d.Id).Syy;
-        // Approaches the NAFEMS benchmark 92.7 (within ~5%, in line with NX's parabolic quad).
-        Assert.InRange(syyD, 88.0, 96.0);
+        // Spec coarse (4x2) and fine (8x4) meshes; Quad4 and Quad8. Reference sigma_yy at
+        // D = 92.7 MPa. Both elements converge upward; Quad8 leads Quad4 at equal density.
+        double q4c = LE1StressAtD(4, 2, false), q4f = LE1StressAtD(8, 4, false);
+        double q8c = LE1StressAtD(4, 2, true), q8f = LE1StressAtD(8, 4, true);
+        Assert.True(q4f > q4c && q8f > q8c);          // monotone convergence with refinement
+        Assert.True(q8c > q4c && q8f > q4f);          // Quad8 leads Quad4 at equal density
+        Assert.True(q8f < 92.7 && q8f > 89.0);        // fine Quad8 within ~3% below the bench
+        Assert.True(q4f < 92.7);                      // still converging (does not overshoot)
     }
 
     // SSLP01/89 (SFM/AFNOR Guide de validation, 1990): 48 x 12 x 1 mm plate, plane stress,
     // clamped at x=0, parabolic shear (resultant 40 N) on the free end x=48. E=30000 MPa,
     // nu=0.25. Reference tip displacement u_y at (L,y) = 0.3413 mm.
-    private static FeModel BuildExtSSLP01()
+    private static FeModel BuildExtSSLP01(int m, int n, bool quadratic)
     {
         var model = new FeModel();
         var s = Mesher.AddSurface(model, new[] { (0.0, 0.0), (48.0, 0.0), (48.0, 12.0), (0.0, 12.0) }, 30000, 0.25, 1.0);
-        Mesher.MeshMembrane(model, s, 24, 6, quadratic: true);
+        Mesher.MeshMembrane(model, s, m, n, quadratic);
         foreach (var nd in model.FeNodes) if (Math.Abs(nd.X) < 1e-9) nd.Bc = Fixed(true, true); // clamp
 
         double h = 12, P = 40, k = 6 * P / (h * h * h);  // parabolic shear w(y)=k*(h^2/4-(y-h/2)^2)
@@ -634,37 +665,51 @@ public class SolverTests
         var edge = model.FeNodes.Where(nd => Math.Abs(nd.X - 48) < 1e-9).OrderBy(nd => nd.Y).ToList();
         var f = new Dictionary<int, double>();
         void Acc(int idn, double v) { f[idn] = f.GetValueOrDefault(idn) + v; }
-        for (int i = 0; i + 2 < edge.Count; i += 2)
-        {
-            double len = edge[i + 2].Y - edge[i].Y;
-            Acc(edge[i].Id, W(edge[i].Y) / 6 * len);
-            Acc(edge[i + 1].Id, W(edge[i + 1].Y) * 4 / 6 * len);
-            Acc(edge[i + 2].Id, W(edge[i + 2].Y) / 6 * len);
-        }
+        if (quadratic)
+            for (int i = 0; i + 2 < edge.Count; i += 2)
+            {
+                double len = edge[i + 2].Y - edge[i].Y;
+                Acc(edge[i].Id, W(edge[i].Y) / 6 * len);
+                Acc(edge[i + 1].Id, W(edge[i + 1].Y) * 4 / 6 * len);
+                Acc(edge[i + 2].Id, W(edge[i + 2].Y) / 6 * len);
+            }
+        else
+            for (int i = 0; i + 1 < edge.Count; i++)
+            {
+                double len = edge[i + 1].Y - edge[i].Y;
+                Acc(edge[i].Id, W(edge[i].Y) / 2 * len);
+                Acc(edge[i + 1].Id, W(edge[i + 1].Y) / 2 * len);
+            }
         double scale = P / f.Values.Sum(); // exact 40 N resultant
         var byId = model.FeNodes.ToDictionary(nd => nd.Id);
         foreach (var (idn, v) in f) byId[idn].Bc = Load(0, -v * scale);
         return model;
     }
 
+    private static double SSLP01TipUy(int m, int n, bool quadratic)
+    {
+        var model = BuildExtSSLP01(m, n, quadratic);
+        var r = Solver.Solve(model);
+        return model.FeNodes.Where(nd => Math.Abs(nd.X - 48) < 1e-9)
+            .Max(nd => Math.Abs(r.Displacements.First(dd => dd.NodeId == nd.Id).Dy));
+    }
+
     [Fact]
     public void External_SFM_SSLP01_PlaneShearCantilever()
     {
-        var model = BuildExtSSLP01();
-        var r = Solver.Solve(model);
-        var edge = model.FeNodes.Where(nd => Math.Abs(nd.X - 48) < 1e-9).ToList();
-        double tipUy = edge.Max(nd => Math.Abs(r.Displacements.First(dd => dd.NodeId == nd.Id).Dy));
-        // AFNOR bench 0.3413 mm = PL^3/3EI (beam bending, no shear). The plane-stress Quad8
-        // result also carries transverse shear: 0.341 (bending) + ~0.016 (shear) = Timoshenko
-        // 0.357 mm. Agreement here confirms the Q8 does NOT shear-lock (a locking Q4 would
-        // stiffen back toward 0.341, as NX's CQUAD4 does at 0.3408).
-        Assert.InRange(tipUy, 0.350, 0.360);
+        // Spec mesh 20x5 (100 elements). AFNOR bench 0.3413 mm = PL^3/3EI (beam bending,
+        // no shear). The plane-stress Quad8 also carries transverse shear -> ~0.357 mm
+        // (Timoshenko); the bilinear Quad4 shear-LOCKS and stiffens back toward the beam
+        // value, so it sits below the Quad8 - exactly the expected element behaviour.
+        double q8 = SSLP01TipUy(20, 5, true), q4 = SSLP01TipUy(20, 5, false);
+        Assert.InRange(q8, 0.350, 0.360);   // Quad8: bending + shear (Timoshenko 0.357)
+        Assert.True(q4 < q8);                // Quad4 locks (stiffer)
     }
 
     // SSLP02/89 (SFM/AFNOR Guide de validation, 1990): quarter plate 100 x 100 mm with a
     // r=10 mm circular hole, plane stress, E=30000 MPa, nu=0.25, remote tension 25 MPa in Y.
     // Reference hoop stress at the hole edge: 75 / 25 / -25 MPa at theta = 0/45/90 (Kt=3).
-    private static FeModel BuildExtSSLP02()
+    private static FeModel BuildExtSSLP02(int m, int n, bool quadratic)
     {
         double a = 10, Wd = 100, sigma = 25, thick = 1;
         (double, double) Hole(double sp) { double ph = sp * Math.PI / 2; return (a * Math.Cos(ph), a * Math.Sin(ph)); }
@@ -673,18 +718,20 @@ public class SolverTests
             double ph = sp * Math.PI / 2, tn = Math.Tan(ph);
             return tn <= 1 ? (Wd, Wd * tn) : (Wd / tn, Wd);
         }
-        int m = 28, n = 14;
-        var (model, grid) = BuildQuad8Ring(Hole, Square, m, n, 30000, 0.25, thick, radialBias: 6.0);
+        var (model, grid) = BuildRing(Hole, Square, m, n, 30000, 0.25, thick, 5.0, quadratic); // biased to the hole
         var byId = model.FeNodes.ToDictionary(nn => nn.Id);
 
+        // Remote tension on the top edge (y=Wd) in +Y as consistent edge loads.
         var f = new Dictionary<int, double>();
         void Acc(int idn, double v) { f[idn] = f.GetValueOrDefault(idn) + v; }
-        for (int fi = 0; fi < 2 * m; fi += 2)
+        int outerRow = quadratic ? 2 * n : n, stride = quadratic ? 2 : 1, sm = quadratic ? 2 * m : m;
+        for (int gi = 0; gi < sm; gi += stride)
         {
-            var aN = byId[grid[fi, 2 * n]]; var cN = byId[grid[fi + 2, 2 * n]];
+            var aN = byId[grid[gi, outerRow]]; var cN = byId[grid[gi + stride, outerRow]];
             if (!(Math.Abs(aN.Y - Wd) < 1e-6 && Math.Abs(cN.Y - Wd) < 1e-6)) continue; // top edge only
             double len = Math.Abs(cN.X - aN.X), force = sigma * thick * len;
-            Acc(aN.Id, force / 6); Acc(grid[fi + 1, 2 * n], force * 4 / 6); Acc(cN.Id, force / 6);
+            if (quadratic) { Acc(aN.Id, force / 6); Acc(grid[gi + 1, outerRow], force * 4 / 6); Acc(cN.Id, force / 6); }
+            else { Acc(aN.Id, force / 2); Acc(cN.Id, force / 2); }
         }
         foreach (var (idn, v) in f) byId[idn].Bc = Load(0, v);
         foreach (var nd in model.FeNodes)
@@ -693,17 +740,30 @@ public class SolverTests
         return model;
     }
 
+    private static (double syy0, double sxx90) SSLP02Hoop(int m, int n, bool quadratic)
+    {
+        var model = BuildExtSSLP02(m, n, quadratic);
+        var r = Solver.Solve(model);
+        var h0 = model.FeNodes.First(nd => Math.Abs(nd.X - 10) < 1e-6 && Math.Abs(nd.Y) < 1e-9);   // (10,0)
+        var h90 = model.FeNodes.First(nd => Math.Abs(nd.X) < 1e-9 && Math.Abs(nd.Y - 10) < 1e-6);   // (0,10)
+        return (r.NodalStresses.First(ns => ns.NodeId == h0.Id).Syy,
+                r.NodalStresses.First(ns => ns.NodeId == h90.Id).Sxx);
+    }
+
     [Fact]
     public void External_SFM_SSLP02_PlateWithHole_StressConcentration()
     {
-        var model = BuildExtSSLP02();
-        var r = Solver.Solve(model);
-        FeNode Hole0 = model.FeNodes.First(nd => Math.Abs(nd.X - 10) < 1e-6 && Math.Abs(nd.Y) < 1e-9);   // (10,0), theta=0
-        FeNode Hole90 = model.FeNodes.First(nd => Math.Abs(nd.X) < 1e-9 && Math.Abs(nd.Y - 10) < 1e-6);   // (0,10), theta=90
-        double syy0 = r.NodalStresses.First(ns => ns.NodeId == Hole0.Id).Syy;   // hoop = sigma_yy -> +3 sigma
-        double sxx90 = r.NodalStresses.First(ns => ns.NodeId == Hole90.Id).Sxx; // hoop = sigma_xx -> -sigma
-        Assert.InRange(syy0, 70, 80);    // 3*sigma (=75); within ~7% (finite width + discretisation)
-        Assert.InRange(sxx90, -28, -22); // -sigma (=-25)
+        // Spec mesh: 10x10 ring (100 elements), biased to the hole. Reference hole-edge hoop
+        // stress 75 / -25 MPa (Kt=3). The quadratic Quad8 recovers the peak at the spec mesh;
+        // the bilinear Quad4 cannot represent the gradient there and underpredicts, converging
+        // upward toward 75 only with refinement -- the reason Quad8 is used for stress risers.
+        var (syy0q8, sxx90q8) = SSLP02Hoop(10, 10, true);
+        var (syy0q4, _) = SSLP02Hoop(10, 10, false);
+        var (syy0q4f, _) = SSLP02Hoop(20, 20, false);
+        Assert.InRange(syy0q8, 72, 78);    // Quad8: 3*sigma (=75) at the spec mesh
+        Assert.InRange(sxx90q8, -28, -22); // Quad8: -sigma (=-25)
+        Assert.True(syy0q4 < syy0q8);                  // Quad4 underpredicts the peak at the spec mesh
+        Assert.True(syy0q4f > syy0q4 && syy0q4f < 75); // and converges upward toward 75 under refinement
     }
 
     // SSLL11/89 (SFM/AFNOR Guide de validation, 1990): 4-rod articulated plane truss.
@@ -1251,10 +1311,11 @@ public class SolverTests
         });
         rec.Save(Path.Combine(valDir!, "reentrant-corner-demo.json"));
 
-        // External standard benchmarks (NAFEMS LE1, SFM/AFNOR SSLP01/02, SSLL11).
-        BuildExtLE1().Save(Path.Combine(valDir!, "ext-nafems-le1.json"));
-        BuildExtSSLP01().Save(Path.Combine(valDir!, "ext-sslp01.json"));
-        BuildExtSSLP02().Save(Path.Combine(valDir!, "ext-sslp02.json"));
+        // External standard benchmarks (NAFEMS LE1, SFM/AFNOR SSLP01/02, SSLL11) at the
+        // spec mesh density, Quad8 (parabolic) for the figures.
+        BuildExtLE1(8, 4, true).Save(Path.Combine(valDir!, "ext-nafems-le1.json"));
+        BuildExtSSLP01(20, 5, true).Save(Path.Combine(valDir!, "ext-sslp01.json"));
+        BuildExtSSLP02(10, 10, true).Save(Path.Combine(valDir!, "ext-sslp02.json"));
         BuildExtSSLL11().Save(Path.Combine(valDir!, "ext-ssll11.json"));
     }
 
