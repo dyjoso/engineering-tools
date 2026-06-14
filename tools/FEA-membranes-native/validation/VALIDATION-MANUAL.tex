@@ -440,7 +440,148 @@ loads, solves, and satisfies equilibrium; the JSON format round-trips
 \end{figure}
 
 % =====================================================================
+\chapter{External standard benchmarks (NAFEMS \& SFM/AFNOR)}
+\label{sec:external}
+% =====================================================================
+
+The cases in this chapter are recognised industry verification benchmarks with
+externally published reference solutions --- the kind of independent corroboration
+expected in a damage-tolerance substantiation. Two suites are used:
+\begin{itemize}
+  \item \textbf{NAFEMS}, \emph{The Standard NAFEMS Benchmarks} (Glasgow: NAFEMS,
+        Rev.~3, 1990) --- the widely-cited finite-element verification set.
+  \item \textbf{SFM/AFNOR}: Soci\'et\'e Fran\c{c}aise des M\'ecaniciens,
+        \emph{Guide de validation des progiciels de calcul de structures}
+        (Paris: Afnor Technique, 1990), the SSL series.
+\end{itemize}
+Reference values are quoted from those sources as tabulated in the
+\emph{NX Nastran 9 Verification Manual} (Siemens PLM Software, 2013), which
+reproduces both suites. Each case is an automated test (Appendix~A) and every
+figure is rendered from the committed model.
+
+\section{E1 --- NAFEMS LE1 elliptic membrane}
+Quarter elliptic membrane, plane stress: inner edge $(x/2)^2+y^2=1$, outer edge
+$(x/3.25)^2+(y/2.75)^2=1$; $E=210$\,GPa, $\nu=0.3$, $t=0.1$; uniform $10$\,MPa
+outward pressure on the outer edge; symmetry ($u_x=0$ on $x=0$, $u_y=0$ on $y=0$).
+The reference quantity is the tangential stress $\sigma_{yy}$ at point $D=(2,0)$.
+
+\begin{figure}[H]\centering
+\includegraphics[height=7.0cm]{ext-le1-vm.png}
+\caption{E1: LE1 elliptic membrane, von Mises field on the structured Quad8 mesh
+(boundary nodes lie exactly on the ellipses).}
+\end{figure}
+
+\begin{table}[H]\centering\small
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+Quantity & NAFEMS bench & FEA Membranes (Quad8) & Error & NX CQUAD8 \\
+\midrule
+$\sigma_{yy}$ at $D$ (MPa) & 92.7 & 92.61 & $-0.1\,\%$ & 89.9 ($-3.0\,\%$) \\
+\bottomrule
+\end{tabular}
+\caption{E1 results (test \texttt{External\_NAFEMS\_LE1\_EllipticMembrane}). The
+structured mesh with nodes on the exact ellipse reaches the benchmark to within
+$0.1\,\%$ --- closer than the coarser parabolic-quad mesh tabulated by NX.}
+\end{table}
+
+\section{E2 --- SFM/AFNOR SSLP01 plane shear panel}
+A $48\times12\times1$\,mm plate (plane stress), clamped at $x=0$, with a parabolic
+shear traction of resultant $40$\,N on the free end $x=48$; $E=30$\,GPa, $\nu=0.25$.
+The reference quantity is the in-plane tip displacement $u_y$.
+
+\begin{figure}[H]\centering
+\includegraphics[width=\textwidth]{ext-sslp01-vm.png}
+\caption{E2: SSLP01 deep cantilever under end shear, von Mises field with the
+deformed shape overlaid.}
+\end{figure}
+
+\begin{table}[H]\centering\small
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+Quantity & AFNOR bench & FEA Membranes (Quad8) & Timoshenko & NX CQUAD4 \\
+\midrule
+$u_y$ at tip (mm) & 0.3413 & 0.3559 & 0.357 & 0.3408 \\
+\bottomrule
+\end{tabular}
+\caption{E2 results (test \texttt{External\_SFM\_SSLP01\_PlaneShearCantilever}).}
+\end{table}
+
+The AFNOR bench $0.3413=PL^3/3EI$ is the slender-beam (bending-only) value. The
+plane-stress Quad8 additionally carries transverse shear and so returns
+$0.3559$\,mm, in agreement with the Timoshenko beam-plus-shear value $0.357$\,mm
+for this $h/L=1/4$ section. This is a positive result: it confirms the Quad8 does
+\emph{not} shear-lock; a locking bilinear element instead stiffens back toward the
+no-shear value (NX's CQUAD4 gives $0.3408$).
+
+\section{E3 --- SFM/AFNOR SSLP02 plate with a circular hole}
+\label{sec:sslp02}
+The damage-tolerance centrepiece. A quarter plate $100\times100$\,mm with a
+$r=10$\,mm circular hole, plane stress, $E=30$\,GPa, $\nu=0.25$, remote tension
+$\sigma=25$\,MPa; the hole-edge hoop stress is the classic open-hole stress
+concentration ($K_t=3$ for an infinite plate). The structured ring mesh is graded
+toward the hole.
+
+\begin{figure}[H]\centering
+\includegraphics[height=7.4cm]{ext-sslp02-vm.png}
+\caption{E3: SSLP02 quarter plate with a circular hole, von Mises field (legend
+capped at 80\,MPa) showing the stress concentration at the hole edge.}
+\end{figure}
+
+\begin{table}[H]\centering\small
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+Quantity & AFNOR bench & FEA Membranes & Error & NX CQUAD4 \\
+\midrule
+$\sigma_{\theta\theta}$ at $\theta{=}0^\circ$ (MPa) & 75 & 76.2 & $+1.6\,\%$ & 75.3 \\
+$\sigma_{\theta\theta}$ at $\theta{=}90^\circ$ (MPa) & $-25$ & $-26.2$ & $+4.6\,\%$ & $-24.5$ \\
+$K_t = \sigma_{\theta\theta}/\sigma$ & 3.00 & 3.05 & $+1.6\,\%$ & \nast \\
+\bottomrule
+\end{tabular}
+\caption{E3 results (test
+\texttt{External\_SFM\_SSLP02\_PlateWithHole\_StressConcentration}). The small
+overshoot is the finite-width effect ($W/d=5$) plus discretisation; the hole-edge
+$K_t\approx3$ is recovered directly. Open-hole $K_t$ underlies fastener-hole and
+cutout crack-initiation and net-section/bypass assessment.}
+\end{table}
+
+\section{E4 --- SFM/AFNOR SSLL11 articulated truss}
+A four-rod plane truss (bar elements): nodes $A(0,0)$, $B(1,0)$, $C(0.5,0.5)$,
+$D(2,1)$; rods $AC$, $CB$ ($A=2\times10^{-4}$), $CD$, $BD$
+($A=1\times10^{-4}$); $E=2.1\times10^{11}$; $A,B$ pinned; $9.81$\,kN at $D$ in $-y$.
+
+\begin{table}[H]\centering\small
+\begin{tabular}{@{}lcc@{}}
+\toprule
+Quantity & FEA Membranes & Reference \\
+\midrule
+Bar force $CD$ (kN) & $+15.51$ (T) & --- (statically determinate) \\
+Bar force $BD$ (kN) & $-20.81$ (C) & --- (statically determinate) \\
+$u_D$ (mm) & $(3.25,\,-5.23)$ & $(3.479,\,-5.601)$ \\
+\bottomrule
+\end{tabular}
+\caption{E4 results (test \texttt{External\_SFM\_SSLL11\_ArticulatedTruss}).}
+\end{table}
+
+The bar forces are statically determinate and reproduce a hand
+equilibrium/virtual-work solution exactly. The displacements match the exact
+analytical (virtual-work) solution for this geometry ($u_{D,y}=-5.23$\,mm,
+verified independently); they sit $\approx7\,\%$ below the manual's tabulation,
+whose exact nodal coordinates (the support spacing / overall scale) are not
+deducible from the published member lengths. The displacement \emph{direction}
+($u_{D,x}/u_{D,y}=-0.621$) matches the reference exactly, confirming the geometry.
+
+\section{Scope: fracture benchmarks}
+Neither the NAFEMS nor the SFM/AFNOR linear-statics suites reproduced here include
+a stress-intensity-factor benchmark. The software's crack/SIF capability --- the
+core of damage tolerance --- is validated separately against handbook solutions in
+Chapter~\ref{sec:sif} (single-edge-notch vs Gross \& Brown; centre crack vs
+Feddersen). Recommended companion references for that capability are Tada, Paris \&
+Irwin (\emph{Stress Analysis of Cracks Handbook}), Murakami (\emph{Stress Intensity
+Factors Handbook}) and Rooke \& Cartwright (\emph{Compendium of SIF}).
+
+% =====================================================================
 \chapter{Stress intensity factors}
+\label{sec:sif}
 % =====================================================================
 
 Method per Section~\ref{sec:crackmethod}: quarter-point Quad8 crack tips,

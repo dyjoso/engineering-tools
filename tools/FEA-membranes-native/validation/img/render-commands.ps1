@@ -23,3 +23,9 @@ Render "stringer-load-transfer.json"   "stringer-springs.png"         @("--conto
 Copy-Item "..\samples\curved-plate-with-bars.json" ".\curved-plate-with-bars.json" -Force
 Render "curved-plate-with-bars.json"   "curved-plate-vm.png"          @("--contour","vm","--width","1600","--height","1000")
 Remove-Item ".\curved-plate-with-bars.json" -Force
+
+# External standard benchmarks (NAFEMS LE1, SFM/AFNOR SSLP01/02, SSLL11)
+Render "ext-nafems-le1.json"           "ext-le1-vm.png"               @("--contour","vm","--no-nodes","--width","1100","--height","1000")
+Render "ext-sslp01.json"               "ext-sslp01-vm.png"            @("--contour","vm","--deformed","--no-nodes","--width","1500","--height","600")
+Render "ext-sslp02.json"               "ext-sslp02-vm.png"            @("--contour","vm","--no-nodes","--cmax","80","--width","1100","--height","1100")
+Render "ext-ssll11.json"               "ext-ssll11.png"               @("--contour","none","--width","900","--height","700")
