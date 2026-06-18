@@ -13,7 +13,10 @@
   <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
 
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- Pinned to Babel 7: its preset-react defaults to the classic runtime (React.createElement),
+       which works with the UMD React global above. Babel 8's "latest" defaults to the automatic
+       runtime, emitting `import ... from "react/jsx-runtime"` which breaks in a non-module script. -->
+  <script src="https://unpkg.com/@babel/standalone@7.29.7/babel.min.js"></script>
 
   <script>
     tailwind.config = {

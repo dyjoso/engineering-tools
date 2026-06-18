@@ -12,8 +12,11 @@
     <!-- React and ReactDOM -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <!-- Babel for JSX transpilation -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Babel for JSX transpilation. Pinned to Babel 7: its preset-react defaults to the classic
+         runtime (React.createElement), which works with the UMD React global above. Babel 8's
+         "latest" defaults to the automatic runtime, emitting `import ... from "react/jsx-runtime"`
+         which breaks in a non-module script and leaves the page blank. -->
+    <script src="https://unpkg.com/@babel/standalone@7.29.7/babel.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
