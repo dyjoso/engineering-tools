@@ -271,19 +271,19 @@
       </div>
       <div class="keygrid">
         <div class="kcard" id="card-frameOC">
-          <div class="klabel">Frame outer-chord stress<div class="ksym">&sigma; = hoop + bending &middot; cell B83</div></div>
+          <div class="klabel">Frame outer-chord stress<div class="ksym">&sigma; = [20]<sub>F</sub>/[21]<sub>F</sub> + [23]</div></div>
           <div><span class="kval" id="k_frameOC">&mdash;</span><span class="kunit">ksi</span></div>
         </div>
         <div class="kcard" id="card-frameHoop">
-          <div class="klabel">Frame hoop (nominal) stress<div class="ksym">&sigma; = P / A &middot; cell B77</div></div>
+          <div class="klabel">Frame hoop (nominal) stress<div class="ksym">&sigma; = [20]<sub>F</sub> / [21]<sub>F</sub></div></div>
           <div><span class="kval" id="k_frameHoop">&mdash;</span><span class="kunit">ksi</span></div>
         </div>
         <div class="kcard" id="card-frameIC">
-          <div class="klabel">Frame inner-chord stress<div class="ksym">&sigma; &asymp; nominal hoop &middot; cell B84</div></div>
+          <div class="klabel">Frame inner-chord stress<div class="ksym">&sigma; &asymp; [20]<sub>F</sub>/[21]<sub>F</sub></div></div>
           <div><span class="kval" id="k_frameIC">&mdash;</span><span class="kunit">ksi</span></div>
         </div>
         <div class="kcard" id="card-sillLong">
-          <div class="klabel">Sill longitudinal stress<div class="ksym">&sigma; = P / A &middot; cell O77</div></div>
+          <div class="klabel">Sill longitudinal stress<div class="ksym">&sigma; = [20]<sub>S</sub> / [21]<sub>S</sub></div></div>
           <div><span class="kval" id="k_sillLong">&mdash;</span><span class="kunit">ksi</span></div>
         </div>
       </div>
@@ -299,11 +299,11 @@
       </div>
       <div class="keygrid">
         <div class="kcard" id="card-tauMax">
-          <div class="klabel">Governing panel gross shear stress<div class="ksym">&tau; = q/t &middot; max(q&#8321;,q&#8322;,q&#8323;)</div></div>
+          <div class="klabel">Governing panel gross shear stress<div class="ksym">&tau; = max([24],[25],[26]) / t</div></div>
           <div><span class="kval" id="k_tauMax">&mdash;</span><span class="kunit">ksi</span></div>
         </div>
         <div class="kcard" id="card-tauJunc">
-          <div class="klabel">Sill/frame junction shear stress<div class="ksym">&tau; at 5/3&middot;q_av &middot; fatigue</div></div>
+          <div class="klabel">Sill/frame junction shear stress<div class="ksym">&tau; = [27] / t &middot; fatigue</div></div>
           <div><span class="kval" id="k_tauJunc">&mdash;</span><span class="kunit">ksi</span></div>
         </div>
         <div class="kcard" id="card-msShear">
@@ -311,7 +311,7 @@
           <div><span class="kval" id="k_msShear">&mdash;</span><span class="kunit"></span></div>
         </div>
         <div class="kcard" id="card-qFrPk">
-          <div class="klabel">Peak frame shear flow<div class="ksym">3&middot;&frac12;(q&#8321;+q&#8323;) at main sills</div></div>
+          <div class="klabel">Peak frame shear flow<div class="ksym">[30] = 3&middot;max([28],[29])</div></div>
           <div><span class="kval" id="k_qFrPk">&mdash;</span><span class="kunit">lbf/in</span></div>
         </div>
       </div>
@@ -323,69 +323,69 @@
         <span class="sec-idx">05</span>
         <span class="sec-title">Supporting Calculations</span>
         <span class="sec-rule"></span>
-        <span class="sec-note">load redistribution chain</span>
+        <span class="sec-note">[n] = equation ref · subscript F/S = frame/sill column</span>
       </div>
       <div class="res-cols">
 
         <div class="rblock">
           <h4>Applied running loads</h4>
-          <div class="rrow"><span class="rl">Hoop running load <span class="sub">P&middot;R&middot;(1&minus;&eta;<sub>h</sub>)</span></span><span class="rv" id="r_hoop">&mdash;</span><span class="ru">lbf/in <span class="cellref">B18</span></span></div>
-          <div class="rrow"><span class="rl">Long. running load <span class="sub">P&middot;R/2&middot;(1&minus;&eta;<sub>l</sub>)</span></span><span class="rv" id="r_long">&mdash;</span><span class="ru">lbf/in <span class="cellref">B19</span></span></div>
+          <div class="rrow"><span class="rl">Hoop running load <span class="sub">w = P&middot;R&middot;(1&minus;&eta;<sub>h</sub>)</span></span><span class="rv" id="r_hoop">&mdash;</span><span class="ru">lbf/in <span class="cellref">[1]</span></span></div>
+          <div class="rrow"><span class="rl">Long. running load <span class="sub">w' = P&middot;R/2&middot;(1&minus;&eta;<sub>l</sub>)</span></span><span class="rv" id="r_long">&mdash;</span><span class="ru">lbf/in <span class="cellref">[2]</span></span></div>
           <h4 style="margin-top:11px">Moment distribution factors</h4>
-          <div class="rrow"><span class="rl">K1 <span class="sub">h/(h+&#8467;)</span></span><span class="rv" id="r_k1">&mdash;</span><span class="ru"></span></div>
-          <div class="rrow"><span class="rl">K2 <span class="sub">&#8467;/(h+&#8467;)</span></span><span class="rv" id="r_k2">&mdash;</span><span class="ru"></span></div>
+          <div class="rrow"><span class="rl">K1 <span class="sub">h/(h+&#8467;)</span></span><span class="rv" id="r_k1">&mdash;</span><span class="ru"><span class="cellref">[3]</span></span></div>
+          <div class="rrow"><span class="rl">K2 <span class="sub">&#8467;/(h+&#8467;)</span></span><span class="rv" id="r_k2">&mdash;</span><span class="ru"><span class="cellref">[4]</span></span></div>
         </div>
 
         <div class="rblock">
           <h4>Fixed-end &amp; adjusted moments</h4>
-          <div class="rrow"><span class="rl">M<sub>vert</sub> beam <span class="sub">FB·GC·KO·JN</span></span><span class="rv" id="r_mvb">&mdash;</span><span class="ru">lbf·in <span class="cellref">B26</span></span></div>
-          <div class="rrow"><span class="rl">M<sub>horiz</sub> beam <span class="sub">GH·KL·EF·IJ</span></span><span class="rv" id="r_mhb">&mdash;</span><span class="ru">lbf·in <span class="cellref">B27</span></span></div>
-          <div class="rrow"><span class="rl">M<sub>vert</sub> correction</span><span class="rv" id="r_mvc">&mdash;</span><span class="ru">lbf·in <span class="cellref">B30</span></span></div>
-          <div class="rrow"><span class="rl">M<sub>horiz</sub> correction</span><span class="rv" id="r_mhc">&mdash;</span><span class="ru">lbf·in <span class="cellref">B31</span></span></div>
-          <div class="rrow"><span class="rl">M<sub>vert</sub> adjusted</span><span class="rv" id="r_mva">&mdash;</span><span class="ru">lbf·in <span class="cellref">B32</span></span></div>
-          <div class="rrow"><span class="rl">M<sub>horiz</sub> adjusted</span><span class="rv" id="r_mha">&mdash;</span><span class="ru">lbf·in <span class="cellref">B33</span></span></div>
+          <div class="rrow"><span class="rl">M<sub>vert</sub> beam <span class="sub">[2]&middot;h&sup2;/12</span></span><span class="rv" id="r_mvb">&mdash;</span><span class="ru">lbf·in <span class="cellref">[5]</span></span></div>
+          <div class="rrow"><span class="rl">M<sub>horiz</sub> beam <span class="sub">[1]&middot;&#8467;&sup2;/12</span></span><span class="rv" id="r_mhb">&mdash;</span><span class="ru">lbf·in <span class="cellref">[6]</span></span></div>
+          <div class="rrow"><span class="rl">M<sub>vert</sub> correction <span class="sub">&minus;([5]&minus;[6])&middot;[4]</span></span><span class="rv" id="r_mvc">&mdash;</span><span class="ru">lbf·in <span class="cellref">[7]</span></span></div>
+          <div class="rrow"><span class="rl">M<sub>horiz</sub> correction <span class="sub">([5]&minus;[6])&middot;[3]</span></span><span class="rv" id="r_mhc">&mdash;</span><span class="ru">lbf·in <span class="cellref">[8]</span></span></div>
+          <div class="rrow"><span class="rl">M<sub>vert</sub> adjusted <span class="sub">[5]+[7]</span></span><span class="rv" id="r_mva">&mdash;</span><span class="ru">lbf·in <span class="cellref">[9]</span></span></div>
+          <div class="rrow"><span class="rl">M<sub>horiz</sub> adjusted <span class="sub">[6]+[8] = M<sub>adj</sub></span></span><span class="rv" id="r_mha">&mdash;</span><span class="ru">lbf·in <span class="cellref">[10]</span></span></div>
         </div>
 
         <div class="rblock">
           <h4>Pressure redistribution shear flows</h4>
-          <div class="rrow"><span class="rl">Governing corner shear <span class="sub">0.5&middot;M/area</span></span><span class="rv" id="r_qc">&mdash;</span><span class="ru">lbf/in</span></div>
-          <div class="rrow"><span class="rl">Hoop redist. (gov.) <span class="sub">max(w&#8467;/2a, w&#8467;/2b)</span></span><span class="rv" id="r_qs">&mdash;</span><span class="ru">lbf/in</span></div>
-          <div class="rrow"><span class="rl">Long. redist. (gov.) <span class="sub">max(w'h/2c, w'h/2d)</span></span><span class="rv" id="r_qe">&mdash;</span><span class="ru">lbf/in</span></div>
+          <div class="rrow"><span class="rl">Governing corner shear <span class="sub">0.5&middot;[10]/area</span></span><span class="rv" id="r_qc">&mdash;</span><span class="ru">lbf/in <span class="cellref">[11]</span></span></div>
+          <div class="rrow"><span class="rl">Hoop redist. (gov.) <span class="sub">max([1]&#8467;/2a, [1]&#8467;/2b)</span></span><span class="rv" id="r_qs">&mdash;</span><span class="ru">lbf/in <span class="cellref">[12]</span></span></div>
+          <div class="rrow"><span class="rl">Long. redist. (gov.) <span class="sub">max([2]h/2c, [2]h/2d)</span></span><span class="rv" id="r_qe">&mdash;</span><span class="ru">lbf/in <span class="cellref">[13]</span></span></div>
           <h4 style="margin-top:11px">Door-stop fitting offset</h4>
-          <div class="rrow"><span class="rl">Door edge radial load</span><span class="rv" id="r_drad">&mdash;</span><span class="ru">lbf/in <span class="cellref">B52</span></span></div>
-          <div class="rrow"><span class="rl">Frame radial load <span class="sub">×(c+S)/c</span></span><span class="rv" id="r_frad">&mdash;</span><span class="ru">lbf/in <span class="cellref">B53</span></span></div>
-          <div class="rrow"><span class="rl">Frame hoop load (stops)</span><span class="rv" id="r_fstop">&mdash;</span><span class="ru">lbf <span class="cellref">B54</span></span></div>
+          <div class="rrow"><span class="rl">Door edge radial load <span class="sub">P&middot;&#8467;/2&middot;(1&minus;&eta;<sub>h</sub>)</span></span><span class="rv" id="r_drad">&mdash;</span><span class="ru">lbf/in <span class="cellref">[14]</span></span></div>
+          <div class="rrow"><span class="rl">Frame radial load <span class="sub">[14]&middot;(c+S)/c</span></span><span class="rv" id="r_frad">&mdash;</span><span class="ru">lbf/in <span class="cellref">[15]</span></span></div>
+          <div class="rrow"><span class="rl">Frame hoop load (stops) <span class="sub">[15]&middot;R</span></span><span class="rv" id="r_fstop">&mdash;</span><span class="ru">lbf <span class="cellref">[16]</span></span></div>
         </div>
 
         <div class="rblock">
           <h4>Redistributed cut-out loads</h4>
           <div class="twohdr"><span></span><span>Frame</span><span>Sill</span></div>
-          <div class="rrow"><span class="rl">Due to cut-out <span class="sub">B41 · O41</span></span><span class="rv" id="r_pco_cut_f">&mdash;</span><span class="rv" id="r_pco_cut_s">&mdash;</span></div>
-          <div class="rrow"><span class="rl">Adjacent bay pressure <span class="sub">B60 · O60</span></span><span class="rv" id="r_ptyp_f">&mdash;</span><span class="rv" id="r_ptyp_s">&mdash;</span></div>
-          <div class="rrow"><span class="rl"><b>Total redistributed load</b> <span class="sub">B63 · O63</span></span><span class="rv" id="r_pco_tot_f">&mdash;</span><span class="rv" id="r_pco_tot_s">&mdash;</span></div>
-          <div class="rrow"><span class="rl">Worst-case frame hoop <span class="sub">max(stops, cut-out) · B57</span></span><span class="rv" id="r_pframe">&mdash;</span><span class="rv" style="color:var(--ink-faint)">lbf</span></div>
+          <div class="rrow"><span class="rl">Due to cut-out <span class="sub">[17] · F ½[1]&#8467;+½[10]/c · S ½[2]h+½[10]/a</span></span><span class="rv" id="r_pco_cut_f">&mdash;</span><span class="rv" id="r_pco_cut_s">&mdash;</span></div>
+          <div class="rrow"><span class="rl">Adjacent bay pressure <span class="sub">[18] · P&middot;R&middot;bay/2</span></span><span class="rv" id="r_ptyp_f">&mdash;</span><span class="rv" id="r_ptyp_s">&mdash;</span></div>
+          <div class="rrow"><span class="rl">Worst-case frame hoop <span class="sub">[19] = max([16], [17]<sub>F</sub>)</span></span><span class="rv" id="r_pframe">&mdash;</span><span class="rv" style="color:var(--ink-faint)">lbf</span></div>
+          <div class="rrow"><span class="rl"><b>Total redistributed load</b> <span class="sub">[20] · F max([19],[17]<sub>F</sub>)+[18]<sub>F</sub> · S [17]<sub>S</sub>+[18]<sub>S</sub></span></span><span class="rv" id="r_pco_tot_f">&mdash;</span><span class="rv" id="r_pco_tot_s">&mdash;</span></div>
           <h4 style="margin-top:11px">Built-up section areas <span style="text-transform:none;letter-spacing:0;color:var(--ink-faint)">(frame · sill)</span></h4>
-          <div class="rrow"><span class="rl">Total effective area <span class="sub">B73 · O73</span></span><span class="rv" id="r_tota_f">&mdash;</span><span class="rv" id="r_tota_s">&mdash;</span></div>
-          <div class="rrow"><span class="rl">Frame bending moment <span class="sub">P&middot;ȳ · B79</span></span><span class="rv" id="r_fbm">&mdash;</span><span class="rv" style="color:var(--ink-faint)">lbf·in</span></div>
-          <div class="rrow"><span class="rl">Outer-chord bending stress <span class="sub">B80</span></span><span class="rv" id="r_ocs">&mdash;</span><span class="rv" style="color:var(--ink-faint)">ksi</span></div>
+          <div class="rrow"><span class="rl">Total effective area <span class="sub">[21] · cap+strap+skin</span></span><span class="rv" id="r_tota_f">&mdash;</span><span class="rv" id="r_tota_s">&mdash;</span></div>
+          <div class="rrow"><span class="rl">Frame bending moment <span class="sub">[22] = [17]<sub>F</sub>&middot;ȳ</span></span><span class="rv" id="r_fbm">&mdash;</span><span class="rv" style="color:var(--ink-faint)">lbf·in</span></div>
+          <div class="rrow"><span class="rl">Outer-chord bending stress <span class="sub">[23] = [22]&middot;ȳ/I</span></span><span class="rv" id="r_ocs">&mdash;</span><span class="rv" style="color:var(--ink-faint)">ksi</span></div>
         </div>
 
         <div class="rblock">
           <h4>Body-shear redistribution &mdash; Case I <span style="text-transform:none;letter-spacing:0;color:var(--ink-faint)">(lbf/in)</span></h4>
           <div class="twohdr"><span></span><span>Upper</span><span>Lower</span></div>
-          <div class="rrow"><span class="rl">Above / below cut-out <span class="sub">q&#8321;</span></span><span class="rv" id="r_q1b">&mdash;</span><span class="rv" id="r_q1c">&mdash;</span></div>
-          <div class="rrow"><span class="rl">Fwd / aft of cut-out <span class="sub">q&#8322;</span></span><span class="rv" id="r_q2b">&mdash;</span><span class="rv" id="r_q2c">&mdash;</span></div>
-          <div class="rrow"><span class="rl">Corner panels <span class="sub">q&#8323;</span></span><span class="rv" id="r_q3b">&mdash;</span><span class="rv" id="r_q3c">&mdash;</span></div>
-          <div class="rrow"><span class="rl">Junction design shear <span class="sub">5/3 &middot; q<sub>av</sub> (gov.)</span></span><span class="rv" id="r_qJunc">&mdash;</span><span class="rv" style="color:var(--ink-faint)">lbf/in</span></div>
+          <div class="rrow"><span class="rl">Above / below cut-out <span class="sub">q&#8321; · [24]</span></span><span class="rv" id="r_q1b">&mdash;</span><span class="rv" id="r_q1c">&mdash;</span></div>
+          <div class="rrow"><span class="rl">Fwd / aft of cut-out <span class="sub">q&#8322; · [25]</span></span><span class="rv" id="r_q2b">&mdash;</span><span class="rv" id="r_q2c">&mdash;</span></div>
+          <div class="rrow"><span class="rl">Corner panels <span class="sub">q&#8323; · [26]</span></span><span class="rv" id="r_q3b">&mdash;</span><span class="rv" id="r_q3c">&mdash;</span></div>
+          <div class="rrow"><span class="rl">Junction design shear <span class="sub">5/3 &middot; q<sub>av</sub> (gov.) · [27]</span></span><span class="rv" id="r_qJunc">&mdash;</span><span class="rv" style="color:var(--ink-faint)">lbf/in</span></div>
         </div>
 
         <div class="rblock">
           <h4>Case I &mdash; frame &amp; sill loads <span style="text-transform:none;letter-spacing:0;color:var(--ink-faint)">(Fig 6.5.9)</span></h4>
-          <div class="rrow"><span class="rl">Frame seg. shear &mdash; outer <span class="sub">q<sub>EF</sub> = &frac12;(q&#8321;+q&#8323;)</span></span><span class="rv" id="r_qEF">&mdash;</span><span class="ru">lbf/in</span></div>
-          <div class="rrow"><span class="rl">Frame seg. shear &mdash; mid <span class="sub">q<sub>FG</sub> = &frac12;q&#8322;</span></span><span class="rv" id="r_qFG">&mdash;</span><span class="ru">lbf/in</span></div>
-          <div class="rrow"><span class="rl"><b>Peak frame shear flow</b> <span class="sub">at main-sill junctions</span></span><span class="rv" id="r_qFrPk">&mdash;</span><span class="ru">lbf/in</span></div>
-          <div class="rrow"><span class="rl">Upper sill reaction <span class="sub">R<sub>EF</sub> &middot; prelim.</span></span><span class="rv" id="r_REF">&mdash;</span><span class="ru">lbf</span></div>
-          <div class="rrow"><span class="rl">Lower sill reaction <span class="sub">R<sub>GH</sub> &middot; prelim.</span></span><span class="rv" id="r_RGH">&mdash;</span><span class="ru">lbf</span></div>
+          <div class="rrow"><span class="rl">Frame seg. shear &mdash; outer <span class="sub">q<sub>EF</sub> = &frac12;([24]+[26])</span></span><span class="rv" id="r_qEF">&mdash;</span><span class="ru">lbf/in <span class="cellref">[28]</span></span></div>
+          <div class="rrow"><span class="rl">Frame seg. shear &mdash; mid <span class="sub">q<sub>FG</sub> = &frac12;[25]</span></span><span class="rv" id="r_qFG">&mdash;</span><span class="ru">lbf/in <span class="cellref">[29]</span></span></div>
+          <div class="rrow"><span class="rl"><b>Peak frame shear flow</b> <span class="sub">3&middot;max([28],[29])</span></span><span class="rv" id="r_qFrPk">&mdash;</span><span class="ru">lbf/in <span class="cellref">[30]</span></span></div>
+          <div class="rrow"><span class="rl">Upper sill reaction <span class="sub">R<sub>EF</sub> &middot; prelim.</span></span><span class="rv" id="r_REF">&mdash;</span><span class="ru">lbf <span class="cellref">[31]</span></span></div>
+          <div class="rrow"><span class="rl">Lower sill reaction <span class="sub">R<sub>GH</sub> &middot; prelim.</span></span><span class="rv" id="r_RGH">&mdash;</span><span class="ru">lbf <span class="cellref">[32]</span></span></div>
         </div>
 
       </div>
@@ -440,8 +440,8 @@
     { title:"Pressure Loading", items:[
       { key:"P",       label:"Cabin pressure differ.", sym:"P", unit:"psi", val:8.6, step:0.1, meta:"operating differential (DTA)" },
       { key:"R",       label:"Fuselage radius",        sym:"R", unit:"in",  val:74,  step:1,    meta:"" },
-      { key:"hoopCap", label:"Door hoop capability",  sym:"\u03B7\u2095", unit:"\u2014", val:0, step:0.05, meta:"B16 · not active at default \u00b7 see note 2" },
-      { key:"longCap", label:"Door long. capability", sym:"\u03B7\u2097", unit:"\u2014", val:0,       step:0.01, meta:"B17 · fraction of long. via door" },
+      { key:"hoopCap", label:"Door hoop capability",  sym:"\u03B7\u2095", unit:"\u2014", val:0, step:0.05, meta:"not active at default \u00b7 see note 2" },
+      { key:"longCap", label:"Door long. capability", sym:"\u03B7\u2097", unit:"\u2014", val:0,       step:0.01, meta:"0 = full Niu redistribution" },
     ]},
     { title:"Fuselage Body Shear — Case I", items:[
       { key:"qa", label:"Shear — upper aux band",  sym:"q<sub>a</sub>", unit:"lbf/in", val:450, step:10, meta:"equal bands = uniform (cut-out on NA)" },
@@ -452,23 +452,23 @@
       { key:"FsAllow", label:"Allow. gross shear",   sym:"Fₛ", unit:"ksi",    val:25,   step:1,     meta:"Niu guideline ≤ 25 ksi (Al)" },
     ]},
     { title:"Door Stop Fitting", items:[
-      { key:"S", label:"Door stop offset", sym:"S", unit:"in", val:1.8, step:0.1, meta:"B47 · amplifies frame load" },
+      { key:"S", label:"Door stop offset", sym:"S", unit:"in", val:1.8, step:0.1, meta:"amplifies frame load → [15]" },
     ]},
     { title:"Section \u2014 Frame (hoop)", items:[
-      { key:"frFrameArea", label:"Frame area",          sym:"", unit:"in\u00B2", val:0.911, step:0.001, meta:"B66" },
-      { key:"frStrapT",    label:"Bear-strap thickness", sym:"", unit:"in", val:0.125, step:0.005, meta:"B67" },
-      { key:"frStrapW",    label:"Bear-strap width",     sym:"", unit:"in", val:5,     step:0.5,   meta:"B68" },
-      { key:"frSkinT",     label:"Skin thickness",       sym:"", unit:"in", val:0.08,  step:0.005, meta:"B70" },
-      { key:"frSkinW",     label:"Skin eff. width",      sym:"", unit:"in", val:5,     step:0.5,   meta:"B71" },
-      { key:"frNA",        label:"Neutral-axis offset",  sym:"\u0233", unit:"in",  val:0.957, step:0.001, meta:"B74 · built-up section" },
-      { key:"frI",         label:"Section I",            sym:"I", unit:"in\u2074", val:5.642, step:0.001, meta:"B75 · built-up section" },
+      { key:"frFrameArea", label:"Frame area",          sym:"", unit:"in\u00B2", val:0.911, step:0.001, meta:"→ [21] frame" },
+      { key:"frStrapT",    label:"Bear-strap thickness", sym:"", unit:"in", val:0.125, step:0.005, meta:"" },
+      { key:"frStrapW",    label:"Bear-strap width",     sym:"", unit:"in", val:5,     step:0.5,   meta:"" },
+      { key:"frSkinT",     label:"Skin thickness",       sym:"", unit:"in", val:0.08,  step:0.005, meta:"" },
+      { key:"frSkinW",     label:"Skin eff. width",      sym:"", unit:"in", val:5,     step:0.5,   meta:"" },
+      { key:"frNA",        label:"Neutral-axis offset",  sym:"\u0233", unit:"in",  val:0.957, step:0.001, meta:"built-up → [22],[23]" },
+      { key:"frI",         label:"Section I",            sym:"I", unit:"in\u2074", val:5.642, step:0.001, meta:"built-up → [23]" },
     ]},
     { title:"Section \u2014 Sill (long.)", items:[
-      { key:"siFrameArea", label:"Sill area",            sym:"", unit:"in\u00B2", val:1,    step:0.001, meta:"O66" },
-      { key:"siStrapT",    label:"Bear-strap thickness", sym:"", unit:"in", val:0.125, step:0.005, meta:"O67" },
-      { key:"siStrapW",    label:"Bear-strap width",     sym:"", unit:"in", val:6,     step:0.5,   meta:"O68" },
-      { key:"siSkinT",     label:"Skin thickness",       sym:"", unit:"in", val:0.08,  step:0.005, meta:"O70" },
-      { key:"siSkinW",     label:"Skin eff. width",      sym:"", unit:"in", val:6,     step:0.5,   meta:"O71" },
+      { key:"siFrameArea", label:"Sill area",            sym:"", unit:"in\u00B2", val:1,    step:0.001, meta:"→ [21] sill" },
+      { key:"siStrapT",    label:"Bear-strap thickness", sym:"", unit:"in", val:0.125, step:0.005, meta:"" },
+      { key:"siStrapW",    label:"Bear-strap width",     sym:"", unit:"in", val:6,     step:0.5,   meta:"" },
+      { key:"siSkinT",     label:"Skin thickness",       sym:"", unit:"in", val:0.08,  step:0.005, meta:"" },
+      { key:"siSkinW",     label:"Skin eff. width",      sym:"", unit:"in", val:6,     step:0.5,   meta:"" },
     ]},
   ];
 
@@ -523,8 +523,8 @@
     //   frame = hoop member → fore-aft bay (max c,d);  sill = long. member → upper/lower (max a,b)
     var PtypF = v.P*v.R*(Math.max(v.c,v.d)/2);
     var PtypS = v.P*v.R*(Math.max(v.a,v.b)/2);
-    var PcoFtot = PcoFcut+PtypF;
-    var PcoStot = PsiCut+PtypS;
+    var PcoFtot = Math.max(Pframe, PcoFcut)+PtypF;   // [20F] = max([19] worst-case, [17F] cut-out) + [18F]
+    var PcoStot = PsiCut+PtypS;                       // [20S] = [17S] + [18S]
 
     // Built-up section areas.
     var frStrapA = v.frStrapW*v.frStrapT, frSkinA = v.frSkinW*v.frSkinT;
