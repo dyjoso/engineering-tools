@@ -230,7 +230,7 @@
         <div class="tb-sub">Frame hoop, sill longitudinal &amp; body-shear redistribution around a skin cut-out</div>
       </div>
       <div class="tb-cell"><span class="tb-key">Document</span><span class="tb-val">SCT-025</span></div>
-      <div class="tb-cell"><span class="tb-key">Method</span><span class="tb-val sm">Niu §6.5</span></div>
+      <div class="tb-cell"><span class="tb-key">Method</span><span class="tb-val sm">Niu §6.4 / §6.5</span></div>
       <div class="tb-cell tb-row2"><span class="tb-key">Analysis</span><span class="tb-val sm">Pressure (Case III/IV) + body shear (Case I)</span></div>
       <div class="tb-cell tb-row2"><span class="tb-key">Units</span><span class="tb-val sm">in · lbf · psi · ksi</span></div>
       <div class="tb-cell tb-row2"><span class="tb-key">Status</span><span class="tb-val sm">Live — editable</span></div>
@@ -267,23 +267,23 @@
         <span class="sec-idx">03</span>
         <span class="sec-title">Key Results &mdash; Member Stresses</span>
         <span class="sec-rule"></span>
-        <span class="sec-note">governing values flagged</span>
+        <span class="sec-note">combined: pressure (III) + in-plane shear (&sect;6.4)</span>
       </div>
       <div class="keygrid">
         <div class="kcard" id="card-frameOC">
-          <div class="klabel">Frame outer-chord stress<div class="ksym">&sigma; = [20]<sub>F</sub>/[21]<sub>F</sub> + [23]</div></div>
+          <div class="klabel">Frame outer-chord stress<div class="ksym">&sigma; = ([20]<sub>F</sub>+[29])/[21]<sub>F</sub> + [23]</div></div>
           <div><span class="kval" id="k_frameOC">&mdash;</span><span class="kunit">ksi</span></div>
         </div>
         <div class="kcard" id="card-frameHoop">
-          <div class="klabel">Frame hoop (nominal) stress<div class="ksym">&sigma; = [20]<sub>F</sub> / [21]<sub>F</sub></div></div>
+          <div class="klabel">Frame hoop (nominal) stress<div class="ksym">&sigma; = ([20]<sub>F</sub>+[29]) / [21]<sub>F</sub></div></div>
           <div><span class="kval" id="k_frameHoop">&mdash;</span><span class="kunit">ksi</span></div>
         </div>
         <div class="kcard" id="card-frameIC">
-          <div class="klabel">Frame inner-chord stress<div class="ksym">&sigma; &asymp; [20]<sub>F</sub>/[21]<sub>F</sub></div></div>
+          <div class="klabel">Frame inner-chord stress<div class="ksym">&sigma; &asymp; ([20]<sub>F</sub>+[29])/[21]<sub>F</sub></div></div>
           <div><span class="kval" id="k_frameIC">&mdash;</span><span class="kunit">ksi</span></div>
         </div>
         <div class="kcard" id="card-sillLong">
-          <div class="klabel">Sill longitudinal stress<div class="ksym">&sigma; = [20]<sub>S</sub> / [21]<sub>S</sub></div></div>
+          <div class="klabel">Sill longitudinal stress<div class="ksym">&sigma; = ([20]<sub>S</sub>+[30]) / [21]<sub>S</sub></div></div>
           <div><span class="kval" id="k_sillLong">&mdash;</span><span class="kunit">ksi</span></div>
         </div>
       </div>
@@ -309,10 +309,6 @@
         <div class="kcard" id="card-msShear">
           <div class="klabel">Margin of safety &mdash; panel shear<div class="ksym">F&#8347;/&tau;<sub>max</sub> &minus; 1</div></div>
           <div><span class="kval" id="k_msShear">&mdash;</span><span class="kunit"></span></div>
-        </div>
-        <div class="kcard" id="card-qFrPk">
-          <div class="klabel">Peak frame shear flow<div class="ksym">[30] = 3&middot;max([28],[29])</div></div>
-          <div><span class="kval" id="k_qFrPk">&mdash;</span><span class="kunit">lbf/in</span></div>
         </div>
       </div>
     </div>
@@ -380,12 +376,12 @@
         </div>
 
         <div class="rblock">
-          <h4>Case I &mdash; frame &amp; sill loads <span style="text-transform:none;letter-spacing:0;color:var(--ink-faint)">(Fig 6.5.9)</span></h4>
-          <div class="rrow"><span class="rl">Frame seg. shear &mdash; outer <span class="sub">q<sub>EF</sub> = &frac12;([24]+[26])</span></span><span class="rv" id="r_qEF">&mdash;</span><span class="ru">lbf/in <span class="cellref">[28]</span></span></div>
-          <div class="rrow"><span class="rl">Frame seg. shear &mdash; mid <span class="sub">q<sub>FG</sub> = &frac12;[25]</span></span><span class="rv" id="r_qFG">&mdash;</span><span class="ru">lbf/in <span class="cellref">[29]</span></span></div>
-          <div class="rrow"><span class="rl"><b>Peak frame shear flow</b> <span class="sub">3&middot;max([28],[29])</span></span><span class="rv" id="r_qFrPk">&mdash;</span><span class="ru">lbf/in <span class="cellref">[30]</span></span></div>
-          <div class="rrow"><span class="rl">Upper sill reaction <span class="sub">R<sub>EF</sub> &middot; prelim.</span></span><span class="rv" id="r_REF">&mdash;</span><span class="ru">lbf <span class="cellref">[31]</span></span></div>
-          <div class="rrow"><span class="rl">Lower sill reaction <span class="sub">R<sub>GH</sub> &middot; prelim.</span></span><span class="rv" id="r_RGH">&mdash;</span><span class="ru">lbf <span class="cellref">[32]</span></span></div>
+          <h4>In-plane shear &mdash; member loads <span style="text-transform:none;letter-spacing:0;color:var(--ink-faint)">(Niu &sect;6.4, flat-plate / large R)</span></h4>
+          <div class="rrow"><span class="rl">Frame driving shear <span class="sub">q<sub>fr</sub> = &frac12;(q<sub>b</sub>+q<sub>c</sub>)</span></span><span class="rv" id="r_qfr">&mdash;</span><span class="ru">lbf/in <span class="cellref">[28]</span></span></div>
+          <div class="rrow"><span class="rl">Frame axial &mdash; shear <span class="sub">&Delta;P<sub>fr</sub> = [28]&middot;h/2</span></span><span class="rv" id="r_dPframe">&mdash;</span><span class="ru">lbf <span class="cellref">[29]</span></span></div>
+          <div class="rrow"><span class="rl" style="padding-left:10px">&middot; shear stress <span class="sub">[29] / [21]<sub>F</sub></span></span><span class="rv" id="r_dSigFrame">&mdash;</span><span class="ru">ksi</span></div>
+          <div class="rrow"><span class="rl">Sill axial &mdash; shear (gov.) <span class="sub">&Delta;P<sub>si</sub> = max(q<sub>b</sub>,q<sub>c</sub>)&middot;&#8467;/2</span></span><span class="rv" id="r_dPsill">&mdash;</span><span class="ru">lbf <span class="cellref">[30]</span></span></div>
+          <div class="rrow"><span class="rl" style="padding-left:10px">&middot; shear stress <span class="sub">[30] / [21]<sub>S</sub></span></span><span class="rv" id="r_dSigSill">&mdash;</span><span class="ru">ksi</span></div>
         </div>
 
       </div>
@@ -401,22 +397,22 @@
       <div class="notes">
         <h4>Method &amp; assumptions</h4>
         <ol>
-          <li>Method follows <b>Niu, <i>Airframe Stress Analysis &amp; Sizing</i>, Section 6.5</b> &mdash; load redistribution around a skin cut-out using fixed-end-moment frame idealisation. <span class="ref">[SCT-025]</span></li>
+          <li>Method follows <b>Niu, <i>Airframe Stress Analysis &amp; Sizing</i>, Sections 6.4 &amp; 6.5</b> &mdash; load redistribution around a skin cut-out: fixed-end-moment frame idealisation for cabin-pressure tension, plus flat-plate liquidating-shear for in-plane (flight) shear. <span class="ref">[SCT-025]</span></li>
           <li><b>Door capability factors</b> &eta;<sub>h</sub> / &eta;<sub>l</sub> default to <b>0 = full Niu redistribution</b> (the plug door transfers all hoop / longitudinal load to the surrounding frames &amp; sills). Set a non-zero value <i>only</i> with a substantiated door load path &mdash; &eta;<sub>h</sub> &gt; 0 reduces the redistributed frame load and is unconservative without justification. <span class="ref">[deviates from Niu §6.5]</span></li>
           <li><b>General bays (Niu §6.5):</b> upper <span class="cellref">a</span>, lower <span class="cellref">b</span>, forward <span class="cellref">c</span>, aft <span class="cellref">d</span> are independent. Corner shears, edge redistribution and member loads are evaluated per location and the <b>governing</b> value is reported. The default geometry reproduces Niu's worked example: the Case I body-shear chain gives q&#8321;/q&#8322;/q&#8323; = 1108/932/255 lbf/in (bands = 450, independent of P); the Case III pressure chain reproduces Niu at P = 17.2 psi (corner moment 169,198 in&middot;lb, upper-fwd corner 210.2 lbf/in). Headline values are the governing (worst) location.</li>
           <li><b>Section properties</b> &mdash; neutral-axis offset <span class="cellref">ȳ</span> and second moment of area <span class="cellref">I</span> must be derived separately from the built-up frame + bear-strap + skin section. Enter the computed values.</li>
           <li><b>Worst-case frame hoop load</b> takes the greater of the stop-fitting load and the cut-out redistribution load. If the stop-fitting load is the lesser, stop loads are insufficient to react frame tension and the frame pulls inward against the door until stop-fitting loads rise to match frame tension (free-edge equilibrium).</li>
           <li><b>Inner-chord stress</b> is lower than nominal hoop due to bending compression, but this is localised at the frame ends; the nominal hoop stress is retained as the conservative peak value.</li>
           <li><b>Body shear (Case I)</b> &mdash; the fuselage skin shear flow is diverted around the cut-out per Niu §6.5. Enter four band shear flows: <span class="cellref">q<sub>a</sub></span> (upper aux), <span class="cellref">q<sub>b</sub></span> (upper main), <span class="cellref">q<sub>c</sub></span> (lower main), <span class="cellref">q<sub>d</sub></span> (lower aux). <b>Equal bands &rarr; uniform shear</b> (cut-out on the neutral axis, Fig 6.5.3/6.5.4) &mdash; validated against Niu's worked example (450 &rarr; q&#8321;/q&#8322;/q&#8323; = 1108/932/255 lbf/in). <b>Unequal bands &rarr; variable shear</b> for off-NA cut-outs (floor / cargo, Fig 6.5.6&ndash;6.5.8): the cut-out height splits <span class="cellref">h<sub>b</sub>=a&middot;h/(a+b)</span>, <span class="cellref">h<sub>c</sub>=b&middot;h/(a+b)</span> and the upper/lower panels redistribute their own band shear. Headline checks use the governing (worst) panel. <span class="ref">[Niu §6.5 Case I]</span></li>
-          <li><b>Junction shear</b> &mdash; per Niu, strap/skin/doubler areas at the main-sill/edge-frame junctions are checked at <span class="cellref">5/3 &middot; q<sub>av</sub></span> for local load concentration / fatigue life, and the panel gross-area shear stress is kept &le; ~25 ksi (Al).</li>
-          <li><b>Case I frame loads (Fig 6.5.9)</b> &mdash; the edge-frame web shear is distributed 3:1 across the upper/lower bays (3:1:1:3 across the mid bay); the <b>peak frame shear flow</b> at the main-sill junctions (3&middot;&frac12;(q&#8321;+q&#8323;)) is <b>exact</b> and reproduces Niu's 2045 lbf/in. The <b>sill reactions R<sub>EF</sub>/R<sub>GH</sub></b> from the curved-frame radial-resultant equilibrium are <b>preliminary</b>: the solve is ill-conditioned (large cancelling terms) and sensitive to the cut-out's position on the arc (assumed centred on the neutral axis), reproducing Niu within ~5&ndash;8%. Detailed frame <b>bending</b> should be taken to conventional shear/BM diagrams or FEM once these reactions are set, per Niu.</li>
+          <li><b>Junction shear &amp; corner peaking</b> &mdash; the panel shears q&#8321;/q&#8322;/q&#8323; and their gross-area stresses are <b>bay-average</b>; the shear migrates to the stiff main sills, so the actual <b>peak at the cut-out corners is ~+50%</b> (two stringer bays, 3:1) up to <b>~+67%</b> (three bays, 5:3:1). Apply <b>~1.5&ndash;1.67&times;</b> to the average for local peak skin stress / corner-detail fatigue &mdash; the same factor as the <span class="cellref">5/3 &middot; q<sub>av</sub></span> check at the main-sill / edge-frame junctions. Keep the panel gross-area shear stress &le; ~25 ksi (Al).</li>
+          <li><b>In-plane shear member axial (Niu &sect;6.4, flat-plate / large R)</b> &mdash; shear redistributing around the cut-out develops cap (liquidating) axial in the bounding members, axial = q &times; &frac12;(cut-out dimension): <span class="cellref">&Delta;P<sub>frame</sub> = q<sub>fr</sub>&middot;h/2</span> with <span class="cellref">q<sub>fr</sub> = &frac12;(q<sub>b</sub>+q<sub>c</sub>)</span>; <span class="cellref">&Delta;P<sub>sill</sub> = q<sub>b</sub>&middot;&#8467;/2</span> (upper) or <span class="cellref">q<sub>c</sub>&middot;&#8467;/2</span> (lower), governing = max. It is <b>bay-independent</b> (only &#8467;, h, the bands and member areas matter), <b>peaks at the cut-out corners</b>, and reduces to <span class="cellref">q&#8320;&middot;&frac12;(dim)</span> when bands are equal. The load is &plusmn; (tension on one diagonal corner pair); the <b>tension</b> value is taken and <b>added to the pressure member axial</b>, so the Member Stresses cards read the combined operating member tension. Shear axial is pure cap tension &mdash; it adds no extra bending. <span class="ref">[Niu &sect;6.4]</span></li>
           <li><b>Damage-tolerance use:</b> enter <span class="cellref">P</span> as the operating cabin-pressure differential and the body-shear bands at the typical (1g) flight level &mdash; results are operating stresses for crack-growth / residual-strength work, not ultimate design loads.</li>
         </ol>
       </div>
     </div>
 
     <div class="footer">
-      <span>SCT-025 &middot; Fuselage Door Cut-out Load Analysis &middot; Niu §6.5</span>
+      <span>SCT-025 &middot; Fuselage Door Cut-out Load Analysis &middot; Niu §6.4 / §6.5</span>
       <span id="ts">Interactive analysis sheet</span>
     </div>
 
@@ -532,13 +528,7 @@
     var siStrapA = v.siStrapW*v.siStrapT, siSkinA = v.siSkinW*v.siSkinT;
     var siTotA = v.siFrameArea+siStrapA+siSkinA;
 
-    // Member stresses (ksi). Bending model retained (P·ȳ eccentricity).
-    var frameHoop = PcoFtot/frTotA/1000;
-    var sillLong  = PcoStot/siTotA/1000;
-    var fBM = PcoFcut*v.frNA;
-    var ocs = fBM*v.frNA/v.frI/1000;
-    var frameOC = frameHoop+ocs;
-    var frameIC = frameHoop;
+    // (member stresses computed below, after the in-plane-shear axial block)
 
     // --- Case I: fuselage body-shear redistribution (Niu §6.5 Fig 6.5.3/6.5.4 & 6.5.6–6.5.8) ---
     // Band shear flows: qa upper-aux, qb upper-main, qc lower-main, qd lower-aux.
@@ -563,36 +553,30 @@
     var tauJunc = qJunc/v.tPanel/1000;
     var msShear = v.FsAllow/tauMax - 1;
 
-    // --- Case I frame/sill loads (Niu §6.5 Fig 6.5.9) ---
-    // Frame segment shear flows: 3:1 distribution (upper/lower bays), 3:1:1:3 (mid bay).
-    // Peak frame shear flow is EXACT (reproduces Niu 2045 lbf/in in the uniform example).
-    var qEFu = 0.5*(q1b+q3b), qEFl = 0.5*(q1c+q3c);  // upper/lower-bay outer frame seg = ½(q1+q3)
-    var qFGu = 0.5*q2b, qFGl = 0.5*q2c;              // mid-bay frame seg = ½q2 (upper/lower)
-    var qEF = Math.max(qEFu,qEFl), qFG = Math.max(qFGu,qFGl);
-    var qFrPk = Math.max(3*Math.abs(qEFu),3*Math.abs(qEFl),3*Math.abs(qFGu),3*Math.abs(qFGl));
-    // Curved-frame radial-resultant sill reactions (cut-out centred on NA, radius R).
-    // PRELIMINARY: ill-conditioned (large cancelling terms) & sensitive to cut-out
-    // position; reproduces Niu's example within ~5–8%. Use for sizing guidance only.
-    var R_EF=NaN, R_GH=NaN;
-    (function(){
-      var rr=v.R, hh=v.h, aa=v.a, bb=v.b;
-      if(!(rr>0&&hh>0&&aa>0&&bb>0)) return;
-      var sxy=function(sl,sh){ var tl=sl/rr,th=sh/rr;
-        return [Math.abs(rr*(Math.cos(th)-Math.cos(tl))), Math.abs(rr*(Math.sin(th)-Math.sin(tl)))]; };
-      var S=[ sxy(hh/2+0.5*aa,hh/2+aa), sxy(hh/2,hh/2+0.5*aa), sxy(hh/4,hh/2), sxy(0,hh/4),
-              sxy(-hh/4,0), sxy(-hh/2,-hh/4), sxy(-(hh/2+0.5*bb),-hh/2), sxy(-(hh/2+bb),-(hh/2+0.5*bb)) ];
-      var Q=[qEFu,3*qEFu,3*qFGu,qFGu,qFGl,3*qFGl,3*qEFl,qEFl];
-      var sy=[1,1,-1,-1,-1,-1,1,1], sx=[1,1,1,-1,-1,-1,-1,-1];
-      var rA=0,rB=0,i; for(i=0;i<8;i++){ rA-=sy[i]*Q[i]*S[i][1]; rB-=sx[i]*Q[i]*S[i][0]; }
-      var al=(hh/2+aa/3)/rr, be=(hh/2+bb/3)/rr;
-      var det=Math.sin(al+be);
-      R_EF=(rA*Math.cos(be)-Math.sin(be)*rB)/det;
-      R_GH=(Math.sin(al)*rB+rA*Math.cos(al))/det;
-    })();
+    // --- In-plane shear member axial (Niu §6.4 flat-plate / large R; bay-independent) ---
+    // Shear redistributing around the cut-out develops cap (liquidating) axial in the
+    // bounding members: ΔP = q · ½(cut-out dimension), peak at corners. Take tension for DTA.
+    var q_fr = 0.5*(v.qb + v.qc);               // frame driving shear = ½(q_b+q_c)
+    var dPframe = Math.abs(q_fr*v.h/2);         // frame cap axial from shear
+    var dPsillU = Math.abs(v.qb*v.L/2);         // upper sill axial
+    var dPsillL = Math.abs(v.qc*v.L/2);         // lower sill axial
+    var dPsill  = Math.max(dPsillU, dPsillL);   // governing sill axial
+    var dSigFrame = dPframe/frTotA/1000;        // ksi (shear contribution)
+    var dSigSill  = dPsill /siTotA/1000;
+
+    // --- Member stresses (ksi): pressure (Case III) + in-plane shear (§6.4), combined ---
+    var Nfr = PcoFtot + dPframe;                // combined frame axial (tension + tension)
+    var Nsi = PcoStot + dPsill;                 // combined sill axial
+    var frameHoop = Nfr/frTotA/1000;
+    var sillLong  = Nsi/siTotA/1000;
+    var fBM = PcoFcut*v.frNA;                   // bending from pressure cut-out only
+    var ocs = fBM*v.frNA/v.frI/1000;
+    var frameOC = frameHoop+ocs;                // shear axial is pure cap tension (no added bending)
+    var frameIC = frameHoop;
 
     return {Hoop:Hoop,Long:Long,K1:K1,K2:K2,Mvb:Mvb,Mhb:Mhb,MvC:MvC,MhC:MhC,MvA:MvA,MhA:MhA,Madj:Madj,
       hb:hb,hc:hc,q1b:q1b,q1c:q1c,q2b:q2b,q2c:q2c,q3b:q3b,q3c:q3c,
-      qEF:qEF,qFG:qFG,qFrPk:qFrPk,R_EF:R_EF,R_GH:R_GH,
+      q_fr:q_fr,dPframe:dPframe,dPsill:dPsill,dSigFrame:dSigFrame,dSigSill:dSigSill,
       qcUF:qcUF,qcUA:qcUA,qcLF:qcLF,qcLA:qcLA,qCorner:qCorner,
       qHup:qHup,qHlo:qHlo,qLfwd:qLfwd,qLaft:qLaft,qSill:qSill,qEdge:qEdge,
       P_HT:P_HT,P_LT:P_LT,PcoF_fwd:PcoF_fwd,PcoF_aft:PcoF_aft,PcoS_up:PcoS_up,PcoS_lo:PcoS_lo,
@@ -917,12 +901,11 @@
     setText("r_q3b", fmt(r.q3b,1,true));
     setText("r_q3c", fmt(r.q3c,1,true));
     setText("r_qJunc", fmt(r.qJunc,1,true));
-    setText("k_qFrPk", fmt(r.qFrPk,0,true));
-    setText("r_qEF", fmt(r.qEF,1,true));
-    setText("r_qFG", fmt(r.qFG,1,true));
-    setText("r_qFrPk", fmt(r.qFrPk,1,true));
-    setText("r_REF", fmt(r.R_EF,0,true));
-    setText("r_RGH", fmt(r.R_GH,0,true));
+    setText("r_qfr", fmt(r.q_fr,1,true));
+    setText("r_dPframe", fmt(r.dPframe,0,true));
+    setText("r_dSigFrame", fmt(r.dSigFrame,2));
+    setText("r_dPsill", fmt(r.dPsill,0,true));
+    setText("r_dSigSill", fmt(r.dSigSill,2));
   }
 
   // ---- Wire up ----
