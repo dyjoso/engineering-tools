@@ -181,16 +181,6 @@
   .twohdr{ display:grid; grid-template-columns: 1fr auto auto; gap:10px; font-family:var(--mono); font-size:9px; letter-spacing:.08em; text-transform:uppercase; color:var(--blue); padding-bottom:3px; }
   .twohdr span:nth-child(2),.twohdr span:nth-child(3){ text-align:right; width:74px; }
 
-  /* ---------- Design-conditions table ---------- */
-  .dctable{ width:100%; border-collapse:collapse; font-size:12px; }
-  .dctable th{ font-family:var(--mono); font-size:9px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--blue); text-align:right; padding:6px 10px; border-bottom:1px solid var(--rule-strong); background:var(--blue-wash); }
-  .dctable th:first-child,.dctable th:nth-child(2){ text-align:left; }
-  .dctable td{ font-family:var(--mono); font-size:12px; text-align:right; padding:6px 10px; border-bottom:1px dotted var(--rule); color:var(--ink); white-space:nowrap; }
-  .dctable td:first-child{ text-align:left; font-weight:600; }
-  .dctable td.u{ text-align:left; font-family:var(--body); font-size:11px; color:var(--ink-soft); }
-  .dctable td.govcell{ color:var(--load); font-weight:600; background:var(--load-wash); }
-  .dctable tr:last-child td{ border-bottom:none; }
-
   /* ---------- Notes ---------- */
   .notes{ border:1px solid var(--rule); background:#FBFBF8; padding:13px 16px; }
   .notes h4{ margin:0 0 7px; font-family:var(--mono); font-size:10px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--blue); }
@@ -401,35 +391,10 @@
       </div>
     </div>
 
-    <!-- DESIGN CONDITIONS -->
-    <div class="sec">
-      <div class="sec-head">
-        <span class="sec-idx">06</span>
-        <span class="sec-title">Design Conditions &mdash; Load Envelope</span>
-        <span class="sec-rule"></span>
-        <span class="sec-note">Niu §6.5(7) &middot; ultimate</span>
-      </div>
-      <table class="dctable">
-        <thead><tr>
-          <th>Condition</th><th>Use</th><th>p&#8332; (psi)</th>
-          <th>Frame OC &sigma;</th><th>Sill &sigma;</th><th>Panel &tau;</th>
-        </tr></thead>
-        <tbody id="dcBody"></tbody>
-      </table>
-      <div class="notes" style="margin-top:11px">
-        <h4>Combination basis</h4>
-        <ol>
-          <li>Conditions per Niu §6.5(7): <b>(a) 3.0p</b> alone (tension/bending), <b>(b) 2.5p</b> alone (compression/shear), <b>(c) flight + 2.0p</b>, <b>(d) flight</b> alone &mdash; where <span class="cellref">p</span> is the limit cabin-pressure differential and flight = the entered body-shear bands (taken as ultimate).</li>
-          <li><b>Frame OC &amp; sill stresses</b> scale linearly with pressure (Case III) and are shown at the factored pressure of each condition. <b>Panel &tau;</b> superposes the pressure redistribution shear (Case III, &times; pressure factor) and the flight body-shear (Case I, &times; flight factor) on the governing skin panel. Governing cell in each column is flagged.</li>
-          <li>Pressure effects are scaled from the detailed breakdown above (computed at design <span class="cellref">P</span>); set <span class="cellref">P</span> = the condition you want resolved in full (e.g. 2.0p = 17.2 reproduces Niu).</li>
-        </ol>
-      </div>
-    </div>
-
     <!-- NOTES -->
     <div class="sec">
       <div class="sec-head">
-        <span class="sec-idx">07</span>
+        <span class="sec-idx">06</span>
         <span class="sec-title">Assumptions &amp; Notes</span>
         <span class="sec-rule"></span>
       </div>
@@ -438,14 +403,14 @@
         <ol>
           <li>Method follows <b>Niu, <i>Airframe Stress Analysis &amp; Sizing</i>, Section 6.5</b> &mdash; load redistribution around a skin cut-out using fixed-end-moment frame idealisation. <span class="ref">[SCT-025]</span></li>
           <li><b>Door capability factors</b> &eta;<sub>h</sub> / &eta;<sub>l</sub> default to <b>0 = full Niu redistribution</b> (the plug door transfers all hoop / longitudinal load to the surrounding frames &amp; sills). Set a non-zero value <i>only</i> with a substantiated door load path &mdash; &eta;<sub>h</sub> &gt; 0 reduces the redistributed frame load and is unconservative without justification. <span class="ref">[deviates from Niu §6.5]</span></li>
-          <li><b>General bays (Niu §6.5):</b> upper <span class="cellref">a</span>, lower <span class="cellref">b</span>, forward <span class="cellref">c</span>, aft <span class="cellref">d</span> are independent. Corner shears, edge redistribution and member loads are evaluated per location and the <b>governing</b> value is reported. Default geometry reproduces Niu's worked example (adjusted corner moment 169,198 in&middot;lb; upper-fwd corner 210.2 lbf/in; q&#8320;=450 &rarr; q&#8321;/q&#8322;/q&#8323; = 1108/932/255). Headline values are the governing (worst) location.</li>
+          <li><b>General bays (Niu §6.5):</b> upper <span class="cellref">a</span>, lower <span class="cellref">b</span>, forward <span class="cellref">c</span>, aft <span class="cellref">d</span> are independent. Corner shears, edge redistribution and member loads are evaluated per location and the <b>governing</b> value is reported. The default geometry reproduces Niu's worked example: the Case I body-shear chain gives q&#8321;/q&#8322;/q&#8323; = 1108/932/255 lbf/in (bands = 450, independent of P); the Case III pressure chain reproduces Niu at P = 17.2 psi (corner moment 169,198 in&middot;lb, upper-fwd corner 210.2 lbf/in). Headline values are the governing (worst) location.</li>
           <li><b>Section properties</b> &mdash; neutral-axis offset <span class="cellref">ȳ</span> and second moment of area <span class="cellref">I</span> must be derived separately from the built-up frame + bear-strap + skin section. Enter the computed values.</li>
           <li><b>Worst-case frame hoop load</b> takes the greater of the stop-fitting load and the cut-out redistribution load. If the stop-fitting load is the lesser, stop loads are insufficient to react frame tension and the frame pulls inward against the door until stop-fitting loads rise to match frame tension (free-edge equilibrium).</li>
           <li><b>Inner-chord stress</b> is lower than nominal hoop due to bending compression, but this is localised at the frame ends; the nominal hoop stress is retained as the conservative peak value.</li>
           <li><b>Body shear (Case I)</b> &mdash; the fuselage skin shear flow is diverted around the cut-out per Niu §6.5. Enter four band shear flows: <span class="cellref">q<sub>a</sub></span> (upper aux), <span class="cellref">q<sub>b</sub></span> (upper main), <span class="cellref">q<sub>c</sub></span> (lower main), <span class="cellref">q<sub>d</sub></span> (lower aux). <b>Equal bands &rarr; uniform shear</b> (cut-out on the neutral axis, Fig 6.5.3/6.5.4) &mdash; validated against Niu's worked example (450 &rarr; q&#8321;/q&#8322;/q&#8323; = 1108/932/255 lbf/in). <b>Unequal bands &rarr; variable shear</b> for off-NA cut-outs (floor / cargo, Fig 6.5.6&ndash;6.5.8): the cut-out height splits <span class="cellref">h<sub>b</sub>=a&middot;h/(a+b)</span>, <span class="cellref">h<sub>c</sub>=b&middot;h/(a+b)</span> and the upper/lower panels redistribute their own band shear. Headline checks use the governing (worst) panel. <span class="ref">[Niu §6.5 Case I]</span></li>
           <li><b>Junction shear</b> &mdash; per Niu, strap/skin/doubler areas at the main-sill/edge-frame junctions are checked at <span class="cellref">5/3 &middot; q<sub>av</sub></span> for local load concentration / fatigue life, and the panel gross-area shear stress is kept &le; ~25 ksi (Al).</li>
           <li><b>Case I frame loads (Fig 6.5.9)</b> &mdash; the edge-frame web shear is distributed 3:1 across the upper/lower bays (3:1:1:3 across the mid bay); the <b>peak frame shear flow</b> at the main-sill junctions (3&middot;&frac12;(q&#8321;+q&#8323;)) is <b>exact</b> and reproduces Niu's 2045 lbf/in. The <b>sill reactions R<sub>EF</sub>/R<sub>GH</sub></b> from the curved-frame radial-resultant equilibrium are <b>preliminary</b>: the solve is ill-conditioned (large cancelling terms) and sensitive to the cut-out's position on the arc (assumed centred on the neutral axis), reproducing Niu within ~5&ndash;8%. Detailed frame <b>bending</b> should be taken to conventional shear/BM diagrams or FEM once these reactions are set, per Niu.</li>
-          <li><b>Not yet included:</b> the variable-shear option for off-neutral-axis cut-outs (Fig 6.5.6&ndash;6.5.8) and combination of shear with pressure per Niu's design conditions (3.0p; 2.5p; flight+2.0p; flight).</li>
+          <li><b>Damage-tolerance use:</b> enter <span class="cellref">P</span> as the operating cabin-pressure differential and the body-shear bands at the typical (1g) flight level &mdash; results are operating stresses for crack-growth / residual-strength work, not ultimate design loads.</li>
         </ol>
       </div>
     </div>
@@ -473,9 +438,8 @@
       { key:"d", label:"Aft bay",         sym:"d", unit:"in", val:19,   step:0.5, meta:"aft edge → aft adj frame" },
     ]},
     { title:"Pressure Loading", items:[
-      { key:"P",       label:"Cabin pressure (design)", sym:"P", unit:"psi", val:17.2, step:0.1, meta:"detailed breakdown above" },
-      { key:"pLim",    label:"Limit pressure differ.",  sym:"p", unit:"psi", val:8.6,  step:0.1, meta:"for design-conditions envelope" },
-      { key:"R",       label:"Fuselage radius",         sym:"R", unit:"in",  val:74,   step:1,    meta:"" },
+      { key:"P",       label:"Cabin pressure differ.", sym:"P", unit:"psi", val:8.6, step:0.1, meta:"operating differential (DTA)" },
+      { key:"R",       label:"Fuselage radius",        sym:"R", unit:"in",  val:74,  step:1,    meta:"" },
       { key:"hoopCap", label:"Door hoop capability",  sym:"\u03B7\u2095", unit:"\u2014", val:0, step:0.05, meta:"B16 · not active at default \u00b7 see note 2" },
       { key:"longCap", label:"Door long. capability", sym:"\u03B7\u2097", unit:"\u2014", val:0,       step:0.01, meta:"B17 · fraction of long. via door" },
     ]},
@@ -959,38 +923,6 @@
     setText("r_qFrPk", fmt(r.qFrPk,1,true));
     setText("r_REF", fmt(r.R_EF,0,true));
     setText("r_RGH", fmt(r.R_GH,0,true));
-
-    // ---- Design-conditions envelope (Niu §6.5(7)) ----
-    var Pd = v.P, pLim = v.pLim;
-    var focPer  = (Pd>0)? r.frameOC/Pd  : 0;   // frame OC stress per psi (Case III scales linearly)
-    var sillPer = (Pd>0)? r.sillLong/Pd : 0;
-    var qPressPk = Math.max(r.qSill, r.qEdge, r.qCorner);   // peak pressure redistribution shear flow
-    var qPrPer  = (Pd>0)? qPressPk/Pd   : 0;
-    var conds = [
-      {n:"(a) 3.0 p",         u:"tension / bending",   pf:3.0, ff:0},
-      {n:"(b) 2.5 p",         u:"compression / shear", pf:2.5, ff:0},
-      {n:"(c) flight + 2.0 p", u:"combined",            pf:2.0, ff:1.0},
-      {n:"(d) flight",        u:"flight alone",        pf:0,   ff:1.0}
-    ];
-    var dcRows = conds.map(function(c){
-      var pp = c.pf*pLim;
-      var qcomb = c.pf*pLim*qPrPer + c.ff*r.qPanelMax;
-      return { c:c, pp:pp, foc:focPer*pp, sill:sillPer*pp, tau:qcomb/v.tPanel/1000 };
-    });
-    var focMaxC = -Infinity, tauMaxC = -Infinity;
-    dcRows.forEach(function(x){ if(x.foc>focMaxC) focMaxC=x.foc; if(x.tau>tauMaxC) tauMaxC=x.tau; });
-    var tb = document.getElementById("dcBody");
-    if(tb){
-      tb.innerHTML = "";
-      dcRows.forEach(function(x){
-        var gF = isFinite(x.foc)&&Math.abs(x.foc-focMaxC)<1e-9 ? ' class="govcell"' : '';
-        var gT = isFinite(x.tau)&&Math.abs(x.tau-tauMaxC)<1e-9 ? ' class="govcell"' : '';
-        var tr = document.createElement("tr");
-        tr.innerHTML = '<td>'+x.c.n+'</td><td class="u">'+x.c.u+'</td><td>'+fmt(x.pp,1)+
-          '</td><td'+gF+'>'+fmt(x.foc,2)+'</td><td>'+fmt(x.sill,2)+'</td><td'+gT+'>'+fmt(x.tau,2)+'</td>';
-        tb.appendChild(tr);
-      });
-    }
   }
 
   // ---- Wire up ----
