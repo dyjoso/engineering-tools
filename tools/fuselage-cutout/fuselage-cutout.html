@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SCT-025 — Fuselage Door Cut-out Load Analysis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#EDEFEA;
+    --sheet:#FCFCFA;
+    --ink:#15191A;
+    --ink-soft:#586066;
+    --ink-faint:#8A928F;
+    --rule:#D5DAD4;
+    --rule-strong:#AAB1AA;
+    --grid:#E6E9E4;
+    --blue:#1F5673;
+    --blue-soft:#5E89A4;
+    --blue-wash:#E9F0F4;
+    --load:#C2410C;
+    --load-soft:#E3A079;
+    --load-wash:#FBEEE6;
+    --input-tint:#EEF4F7;
+    --input-border:#BFD4DF;
+    --good:#2F6B4F;
+    --disp: "Saira Condensed", "Arial Narrow", system-ui, sans-serif;
+    --body: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--body);
+    font-size:14px;
+    line-height:1.45;
+    -webkit-font-smoothing:antialiased;
+    padding:26px 18px 60px;
+    display:flex;
+    justify-content:center;
+  }
+
+  /* ---------- Toolbar ---------- */
+  .toolbar{
+    position:fixed; top:14px; right:16px; z-index:50;
+    display:flex; gap:8px;
+  }
+  .toolbar button{
+    font-family:var(--mono); font-size:11px; letter-spacing:.04em;
+    text-transform:uppercase; color:var(--ink);
+    background:var(--sheet); border:1px solid var(--rule-strong);
+    padding:7px 11px; border-radius:2px; cursor:pointer;
+    transition:background .12s, border-color .12s;
+  }
+  .toolbar button:hover{ background:var(--blue-wash); border-color:var(--blue-soft); }
+  .toolbar button:focus-visible{ outline:2px solid var(--blue); outline-offset:2px; }
+
+  /* ---------- Sheet ---------- */
+  .sheet{
+    position:relative;
+    width:100%; max-width:1080px;
+    background:var(--sheet);
+    border:1px solid var(--rule-strong);
+    box-shadow:0 1px 0 rgba(0,0,0,.04), 0 16px 40px -28px rgba(20,30,30,.5);
+    padding:0;
+  }
+  /* drafting accent bar */
+  .accent{ display:flex; height:6px; }
+  .accent i{ display:block; height:100%; }
+  .accent .a1{ flex:1; background:var(--blue); }
+  .accent .a2{ width:120px; background:var(--load); }
+  .accent .a3{ width:34px; background:var(--ink); }
+
+  /* corner registration ticks */
+  .tick{ position:absolute; width:13px; height:13px; pointer-events:none; }
+  .tick.tl{ top:12px; left:-1px; border-top:2px solid var(--rule-strong); border-left:2px solid var(--rule-strong); }
+  .tick.tr{ top:12px; right:-1px; border-top:2px solid var(--rule-strong); border-right:2px solid var(--rule-strong); }
+  .tick.bl{ bottom:-1px; left:-1px; border-bottom:2px solid var(--rule-strong); border-left:2px solid var(--rule-strong); }
+  .tick.br{ bottom:-1px; right:-1px; border-bottom:2px solid var(--rule-strong); border-right:2px solid var(--rule-strong); }
+
+  .inner{ padding:22px 26px 28px; }
+
+  /* ---------- Title block ---------- */
+  .titleblock{
+    display:grid;
+    grid-template-columns: 1fr 150px 150px;
+    border:1px solid var(--rule-strong);
+    margin-bottom:20px;
+  }
+  .tb-cell{ padding:10px 12px; border-left:1px solid var(--rule); }
+  .tb-cell:first-child{ border-left:none; }
+  .tb-key{ font-family:var(--mono); font-size:9.5px; letter-spacing:.13em; text-transform:uppercase; color:var(--ink-faint); display:block; margin-bottom:3px; }
+  .tb-main{ display:flex; flex-direction:column; justify-content:center; }
+  .tb-eyebrow{ font-family:var(--mono); font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--blue); margin-bottom:5px; }
+  .tb-title{ font-family:var(--disp); font-weight:700; font-size:25px; line-height:1.02; letter-spacing:.01em; text-transform:uppercase; color:var(--ink); }
+  .tb-sub{ font-family:var(--body); font-size:12px; color:var(--ink-soft); margin-top:4px; }
+  .tb-val{ font-family:var(--mono); font-size:15px; font-weight:600; color:var(--ink); }
+  .tb-val.sm{ font-size:12.5px; font-weight:500; }
+  .tb-row2{ border-top:1px solid var(--rule); }
+
+  /* ---------- Section eyebrow ---------- */
+  .sec{ margin-top:26px; }
+  .sec:first-of-type{ margin-top:0; }
+  .sec-head{ display:flex; align-items:baseline; gap:12px; margin-bottom:13px; }
+  .sec-idx{ font-family:var(--mono); font-size:11px; font-weight:600; color:var(--load); letter-spacing:.05em; }
+  .sec-title{ font-family:var(--disp); font-weight:600; font-size:16.5px; letter-spacing:.07em; text-transform:uppercase; color:var(--ink); white-space:nowrap; }
+  .sec-rule{ flex:1; height:1px; background:var(--rule); align-self:center; }
+  .sec-note{ font-family:var(--mono); font-size:10px; color:var(--ink-faint); letter-spacing:.02em; }
+
+  /* ---------- Figure ---------- */
+  .figure{
+    border:1px solid var(--rule);
+    background:
+      linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 22px 22px,
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 22px 22px,
+      #FDFDFB;
+    padding:6px 6px 0;
+  }
+  .figure svg{ display:block; width:100%; height:auto; }
+  .fig-cap{
+    font-family:var(--mono); font-size:10.5px; color:var(--ink-soft);
+    letter-spacing:.02em; padding:9px 8px; border-top:1px solid var(--rule);
+    background:#FDFDFB;
+  }
+  .fig-cap b{ color:var(--ink); font-weight:600; }
+
+  /* ---------- Input groups ---------- */
+  .groups{ display:grid; grid-template-columns:repeat(auto-fit, minmax(248px, 1fr)); gap:14px; align-items:start; }
+  .group{ border:1px solid var(--rule); }
+  .group > h3{
+    margin:0; font-family:var(--mono); font-size:10px; font-weight:600;
+    letter-spacing:.12em; text-transform:uppercase; color:var(--blue);
+    background:var(--blue-wash); padding:7px 11px; border-bottom:1px solid var(--rule);
+  }
+  .group .gbody{ padding:4px 11px 8px; }
+  .irow{ display:grid; grid-template-columns: 1fr auto; align-items:center; gap:8px; padding:5px 0; border-bottom:1px dotted var(--rule); }
+  .irow:last-child{ border-bottom:none; }
+  .ilabel{ display:flex; flex-direction:column; min-width:0; }
+  .ilabel .lt{ font-size:12.5px; color:var(--ink); line-height:1.2; }
+  .ilabel .lt .sym{ font-family:var(--mono); font-style:italic; color:var(--blue); font-size:11.5px; margin-left:4px; }
+  .ilabel .meta{ font-family:var(--mono); font-size:9px; color:var(--ink-faint); letter-spacing:.04em; margin-top:1px; }
+  .ictrl{ display:flex; align-items:center; gap:6px; }
+  .ictrl input{
+    font-family:var(--mono); font-size:13px; font-weight:500; text-align:right;
+    width:74px; padding:5px 7px; color:var(--ink);
+    background:var(--input-tint); border:1px solid var(--input-border); border-radius:2px;
+  }
+  .ictrl input:focus{ outline:2px solid var(--blue); outline-offset:0; background:#fff; }
+  .ictrl .unit{ font-family:var(--mono); font-size:10.5px; color:var(--ink-soft); width:30px; }
+
+  /* ---------- Key results ---------- */
+  .keygrid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(212px,1fr)); gap:13px; }
+  .kcard{ position:relative; border:1px solid var(--rule-strong); padding:13px 15px 14px; background:#FDFDFB; }
+  .kcard.gov{ border-color:var(--load); box-shadow:inset 3px 0 0 var(--load); }
+  .kcard .klabel{ font-size:11px; color:var(--ink-soft); line-height:1.25; min-height:28px; }
+  .kcard .ksym{ font-family:var(--mono); font-size:9.5px; color:var(--ink-faint); letter-spacing:.05em; margin-top:2px; }
+  .kcard .kval{ font-family:var(--mono); font-weight:600; font-size:30px; color:var(--ink); margin-top:7px; line-height:1; letter-spacing:-.01em; }
+  .kcard .kunit{ font-family:var(--mono); font-size:13px; color:var(--ink-soft); font-weight:500; margin-left:4px; }
+  .kcard .ktag{ position:absolute; top:11px; right:12px; font-family:var(--mono); font-size:8.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--load); border:1px solid var(--load-soft); padding:2px 5px; border-radius:2px; background:var(--load-wash); }
+
+  /* ---------- Supporting results ---------- */
+  .res-cols{ display:grid; grid-template-columns:repeat(auto-fit, minmax(296px,1fr)); gap:14px 22px; align-items:start; }
+  .rblock h4{
+    margin:0 0 6px; font-family:var(--mono); font-size:10px; font-weight:600;
+    letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft);
+    padding-bottom:5px; border-bottom:1px solid var(--rule-strong);
+  }
+  .rrow{ display:grid; grid-template-columns: 1fr auto auto; align-items:baseline; gap:10px; padding:3.5px 0; border-bottom:1px dotted var(--rule); }
+  .rrow:last-child{ border-bottom:none; }
+  .rrow .rl{ font-size:12px; color:var(--ink); }
+  .rrow .rl .sub{ color:var(--ink-faint); font-family:var(--mono); font-size:9.5px; letter-spacing:.03em; }
+  .rrow .rv{ font-family:var(--mono); font-size:12.5px; font-weight:500; color:var(--ink); text-align:right; white-space:nowrap; }
+  .rrow .ru{ font-family:var(--mono); font-size:10px; color:var(--ink-faint); width:46px; text-align:left; }
+  .cellref{ font-family:var(--mono); font-size:8.5px; color:var(--ink-faint); }
+  .pillrow{ display:flex; align-items:center; gap:7px; }
+  .twohdr{ display:grid; grid-template-columns: 1fr auto auto; gap:10px; font-family:var(--mono); font-size:9px; letter-spacing:.08em; text-transform:uppercase; color:var(--blue); padding-bottom:3px; }
+  .twohdr span:nth-child(2),.twohdr span:nth-child(3){ text-align:right; width:74px; }
+
+  /* ---------- Design-conditions table ---------- */
+  .dctable{ width:100%; border-collapse:collapse; font-size:12px; }
+  .dctable th{ font-family:var(--mono); font-size:9px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--blue); text-align:right; padding:6px 10px; border-bottom:1px solid var(--rule-strong); background:var(--blue-wash); }
+  .dctable th:first-child,.dctable th:nth-child(2){ text-align:left; }
+  .dctable td{ font-family:var(--mono); font-size:12px; text-align:right; padding:6px 10px; border-bottom:1px dotted var(--rule); color:var(--ink); white-space:nowrap; }
+  .dctable td:first-child{ text-align:left; font-weight:600; }
+  .dctable td.u{ text-align:left; font-family:var(--body); font-size:11px; color:var(--ink-soft); }
+  .dctable td.govcell{ color:var(--load); font-weight:600; background:var(--load-wash); }
+  .dctable tr:last-child td{ border-bottom:none; }
+
+  /* ---------- Notes ---------- */
+  .notes{ border:1px solid var(--rule); background:#FBFBF8; padding:13px 16px; }
+  .notes h4{ margin:0 0 7px; font-family:var(--mono); font-size:10px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--blue); }
+  .notes ol{ margin:0; padding-left:18px; }
+  .notes li{ font-size:11.5px; color:var(--ink-soft); line-height:1.5; margin-bottom:5px; }
+  .notes li b{ color:var(--ink); font-weight:600; }
+  .notes .ref{ font-family:var(--mono); font-size:10px; color:var(--ink-faint); }
+
+  .footer{ margin-top:18px; display:flex; justify-content:space-between; align-items:baseline; border-top:1px solid var(--rule); padding-top:9px; gap:12px; flex-wrap:wrap; }
+  .footer span{ font-family:var(--mono); font-size:9.5px; color:var(--ink-faint); letter-spacing:.03em; }
+
+  @media (max-width:560px){
+    .titleblock{ grid-template-columns:1fr 1fr; }
+    .titleblock .tb-main{ grid-column:1 / -1; border-left:none; }
+    .tb-title{ font-size:21px; }
+  }
+
+  /* ---------- Print ---------- */
+  @media print{
+    body{ background:#fff; padding:0; }
+    .toolbar{ display:none; }
+    .sheet{ box-shadow:none; border:none; max-width:none; }
+    .accent{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .group > h3,.kcard.gov,.kcard .ktag,.sec-idx,.sec-title,.figure,.tb-eyebrow{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .sec, .group, .kcard, .rblock, .figure, .notes{ break-inside:avoid; }
+  }
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <button id="btnPrint" type="button">Print / Save PDF</button>
+  <button id="btnReset" type="button">Reset inputs</button>
+</div>
+
+<div class="sheet">
+  <div class="accent"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div>
+  <span class="tick tl"></span><span class="tick tr"></span><span class="tick bl"></span><span class="tick br"></span>
+
+  <div class="inner">
+
+    <!-- TITLE BLOCK -->
+    <div class="titleblock">
+      <div class="tb-cell tb-main">
+        <div class="tb-eyebrow">Structural Analysis · Fuselage Pressurised Shell</div>
+        <div class="tb-title">Door Cut-out Load Redistribution</div>
+        <div class="tb-sub">Frame hoop, sill longitudinal &amp; body-shear redistribution around a skin cut-out</div>
+      </div>
+      <div class="tb-cell"><span class="tb-key">Document</span><span class="tb-val">SCT-025</span></div>
+      <div class="tb-cell"><span class="tb-key">Method</span><span class="tb-val sm">Niu §6.5</span></div>
+      <div class="tb-cell tb-row2"><span class="tb-key">Analysis</span><span class="tb-val sm">Pressure (Case III/IV) + body shear (Case I)</span></div>
+      <div class="tb-cell tb-row2"><span class="tb-key">Units</span><span class="tb-val sm">in · lbf · psi · ksi</span></div>
+      <div class="tb-cell tb-row2"><span class="tb-key">Status</span><span class="tb-val sm">Live — editable</span></div>
+    </div>
+
+    <!-- FIGURE -->
+    <div class="sec">
+      <div class="sec-head">
+        <span class="sec-idx">01</span>
+        <span class="sec-title">Structural Idealisation</span>
+        <span class="sec-rule"></span>
+        <span class="sec-note">drawn to scale from inputs</span>
+      </div>
+      <div class="figure">
+        <div id="figure"></div>
+        <div class="fig-cap"><b>Figure 1.</b> Effective frame/sill grid around the door cut-out. Central panel <span style="font-family:var(--mono)">F&ndash;G&ndash;K&ndash;J</span> is the opening. Vertical members (door sides) act as <b>frames</b> reacting the diverted hoop load; horizontal members (door head/sill) act as <b>sills</b> reacting the diverted longitudinal load. Node labels match the moment / shear-flow references.</div>
+      </div>
+    </div>
+
+    <!-- INPUTS -->
+    <div class="sec">
+      <div class="sec-head">
+        <span class="sec-idx">02</span>
+        <span class="sec-title">Input Parameters</span>
+        <span class="sec-rule"></span>
+        <span class="sec-note">edit any value &middot; results update live</span>
+      </div>
+      <div class="groups" id="groups"></div>
+    </div>
+
+    <!-- KEY RESULTS -->
+    <div class="sec">
+      <div class="sec-head">
+        <span class="sec-idx">03</span>
+        <span class="sec-title">Key Results &mdash; Member Stresses</span>
+        <span class="sec-rule"></span>
+        <span class="sec-note">governing values flagged</span>
+      </div>
+      <div class="keygrid">
+        <div class="kcard" id="card-frameOC">
+          <div class="klabel">Frame outer-chord stress<div class="ksym">&sigma; = hoop + bending &middot; cell B83</div></div>
+          <div><span class="kval" id="k_frameOC">&mdash;</span><span class="kunit">ksi</span></div>
+        </div>
+        <div class="kcard" id="card-frameHoop">
+          <div class="klabel">Frame hoop (nominal) stress<div class="ksym">&sigma; = P / A &middot; cell B77</div></div>
+          <div><span class="kval" id="k_frameHoop">&mdash;</span><span class="kunit">ksi</span></div>
+        </div>
+        <div class="kcard" id="card-frameIC">
+          <div class="klabel">Frame inner-chord stress<div class="ksym">&sigma; &asymp; nominal hoop &middot; cell B84</div></div>
+          <div><span class="kval" id="k_frameIC">&mdash;</span><span class="kunit">ksi</span></div>
+        </div>
+        <div class="kcard" id="card-sillLong">
+          <div class="klabel">Sill longitudinal stress<div class="ksym">&sigma; = P / A &middot; cell O77</div></div>
+          <div><span class="kval" id="k_sillLong">&mdash;</span><span class="kunit">ksi</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CASE I — BODY SHEAR -->
+    <div class="sec">
+      <div class="sec-head">
+        <span class="sec-idx">04</span>
+        <span class="sec-title">Key Results &mdash; Body Shear (Case I)</span>
+        <span class="sec-rule"></span>
+        <span class="sec-note">flight skin-shear redistribution</span>
+      </div>
+      <div class="keygrid">
+        <div class="kcard" id="card-tauMax">
+          <div class="klabel">Governing panel gross shear stress<div class="ksym">&tau; = q/t &middot; max(q&#8321;,q&#8322;,q&#8323;)</div></div>
+          <div><span class="kval" id="k_tauMax">&mdash;</span><span class="kunit">ksi</span></div>
+        </div>
+        <div class="kcard" id="card-tauJunc">
+          <div class="klabel">Sill/frame junction shear stress<div class="ksym">&tau; at 5/3&middot;q_av &middot; fatigue</div></div>
+          <div><span class="kval" id="k_tauJunc">&mdash;</span><span class="kunit">ksi</span></div>
+        </div>
+        <div class="kcard" id="card-msShear">
+          <div class="klabel">Margin of safety &mdash; panel shear<div class="ksym">F&#8347;/&tau;<sub>max</sub> &minus; 1</div></div>
+          <div><span class="kval" id="k_msShear">&mdash;</span><span class="kunit"></span></div>
+        </div>
+        <div class="kcard" id="card-qFrPk">
+          <div class="klabel">Peak frame shear flow<div class="ksym">3&middot;&frac12;(q&#8321;+q&#8323;) at main sills</div></div>
+          <div><span class="kval" id="k_qFrPk">&mdash;</span><span class="kunit">lbf/in</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SUPPORTING RESULTS -->
+    <div class="sec">
+      <div class="sec-head">
+        <span class="sec-idx">05</span>
+        <span class="sec-title">Supporting Calculations</span>
+        <span class="sec-rule"></span>
+        <span class="sec-note">load redistribution chain</span>
+      </div>
+      <div class="res-cols">
+
+        <div class="rblock">
+          <h4>Applied running loads</h4>
+          <div class="rrow"><span class="rl">Hoop running load <span class="sub">P&middot;R&middot;(1&minus;&eta;<sub>h</sub>)</span></span><span class="rv" id="r_hoop">&mdash;</span><span class="ru">lbf/in <span class="cellref">B18</span></span></div>
+          <div class="rrow"><span class="rl">Long. running load <span class="sub">P&middot;R/2&middot;(1&minus;&eta;<sub>l</sub>)</span></span><span class="rv" id="r_long">&mdash;</span><span class="ru">lbf/in <span class="cellref">B19</span></span></div>
+          <h4 style="margin-top:11px">Moment distribution factors</h4>
+          <div class="rrow"><span class="rl">K1 <span class="sub">h/(h+&#8467;)</span></span><span class="rv" id="r_k1">&mdash;</span><span class="ru"></span></div>
+          <div class="rrow"><span class="rl">K2 <span class="sub">&#8467;/(h+&#8467;)</span></span><span class="rv" id="r_k2">&mdash;</span><span class="ru"></span></div>
+        </div>
+
+        <div class="rblock">
+          <h4>Fixed-end &amp; adjusted moments</h4>
+          <div class="rrow"><span class="rl">M<sub>vert</sub> beam <span class="sub">FB·GC·KO·JN</span></span><span class="rv" id="r_mvb">&mdash;</span><span class="ru">lbf·in <span class="cellref">B26</span></span></div>
+          <div class="rrow"><span class="rl">M<sub>horiz</sub> beam <span class="sub">GH·KL·EF·IJ</span></span><span class="rv" id="r_mhb">&mdash;</span><span class="ru">lbf·in <span class="cellref">B27</span></span></div>
+          <div class="rrow"><span class="rl">M<sub>vert</sub> correction</span><span class="rv" id="r_mvc">&mdash;</span><span class="ru">lbf·in <span class="cellref">B30</span></span></div>
+          <div class="rrow"><span class="rl">M<sub>horiz</sub> correction</span><span class="rv" id="r_mhc">&mdash;</span><span class="ru">lbf·in <span class="cellref">B31</span></span></div>
+          <div class="rrow"><span class="rl">M<sub>vert</sub> adjusted</span><span class="rv" id="r_mva">&mdash;</span><span class="ru">lbf·in <span class="cellref">B32</span></span></div>
+          <div class="rrow"><span class="rl">M<sub>horiz</sub> adjusted</span><span class="rv" id="r_mha">&mdash;</span><span class="ru">lbf·in <span class="cellref">B33</span></span></div>
+        </div>
+
+        <div class="rblock">
+          <h4>Pressure redistribution shear flows</h4>
+          <div class="rrow"><span class="rl">Governing corner shear <span class="sub">0.5&middot;M/area</span></span><span class="rv" id="r_qc">&mdash;</span><span class="ru">lbf/in</span></div>
+          <div class="rrow"><span class="rl">Hoop redist. (gov.) <span class="sub">max(w&#8467;/2a, w&#8467;/2b)</span></span><span class="rv" id="r_qs">&mdash;</span><span class="ru">lbf/in</span></div>
+          <div class="rrow"><span class="rl">Long. redist. (gov.) <span class="sub">max(w'h/2c, w'h/2d)</span></span><span class="rv" id="r_qe">&mdash;</span><span class="ru">lbf/in</span></div>
+          <h4 style="margin-top:11px">Door-stop fitting offset</h4>
+          <div class="rrow"><span class="rl">Door edge radial load</span><span class="rv" id="r_drad">&mdash;</span><span class="ru">lbf/in <span class="cellref">B52</span></span></div>
+          <div class="rrow"><span class="rl">Frame radial load <span class="sub">×(c+S)/c</span></span><span class="rv" id="r_frad">&mdash;</span><span class="ru">lbf/in <span class="cellref">B53</span></span></div>
+          <div class="rrow"><span class="rl">Frame hoop load (stops)</span><span class="rv" id="r_fstop">&mdash;</span><span class="ru">lbf <span class="cellref">B54</span></span></div>
+        </div>
+
+        <div class="rblock">
+          <h4>Redistributed cut-out loads</h4>
+          <div class="twohdr"><span></span><span>Frame</span><span>Sill</span></div>
+          <div class="rrow"><span class="rl">Due to cut-out <span class="sub">B41 · O41</span></span><span class="rv" id="r_pco_cut_f">&mdash;</span><span class="rv" id="r_pco_cut_s">&mdash;</span></div>
+          <div class="rrow"><span class="rl">Adjacent bay pressure <span class="sub">B60 · O60</span></span><span class="rv" id="r_ptyp_f">&mdash;</span><span class="rv" id="r_ptyp_s">&mdash;</span></div>
+          <div class="rrow"><span class="rl"><b>Total redistributed load</b> <span class="sub">B63 · O63</span></span><span class="rv" id="r_pco_tot_f">&mdash;</span><span class="rv" id="r_pco_tot_s">&mdash;</span></div>
+          <div class="rrow"><span class="rl">Worst-case frame hoop <span class="sub">max(stops, cut-out) · B57</span></span><span class="rv" id="r_pframe">&mdash;</span><span class="rv" style="color:var(--ink-faint)">lbf</span></div>
+          <h4 style="margin-top:11px">Built-up section areas <span style="text-transform:none;letter-spacing:0;color:var(--ink-faint)">(frame · sill)</span></h4>
+          <div class="rrow"><span class="rl">Total effective area <span class="sub">B73 · O73</span></span><span class="rv" id="r_tota_f">&mdash;</span><span class="rv" id="r_tota_s">&mdash;</span></div>
+          <div class="rrow"><span class="rl">Frame bending moment <span class="sub">P&middot;ȳ · B79</span></span><span class="rv" id="r_fbm">&mdash;</span><span class="rv" style="color:var(--ink-faint)">lbf·in</span></div>
+          <div class="rrow"><span class="rl">Outer-chord bending stress <span class="sub">B80</span></span><span class="rv" id="r_ocs">&mdash;</span><span class="rv" style="color:var(--ink-faint)">ksi</span></div>
+        </div>
+
+        <div class="rblock">
+          <h4>Body-shear redistribution &mdash; Case I <span style="text-transform:none;letter-spacing:0;color:var(--ink-faint)">(lbf/in)</span></h4>
+          <div class="twohdr"><span></span><span>Upper</span><span>Lower</span></div>
+          <div class="rrow"><span class="rl">Above / below cut-out <span class="sub">q&#8321;</span></span><span class="rv" id="r_q1b">&mdash;</span><span class="rv" id="r_q1c">&mdash;</span></div>
+          <div class="rrow"><span class="rl">Fwd / aft of cut-out <span class="sub">q&#8322;</span></span><span class="rv" id="r_q2b">&mdash;</span><span class="rv" id="r_q2c">&mdash;</span></div>
+          <div class="rrow"><span class="rl">Corner panels <span class="sub">q&#8323;</span></span><span class="rv" id="r_q3b">&mdash;</span><span class="rv" id="r_q3c">&mdash;</span></div>
+          <div class="rrow"><span class="rl">Junction design shear <span class="sub">5/3 &middot; q<sub>av</sub> (gov.)</span></span><span class="rv" id="r_qJunc">&mdash;</span><span class="rv" style="color:var(--ink-faint)">lbf/in</span></div>
+        </div>
+
+        <div class="rblock">
+          <h4>Case I &mdash; frame &amp; sill loads <span style="text-transform:none;letter-spacing:0;color:var(--ink-faint)">(Fig 6.5.9)</span></h4>
+          <div class="rrow"><span class="rl">Frame seg. shear &mdash; outer <span class="sub">q<sub>EF</sub> = &frac12;(q&#8321;+q&#8323;)</span></span><span class="rv" id="r_qEF">&mdash;</span><span class="ru">lbf/in</span></div>
+          <div class="rrow"><span class="rl">Frame seg. shear &mdash; mid <span class="sub">q<sub>FG</sub> = &frac12;q&#8322;</span></span><span class="rv" id="r_qFG">&mdash;</span><span class="ru">lbf/in</span></div>
+          <div class="rrow"><span class="rl"><b>Peak frame shear flow</b> <span class="sub">at main-sill junctions</span></span><span class="rv" id="r_qFrPk">&mdash;</span><span class="ru">lbf/in</span></div>
+          <div class="rrow"><span class="rl">Upper sill reaction <span class="sub">R<sub>EF</sub> &middot; prelim.</span></span><span class="rv" id="r_REF">&mdash;</span><span class="ru">lbf</span></div>
+          <div class="rrow"><span class="rl">Lower sill reaction <span class="sub">R<sub>GH</sub> &middot; prelim.</span></span><span class="rv" id="r_RGH">&mdash;</span><span class="ru">lbf</span></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- DESIGN CONDITIONS -->
+    <div class="sec">
+      <div class="sec-head">
+        <span class="sec-idx">06</span>
+        <span class="sec-title">Design Conditions &mdash; Load Envelope</span>
+        <span class="sec-rule"></span>
+        <span class="sec-note">Niu §6.5(7) &middot; ultimate</span>
+      </div>
+      <table class="dctable">
+        <thead><tr>
+          <th>Condition</th><th>Use</th><th>p&#8332; (psi)</th>
+          <th>Frame OC &sigma;</th><th>Sill &sigma;</th><th>Panel &tau;</th>
+        </tr></thead>
+        <tbody id="dcBody"></tbody>
+      </table>
+      <div class="notes" style="margin-top:11px">
+        <h4>Combination basis</h4>
+        <ol>
+          <li>Conditions per Niu §6.5(7): <b>(a) 3.0p</b> alone (tension/bending), <b>(b) 2.5p</b> alone (compression/shear), <b>(c) flight + 2.0p</b>, <b>(d) flight</b> alone &mdash; where <span class="cellref">p</span> is the limit cabin-pressure differential and flight = the entered body-shear bands (taken as ultimate).</li>
+          <li><b>Frame OC &amp; sill stresses</b> scale linearly with pressure (Case III) and are shown at the factored pressure of each condition. <b>Panel &tau;</b> superposes the pressure redistribution shear (Case III, &times; pressure factor) and the flight body-shear (Case I, &times; flight factor) on the governing skin panel. Governing cell in each column is flagged.</li>
+          <li>Pressure effects are scaled from the detailed breakdown above (computed at design <span class="cellref">P</span>); set <span class="cellref">P</span> = the condition you want resolved in full (e.g. 2.0p = 17.2 reproduces Niu).</li>
+        </ol>
+      </div>
+    </div>
+
+    <!-- NOTES -->
+    <div class="sec">
+      <div class="sec-head">
+        <span class="sec-idx">07</span>
+        <span class="sec-title">Assumptions &amp; Notes</span>
+        <span class="sec-rule"></span>
+      </div>
+      <div class="notes">
+        <h4>Method &amp; assumptions</h4>
+        <ol>
+          <li>Method follows <b>Niu, <i>Airframe Stress Analysis &amp; Sizing</i>, Section 6.5</b> &mdash; load redistribution around a skin cut-out using fixed-end-moment frame idealisation. <span class="ref">[SCT-025]</span></li>
+          <li><b>Door capability factors</b> &eta;<sub>h</sub> / &eta;<sub>l</sub> default to <b>0 = full Niu redistribution</b> (the plug door transfers all hoop / longitudinal load to the surrounding frames &amp; sills). Set a non-zero value <i>only</i> with a substantiated door load path &mdash; &eta;<sub>h</sub> &gt; 0 reduces the redistributed frame load and is unconservative without justification. <span class="ref">[deviates from Niu §6.5]</span></li>
+          <li><b>General bays (Niu §6.5):</b> upper <span class="cellref">a</span>, lower <span class="cellref">b</span>, forward <span class="cellref">c</span>, aft <span class="cellref">d</span> are independent. Corner shears, edge redistribution and member loads are evaluated per location and the <b>governing</b> value is reported. Default geometry reproduces Niu's worked example (adjusted corner moment 169,198 in&middot;lb; upper-fwd corner 210.2 lbf/in; q&#8320;=450 &rarr; q&#8321;/q&#8322;/q&#8323; = 1108/932/255). Headline values are the governing (worst) location.</li>
+          <li><b>Section properties</b> &mdash; neutral-axis offset <span class="cellref">ȳ</span> and second moment of area <span class="cellref">I</span> must be derived separately from the built-up frame + bear-strap + skin section. Enter the computed values.</li>
+          <li><b>Worst-case frame hoop load</b> takes the greater of the stop-fitting load and the cut-out redistribution load. If the stop-fitting load is the lesser, stop loads are insufficient to react frame tension and the frame pulls inward against the door until stop-fitting loads rise to match frame tension (free-edge equilibrium).</li>
+          <li><b>Inner-chord stress</b> is lower than nominal hoop due to bending compression, but this is localised at the frame ends; the nominal hoop stress is retained as the conservative peak value.</li>
+          <li><b>Body shear (Case I)</b> &mdash; the fuselage skin shear flow is diverted around the cut-out per Niu §6.5. Enter four band shear flows: <span class="cellref">q<sub>a</sub></span> (upper aux), <span class="cellref">q<sub>b</sub></span> (upper main), <span class="cellref">q<sub>c</sub></span> (lower main), <span class="cellref">q<sub>d</sub></span> (lower aux). <b>Equal bands &rarr; uniform shear</b> (cut-out on the neutral axis, Fig 6.5.3/6.5.4) &mdash; validated against Niu's worked example (450 &rarr; q&#8321;/q&#8322;/q&#8323; = 1108/932/255 lbf/in). <b>Unequal bands &rarr; variable shear</b> for off-NA cut-outs (floor / cargo, Fig 6.5.6&ndash;6.5.8): the cut-out height splits <span class="cellref">h<sub>b</sub>=a&middot;h/(a+b)</span>, <span class="cellref">h<sub>c</sub>=b&middot;h/(a+b)</span> and the upper/lower panels redistribute their own band shear. Headline checks use the governing (worst) panel. <span class="ref">[Niu §6.5 Case I]</span></li>
+          <li><b>Junction shear</b> &mdash; per Niu, strap/skin/doubler areas at the main-sill/edge-frame junctions are checked at <span class="cellref">5/3 &middot; q<sub>av</sub></span> for local load concentration / fatigue life, and the panel gross-area shear stress is kept &le; ~25 ksi (Al).</li>
+          <li><b>Case I frame loads (Fig 6.5.9)</b> &mdash; the edge-frame web shear is distributed 3:1 across the upper/lower bays (3:1:1:3 across the mid bay); the <b>peak frame shear flow</b> at the main-sill junctions (3&middot;&frac12;(q&#8321;+q&#8323;)) is <b>exact</b> and reproduces Niu's 2045 lbf/in. The <b>sill reactions R<sub>EF</sub>/R<sub>GH</sub></b> from the curved-frame radial-resultant equilibrium are <b>preliminary</b>: the solve is ill-conditioned (large cancelling terms) and sensitive to the cut-out's position on the arc (assumed centred on the neutral axis), reproducing Niu within ~5&ndash;8%. Detailed frame <b>bending</b> should be taken to conventional shear/BM diagrams or FEM once these reactions are set, per Niu.</li>
+          <li><b>Not yet included:</b> the variable-shear option for off-neutral-axis cut-outs (Fig 6.5.6&ndash;6.5.8) and combination of shear with pressure per Niu's design conditions (3.0p; 2.5p; flight+2.0p; flight).</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>SCT-025 &middot; Fuselage Door Cut-out Load Analysis &middot; Niu §6.5</span>
+      <span id="ts">Interactive analysis sheet</span>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---- Input definitions (single source of truth) ----
+  var GROUPS = [
+    { title:"Geometry — Niu §6.5", items:[
+      { key:"h", label:"Cut-out height",  sym:"h", unit:"in", val:49,   step:1,   meta:"circumferential (vertical)" },
+      { key:"L", label:"Cut-out width",   sym:"ℓ", unit:"in", val:45,   step:1,   meta:"longitudinal (fore-aft)" },
+      { key:"a", label:"Upper bay",       sym:"a", unit:"in", val:17.5, step:0.5, meta:"upper main → upper aux sill" },
+      { key:"b", label:"Lower bay",       sym:"b", unit:"in", val:16,   step:0.5, meta:"lower main → lower aux sill" },
+      { key:"c", label:"Forward bay",     sym:"c", unit:"in", val:23,   step:0.5, meta:"fwd edge → fwd adj frame" },
+      { key:"d", label:"Aft bay",         sym:"d", unit:"in", val:19,   step:0.5, meta:"aft edge → aft adj frame" },
+    ]},
+    { title:"Pressure Loading", items:[
+      { key:"P",       label:"Cabin pressure (design)", sym:"P", unit:"psi", val:17.2, step:0.1, meta:"detailed breakdown above" },
+      { key:"pLim",    label:"Limit pressure differ.",  sym:"p", unit:"psi", val:8.6,  step:0.1, meta:"for design-conditions envelope" },
+      { key:"R",       label:"Fuselage radius",         sym:"R", unit:"in",  val:74,   step:1,    meta:"" },
+      { key:"hoopCap", label:"Door hoop capability",  sym:"\u03B7\u2095", unit:"\u2014", val:0, step:0.05, meta:"B16 · not active at default \u00b7 see note 2" },
+      { key:"longCap", label:"Door long. capability", sym:"\u03B7\u2097", unit:"\u2014", val:0,       step:0.01, meta:"B17 · fraction of long. via door" },
+    ]},
+    { title:"Fuselage Body Shear — Case I", items:[
+      { key:"qa", label:"Shear — upper aux band",  sym:"q<sub>a</sub>", unit:"lbf/in", val:450, step:10, meta:"equal bands = uniform (cut-out on NA)" },
+      { key:"qb", label:"Shear — upper main band", sym:"q<sub>b</sub>", unit:"lbf/in", val:450, step:10, meta:"unequal = variable (off-NA, Fig 6.5.6–8)" },
+      { key:"qc", label:"Shear — lower main band", sym:"q<sub>c</sub>", unit:"lbf/in", val:450, step:10, meta:"band shear over lower cut-out height" },
+      { key:"qd", label:"Shear — lower aux band",  sym:"q<sub>d</sub>", unit:"lbf/in", val:450, step:10, meta:"q = τ · t (skin gross shear flow)" },
+      { key:"tPanel",  label:"Panel skin thickness", sym:"t",       unit:"in",     val:0.08, step:0.005, meta:"for gross-area shear stress" },
+      { key:"FsAllow", label:"Allow. gross shear",   sym:"Fₛ", unit:"ksi",    val:25,   step:1,     meta:"Niu guideline ≤ 25 ksi (Al)" },
+    ]},
+    { title:"Door Stop Fitting", items:[
+      { key:"S", label:"Door stop offset", sym:"S", unit:"in", val:1.8, step:0.1, meta:"B47 · amplifies frame load" },
+    ]},
+    { title:"Section \u2014 Frame (hoop)", items:[
+      { key:"frFrameArea", label:"Frame area",          sym:"", unit:"in\u00B2", val:0.911, step:0.001, meta:"B66" },
+      { key:"frStrapT",    label:"Bear-strap thickness", sym:"", unit:"in", val:0.125, step:0.005, meta:"B67" },
+      { key:"frStrapW",    label:"Bear-strap width",     sym:"", unit:"in", val:5,     step:0.5,   meta:"B68" },
+      { key:"frSkinT",     label:"Skin thickness",       sym:"", unit:"in", val:0.08,  step:0.005, meta:"B70" },
+      { key:"frSkinW",     label:"Skin eff. width",      sym:"", unit:"in", val:5,     step:0.5,   meta:"B71" },
+      { key:"frNA",        label:"Neutral-axis offset",  sym:"\u0233", unit:"in",  val:0.957, step:0.001, meta:"B74 · built-up section" },
+      { key:"frI",         label:"Section I",            sym:"I", unit:"in\u2074", val:5.642, step:0.001, meta:"B75 · built-up section" },
+    ]},
+    { title:"Section \u2014 Sill (long.)", items:[
+      { key:"siFrameArea", label:"Sill area",            sym:"", unit:"in\u00B2", val:1,    step:0.001, meta:"O66" },
+      { key:"siStrapT",    label:"Bear-strap thickness", sym:"", unit:"in", val:0.125, step:0.005, meta:"O67" },
+      { key:"siStrapW",    label:"Bear-strap width",     sym:"", unit:"in", val:6,     step:0.5,   meta:"O68" },
+      { key:"siSkinT",     label:"Skin thickness",       sym:"", unit:"in", val:0.08,  step:0.005, meta:"O70" },
+      { key:"siSkinW",     label:"Skin eff. width",      sym:"", unit:"in", val:6,     step:0.5,   meta:"O71" },
+    ]},
+  ];
+
+  // ---- Compute chain (Niu §6.5, general a,b,c,d bays) ----
+  // Geometry (Niu symbols): h=cut-out height, L=cut-out width (ℓ),
+  //   a=upper bay, b=lower bay, c=fwd bay, d=aft bay.
+  function compute(v){
+    // Running loads (Case III). η factors default 0 = full redistribution.
+    var Hoop = v.P*v.R*(1-v.hoopCap);     // w  = pr   (hoop tension)
+    var Long = v.P*v.R/2*(1-v.longCap);   // w' = pr/2 (longitudinal)
+
+    // Corner-panel moment distribution, 50% fixity (Niu Fig 6.5.16). Bay-independent.
+    var K1 = v.h/(v.h+v.L), K2 = v.L/(v.h+v.L);     // h/(h+ℓ), ℓ/(h+ℓ)
+    var Mvb = Long*v.h*v.h/12, Mhb = Hoop*v.L*v.L/12;   // |M_FA|=w'h²/12, M_UL=wℓ²/12
+    var MvC = -(Mvb-Mhb)*K2, MhC = (Mvb-Mhb)*K1;
+    var MvA = MvC+Mvb, MhA = MhC+Mhb;               // |adjusted FEM| (equal magnitude)
+    var Madj = MhA;                                  // adjusted corner moment
+
+    // Corner-panel shear flows q = 0.5·Madj / (corner area)  [50% fixity, Niu Fig 6.5.15/16]
+    var qcUF = 0.5*Madj/(v.a*v.c);    // upper-fwd corner (a×c)
+    var qcUA = 0.5*Madj/(v.a*v.d);    // upper-aft  (a×d)
+    var qcLF = 0.5*Madj/(v.b*v.c);    // lower-fwd  (b×c)
+    var qcLA = 0.5*Madj/(v.b*v.d);    // lower-aft  (b×d)
+    var qCorner = Math.max(qcUF,qcUA,qcLF,qcLA);    // governing corner shear (smallest bay product)
+
+    // Edge-panel redistribution shear flows (Niu Fig 6.5.13/6.5.14):
+    var qHup = Hoop*v.L/(2*v.a);      // hoop, upper panels  q_u = wℓ/(2a)
+    var qHlo = Hoop*v.L/(2*v.b);      // hoop, lower panels  q_L = wℓ/(2b)
+    var qLfwd = Long*v.h/(2*v.c);     // long, fwd panels    q_F = w'h/(2c)
+    var qLaft = Long*v.h/(2*v.d);     // long, aft panels    q_A = w'h/(2d)
+    var qSill = Math.max(qHup,qHlo);  // legacy alias: governing hoop redistribution shear
+    var qEdge = Math.max(qLfwd,qLaft);// legacy alias: governing long. redistribution shear
+
+    // Outer-chord axial loads (Niu Fig 6.5.5): hoop into edge frames P_HT = wℓ/2,
+    // long into main sills P_LT = w'h/2; + corner-fixity ΔP = 0.5·Madj/(opposite bay).
+    var P_HT = Hoop*v.L/2, P_LT = Long*v.h/2;
+    var PcoF_fwd = P_HT + 0.5*Madj/v.c;   // fwd edge frame (cut-out axial)
+    var PcoF_aft = P_HT + 0.5*Madj/v.d;   // aft edge frame
+    var PcoS_up  = P_LT + 0.5*Madj/v.a;   // upper main sill
+    var PcoS_lo  = P_LT + 0.5*Madj/v.b;   // lower main sill
+    var PcoFcut = Math.max(PcoF_fwd, PcoF_aft);   // governing frame cut-out axial
+    var PsiCut  = Math.max(PcoS_up, PcoS_lo);     // governing sill  cut-out axial
+
+    // Door-stop fitting (Case IV stub, retained): radial plug load × offset amplifier.
+    var cMin = Math.min(v.c, v.d);
+    var dRad = v.P*v.L/2*(1-v.hoopCap);
+    var fRad = dRad*(cMin+v.S)/cMin;
+    var fStop = fRad*v.R;
+    var Pframe = Math.max(fStop, PcoFcut);
+
+    // Baseline adjacent-bay running loads (tool model retained; correct tributary):
+    //   frame = hoop member → fore-aft bay (max c,d);  sill = long. member → upper/lower (max a,b)
+    var PtypF = v.P*v.R*(Math.max(v.c,v.d)/2);
+    var PtypS = v.P*v.R*(Math.max(v.a,v.b)/2);
+    var PcoFtot = PcoFcut+PtypF;
+    var PcoStot = PsiCut+PtypS;
+
+    // Built-up section areas.
+    var frStrapA = v.frStrapW*v.frStrapT, frSkinA = v.frSkinW*v.frSkinT;
+    var frTotA = v.frFrameArea+frStrapA+frSkinA;
+    var siStrapA = v.siStrapW*v.siStrapT, siSkinA = v.siSkinW*v.siSkinT;
+    var siTotA = v.siFrameArea+siStrapA+siSkinA;
+
+    // Member stresses (ksi). Bending model retained (P·ȳ eccentricity).
+    var frameHoop = PcoFtot/frTotA/1000;
+    var sillLong  = PcoStot/siTotA/1000;
+    var fBM = PcoFcut*v.frNA;
+    var ocs = fBM*v.frNA/v.frI/1000;
+    var frameOC = frameHoop+ocs;
+    var frameIC = frameHoop;
+
+    // --- Case I: fuselage body-shear redistribution (Niu §6.5 Fig 6.5.3/6.5.4 & 6.5.6–6.5.8) ---
+    // Band shear flows: qa upper-aux, qb upper-main, qc lower-main, qd lower-aux.
+    // Equal bands = uniform shear (cut-out on neutral axis). Unequal = variable shear
+    // (off-NA cut-out); the cut-out height splits h_b / h_c in proportion to the bays.
+    var hb = v.a*v.h/(v.a+v.b);          // upper portion of cut-out height
+    var hc = v.b*v.h/(v.a+v.b);          // lower portion
+    var dq2b = v.qb*v.L/(v.c+v.d), dq2c = v.qc*v.L/(v.c+v.d);
+    var q1b = v.qa + v.qb*hb/v.a;        // q1: above cut-out (upper)
+    var q1c = v.qd + v.qc*hc/v.b;        // q1: below cut-out (lower)
+    var q2b = v.qb + dq2b;               // q2: fwd/aft panels — upper
+    var q2c = v.qc + dq2c;               // q2: fwd/aft panels — lower
+    var q3b = dq2b*hb/v.a - v.qa;        // q3: corner panels — upper
+    var q3c = dq2c*hc/v.b - v.qd;        // q3: corner panels — lower
+    // governing (worst-magnitude) panel values for the headline checks / figure
+    var qAB = (Math.abs(q1b)>=Math.abs(q1c))?q1b:q1c;
+    var qFA = (Math.abs(q2b)>=Math.abs(q2c))?q2b:q2c;
+    var qCor = (Math.abs(q3b)>=Math.abs(q3c))?q3b:q3c;
+    var qPanelMax = Math.max(Math.abs(q1b),Math.abs(q1c),Math.abs(q2b),Math.abs(q2c),Math.abs(q3b),Math.abs(q3c));
+    var tauMax = qPanelMax/v.tPanel/1000;
+    var qJunc  = 5/3*qPanelMax;        // 5/3 · q_av at sill/frame junctions (Niu p.187)
+    var tauJunc = qJunc/v.tPanel/1000;
+    var msShear = v.FsAllow/tauMax - 1;
+
+    // --- Case I frame/sill loads (Niu §6.5 Fig 6.5.9) ---
+    // Frame segment shear flows: 3:1 distribution (upper/lower bays), 3:1:1:3 (mid bay).
+    // Peak frame shear flow is EXACT (reproduces Niu 2045 lbf/in in the uniform example).
+    var qEFu = 0.5*(q1b+q3b), qEFl = 0.5*(q1c+q3c);  // upper/lower-bay outer frame seg = ½(q1+q3)
+    var qFGu = 0.5*q2b, qFGl = 0.5*q2c;              // mid-bay frame seg = ½q2 (upper/lower)
+    var qEF = Math.max(qEFu,qEFl), qFG = Math.max(qFGu,qFGl);
+    var qFrPk = Math.max(3*Math.abs(qEFu),3*Math.abs(qEFl),3*Math.abs(qFGu),3*Math.abs(qFGl));
+    // Curved-frame radial-resultant sill reactions (cut-out centred on NA, radius R).
+    // PRELIMINARY: ill-conditioned (large cancelling terms) & sensitive to cut-out
+    // position; reproduces Niu's example within ~5–8%. Use for sizing guidance only.
+    var R_EF=NaN, R_GH=NaN;
+    (function(){
+      var rr=v.R, hh=v.h, aa=v.a, bb=v.b;
+      if(!(rr>0&&hh>0&&aa>0&&bb>0)) return;
+      var sxy=function(sl,sh){ var tl=sl/rr,th=sh/rr;
+        return [Math.abs(rr*(Math.cos(th)-Math.cos(tl))), Math.abs(rr*(Math.sin(th)-Math.sin(tl)))]; };
+      var S=[ sxy(hh/2+0.5*aa,hh/2+aa), sxy(hh/2,hh/2+0.5*aa), sxy(hh/4,hh/2), sxy(0,hh/4),
+              sxy(-hh/4,0), sxy(-hh/2,-hh/4), sxy(-(hh/2+0.5*bb),-hh/2), sxy(-(hh/2+bb),-(hh/2+0.5*bb)) ];
+      var Q=[qEFu,3*qEFu,3*qFGu,qFGu,qFGl,3*qFGl,3*qEFl,qEFl];
+      var sy=[1,1,-1,-1,-1,-1,1,1], sx=[1,1,1,-1,-1,-1,-1,-1];
+      var rA=0,rB=0,i; for(i=0;i<8;i++){ rA-=sy[i]*Q[i]*S[i][1]; rB-=sx[i]*Q[i]*S[i][0]; }
+      var al=(hh/2+aa/3)/rr, be=(hh/2+bb/3)/rr;
+      var det=Math.sin(al+be);
+      R_EF=(rA*Math.cos(be)-Math.sin(be)*rB)/det;
+      R_GH=(Math.sin(al)*rB+rA*Math.cos(al))/det;
+    })();
+
+    return {Hoop:Hoop,Long:Long,K1:K1,K2:K2,Mvb:Mvb,Mhb:Mhb,MvC:MvC,MhC:MhC,MvA:MvA,MhA:MhA,Madj:Madj,
+      hb:hb,hc:hc,q1b:q1b,q1c:q1c,q2b:q2b,q2c:q2c,q3b:q3b,q3c:q3c,
+      qEF:qEF,qFG:qFG,qFrPk:qFrPk,R_EF:R_EF,R_GH:R_GH,
+      qcUF:qcUF,qcUA:qcUA,qcLF:qcLF,qcLA:qcLA,qCorner:qCorner,
+      qHup:qHup,qHlo:qHlo,qLfwd:qLfwd,qLaft:qLaft,qSill:qSill,qEdge:qEdge,
+      P_HT:P_HT,P_LT:P_LT,PcoF_fwd:PcoF_fwd,PcoF_aft:PcoF_aft,PcoS_up:PcoS_up,PcoS_lo:PcoS_lo,
+      PcoFcut:PcoFcut,PsiCut:PsiCut,dRad:dRad,fRad:fRad,fStop:fStop,Pframe:Pframe,
+      PtypF:PtypF,PtypS:PtypS,PcoFtot:PcoFtot,PcoStot:PcoStot,
+      frTotA:frTotA,siTotA:siTotA,frameHoop:frameHoop,sillLong:sillLong,fBM:fBM,ocs:ocs,
+      frameOC:frameOC,frameIC:frameIC,
+      qAB:qAB,qFA:qFA,qCor:qCor,qPanelMax:qPanelMax,
+      tauMax:tauMax,qJunc:qJunc,tauJunc:tauJunc,msShear:msShear};
+  }
+
+  // ---- Formatting ----
+  function fmt(x, dec, sep){
+    if(x===null || x===undefined || !isFinite(x)) return "\u2014";
+    var neg = x<0; var a = Math.abs(x);
+    var s = a.toFixed(dec);
+    if(sep){
+      var p = s.split(".");
+      p[0] = p[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+      s = p.join(".");
+    }
+    return (neg?"\u2212":"") + s;
+  }
+
+  function setText(id, val){ var el=document.getElementById(id); if(el) el.textContent = val; }
+
+  // ---- Build inputs ----
+  function buildInputs(){
+    var host = document.getElementById("groups");
+    host.innerHTML = "";
+    GROUPS.forEach(function(g){
+      var gd = document.createElement("div"); gd.className="group";
+      var h = document.createElement("h3"); h.textContent = g.title; gd.appendChild(h);
+      var body = document.createElement("div"); body.className="gbody";
+      g.items.forEach(function(it){
+        var row = document.createElement("div"); row.className="irow";
+        var lab = document.createElement("div"); lab.className="ilabel";
+        var lt = document.createElement("span"); lt.className="lt";
+        lt.innerHTML = it.label + (it.sym? ' <span class="sym">'+it.sym+'</span>':'');
+        var meta = document.createElement("span"); meta.className="meta"; meta.textContent = it.meta||"";
+        lab.appendChild(lt); lab.appendChild(meta);
+        var ctrl = document.createElement("div"); ctrl.className="ictrl";
+        var inp = document.createElement("input");
+        inp.type="number"; inp.id="in_"+it.key; inp.value=it.val;
+        if(it.step) inp.step=it.step;
+        inp.setAttribute("inputmode","decimal");
+        inp.addEventListener("input", recalc);
+        var u = document.createElement("span"); u.className="unit"; u.textContent = it.unit;
+        ctrl.appendChild(inp); ctrl.appendChild(u);
+        row.appendChild(lab); row.appendChild(ctrl);
+        body.appendChild(row);
+      });
+      gd.appendChild(body);
+      host.appendChild(gd);
+    });
+  }
+
+  function readInputs(){
+    var v = {};
+    GROUPS.forEach(function(g){ g.items.forEach(function(it){
+      var el = document.getElementById("in_"+it.key);
+      v[it.key] = el ? parseFloat(el.value) : NaN;
+    });});
+    return v;
+  }
+
+  function resetInputs(){
+    GROUPS.forEach(function(g){ g.items.forEach(function(it){
+      var el = document.getElementById("in_"+it.key); if(el) el.value = it.val;
+    });});
+    recalc();
+  }
+
+  // ---- Figure (live, to scale) ----
+  var NS = "http://www.w3.org/2000/svg";
+  function drawFigure(v){
+    var W=680, Hh=508;
+    var mL=92, mR=128, mT=64, mB=58;
+    var iW=W-mL-mR, iH=Hh-mT-mB;
+    var a=v.a, b=v.b, c=v.c, d=v.d, h=v.h, L=v.L;
+    var pW=c+L+d, pH=a+h+b;
+    var ok = isFinite(pW)&&isFinite(pH)&&pW>0&&pH>0;
+    var scale = ok ? Math.min(iW/pW, iH/pH)*0.94 : 1;
+    var ox = mL + (iW - pW*scale)/2;
+    var oy = mT + (iH - pH*scale)/2;
+    var xs = [0,c,c+L,c+L+d].map(function(x){return ox+x*scale;});
+    var ys = [0,a,a+h,a+h+b].map(function(y){return oy+y*scale;});
+    function sx(x){return ox+x*scale;}
+    function sy(y){return oy+y*scale;}
+
+    var el = [];
+    el.push('<svg viewBox="0 0 '+W+' '+Hh+'" xmlns="'+NS+'" font-family="var(--mono)">');
+    // defs
+    el.push('<defs>'
+      +'<pattern id="hatch" width="7" height="7" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">'
+      +'<line x1="0" y1="0" x2="0" y2="7" stroke="var(--ink)" stroke-width="0.6" opacity="0.18"/></pattern>'
+      +'<marker id="ld" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto">'
+      +'<path d="M0,0 L7,3.2 L0,6.4 Z" fill="var(--load)"/></marker>'
+      +'</defs>');
+
+    if(!ok){
+      el.push('<text x="'+(W/2)+'" y="'+(Hh/2)+'" text-anchor="middle" font-size="13" fill="var(--ink-faint)">Enter positive geometry to draw the idealisation</text></svg>');
+      return el.join("");
+    }
+
+    // effective skin boundary (dashed)
+    el.push('<rect x="'+sx(0)+'" y="'+sy(0)+'" width="'+(pW*scale)+'" height="'+(pH*scale)+'" fill="none" stroke="var(--rule-strong)" stroke-width="1" stroke-dasharray="2 3"/>');
+
+    // door opening hatch
+    el.push('<rect x="'+xs[1]+'" y="'+ys[1]+'" width="'+(xs[2]-xs[1])+'" height="'+(ys[2]-ys[1])+'" fill="url(#hatch)" stroke="none"/>');
+
+    // SILL members (horizontal lines at ys[1], ys[2]) — blue
+    [1,2].forEach(function(r){
+      el.push('<line x1="'+xs[0]+'" y1="'+ys[r]+'" x2="'+xs[3]+'" y2="'+ys[r]+'" stroke="var(--blue)" stroke-width="2.4"/>');
+    });
+    // FRAME members (vertical lines at xs[1], xs[2]) — blue
+    [1,2].forEach(function(col){
+      el.push('<line x1="'+xs[col]+'" y1="'+ys[0]+'" x2="'+xs[col]+'" y2="'+ys[3]+'" stroke="var(--blue)" stroke-width="2.4"/>');
+    });
+
+    // member type labels — orientation matches member, with white backing for legibility
+    var fmx = xs[1]-9, fmy=(ys[1]+ys[2])/2;
+    el.push('<rect x="'+(fmx-6.5)+'" y="'+(fmy-19)+'" width="13" height="38" fill="#FDFDFB" opacity="0.92"/>');
+    el.push('<text x="'+fmx+'" y="'+fmy+'" text-anchor="middle" font-size="10" font-weight="600" fill="var(--blue)" transform="rotate(-90 '+fmx+' '+fmy+')">FRAME</text>');
+    var smx=(xs[0]+xs[1])/2, smy=ys[1]-7;
+    el.push('<rect x="'+(smx-16)+'" y="'+(smy-9)+'" width="32" height="13" fill="#FDFDFB" opacity="0.92"/>');
+    el.push('<text x="'+smx+'" y="'+(smy+2)+'" text-anchor="middle" font-size="10" font-weight="600" fill="var(--blue)">SILL</text>');
+
+    // door center annotation
+    var dcx=(xs[1]+xs[2])/2, dcy=(ys[1]+ys[2])/2;
+    el.push('<text x="'+dcx+'" y="'+(dcy-7)+'" text-anchor="middle" font-size="10.5" font-weight="600" letter-spacing="0.12em" fill="var(--ink-soft)">DOOR CUT-OUT</text>');
+    el.push('<text x="'+dcx+'" y="'+(dcy+9)+'" text-anchor="middle" font-size="10" fill="var(--ink-soft)">h \u00D7 \u2113 = '+fmt(h,0)+' \u00D7 '+fmt(L,0)+' in</text>');
+
+    // nodes A..P
+    var letters=[["A","B","C","D"],["E","F","G","H"],["I","J","K","L"],["M","N","O","P"]];
+    var door={F:1,G:1,J:1,K:1};
+    var cx=(xs[0]+xs[3])/2, cy=(ys[0]+ys[3])/2;
+    for(var r=0;r<4;r++){ for(var col=0;col<4;col++){
+      var X=xs[col], Y=ys[r], ch=letters[r][col];
+      el.push('<circle cx="'+X+'" cy="'+Y+'" r="2.6" fill="var(--ink)"/>');
+      var lx,ly,anchor;
+      if(door[ch]){
+        // place inside the door, toward door centre
+        lx = X + (X<dcx? 8 : -8); ly = Y + (Y<dcy? 13 : -6); anchor = (X<dcx?"start":"end");
+      } else {
+        var dx = X<cx? -1 : (X>cx?1:0);
+        var dy = Y<cy? -1 : (Y>cy?1:0);
+        if(dx===0) dx = 0; if(dy===0) dy = (Y<cy?-1:1);
+        lx = X + dx*9; ly = Y + dy*11 + 3.5;
+        anchor = dx<0? "end" : (dx>0? "start":"middle");
+      }
+      el.push('<text x="'+lx+'" y="'+ly+'" text-anchor="'+anchor+'" font-size="10.5" font-weight="600" fill="var(--ink)">'+ch+'</text>');
+    }}
+
+    // ---- Case I redistributed shear-flow labels (one per surrounding panel) ----
+    if(isFinite(v.qShear) && v.qShear!==0){
+      var pl = function(px,py,val,tag){
+        el.push('<text x="'+px+'" y="'+(py-2)+'" text-anchor="middle" font-size="8" fill="var(--blue-soft)">'+tag+'</text>');
+        el.push('<text x="'+px+'" y="'+(py+8)+'" text-anchor="middle" font-size="9.2" font-weight="600" fill="var(--blue)">'+fmt(val,0)+'</text>');
+      };
+      var mxL=(xs[0]+xs[1])/2, mxC=(xs[1]+xs[2])/2, mxR=(xs[2]+xs[3])/2;
+      var myT=(ys[0]+ys[1])/2, myM=(ys[1]+ys[2])/2, myB=(ys[2]+ys[3])/2;
+      pl(mxC,myT,v.q1b,'q₁'); pl(mxC,myB,v.q1c,'q₁');   // above / below
+      pl(mxL,myM,v.q2,'q₂'); pl(mxR,myM,v.q2,'q₂');     // fwd / aft (governing)
+      pl(mxL,myT,v.q3b,'q₃'); pl(mxR,myT,v.q3b,'q₃');   // upper corners
+      pl(mxL,myB,v.q3c,'q₃'); pl(mxR,myB,v.q3c,'q₃');   // lower corners
+    }
+
+    // ---- dimension lines ----
+    function dimH(x1,x2,y,label){
+      var t=4;
+      var g=[];
+      g.push('<line x1="'+x1+'" y1="'+(y-t)+'" x2="'+x1+'" y2="'+(y+t)+'" stroke="var(--ink-soft)" stroke-width="0.8"/>');
+      g.push('<line x1="'+x2+'" y1="'+(y-t)+'" x2="'+x2+'" y2="'+(y+t)+'" stroke="var(--ink-soft)" stroke-width="0.8"/>');
+      g.push('<line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="var(--ink-soft)" stroke-width="0.8"/>');
+      var mx=(x1+x2)/2;
+      g.push('<rect x="'+(mx-21)+'" y="'+(y-8)+'" width="42" height="13" fill="#FDFDFB"/>');
+      g.push('<text x="'+mx+'" y="'+(y+2.5)+'" text-anchor="middle" font-size="10" fill="var(--ink)">'+label+'</text>');
+      return g.join("");
+    }
+    function dimV(y1,y2,x,label){
+      var t=4;
+      var g=[];
+      g.push('<line x1="'+(x-t)+'" y1="'+y1+'" x2="'+(x+t)+'" y2="'+y1+'" stroke="var(--ink-soft)" stroke-width="0.8"/>');
+      g.push('<line x1="'+(x-t)+'" y1="'+y2+'" x2="'+(x+t)+'" y2="'+y2+'" stroke="var(--ink-soft)" stroke-width="0.8"/>');
+      g.push('<line x1="'+x+'" y1="'+y1+'" x2="'+x+'" y2="'+y2+'" stroke="var(--ink-soft)" stroke-width="0.8"/>');
+      var my=(y1+y2)/2;
+      g.push('<rect x="'+(x-15)+'" y="'+(my-7)+'" width="30" height="14" fill="#FDFDFB"/>');
+      g.push('<text x="'+x+'" y="'+(my+3)+'" text-anchor="middle" font-size="10" fill="var(--ink)">'+label+'</text>');
+      return g.join("");
+    }
+    var dm = function(x){ return (Math.abs(x%1)>1e-9)?fmt(x,1):fmt(x,0); };
+    var topY = sy(0)-24;
+    el.push(dimH(xs[0],xs[1],topY,"c "+dm(c)));
+    el.push(dimH(xs[1],xs[2],topY,"ℓ "+dm(L)));
+    el.push(dimH(xs[2],xs[3],topY,"d "+dm(d)));
+    var leftX = sx(0)-34;
+    el.push(dimV(ys[0],ys[1],leftX,"a "+dm(a)));
+    el.push(dimV(ys[1],ys[2],leftX,"h "+dm(h)));
+    el.push(dimV(ys[2],ys[3],leftX,"b "+dm(b)));
+
+    // ---- load arrows (edge mid-points) ----
+    var aw=18;
+    // hoop = vertical (top up, bottom down)
+    el.push('<line x1="'+cx+'" y1="'+(sy(0)-2)+'" x2="'+cx+'" y2="'+(sy(0)-2-aw)+'" stroke="var(--load)" stroke-width="1.6" marker-end="url(#ld)"/>');
+    el.push('<line x1="'+cx+'" y1="'+(sy(pH)+2)+'" x2="'+cx+'" y2="'+(sy(pH)+2+aw)+'" stroke="var(--load)" stroke-width="1.6" marker-end="url(#ld)"/>');
+    // long = horizontal (left out, right out)
+    el.push('<line x1="'+(sx(0)-2)+'" y1="'+cy+'" x2="'+(sx(0)-2-aw)+'" y2="'+cy+'" stroke="var(--load)" stroke-width="1.6" marker-end="url(#ld)"/>');
+    el.push('<line x1="'+(sx(pW)+2)+'" y1="'+cy+'" x2="'+(sx(pW)+2+aw)+'" y2="'+cy+'" stroke="var(--load)" stroke-width="1.6" marker-end="url(#ld)"/>');
+
+    // ---- legend (top-right) ----
+    var lgx=W-150, lgy=18, lw=144;
+    el.push('<rect x="'+lgx+'" y="'+lgy+'" width="'+lw+'" height="116" fill="#FFFFFF" stroke="var(--rule)" stroke-width="1"/>');
+    el.push('<text x="'+(lgx+9)+'" y="'+(lgy+15)+'" font-size="9" letter-spacing="0.12em" fill="var(--blue)" font-weight="600">PRESSURE LOADS</text>');
+    el.push('<line x1="'+(lgx+9)+'" y1="'+(lgy+27)+'" x2="'+(lgx+25)+'" y2="'+(lgy+27)+'" stroke="var(--load)" stroke-width="1.6" marker-end="url(#ld)"/>');
+    el.push('<text x="'+(lgx+30)+'" y="'+(lgy+30)+'" font-size="9.2" fill="var(--ink)">Hoop  '+fmt(v.Hoop,1)+'</text>');
+    el.push('<text x="'+(lgx+30)+'" y="'+(lgy+41)+'" font-size="8" fill="var(--ink-faint)">lbf/in · circumferential</text>');
+    el.push('<line x1="'+(lgx+9)+'" y1="'+(lgy+55)+'" x2="'+(lgx+25)+'" y2="'+(lgy+55)+'" stroke="var(--load)" stroke-width="1.6" marker-end="url(#ld)"/>');
+    el.push('<text x="'+(lgx+30)+'" y="'+(lgy+58)+'" font-size="9.2" fill="var(--ink)">Long. '+fmt(v.Long,1)+'</text>');
+    el.push('<text x="'+(lgx+30)+'" y="'+(lgy+69)+'" font-size="8" fill="var(--ink-faint)">lbf/in · axial</text>');
+    el.push('<text x="'+(lgx+9)+'" y="'+(lgy+80)+'" font-size="8.4" fill="var(--ink-soft)">R = '+fmt(v.R,0)+' in · P = '+fmt(v.P,2)+' psi</text>');
+    el.push('<line x1="'+(lgx+9)+'" y1="'+(lgy+88)+'" x2="'+(lgx+lw-9)+'" y2="'+(lgy+88)+'" stroke="var(--rule)" stroke-width="1"/>');
+    el.push('<text x="'+(lgx+9)+'" y="'+(lgy+101)+'" font-size="9" letter-spacing="0.12em" fill="var(--blue)" font-weight="600">BODY SHEAR (CASE I)</text>');
+    el.push('<text x="'+(lgx+9)+'" y="'+(lgy+112)+'" font-size="8.4" fill="var(--ink-soft)">'+(v.shLabel||'')+'</text>');
+
+    el.push('</svg>');
+    return el.join("");
+  }
+
+  // ---- Recalc & render ----
+  function recalc(){
+    var v = readInputs();
+    var r = compute(v);
+
+    // figure
+    var bandsEq = (v.qa===v.qb && v.qb===v.qc && v.qc===v.qd);
+    document.getElementById("figure").innerHTML = drawFigure({
+      a:v.a,b:v.b,c:v.c,d:v.d,h:v.h,L:v.L,R:v.R,P:v.P,Hoop:r.Hoop,Long:r.Long,
+      qShear:Math.max(Math.abs(v.qa),Math.abs(v.qb),Math.abs(v.qc),Math.abs(v.qd)),
+      q1b:r.q1b,q1c:r.q1c,q2:r.qFA,q3b:r.q3b,q3c:r.q3c,
+      shLabel: bandsEq ? ('q₀ = '+fmt(v.qa,0)+' lbf/in') : ('variable '+fmt(v.qa,0)+'/'+fmt(v.qb,0)+'/'+fmt(v.qc,0)+'/'+fmt(v.qd,0))
+    });
+
+    // key cards (ksi, 2 dp)
+    setText("k_frameOC", fmt(r.frameOC,2));
+    setText("k_frameHoop", fmt(r.frameHoop,2));
+    setText("k_frameIC", fmt(r.frameIC,2));
+    setText("k_sillLong", fmt(r.sillLong,2));
+
+    // governing flags: overall max across the four; plus frame-group max
+    var cards = [
+      {id:"frameOC", val:r.frameOC},
+      {id:"frameHoop", val:r.frameHoop},
+      {id:"frameIC", val:r.frameIC},
+      {id:"sillLong", val:r.sillLong}
+    ];
+    var maxVal = -Infinity;
+    cards.forEach(function(cc){ if(isFinite(cc.val)&&cc.val>maxVal) maxVal=cc.val; });
+    cards.forEach(function(cc){
+      var card = document.getElementById("card-"+cc.id);
+      var old = card.querySelector(".ktag"); if(old) old.remove();
+      card.classList.remove("gov");
+      if(isFinite(cc.val) && Math.abs(cc.val-maxVal)<1e-9){
+        card.classList.add("gov");
+        var tag = document.createElement("span"); tag.className="ktag"; tag.textContent="Governing";
+        card.appendChild(tag);
+      }
+    });
+
+    // supporting
+    setText("r_hoop", fmt(r.Hoop,2));
+    setText("r_long", fmt(r.Long,2));
+    setText("r_k1", fmt(r.K1,4));
+    setText("r_k2", fmt(r.K2,4));
+    setText("r_mvb", fmt(r.Mvb,1,true));
+    setText("r_mhb", fmt(r.Mhb,1,true));
+    setText("r_mvc", fmt(r.MvC,1,true));
+    setText("r_mhc", fmt(r.MhC,1,true));
+    setText("r_mva", fmt(r.MvA,1,true));
+    setText("r_mha", fmt(r.MhA,1,true));
+    setText("r_qc", fmt(r.qCorner,2));
+    setText("r_qs", fmt(r.qSill,2));
+    setText("r_qe", fmt(r.qEdge,2));
+    setText("r_drad", fmt(r.dRad,2));
+    setText("r_frad", fmt(r.fRad,2));
+    setText("r_fstop", fmt(r.fStop,1,true));
+    setText("r_pco_cut_f", fmt(r.PcoFcut,1,true));
+    setText("r_pco_cut_s", fmt(r.PsiCut,1,true));
+    setText("r_ptyp_f", fmt(r.PtypF,1,true));
+    setText("r_ptyp_s", fmt(r.PtypS,1,true));
+    setText("r_pco_tot_f", fmt(r.PcoFtot,1,true));
+    setText("r_pco_tot_s", fmt(r.PcoStot,1,true));
+    setText("r_pframe", fmt(r.Pframe,1,true));
+    setText("r_tota_f", fmt(r.frTotA,3));
+    setText("r_tota_s", fmt(r.siTotA,3));
+    setText("r_fbm", fmt(r.fBM,1,true));
+    setText("r_ocs", fmt(r.ocs,3));
+
+    // ---- Case I body shear ----
+    setText("k_tauMax", fmt(r.tauMax,2));
+    setText("k_tauJunc", fmt(r.tauJunc,2));
+    setText("k_msShear", isFinite(r.msShear) ? (r.msShear>=0?"+":"")+fmt(r.msShear,2) : "—");
+    (function(){
+      var card = document.getElementById("card-tauMax");
+      var old = card.querySelector(".ktag"); if(old) old.remove();
+      card.classList.remove("gov");
+      if(isFinite(r.msShear)){
+        var tag = document.createElement("span"); tag.className="ktag";
+        if(r.msShear<0){
+          card.classList.add("gov"); tag.textContent="Exceeds Fₛ";
+        } else {
+          tag.textContent="OK";
+          tag.style.color="var(--good)"; tag.style.borderColor="var(--good)"; tag.style.background="#EAF3EE";
+        }
+        card.appendChild(tag);
+      }
+    })();
+    setText("r_q1b", fmt(r.q1b,1,true));
+    setText("r_q1c", fmt(r.q1c,1,true));
+    setText("r_q2b", fmt(r.q2b,1,true));
+    setText("r_q2c", fmt(r.q2c,1,true));
+    setText("r_q3b", fmt(r.q3b,1,true));
+    setText("r_q3c", fmt(r.q3c,1,true));
+    setText("r_qJunc", fmt(r.qJunc,1,true));
+    setText("k_qFrPk", fmt(r.qFrPk,0,true));
+    setText("r_qEF", fmt(r.qEF,1,true));
+    setText("r_qFG", fmt(r.qFG,1,true));
+    setText("r_qFrPk", fmt(r.qFrPk,1,true));
+    setText("r_REF", fmt(r.R_EF,0,true));
+    setText("r_RGH", fmt(r.R_GH,0,true));
+
+    // ---- Design-conditions envelope (Niu §6.5(7)) ----
+    var Pd = v.P, pLim = v.pLim;
+    var focPer  = (Pd>0)? r.frameOC/Pd  : 0;   // frame OC stress per psi (Case III scales linearly)
+    var sillPer = (Pd>0)? r.sillLong/Pd : 0;
+    var qPressPk = Math.max(r.qSill, r.qEdge, r.qCorner);   // peak pressure redistribution shear flow
+    var qPrPer  = (Pd>0)? qPressPk/Pd   : 0;
+    var conds = [
+      {n:"(a) 3.0 p",         u:"tension / bending",   pf:3.0, ff:0},
+      {n:"(b) 2.5 p",         u:"compression / shear", pf:2.5, ff:0},
+      {n:"(c) flight + 2.0 p", u:"combined",            pf:2.0, ff:1.0},
+      {n:"(d) flight",        u:"flight alone",        pf:0,   ff:1.0}
+    ];
+    var dcRows = conds.map(function(c){
+      var pp = c.pf*pLim;
+      var qcomb = c.pf*pLim*qPrPer + c.ff*r.qPanelMax;
+      return { c:c, pp:pp, foc:focPer*pp, sill:sillPer*pp, tau:qcomb/v.tPanel/1000 };
+    });
+    var focMaxC = -Infinity, tauMaxC = -Infinity;
+    dcRows.forEach(function(x){ if(x.foc>focMaxC) focMaxC=x.foc; if(x.tau>tauMaxC) tauMaxC=x.tau; });
+    var tb = document.getElementById("dcBody");
+    if(tb){
+      tb.innerHTML = "";
+      dcRows.forEach(function(x){
+        var gF = isFinite(x.foc)&&Math.abs(x.foc-focMaxC)<1e-9 ? ' class="govcell"' : '';
+        var gT = isFinite(x.tau)&&Math.abs(x.tau-tauMaxC)<1e-9 ? ' class="govcell"' : '';
+        var tr = document.createElement("tr");
+        tr.innerHTML = '<td>'+x.c.n+'</td><td class="u">'+x.c.u+'</td><td>'+fmt(x.pp,1)+
+          '</td><td'+gF+'>'+fmt(x.foc,2)+'</td><td>'+fmt(x.sill,2)+'</td><td'+gT+'>'+fmt(x.tau,2)+'</td>';
+        tb.appendChild(tr);
+      });
+    }
+  }
+
+  // ---- Wire up ----
+  document.getElementById("btnPrint").addEventListener("click", function(){ window.print(); });
+  document.getElementById("btnReset").addEventListener("click", resetInputs);
+
+  buildInputs();
+  recalc();
+})();
+</script>
+</body>
+</html>

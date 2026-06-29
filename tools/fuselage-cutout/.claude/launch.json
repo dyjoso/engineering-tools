@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "fuselage-cutout",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8933"],
+      "port": 8933
+    }
+  ]
+}
