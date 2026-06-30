@@ -307,10 +307,6 @@
           <div class="klabel">Sill/frame junction shear stress<div class="ksym">&tau; = [27] / t &middot; fatigue</div></div>
           <div><span class="kval" id="k_tauJunc">&mdash;</span><span class="kunit">ksi</span></div>
         </div>
-        <div class="kcard" id="card-msShear">
-          <div class="klabel">Margin of safety &mdash; panel shear<div class="ksym">F&#8347;/&tau;<sub>max</sub> &minus; 1</div></div>
-          <div><span class="kval" id="k_msShear">&mdash;</span><span class="kunit"></span></div>
-        </div>
       </div>
     </div>
 
@@ -418,7 +414,7 @@
           <li><b>Inner-chord stress</b> is lower than nominal hoop due to bending compression, but this is localised at the frame ends; the nominal hoop stress is retained as the conservative peak value.</li>
           <li><b>Body shear (Case I)</b> &mdash; the fuselage skin shear flow is diverted around the cut-out per Niu §6.5. Enter four band shear flows: <span class="cellref">q<sub>a</sub></span> (upper aux), <span class="cellref">q<sub>b</sub></span> (upper main), <span class="cellref">q<sub>c</sub></span> (lower main), <span class="cellref">q<sub>d</sub></span> (lower aux). <b>Equal bands &rarr; uniform shear</b> (cut-out on the neutral axis, Fig 6.5.3/6.5.4) &mdash; validated against Niu's worked example (450 &rarr; q&#8321;/q&#8322;/q&#8323; = 1108/932/255 lbf/in). <b>Unequal bands &rarr; variable shear</b> for off-NA cut-outs (floor / cargo, Fig 6.5.6&ndash;6.5.8): the cut-out height splits <span class="cellref">h<sub>b</sub>=a&middot;h/(a+b)</span>, <span class="cellref">h<sub>c</sub>=b&middot;h/(a+b)</span> and the upper/lower panels redistribute their own band shear. Headline checks use the governing (worst) panel. <span class="ref">[Niu §6.5 Case I]</span></li>
           <li><b>Band shears from vertical load (optional)</b> &mdash; entering a non-zero fuselage vertical shear <span class="cellref">V</span> auto-computes the four bands from a thin-walled circular-fuselage distribution <span class="cellref">q(y)=V&radic;(R&sup2;&minus;y&sup2;)/(&pi;R&sup2;)</span> (max <span class="cellref">V/&pi;R</span> at the N.A.), sampled at each band's centroid height with the lower main sill <span class="cellref">y<sub>0</sub></span> above the N.A. (often &asymp; 0). The four band inputs then become read-only. <b>Bare-skin idealisation &mdash; not necessarily conservative:</b> a uniform-shell first estimate that ignores the cabin floor beam and stringers; in a real fuselage these divert bending and can <b>raise</b> the side-skin shear above the bare-ring value, so replace <span class="cellref">q<sub>a</sub>..q<sub>d</sub></span> with an internal-loads / FEM shear-flow distribution (manual entry, V=0) when available. The shear is assumed to act through the section centroid (an offset adds a torsional shear, not included); centroid sampling is within ~3% of the band average. A band centroid above the crown (|y| &ge; R) is flagged and its q forced to 0. Set <span class="cellref">V</span> = 0 to enter the bands manually.</li>
-          <li><b>Junction shear &amp; corner peaking</b> &mdash; the panel shears q&#8321;/q&#8322;/q&#8323; and their gross-area stresses are <b>bay-average</b>; the shear migrates to the stiff main sills, so the actual <b>peak at the cut-out corners is ~+50%</b> (two stringer bays, 3:1) up to <b>~+67%</b> (three bays, 5:3:1). Apply <b>~1.5&ndash;1.67&times;</b> to the average for local peak skin stress / corner-detail fatigue &mdash; the same factor as the <span class="cellref">5/3 &middot; q<sub>av</sub></span> check at the main-sill / edge-frame junctions. Keep the panel gross-area shear stress &le; ~25 ksi (Al).</li>
+          <li><b>Junction shear &amp; corner peaking</b> &mdash; the panel shears q&#8321;/q&#8322;/q&#8323; and their gross-area stresses are <b>bay-average</b>; the shear migrates to the stiff main sills, so the actual <b>peak at the cut-out corners is ~+50%</b> (two stringer bays, 3:1) up to <b>~+67%</b> (three bays, 5:3:1). Apply <b>~1.5&ndash;1.67&times;</b> to the average for local peak skin stress / corner-detail fatigue &mdash; the same factor as the <span class="cellref">5/3 &middot; q<sub>av</sub></span> check at the main-sill / edge-frame junctions.</li>
           <li><b>In-plane shear member axial (Niu &sect;6.4, flat-plate / large R)</b> &mdash; shear redistributing around the cut-out develops cap (liquidating) axial in the bounding members, axial = q &times; &frac12;(cut-out dimension): <span class="cellref">&Delta;P<sub>frame</sub> = q<sub>fr</sub>&middot;h/2</span> with <span class="cellref">q<sub>fr</sub> = &frac12;(q<sub>b</sub>+q<sub>c</sub>)</span>; <span class="cellref">&Delta;P<sub>sill</sub> = q<sub>b</sub>&middot;&#8467;/2</span> (upper) or <span class="cellref">q<sub>c</sub>&middot;&#8467;/2</span> (lower), governing = max. It is <b>bay-independent</b> (only &#8467;, h, the bands and member areas matter), <b>peaks at the cut-out corners</b>, and reduces to <span class="cellref">q&#8320;&middot;&frac12;(dim)</span> when bands are equal. The load is &plusmn; (tension on one diagonal corner pair); the <b>tension</b> value is taken and <b>added to the pressure member axial</b>, so the Member Stresses cards read the combined operating member tension. Shear axial is pure cap tension &mdash; it adds no extra bending. <span class="ref">[Niu &sect;6.4]</span></li>
           <li><b>Damage-tolerance use:</b> enter <span class="cellref">P</span> as the operating cabin-pressure differential and the body-shear bands at the typical (1g) flight level &mdash; results are operating stresses for crack-growth / residual-strength work, not ultimate design loads.</li>
         </ol>
@@ -505,7 +501,6 @@
       { key:"qc", label:"Shear — lower main band", sym:"q<sub>c</sub>", unit:"lbf/in", val:450, step:10, meta:"band shear over lower cut-out height" },
       { key:"qd", label:"Shear — lower aux band",  sym:"q<sub>d</sub>", unit:"lbf/in", val:450, step:10, meta:"q = τ · t (skin gross shear flow)" },
       { key:"tPanel",  label:"Panel skin thickness", sym:"t",       unit:"in",     val:0.08, step:0.005, meta:"for gross-area shear stress" },
-      { key:"FsAllow", label:"Allow. gross shear",   sym:"Fₛ", unit:"ksi",    val:25,   step:1,     meta:"Niu guideline ≤ 25 ksi (Al)" },
     ]},
     { title:"Door Stop Fitting", items:[
       { key:"S", label:"Door stop offset", sym:"S", unit:"in", val:1.8, step:0.1, meta:"amplifies frame load → [15]" },
@@ -611,7 +606,6 @@
     var tauMax = qPanelMax/v.tPanel/1000;
     var qJunc  = 5/3*qPanelMax;        // 5/3 · q_av at sill/frame junctions (Niu p.187)
     var tauJunc = qJunc/v.tPanel/1000;
-    var msShear = v.FsAllow/tauMax - 1;
 
     // --- In-plane shear member axial (Niu §6.4 flat-plate / large R; bay-independent) ---
     // Shear redistributing around the cut-out develops cap (liquidating) axial in the
@@ -645,7 +639,7 @@
       frTotA:frTotA,siTotA:siTotA,frameHoop:frameHoop,sillLong:sillLong,fBM:fBM,ocs:ocs,
       frameOC:frameOC,frameIC:frameIC,
       qAB:qAB,qFA:qFA,qCor:qCor,qPanelMax:qPanelMax,
-      tauMax:tauMax,qJunc:qJunc,tauJunc:tauJunc,msShear:msShear};
+      tauMax:tauMax,qJunc:qJunc,tauJunc:tauJunc};
   }
 
   // ---- Formatting ----
@@ -994,22 +988,6 @@
     // ---- Case I body shear ----
     setText("k_tauMax", fmt(r.tauMax,2));
     setText("k_tauJunc", fmt(r.tauJunc,2));
-    setText("k_msShear", isFinite(r.msShear) ? (r.msShear>=0?"+":"")+fmt(r.msShear,2) : "—");
-    (function(){
-      var card = document.getElementById("card-tauMax");
-      var old = card.querySelector(".ktag"); if(old) old.remove();
-      card.classList.remove("gov");
-      if(isFinite(r.msShear)){
-        var tag = document.createElement("span"); tag.className="ktag";
-        if(r.msShear<0){
-          card.classList.add("gov"); tag.textContent="Exceeds Fₛ";
-        } else {
-          tag.textContent="OK";
-          tag.style.color="var(--good)"; tag.style.borderColor="var(--good)"; tag.style.background="#EAF3EE";
-        }
-        card.appendChild(tag);
-      }
-    })();
     setText("r_q1b", fmt(r.q1b,1,true));
     setText("r_q1c", fmt(r.q1c,1,true));
     setText("r_q2b", fmt(r.q2b,1,true));
