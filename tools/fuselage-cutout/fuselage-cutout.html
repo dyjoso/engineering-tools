@@ -151,6 +151,7 @@
     background:var(--input-tint); border:1px solid var(--input-border); border-radius:2px;
   }
   .ictrl input:focus{ outline:2px solid var(--blue); outline-offset:0; background:#fff; }
+  .ictrl input.auto{ background:#E8EBE6; color:var(--ink-soft); border-style:dashed; cursor:not-allowed; }
   .ictrl .unit{ font-family:var(--mono); font-size:10.5px; color:var(--ink-soft); width:30px; }
 
   /* ---------- Key results ---------- */
@@ -367,6 +368,18 @@
         </div>
 
         <div class="rblock">
+          <h4>Band shears from vertical load <span style="text-transform:none;letter-spacing:0;color:var(--ink-faint)">(circular fuselage)</span></h4>
+          <div class="rrow"><span class="rl">Vertical shear <span class="sub">V</span></span><span class="rv" id="r_V">&mdash;</span><span class="ru">lbf</span></div>
+          <div class="rrow"><span class="rl">Shear flow at N.A. <span class="sub">V/&pi;R</span></span><span class="rv" id="r_qNA">&mdash;</span><span class="ru">lbf/in</span></div>
+          <div class="twohdr"><span>Band &middot; q=V&radic;(R&sup2;&minus;y&sup2;)/&pi;R&sup2;</span><span>y in</span><span>q lbf/in</span></div>
+          <div class="rrow"><span class="rl">Upper aux <span class="sub">q<sub>a</sub></span></span><span class="rv" id="r_ya">&mdash;</span><span class="rv" id="r_bqa">&mdash;</span></div>
+          <div class="rrow"><span class="rl">Upper main <span class="sub">q<sub>b</sub></span></span><span class="rv" id="r_yb">&mdash;</span><span class="rv" id="r_bqb">&mdash;</span></div>
+          <div class="rrow"><span class="rl">Lower main <span class="sub">q<sub>c</sub></span></span><span class="rv" id="r_yc">&mdash;</span><span class="rv" id="r_bqc">&mdash;</span></div>
+          <div class="rrow"><span class="rl">Lower aux <span class="sub">q<sub>d</sub></span></span><span class="rv" id="r_yd">&mdash;</span><span class="rv" id="r_bqd">&mdash;</span></div>
+          <div class="rrow"><span class="rl" id="r_vstatus" style="color:var(--ink-faint);font-size:10.5px">&mdash;</span><span class="rv"></span><span class="ru"></span></div>
+        </div>
+
+        <div class="rblock">
           <h4>Body-shear redistribution &mdash; Case I <span style="text-transform:none;letter-spacing:0;color:var(--ink-faint)">(lbf/in)</span></h4>
           <div class="twohdr"><span></span><span>Upper</span><span>Lower</span></div>
           <div class="rrow"><span class="rl">Above / below cut-out <span class="sub">q&#8321; · [24]</span></span><span class="rv" id="r_q1b">&mdash;</span><span class="rv" id="r_q1c">&mdash;</span></div>
@@ -404,6 +417,7 @@
           <li><b>Worst-case frame hoop load</b> takes the greater of the stop-fitting load and the cut-out redistribution load. If the stop-fitting load is the lesser, stop loads are insufficient to react frame tension and the frame pulls inward against the door until stop-fitting loads rise to match frame tension (free-edge equilibrium).</li>
           <li><b>Inner-chord stress</b> is lower than nominal hoop due to bending compression, but this is localised at the frame ends; the nominal hoop stress is retained as the conservative peak value.</li>
           <li><b>Body shear (Case I)</b> &mdash; the fuselage skin shear flow is diverted around the cut-out per Niu §6.5. Enter four band shear flows: <span class="cellref">q<sub>a</sub></span> (upper aux), <span class="cellref">q<sub>b</sub></span> (upper main), <span class="cellref">q<sub>c</sub></span> (lower main), <span class="cellref">q<sub>d</sub></span> (lower aux). <b>Equal bands &rarr; uniform shear</b> (cut-out on the neutral axis, Fig 6.5.3/6.5.4) &mdash; validated against Niu's worked example (450 &rarr; q&#8321;/q&#8322;/q&#8323; = 1108/932/255 lbf/in). <b>Unequal bands &rarr; variable shear</b> for off-NA cut-outs (floor / cargo, Fig 6.5.6&ndash;6.5.8): the cut-out height splits <span class="cellref">h<sub>b</sub>=a&middot;h/(a+b)</span>, <span class="cellref">h<sub>c</sub>=b&middot;h/(a+b)</span> and the upper/lower panels redistribute their own band shear. Headline checks use the governing (worst) panel. <span class="ref">[Niu §6.5 Case I]</span></li>
+          <li><b>Band shears from vertical load (optional)</b> &mdash; entering a non-zero fuselage vertical shear <span class="cellref">V</span> auto-computes the four bands from a thin-walled circular-fuselage distribution <span class="cellref">q(y)=V&radic;(R&sup2;&minus;y&sup2;)/(&pi;R&sup2;)</span> (max <span class="cellref">V/&pi;R</span> at the N.A.), sampled at each band's centroid height with the lower main sill <span class="cellref">y<sub>0</sub></span> above the N.A. (often &asymp; 0). The four band inputs then become read-only. <b>Bare-skin idealisation &mdash; not necessarily conservative:</b> a uniform-shell first estimate that ignores the cabin floor beam and stringers; in a real fuselage these divert bending and can <b>raise</b> the side-skin shear above the bare-ring value, so replace <span class="cellref">q<sub>a</sub>..q<sub>d</sub></span> with an internal-loads / FEM shear-flow distribution (manual entry, V=0) when available. The shear is assumed to act through the section centroid (an offset adds a torsional shear, not included); centroid sampling is within ~3% of the band average. A band centroid above the crown (|y| &ge; R) is flagged and its q forced to 0. Set <span class="cellref">V</span> = 0 to enter the bands manually.</li>
           <li><b>Junction shear &amp; corner peaking</b> &mdash; the panel shears q&#8321;/q&#8322;/q&#8323; and their gross-area stresses are <b>bay-average</b>; the shear migrates to the stiff main sills, so the actual <b>peak at the cut-out corners is ~+50%</b> (two stringer bays, 3:1) up to <b>~+67%</b> (three bays, 5:3:1). Apply <b>~1.5&ndash;1.67&times;</b> to the average for local peak skin stress / corner-detail fatigue &mdash; the same factor as the <span class="cellref">5/3 &middot; q<sub>av</sub></span> check at the main-sill / edge-frame junctions. Keep the panel gross-area shear stress &le; ~25 ksi (Al).</li>
           <li><b>In-plane shear member axial (Niu &sect;6.4, flat-plate / large R)</b> &mdash; shear redistributing around the cut-out develops cap (liquidating) axial in the bounding members, axial = q &times; &frac12;(cut-out dimension): <span class="cellref">&Delta;P<sub>frame</sub> = q<sub>fr</sub>&middot;h/2</span> with <span class="cellref">q<sub>fr</sub> = &frac12;(q<sub>b</sub>+q<sub>c</sub>)</span>; <span class="cellref">&Delta;P<sub>sill</sub> = q<sub>b</sub>&middot;&#8467;/2</span> (upper) or <span class="cellref">q<sub>c</sub>&middot;&#8467;/2</span> (lower), governing = max. It is <b>bay-independent</b> (only &#8467;, h, the bands and member areas matter), <b>peaks at the cut-out corners</b>, and reduces to <span class="cellref">q&#8320;&middot;&frac12;(dim)</span> when bands are equal. The load is &plusmn; (tension on one diagonal corner pair); the <b>tension</b> value is taken and <b>added to the pressure member axial</b>, so the Member Stresses cards read the combined operating member tension. Shear axial is pure cap tension &mdash; it adds no extra bending. <span class="ref">[Niu &sect;6.4]</span></li>
           <li><b>Damage-tolerance use:</b> enter <span class="cellref">P</span> as the operating cabin-pressure differential and the body-shear bands at the typical (1g) flight level &mdash; results are operating stresses for crack-growth / residual-strength work, not ultimate design loads.</li>
@@ -484,6 +498,8 @@
       { key:"longCap", label:"Door long. capability", sym:"\u03B7\u2097", unit:"\u2014", val:0,       step:0.01, meta:"0 = full Niu redistribution" },
     ]},
     { title:"Fuselage Body Shear — Case I", items:[
+      { key:"Vshear", label:"Vertical shear (fuselage)", sym:"V", unit:"lbf", val:0, step:1000, meta:"0 = enter bands manually · >0 auto-fills bands" },
+      { key:"yLS",    label:"Lower sill above N.A.",      sym:"y<sub>0</sub>", unit:"in", val:0, step:1, meta:"circular-fuselage shear; lower main sill from N.A." },
       { key:"qa", label:"Shear — upper aux band",  sym:"q<sub>a</sub>", unit:"lbf/in", val:450, step:10, meta:"equal bands = uniform (cut-out on NA)" },
       { key:"qb", label:"Shear — upper main band", sym:"q<sub>b</sub>", unit:"lbf/in", val:450, step:10, meta:"unequal = variable (off-NA, Fig 6.5.6–8)" },
       { key:"qc", label:"Shear — lower main band", sym:"q<sub>c</sub>", unit:"lbf/in", val:450, step:10, meta:"band shear over lower cut-out height" },
@@ -687,6 +703,38 @@
     return v;
   }
 
+  // ---- Band shears from vertical load (thin-walled circular fuselage) ----
+  // Skin shear flow at height y above the neutral axis: q(y)=V·sqrt(R²−y²)/(πR²),
+  // max V/(πR) at the NA. Bands evaluated at their centroid heights. y0 = lower
+  // main sill above NA (+up). Cut-out splits h_b/h_c by bay ratio (Niu Fig 6.5.7).
+  function bandShears(v){
+    var R=v.R, V=v.Vshear, h=v.h, a=v.a, b=v.b, y0=v.yLS;
+    var hb=a*h/(a+b), hc=b*h/(a+b);
+    var yd=y0-b/2, yc=y0+hc/2, yb=y0+hc+hb/2, ya=y0+h+a/2;
+    function q(y){ var r2=R*R-y*y; return r2>0 ? V*Math.sqrt(r2)/(Math.PI*R*R) : 0; }
+    return {qa:q(ya),qb:q(yb),qc:q(yc),qd:q(yd), ya:ya,yb:yb,yc:yc,yd:yd,
+            qNA:(R>0?V/(Math.PI*R):0), hb:hb, hc:hc,
+            crown:(Math.max(Math.abs(ya),Math.abs(yb),Math.abs(yc),Math.abs(yd))>=R)};
+  }
+  // When V>0, auto-fill the four band inputs (read-only); else leave them editable.
+  function applyVshear(v){
+    var ids=["qa","qb","qc","qd"];
+    var on = isFinite(v.Vshear)&&v.Vshear>0&&isFinite(v.R)&&v.R>0&&(v.a+v.b)>0;
+    if(on){
+      var b=bandShears(v);
+      ids.forEach(function(k){
+        var el=document.getElementById("in_"+k);
+        if(el){ el.value=Math.round(b[k]*10)/10; el.readOnly=true; el.classList.add("auto"); }
+        v[k]=b[k];
+      });
+    } else {
+      ids.forEach(function(k){
+        var el=document.getElementById("in_"+k); if(el){ el.readOnly=false; el.classList.remove("auto"); }
+      });
+    }
+    return on;
+  }
+
   function resetInputs(){
     GROUPS.forEach(function(g){ g.items.forEach(function(it){
       var el = document.getElementById("in_"+it.key); if(el) el.value = it.val;
@@ -853,7 +901,23 @@
   // ---- Recalc & render ----
   function recalc(){
     var v = readInputs();
+    var vAuto = applyVshear(v);   // if V>0, auto-fill bands from circular-fuselage shear
     var r = compute(v);
+
+    // band shears from vertical load (display)
+    var bs = bandShears(v);
+    setText("r_V",   v.Vshear>0 ? fmt(v.Vshear,0,true) : "—");
+    setText("r_qNA", v.Vshear>0 ? fmt(bs.qNA,1) : "—");
+    setText("r_ya", fmt(bs.ya,1)); setText("r_yb", fmt(bs.yb,1));
+    setText("r_yc", fmt(bs.yc,1)); setText("r_yd", fmt(bs.yd,1));
+    setText("r_bqa", v.Vshear>0 ? fmt(bs.qa,1) : "—"); setText("r_bqb", v.Vshear>0 ? fmt(bs.qb,1) : "—");
+    setText("r_bqc", v.Vshear>0 ? fmt(bs.qc,1) : "—"); setText("r_bqd", v.Vshear>0 ? fmt(bs.qd,1) : "—");
+    (function(){
+      var st=document.getElementById("r_vstatus"); if(!st) return;
+      if(vAuto && bs.crown){ st.textContent="⚠ a band centroid is above the crown (|y| ≥ R) — q forced to 0 there (non-physical); use internal-loads / FEM."; st.style.color="var(--load)"; }
+      else if(vAuto){ st.textContent="Bands auto-filled above (read-only)."; st.style.color="var(--ink-faint)"; }
+      else { st.textContent="V = 0 — bands entered manually above."; st.style.color="var(--ink-faint)"; }
+    })();
 
     // figure
     var bandsEq = (v.qa===v.qb && v.qb===v.qc && v.qc===v.qd);
