@@ -344,9 +344,9 @@
 
         <div class="rblock">
           <h4>Pressure redistribution shear flows</h4>
-          <div class="rrow"><span class="rl">Governing corner shear <span class="sub">0.5&middot;[10]/area</span></span><span class="rv" id="r_qc">&mdash;</span><span class="ru">lbf/in <span class="cellref">[11]</span></span></div>
-          <div class="rrow"><span class="rl">Hoop redist. (gov.) <span class="sub">max([1]&#8467;/2a, [1]&#8467;/2b)</span></span><span class="rv" id="r_qs">&mdash;</span><span class="ru">lbf/in <span class="cellref">[12]</span></span></div>
-          <div class="rrow"><span class="rl">Long. redist. (gov.) <span class="sub">max([2]h/2c, [2]h/2d)</span></span><span class="rv" id="r_qe">&mdash;</span><span class="ru">lbf/in <span class="cellref">[13]</span></span></div>
+          <div class="rrow"><span class="rl">Corner shear &mdash; governing <span class="sub">0.5&middot;[10] / smallest corner panel &middot; per-corner App.&nbsp;A</span></span><span class="rv" id="r_qc">&mdash;</span><span class="ru">lbf/in <span class="cellref">[11]</span></span></div>
+          <div class="rrow"><span class="rl">Hoop redist. &mdash; governing <span class="sub">max([1]&#8467;/2a, [1]&#8467;/2b) &middot; App.&nbsp;A</span></span><span class="rv" id="r_qs">&mdash;</span><span class="ru">lbf/in <span class="cellref">[12]</span></span></div>
+          <div class="rrow"><span class="rl">Long. redist. &mdash; governing <span class="sub">max([2]h/2c, [2]h/2d) &middot; App.&nbsp;A</span></span><span class="rv" id="r_qe">&mdash;</span><span class="ru">lbf/in <span class="cellref">[13]</span></span></div>
           <h4 style="margin-top:11px">Door-stop fitting offset</h4>
           <div class="rrow"><span class="rl">Door edge radial load <span class="sub">P&middot;&#8467;/2&middot;(1&minus;&eta;<sub>h</sub>)</span></span><span class="rv" id="r_drad">&mdash;</span><span class="ru">lbf/in <span class="cellref">[14]</span></span></div>
           <div class="rrow"><span class="rl">Frame radial load <span class="sub">[14]&middot;(c+S)/c</span></span><span class="rv" id="r_frad">&mdash;</span><span class="ru">lbf/in <span class="cellref">[15]</span></span></div>
@@ -399,7 +399,7 @@
         <ol>
           <li>Method follows <b>Niu, <i>Airframe Stress Analysis &amp; Sizing</i>, Sections 6.4 &amp; 6.5</b> &mdash; load redistribution around a skin cut-out: fixed-end-moment frame idealisation for cabin-pressure tension, plus flat-plate liquidating-shear for in-plane (flight) shear. <span class="ref">[SCT-025]</span></li>
           <li><b>Door capability factors</b> &eta;<sub>h</sub> / &eta;<sub>l</sub> default to <b>0 = full Niu redistribution</b> (the plug door transfers all hoop / longitudinal load to the surrounding frames &amp; sills). Set a non-zero value <i>only</i> with a substantiated door load path &mdash; &eta;<sub>h</sub> &gt; 0 reduces the redistributed frame load and is unconservative without justification. <span class="ref">[deviates from Niu §6.5]</span></li>
-          <li><b>General bays (Niu §6.5):</b> upper <span class="cellref">a</span>, lower <span class="cellref">b</span>, forward <span class="cellref">c</span>, aft <span class="cellref">d</span> are independent. Corner shears, edge redistribution and member loads are evaluated per location and the <b>governing</b> value is reported. The default geometry reproduces Niu's worked example: the Case I body-shear chain gives q&#8321;/q&#8322;/q&#8323; = 1108/932/255 lbf/in (bands = 450, independent of P); the Case III pressure chain reproduces Niu at P = 17.2 psi (corner moment 169,198 in&middot;lb, upper-fwd corner 210.2 lbf/in). Headline values are the governing (worst) location.</li>
+          <li><b>General bays (Niu §6.5):</b> upper <span class="cellref">a</span>, lower <span class="cellref">b</span>, forward <span class="cellref">c</span>, aft <span class="cellref">d</span> are independent. Each corner panel (a&times;c, a&times;d, b&times;c, b&times;d) and each side has its own shear / axial &mdash; corner shears, edge redistribution and member loads are evaluated <b>per location</b> and only the <b>governing</b> (worst) value feeds the headline. The original spreadsheet assumed equal corners; the full per-corner / per-side breakdown is tabulated in <b>Appendix&nbsp;A</b> (reference only). Frame &amp; sill member axial loads already reflect the different auxiliary distances (frame &rarr; c/d, sill &rarr; a/b). The default geometry reproduces Niu's worked example: the Case I body-shear chain gives q&#8321;/q&#8322;/q&#8323; = 1108/932/255 lbf/in (bands = 450, independent of P); the Case III pressure chain reproduces Niu at P = 17.2 psi (corner moment 169,198 in&middot;lb, upper-fwd corner 210.2 lbf/in). Headline values are the governing (worst) location.</li>
           <li><b>Section properties</b> &mdash; neutral-axis offset <span class="cellref">ȳ</span> and second moment of area <span class="cellref">I</span> must be derived separately from the built-up frame + bear-strap + skin section. Enter the computed values.</li>
           <li><b>Worst-case frame hoop load</b> takes the greater of the stop-fitting load and the cut-out redistribution load. If the stop-fitting load is the lesser, stop loads are insufficient to react frame tension and the frame pulls inward against the door until stop-fitting loads rise to match frame tension (free-edge equilibrium).</li>
           <li><b>Inner-chord stress</b> is lower than nominal hoop due to bending compression, but this is localised at the frame ends; the nominal hoop stress is retained as the conservative peak value.</li>
@@ -407,6 +407,50 @@
           <li><b>Junction shear &amp; corner peaking</b> &mdash; the panel shears q&#8321;/q&#8322;/q&#8323; and their gross-area stresses are <b>bay-average</b>; the shear migrates to the stiff main sills, so the actual <b>peak at the cut-out corners is ~+50%</b> (two stringer bays, 3:1) up to <b>~+67%</b> (three bays, 5:3:1). Apply <b>~1.5&ndash;1.67&times;</b> to the average for local peak skin stress / corner-detail fatigue &mdash; the same factor as the <span class="cellref">5/3 &middot; q<sub>av</sub></span> check at the main-sill / edge-frame junctions. Keep the panel gross-area shear stress &le; ~25 ksi (Al).</li>
           <li><b>In-plane shear member axial (Niu &sect;6.4, flat-plate / large R)</b> &mdash; shear redistributing around the cut-out develops cap (liquidating) axial in the bounding members, axial = q &times; &frac12;(cut-out dimension): <span class="cellref">&Delta;P<sub>frame</sub> = q<sub>fr</sub>&middot;h/2</span> with <span class="cellref">q<sub>fr</sub> = &frac12;(q<sub>b</sub>+q<sub>c</sub>)</span>; <span class="cellref">&Delta;P<sub>sill</sub> = q<sub>b</sub>&middot;&#8467;/2</span> (upper) or <span class="cellref">q<sub>c</sub>&middot;&#8467;/2</span> (lower), governing = max. It is <b>bay-independent</b> (only &#8467;, h, the bands and member areas matter), <b>peaks at the cut-out corners</b>, and reduces to <span class="cellref">q&#8320;&middot;&frac12;(dim)</span> when bands are equal. The load is &plusmn; (tension on one diagonal corner pair); the <b>tension</b> value is taken and <b>added to the pressure member axial</b>, so the Member Stresses cards read the combined operating member tension. Shear axial is pure cap tension &mdash; it adds no extra bending. <span class="ref">[Niu &sect;6.4]</span></li>
           <li><b>Damage-tolerance use:</b> enter <span class="cellref">P</span> as the operating cabin-pressure differential and the body-shear bands at the typical (1g) flight level &mdash; results are operating stresses for crack-growth / residual-strength work, not ultimate design loads.</li>
+        </ol>
+      </div>
+    </div>
+
+    <!-- APPENDIX A -->
+    <div class="sec">
+      <div class="sec-head">
+        <span class="sec-idx">A</span>
+        <span class="sec-title">Appendix A &mdash; Per-corner &amp; per-side breakdown</span>
+        <span class="sec-rule"></span>
+        <span class="sec-note">reference only &middot; not used directly &middot; headline takes the governing value</span>
+      </div>
+      <div class="res-cols">
+
+        <div class="rblock">
+          <h4>Corner-panel shear flows <span style="text-transform:none;letter-spacing:0;color:var(--ink-faint)">(0.5&middot;M<sub>adj</sub>/area)</span></h4>
+          <div class="twohdr"><span></span><span>Fwd</span><span>Aft</span></div>
+          <div class="rrow"><span class="rl">Upper corner <span class="sub">a&times;c &middot; a&times;d</span></span><span class="rv" id="r_qcUF">&mdash;</span><span class="rv" id="r_qcUA">&mdash;</span></div>
+          <div class="rrow"><span class="rl">Lower corner <span class="sub">b&times;c &middot; b&times;d</span></span><span class="rv" id="r_qcLF">&mdash;</span><span class="rv" id="r_qcLA">&mdash;</span></div>
+          <div class="rrow"><span class="rl"><b>Governing</b> <span class="sub">smallest panel &rarr; [11]</span></span><span class="rv" id="r_qcGov">&mdash;</span><span class="rv" style="color:var(--ink-faint)">lbf/in</span></div>
+        </div>
+
+        <div class="rblock">
+          <h4>Edge redistribution shear flows</h4>
+          <div class="rrow"><span class="rl">Hoop &mdash; upper <span class="sub">w&#8467;/2a</span></span><span class="rv" id="r_qHup">&mdash;</span><span class="ru">lbf/in</span></div>
+          <div class="rrow"><span class="rl">Hoop &mdash; lower <span class="sub">w&#8467;/2b</span></span><span class="rv" id="r_qHlo">&mdash;</span><span class="ru">lbf/in</span></div>
+          <div class="rrow"><span class="rl">Long. &mdash; fwd <span class="sub">w'h/2c</span></span><span class="rv" id="r_qLfwd">&mdash;</span><span class="ru">lbf/in</span></div>
+          <div class="rrow"><span class="rl">Long. &mdash; aft <span class="sub">w'h/2d</span></span><span class="rv" id="r_qLaft">&mdash;</span><span class="ru">lbf/in</span></div>
+        </div>
+
+        <div class="rblock">
+          <h4>Per-side member cut-out axial <span style="text-transform:none;letter-spacing:0;color:var(--ink-faint)">(&rarr; governing [17])</span></h4>
+          <div class="rrow"><span class="rl">Frame &mdash; fwd <span class="sub">P<sub>HT</sub> + 0.5&middot;[10]/c</span></span><span class="rv" id="r_PcoFfwd">&mdash;</span><span class="ru">lbf</span></div>
+          <div class="rrow"><span class="rl">Frame &mdash; aft <span class="sub">P<sub>HT</sub> + 0.5&middot;[10]/d</span></span><span class="rv" id="r_PcoFaft">&mdash;</span><span class="ru">lbf</span></div>
+          <div class="rrow"><span class="rl">Sill &mdash; upper <span class="sub">P<sub>LT</sub> + 0.5&middot;[10]/a</span></span><span class="rv" id="r_PcoSup">&mdash;</span><span class="ru">lbf</span></div>
+          <div class="rrow"><span class="rl">Sill &mdash; lower <span class="sub">P<sub>LT</sub> + 0.5&middot;[10]/b</span></span><span class="rv" id="r_PcoSlo">&mdash;</span><span class="ru">lbf</span></div>
+        </div>
+
+      </div>
+      <div class="notes" style="margin-top:11px">
+        <h4>Appendix notes</h4>
+        <ol>
+          <li>These per-location values are computed for completeness but are <b>not used directly</b>. The headline Key Results take the <b>governing</b> (worst) of each set: the <b>smallest</b> corner panel for corner skin shear (highest q), and the <b>largest</b> member axial across fwd/aft frame and upper/lower sill.</li>
+          <li>The adjusted corner moment <span class="cellref">M<sub>adj</sub></span> [10] is bay-independent (Niu's distribution factors use only h, &#8467;); the corner shear differs purely through the corner <b>area</b>. The frame &amp; sill <b>axial</b> loads vary with the auxiliary distances (frame &rarr; c/d; sill &rarr; a/b) &mdash; so unequal aux bays are fully reflected in the member stresses.</li>
         </ol>
       </div>
     </div>
@@ -860,6 +904,14 @@
     setText("r_qc", fmt(r.qCorner,2));
     setText("r_qs", fmt(r.qSill,2));
     setText("r_qe", fmt(r.qEdge,2));
+    // Appendix A — per-corner / per-side breakdown (reference only)
+    setText("r_qcUF", fmt(r.qcUF,1)); setText("r_qcUA", fmt(r.qcUA,1));
+    setText("r_qcLF", fmt(r.qcLF,1)); setText("r_qcLA", fmt(r.qcLA,1));
+    setText("r_qcGov", fmt(r.qCorner,1));
+    setText("r_qHup", fmt(r.qHup,1)); setText("r_qHlo", fmt(r.qHlo,1));
+    setText("r_qLfwd", fmt(r.qLfwd,1)); setText("r_qLaft", fmt(r.qLaft,1));
+    setText("r_PcoFfwd", fmt(r.PcoF_fwd,0,true)); setText("r_PcoFaft", fmt(r.PcoF_aft,0,true));
+    setText("r_PcoSup", fmt(r.PcoS_up,0,true)); setText("r_PcoSlo", fmt(r.PcoS_lo,0,true));
     setText("r_drad", fmt(r.dRad,2));
     setText("r_frad", fmt(r.fRad,2));
     setText("r_fstop", fmt(r.fStop,1,true));
