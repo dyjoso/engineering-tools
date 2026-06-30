@@ -181,6 +181,8 @@
   .pillrow{ display:flex; align-items:center; gap:7px; }
   .twohdr{ display:grid; grid-template-columns: 1fr auto auto; gap:10px; font-family:var(--mono); font-size:9px; letter-spacing:.08em; text-transform:uppercase; color:var(--blue); padding-bottom:3px; }
   .twohdr span:nth-child(2),.twohdr span:nth-child(3){ text-align:right; width:74px; }
+  .rrow.bv4, .twohdr.bv4{ grid-template-columns: 1fr 48px 48px 56px; gap:8px; }
+  .twohdr.bv4 span:nth-child(n+2){ text-align:right; width:auto; }
 
   /* ---------- Notes ---------- */
   .notes{ border:1px solid var(--rule); background:#FBFBF8; padding:13px 16px; }
@@ -367,11 +369,11 @@
           <h4>Band shears from vertical load <span style="text-transform:none;letter-spacing:0;color:var(--ink-faint)">(circular fuselage)</span></h4>
           <div class="rrow"><span class="rl">Vertical shear <span class="sub">V</span></span><span class="rv" id="r_V">&mdash;</span><span class="ru">lbf</span></div>
           <div class="rrow"><span class="rl">Shear flow at N.A. <span class="sub">V/(0.533&middot;2&pi;R)</span></span><span class="rv" id="r_qNA">&mdash;</span><span class="ru">lbf/in</span></div>
-          <div class="twohdr"><span>Band &middot; &theta;=arc/R &middot; y=R&middot;sin&theta;</span><span>y vert</span><span>q lbf/in</span></div>
-          <div class="rrow"><span class="rl">Upper aux <span class="sub">q<sub>a</sub></span></span><span class="rv" id="r_ya">&mdash;</span><span class="rv" id="r_bqa">&mdash;</span></div>
-          <div class="rrow"><span class="rl">Upper main <span class="sub">q<sub>b</sub></span></span><span class="rv" id="r_yb">&mdash;</span><span class="rv" id="r_bqb">&mdash;</span></div>
-          <div class="rrow"><span class="rl">Lower main <span class="sub">q<sub>c</sub></span></span><span class="rv" id="r_yc">&mdash;</span><span class="rv" id="r_bqc">&mdash;</span></div>
-          <div class="rrow"><span class="rl">Lower aux <span class="sub">q<sub>d</sub></span></span><span class="rv" id="r_yd">&mdash;</span><span class="rv" id="r_bqd">&mdash;</span></div>
+          <div class="twohdr bv4"><span>Band &middot; y=R&middot;sin(arc/R)</span><span>arc</span><span>y vert</span><span>q lbf/in</span></div>
+          <div class="rrow bv4"><span class="rl">Upper aux <span class="sub">q<sub>a</sub></span></span><span class="rv" id="r_sa">&mdash;</span><span class="rv" id="r_ya">&mdash;</span><span class="rv" id="r_bqa">&mdash;</span></div>
+          <div class="rrow bv4"><span class="rl">Upper main <span class="sub">q<sub>b</sub></span></span><span class="rv" id="r_sb">&mdash;</span><span class="rv" id="r_yb">&mdash;</span><span class="rv" id="r_bqb">&mdash;</span></div>
+          <div class="rrow bv4"><span class="rl">Lower main <span class="sub">q<sub>c</sub></span></span><span class="rv" id="r_sc">&mdash;</span><span class="rv" id="r_yc">&mdash;</span><span class="rv" id="r_bqc">&mdash;</span></div>
+          <div class="rrow bv4"><span class="rl">Lower aux <span class="sub">q<sub>d</sub></span></span><span class="rv" id="r_sd">&mdash;</span><span class="rv" id="r_yd">&mdash;</span><span class="rv" id="r_bqd">&mdash;</span></div>
           <div class="rrow"><span class="rl" id="r_vstatus" style="color:var(--ink-faint);font-size:10.5px">&mdash;</span><span class="rv"></span><span class="ru"></span></div>
         </div>
 
@@ -716,6 +718,7 @@
     function vy(s){ return R>0 ? R*Math.sin(s/R) : 0; }       // equivalent vertical height
     return {qa:q(sa),qb:q(sb),qc:q(sc),qd:q(sd),
             ya:vy(sa),yb:vy(sb),yc:vy(sc),yd:vy(sd),
+            sa:sa,sb:sb,sc:sc,sd:sd,
             qNA:(R>0?V/den:0), hb:hb, hc:hc,
             crown:(R>0 && Math.max(Math.abs(sa),Math.abs(sb),Math.abs(sc),Math.abs(sd))>=Math.PI*R/2)};
   }
@@ -911,6 +914,8 @@
     var bs = bandShears(v);
     setText("r_V",   v.Vshear>0 ? fmt(v.Vshear,0,true) : "—");
     setText("r_qNA", v.Vshear>0 ? fmt(bs.qNA,1) : "—");
+    setText("r_sa", fmt(bs.sa,1)); setText("r_sb", fmt(bs.sb,1));
+    setText("r_sc", fmt(bs.sc,1)); setText("r_sd", fmt(bs.sd,1));
     setText("r_ya", fmt(bs.ya,1)); setText("r_yb", fmt(bs.yb,1));
     setText("r_yc", fmt(bs.yc,1)); setText("r_yd", fmt(bs.yd,1));
     setText("r_bqa", v.Vshear>0 ? fmt(bs.qa,1) : "—"); setText("r_bqb", v.Vshear>0 ? fmt(bs.qb,1) : "—");
