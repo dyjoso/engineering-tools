@@ -184,6 +184,10 @@
   .rrow.bv4, .twohdr.bv4{ grid-template-columns: 1fr 48px 48px 56px; gap:8px; }
   .twohdr.bv4 span:nth-child(n+2){ text-align:right; width:auto; }
   .rnote{ font-size:10.5px; color:var(--ink-faint); line-height:1.45; margin-top:8px; }
+  /* two-value (Frame/Sill · Upper/Lower · Fwd/Aft) rows: fixed value columns so numbers line up across rows */
+  .rrow.fs, .twohdr.fs{ grid-template-columns: 1fr 80px 80px; }
+  .twohdr.fs span:nth-child(2), .twohdr.fs span:nth-child(3){ width:auto; text-align:right; }
+  .rrow.fs .uin{ text-align:left; font-weight:400; font-size:10px; color:var(--ink-faint); }
 
   /* ---------- Notes ---------- */
   .notes{ border:1px solid var(--rule); background:#FBFBF8; padding:13px 16px; }
@@ -316,7 +320,7 @@
     <div class="sec">
       <div class="sec-head">
         <span class="sec-idx">05</span>
-        <span class="sec-title">Supporting Calculations</span>
+        <span class="sec-title">Supporting Calculations &mdash; Pressure Loads</span>
         <span class="sec-rule"></span>
         <span class="sec-note">[n] = equation ref · subscript F/S = frame/sill column</span>
       </div>
@@ -354,16 +358,29 @@
 
         <div class="rblock">
           <h4>Redistributed cut-out loads</h4>
-          <div class="twohdr"><span></span><span>Frame</span><span>Sill</span></div>
-          <div class="rrow"><span class="rl">Due to cut-out <span class="sub">[17] · F ½[1]&#8467;+½[10]/c · S ½[2]h+½[10]/a</span></span><span class="rv" id="r_pco_cut_f">&mdash;</span><span class="rv" id="r_pco_cut_s">&mdash;</span></div>
-          <div class="rrow"><span class="rl">Adjacent bay pressure <span class="sub">[18] · P&middot;R&middot;bay/2</span></span><span class="rv" id="r_ptyp_f">&mdash;</span><span class="rv" id="r_ptyp_s">&mdash;</span></div>
-          <div class="rrow"><span class="rl">Worst-case frame hoop <span class="sub">[19] = max([16], [17]<sub>F</sub>)</span></span><span class="rv" id="r_pframe">&mdash;</span><span class="rv" style="color:var(--ink-faint)">lbf</span></div>
-          <div class="rrow"><span class="rl"><b>Total redistributed load</b> <span class="sub">[20] · F max([19],[17]<sub>F</sub>)+[18]<sub>F</sub> · S [17]<sub>S</sub>+[18]<sub>S</sub></span></span><span class="rv" id="r_pco_tot_f">&mdash;</span><span class="rv" id="r_pco_tot_s">&mdash;</span></div>
+          <div class="twohdr fs"><span></span><span>Frame</span><span>Sill</span></div>
+          <div class="rrow fs"><span class="rl">Due to cut-out <span class="sub">[17] · F ½[1]&#8467;+½[10]/c · S ½[2]h+½[10]/a</span></span><span class="rv" id="r_pco_cut_f">&mdash;</span><span class="rv" id="r_pco_cut_s">&mdash;</span></div>
+          <div class="rrow fs"><span class="rl">Adjacent bay pressure <span class="sub">[18] · P&middot;R&middot;bay/2</span></span><span class="rv" id="r_ptyp_f">&mdash;</span><span class="rv" id="r_ptyp_s">&mdash;</span></div>
+          <div class="rrow fs"><span class="rl">Worst-case frame hoop <span class="sub">[19] = max([16], [17]<sub>F</sub>)</span></span><span class="rv" id="r_pframe">&mdash;</span><span class="rv uin">lbf</span></div>
+          <div class="rrow fs"><span class="rl"><b>Total redistributed load</b> <span class="sub">[20] · F max([19],[17]<sub>F</sub>)+[18]<sub>F</sub> · S [17]<sub>S</sub>+[18]<sub>S</sub></span></span><span class="rv" id="r_pco_tot_f">&mdash;</span><span class="rv" id="r_pco_tot_s">&mdash;</span></div>
           <h4 style="margin-top:11px">Built-up section areas <span style="text-transform:none;letter-spacing:0;color:var(--ink-faint)">(frame · sill)</span></h4>
-          <div class="rrow"><span class="rl">Total effective area <span class="sub">[21] · cap+strap+skin</span></span><span class="rv" id="r_tota_f">&mdash;</span><span class="rv" id="r_tota_s">&mdash;</span></div>
-          <div class="rrow"><span class="rl">Frame bending moment <span class="sub">[22] = [17]<sub>F</sub>&middot;ȳ</span></span><span class="rv" id="r_fbm">&mdash;</span><span class="rv" style="color:var(--ink-faint)">lbf·in</span></div>
-          <div class="rrow"><span class="rl">Outer-chord bending stress <span class="sub">[23] = [22]&middot;ȳ/I</span></span><span class="rv" id="r_ocs">&mdash;</span><span class="rv" style="color:var(--ink-faint)">ksi</span></div>
+          <div class="rrow fs"><span class="rl">Total effective area <span class="sub">[21] · cap+strap+skin</span></span><span class="rv" id="r_tota_f">&mdash;</span><span class="rv" id="r_tota_s">&mdash;</span></div>
+          <div class="rrow fs"><span class="rl">Frame bending moment <span class="sub">[22] = [17]<sub>F</sub>&middot;ȳ</span></span><span class="rv" id="r_fbm">&mdash;</span><span class="rv uin">lbf·in</span></div>
+          <div class="rrow fs"><span class="rl">Outer-chord bending stress <span class="sub">[23] = [22]&middot;ȳ/I</span></span><span class="rv" id="r_ocs">&mdash;</span><span class="rv uin">ksi</span></div>
         </div>
+
+      </div>
+    </div>
+
+    <!-- SUPPORTING RESULTS — SHEAR -->
+    <div class="sec">
+      <div class="sec-head">
+        <span class="sec-idx">06</span>
+        <span class="sec-title">Supporting Calculations &mdash; Shear Loads</span>
+        <span class="sec-rule"></span>
+        <span class="sec-note">[n] = equation ref · circular-fuselage bands + &sect;6.4 member axial</span>
+      </div>
+      <div class="res-cols">
 
         <div class="rblock">
           <h4>Band shears from vertical load <span style="text-transform:none;letter-spacing:0;color:var(--ink-faint)">(circular fuselage)</span></h4>
@@ -379,10 +396,10 @@
 
         <div class="rblock">
           <h4>Body-shear redistribution &mdash; Case I <span style="text-transform:none;letter-spacing:0;color:var(--ink-faint)">(lbf/in)</span></h4>
-          <div class="twohdr"><span></span><span>Upper</span><span>Lower</span></div>
-          <div class="rrow"><span class="rl">Above / below cut-out <span class="sub">q&#8321; · [24]</span></span><span class="rv" id="r_q1b">&mdash;</span><span class="rv" id="r_q1c">&mdash;</span></div>
-          <div class="rrow"><span class="rl">Fwd / aft of cut-out <span class="sub">q&#8322; · [25]</span></span><span class="rv" id="r_q2b">&mdash;</span><span class="rv" id="r_q2c">&mdash;</span></div>
-          <div class="rrow"><span class="rl">Corner panels <span class="sub">q&#8323; · [26]</span></span><span class="rv" id="r_q3b">&mdash;</span><span class="rv" id="r_q3c">&mdash;</span></div>
+          <div class="twohdr fs"><span></span><span>Upper</span><span>Lower</span></div>
+          <div class="rrow fs"><span class="rl">Above / below cut-out <span class="sub">q&#8321; · [24]</span></span><span class="rv" id="r_q1b">&mdash;</span><span class="rv" id="r_q1c">&mdash;</span></div>
+          <div class="rrow fs"><span class="rl">Fwd / aft of cut-out <span class="sub">q&#8322; · [25]</span></span><span class="rv" id="r_q2b">&mdash;</span><span class="rv" id="r_q2c">&mdash;</span></div>
+          <div class="rrow fs"><span class="rl">Corner panels <span class="sub">q&#8323; · [26]</span></span><span class="rv" id="r_q3b">&mdash;</span><span class="rv" id="r_q3c">&mdash;</span></div>
         </div>
 
         <div class="rblock">
@@ -401,7 +418,7 @@
     <!-- NOTES -->
     <div class="sec">
       <div class="sec-head">
-        <span class="sec-idx">06</span>
+        <span class="sec-idx">07</span>
         <span class="sec-title">Assumptions &amp; Notes</span>
         <span class="sec-rule"></span>
       </div>
@@ -435,10 +452,10 @@
 
         <div class="rblock">
           <h4>Corner-panel shear flows <span style="text-transform:none;letter-spacing:0;color:var(--ink-faint)">(0.5&middot;M<sub>adj</sub>/area)</span></h4>
-          <div class="twohdr"><span></span><span>Fwd</span><span>Aft</span></div>
-          <div class="rrow"><span class="rl">Upper corner <span class="sub">a&times;c &middot; a&times;d</span></span><span class="rv" id="r_qcUF">&mdash;</span><span class="rv" id="r_qcUA">&mdash;</span></div>
-          <div class="rrow"><span class="rl">Lower corner <span class="sub">b&times;c &middot; b&times;d</span></span><span class="rv" id="r_qcLF">&mdash;</span><span class="rv" id="r_qcLA">&mdash;</span></div>
-          <div class="rrow"><span class="rl"><b>Governing</b> <span class="sub">smallest panel &rarr; [11]</span></span><span class="rv" id="r_qcGov">&mdash;</span><span class="rv" style="color:var(--ink-faint)">lbf/in</span></div>
+          <div class="twohdr fs"><span></span><span>Fwd</span><span>Aft</span></div>
+          <div class="rrow fs"><span class="rl">Upper corner <span class="sub">a&times;c &middot; a&times;d</span></span><span class="rv" id="r_qcUF">&mdash;</span><span class="rv" id="r_qcUA">&mdash;</span></div>
+          <div class="rrow fs"><span class="rl">Lower corner <span class="sub">b&times;c &middot; b&times;d</span></span><span class="rv" id="r_qcLF">&mdash;</span><span class="rv" id="r_qcLA">&mdash;</span></div>
+          <div class="rrow fs"><span class="rl"><b>Governing</b> <span class="sub">smallest panel &rarr; [11]</span></span><span class="rv" id="r_qcGov">&mdash;</span><span class="rv uin">lbf/in</span></div>
         </div>
 
         <div class="rblock">
