@@ -324,6 +324,10 @@
         <span class="sec-rule"></span>
         <span class="sec-note">[n] = equation ref · subscript F/S = frame/sill column</span>
       </div>
+      <div class="figure">
+        <div id="figP"></div>
+        <div class="fig-cap"><b>Figure 2.</b> Case III pressure redistribution &mdash; hoop <span class="cellref">[1]</span> and longitudinal <span class="cellref">[2]</span> running loads divert around the cut-out via linearly-varying panel shear <span class="cellref">[12],[13]</span> into the edge frames and main sills; corner fixity adds the adjusted moment <span class="cellref">[10]</span> and corner shear <span class="cellref">[11]</span>. Bold member values are the redistributed cut-out axials <span class="cellref">[17]</span>. Labels reference the equation numbers below.</div>
+      </div>
       <div class="res-cols">
 
         <div class="rblock">
@@ -379,6 +383,10 @@
         <span class="sec-title">Supporting Calculations &mdash; Shear Loads</span>
         <span class="sec-rule"></span>
         <span class="sec-note">[n] = equation ref · circular-fuselage bands + &sect;6.4 member axial</span>
+      </div>
+      <div class="figure">
+        <div id="figS"></div>
+        <div class="fig-cap"><b>Figure 3.</b> Case I body shear &mdash; left: circular-fuselage cross-section with the door arc, band positions and shear-flow distribution (q = V&middot;cos&theta;/&pi;R when V is entered; greyed when bands are manual); right: band shears q<sub>a</sub>..q<sub>d</sub> redistribute around the cut-out into the surrounding panels <span class="cellref">[24],[25],[26]</span> (Niu Fig 6.5.3&ndash;6.5.8) and develop cap axial in the frames and sills <span class="cellref">[28],[29]</span> (&sect;6.4).</div>
       </div>
       <div class="res-cols">
 
@@ -918,6 +926,295 @@
     return el.join("");
   }
 
+  // ---- Figure 2: Case III pressure redistribution (section 05) ----
+  function drawPressureFig(v, r){
+    var W=680, Hh=440;
+    var el=[];
+    el.push('<svg viewBox="0 0 '+W+' '+Hh+'" xmlns="'+NS+'" font-family="var(--mono)">');
+    el.push('<defs>'
+      +'<pattern id="hatch2" width="7" height="7" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">'
+      +'<line x1="0" y1="0" x2="0" y2="7" stroke="var(--ink)" stroke-width="0.6" opacity="0.18"/></pattern>'
+      +'<marker id="ld2" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto">'
+      +'<path d="M0,0 L7,3.2 L0,6.4 Z" fill="var(--load)"/></marker>'
+      +'</defs>');
+    var a=v.a,b=v.b,c=v.c,d=v.d,h=v.h,L=v.L;
+    var pW=c+L+d, pH=a+h+b;
+    if(!(isFinite(pW)&&isFinite(pH)&&pW>0&&pH>0)){
+      el.push('<text x="'+(W/2)+'" y="'+(Hh/2)+'" text-anchor="middle" font-size="13" fill="var(--ink-faint)">Enter positive geometry to draw the pressure redistribution</text></svg>');
+      return el.join("");
+    }
+    // wider right/bottom margins: sill labels sit past the right sill ends, frame
+    // labels past the bottom frame ends, legend bottom-right (out of the way).
+    var mL=50, mR=168, mT=50, mB=128;
+    var iW=W-mL-mR, iH=Hh-mT-mB;
+    var scale=Math.min(iW/pW, iH/pH);
+    var ox=mL+(iW-pW*scale)/2, oy=mT+(iH-pH*scale)/2;
+    var xs=[0,c,c+L,c+L+d].map(function(x){return ox+x*scale;});
+    var ys=[0,a,a+h,a+h+b].map(function(y){return oy+y*scale;});
+    var dcx=(xs[1]+xs[2])/2, dcy=(ys[1]+ys[2])/2;
+
+    // skin boundary + door hatch
+    el.push('<rect x="'+xs[0]+'" y="'+ys[0]+'" width="'+(xs[3]-xs[0])+'" height="'+(ys[3]-ys[0])+'" fill="none" stroke="var(--rule-strong)" stroke-width="1" stroke-dasharray="2 3"/>');
+    el.push('<rect x="'+xs[1]+'" y="'+ys[1]+'" width="'+(xs[2]-xs[1])+'" height="'+(ys[2]-ys[1])+'" fill="url(#hatch2)"/>');
+
+    // governing (smallest) corner panel tint
+    var corners=[{ar:a*c,x:xs[0],y:ys[0],w:xs[1]-xs[0],hh:ys[1]-ys[0]},
+                 {ar:a*d,x:xs[2],y:ys[0],w:xs[3]-xs[2],hh:ys[1]-ys[0]},
+                 {ar:b*c,x:xs[0],y:ys[2],w:xs[1]-xs[0],hh:ys[3]-ys[2]},
+                 {ar:b*d,x:xs[2],y:ys[2],w:xs[3]-xs[2],hh:ys[3]-ys[2]}];
+    var gc=corners[0]; corners.forEach(function(cc){ if(cc.ar<gc.ar) gc=cc; });
+    el.push('<rect x="'+gc.x+'" y="'+gc.y+'" width="'+gc.w+'" height="'+gc.hh+'" fill="var(--blue)" opacity="0.07"/>');
+
+    // members
+    [1,2].forEach(function(i){
+      el.push('<line x1="'+xs[0]+'" y1="'+ys[i]+'" x2="'+xs[3]+'" y2="'+ys[i]+'" stroke="var(--blue)" stroke-width="2.2"/>');
+      el.push('<line x1="'+xs[i]+'" y1="'+ys[0]+'" x2="'+xs[i]+'" y2="'+ys[3]+'" stroke="var(--blue)" stroke-width="2.2"/>');
+    });
+
+    // applied hoop running load w: distributed arrows over the cut-out width, top & bottom edges
+    var nArr=5, i2, ax;
+    for(i2=0;i2<nArr;i2++){
+      ax=xs[1]+(i2+0.5)*(xs[2]-xs[1])/nArr;
+      el.push('<line x1="'+ax+'" y1="'+(ys[0]-3)+'" x2="'+ax+'" y2="'+(ys[0]-3-13)+'" stroke="var(--load)" stroke-width="1.3" marker-end="url(#ld2)"/>');
+      el.push('<line x1="'+ax+'" y1="'+(ys[3]+3)+'" x2="'+ax+'" y2="'+(ys[3]+3+13)+'" stroke="var(--load)" stroke-width="1.3" marker-end="url(#ld2)"/>');
+    }
+    el.push('<text x="'+dcx+'" y="'+(ys[0]-23)+'" text-anchor="middle" font-size="9.2" fill="var(--load)">w = '+fmt(r.Hoop,1)+' <tspan font-size="7.5" fill="var(--ink-faint)">[1]</tspan></text>');
+
+    // applied longitudinal running load w-prime: arrows over the cut-out height, fwd & aft edges
+    var ay;
+    for(i2=0;i2<nArr;i2++){
+      ay=ys[1]+(i2+0.5)*(ys[2]-ys[1])/nArr;
+      el.push('<line x1="'+(xs[0]-3)+'" y1="'+ay+'" x2="'+(xs[0]-3-13)+'" y2="'+ay+'" stroke="var(--load)" stroke-width="1.3" marker-end="url(#ld2)"/>');
+      el.push('<line x1="'+(xs[3]+3)+'" y1="'+ay+'" x2="'+(xs[3]+3+13)+'" y2="'+ay+'" stroke="var(--load)" stroke-width="1.3" marker-end="url(#ld2)"/>');
+    }
+    el.push('<text x="'+(xs[0]-24)+'" y="'+dcy+'" text-anchor="middle" font-size="9.2" fill="var(--load)" transform="rotate(-90 '+(xs[0]-24)+' '+dcy+')">w′ = '+fmt(r.Long,1)+' <tspan font-size="7.5" fill="var(--ink-faint)">[2]</tspan></text>');
+
+    // hoop-redistribution shear wedges (aux bands above & below the cut-out): 0 at centre, max at edge frames
+    function wedgeH(y0,y1,val,gov){
+      var midy=(y0+y1)/2, half=Math.min((y1-y0)*0.26, 9);
+      el.push('<polygon points="'+dcx+','+midy+' '+xs[1]+','+(midy-half)+' '+xs[1]+','+(midy+half)+'" fill="var(--blue)" opacity="0.20"/>');
+      el.push('<polygon points="'+dcx+','+midy+' '+xs[2]+','+(midy-half)+' '+xs[2]+','+(midy+half)+'" fill="var(--blue)" opacity="0.20"/>');
+      el.push('<text x="'+dcx+'" y="'+(midy-half-3)+'" text-anchor="middle" font-size="8.6" fill="var(--blue)">q = '+fmt(val,1)+(gov?' <tspan font-size="7" fill="var(--ink-faint)">[12]</tspan>':'')+'</text>');
+    }
+    wedgeH(ys[0],ys[1],r.qHup, r.qHup>=r.qHlo);
+    wedgeH(ys[2],ys[3],r.qHlo, r.qHlo>r.qHup);
+
+    // long-redistribution shear wedges (fwd & aft bands): 0 at mid-height, max at main sills
+    function wedgeV(x0,x1,val,gov){
+      var midx=(x0+x1)/2, half=Math.min((x1-x0)*0.26, 9);
+      el.push('<polygon points="'+midx+','+dcy+' '+(midx-half)+','+ys[1]+' '+(midx+half)+','+ys[1]+'" fill="var(--blue)" opacity="0.20"/>');
+      el.push('<polygon points="'+midx+','+dcy+' '+(midx-half)+','+ys[2]+' '+(midx+half)+','+ys[2]+'" fill="var(--blue)" opacity="0.20"/>');
+      el.push('<text x="'+midx+'" y="'+(dcy+24)+'" text-anchor="middle" font-size="8.6" fill="var(--blue)">q = '+fmt(val,1)+(gov?' <tspan font-size="7" fill="var(--ink-faint)">[13]</tspan>':'')+'</text>');
+    }
+    wedgeV(xs[0],xs[1],r.qLfwd, r.qLfwd>=r.qLaft);
+    wedgeV(xs[2],xs[3],r.qLaft, r.qLaft>r.qLfwd);
+
+    // corner fixity moment arcs at the four door corners
+    var ca=13;
+    el.push('<path d="M '+(xs[1]+ca)+','+ys[1]+' A '+ca+' '+ca+' 0 0 1 '+xs[1]+','+(ys[1]+ca)+'" fill="none" stroke="var(--ink-soft)" stroke-width="1.4" marker-end="url(#ld2)"/>');
+    el.push('<path d="M '+(xs[2]-ca)+','+ys[1]+' A '+ca+' '+ca+' 0 0 0 '+xs[2]+','+(ys[1]+ca)+'" fill="none" stroke="var(--ink-soft)" stroke-width="1.4" marker-end="url(#ld2)"/>');
+    el.push('<path d="M '+(xs[1]+ca)+','+ys[2]+' A '+ca+' '+ca+' 0 0 0 '+xs[1]+','+(ys[2]-ca)+'" fill="none" stroke="var(--ink-soft)" stroke-width="1.4" marker-end="url(#ld2)"/>');
+    el.push('<path d="M '+(xs[2]-ca)+','+ys[2]+' A '+ca+' '+ca+' 0 0 1 '+xs[2]+','+(ys[2]-ca)+'" fill="none" stroke="var(--ink-soft)" stroke-width="1.4" marker-end="url(#ld2)"/>');
+    el.push('<text x="'+dcx+'" y="'+(dcy-4)+'" text-anchor="middle" font-size="9" fill="var(--ink-soft)">M<tspan font-size="7" dy="2">adj</tspan><tspan dy="-2"> = '+fmt(r.Madj,0,true)+'</tspan> <tspan font-size="7.5" fill="var(--ink-faint)">[10]</tspan></text>');
+    el.push('<text x="'+dcx+'" y="'+(dcy+9)+'" text-anchor="middle" font-size="8" fill="var(--ink-faint)">lbf·in at each corner · 50% fixity</text>');
+
+    // governing corner-panel shear label (inside tinted corner)
+    el.push('<text x="'+(gc.x+gc.w/2)+'" y="'+(gc.y+gc.hh/2-3)+'" text-anchor="middle" font-size="8.6" fill="var(--blue)">q = '+fmt(r.qCorner,1)+' <tspan font-size="7" fill="var(--ink-faint)">[11]</tspan></text>');
+    el.push('<text x="'+(gc.x+gc.w/2)+'" y="'+(gc.y+gc.hh/2+8)+'" text-anchor="middle" font-size="7.5" fill="var(--ink-faint)">gov. corner panel</text>');
+
+    // member cut-out axial results [17]: per-side, governing in bold.
+    // Frame (vertical member) label sits just past the frame's BOTTOM end;
+    // sill (horizontal member) label sits just past the sill's RIGHT end —
+    // so each value reads off the end of its own member, never at the junction.
+    function memLabV(x,val,gov,side){
+      var y=ys[3]+30;
+      var t='P = '+fmt(val,0,true)+(gov?' <tspan font-size="7" fill="var(--ink-faint)">[17]F</tspan>':'');
+      el.push('<rect x="'+(x-36)+'" y="'+(y-9)+'" width="72" height="12" fill="#FDFDFB" opacity="0.92"/>');
+      el.push('<text x="'+x+'" y="'+y+'" text-anchor="middle" font-size="8.8"'+(gov?' font-weight="700"':'')+' fill="var(--ink)">'+t+'</text>');
+      el.push('<text x="'+x+'" y="'+(y+10)+'" text-anchor="middle" font-size="7.5" fill="var(--ink-faint)">'+side+' frame</text>');
+    }
+    memLabV(xs[1], r.PcoF_fwd, r.PcoF_fwd>=r.PcoF_aft, 'fwd');
+    memLabV(xs[2], r.PcoF_aft, r.PcoF_aft>r.PcoF_fwd, 'aft');
+    function memLabH(y,val,gov,side){
+      var x=xs[3]+24;
+      var t='P = '+fmt(val,0,true)+(gov?' <tspan font-size="7" fill="var(--ink-faint)">[17]S</tspan>':'');
+      el.push('<rect x="'+(x-3)+'" y="'+(y-10)+'" width="80" height="11" fill="#FDFDFB" opacity="0.92"/>');
+      el.push('<text x="'+x+'" y="'+(y-1)+'" text-anchor="start" font-size="8.8"'+(gov?' font-weight="700"':'')+' fill="var(--ink)">'+t+'</text>');
+      el.push('<text x="'+x+'" y="'+(y+10)+'" text-anchor="start" font-size="7.5" fill="var(--ink-faint)">'+side+' sill</text>');
+    }
+    memLabH(ys[1], r.PcoS_up, r.PcoS_up>=r.PcoS_lo, 'upper');
+    memLabH(ys[2], r.PcoS_lo, r.PcoS_lo>r.PcoS_up, 'lower');
+
+    // legend (bottom-right, clear of the sill labels on the right edge)
+    var lgx=W-190, lgy=Hh-128, lw=182;
+    el.push('<rect x="'+lgx+'" y="'+lgy+'" width="'+lw+'" height="128" fill="#FFFFFF" stroke="var(--rule)" stroke-width="1"/>');
+    el.push('<text x="'+(lgx+9)+'" y="'+(lgy+15)+'" font-size="9" letter-spacing="0.1em" fill="var(--blue)" font-weight="600">PRESSURE — CASE III</text>');
+    el.push('<line x1="'+(lgx+9)+'" y1="'+(lgy+29)+'" x2="'+(lgx+24)+'" y2="'+(lgy+29)+'" stroke="var(--load)" stroke-width="1.4" marker-end="url(#ld2)"/>');
+    el.push('<text x="'+(lgx+30)+'" y="'+(lgy+32)+'" font-size="8.6" fill="var(--ink)">applied running load [1],[2]</text>');
+    el.push('<polygon points="'+(lgx+9)+','+(lgy+44)+' '+(lgx+24)+','+(lgy+40)+' '+(lgx+24)+','+(lgy+48)+'" fill="var(--blue)" opacity="0.25"/>');
+    el.push('<text x="'+(lgx+30)+'" y="'+(lgy+47)+'" font-size="8.6" fill="var(--ink)">panel shear diversion [12],[13]</text>');
+    el.push('<path d="M '+(lgx+11)+','+(lgy+62)+' A 8 8 0 0 1 '+(lgx+19)+','+(lgy+56)+'" fill="none" stroke="var(--ink-soft)" stroke-width="1.3" marker-end="url(#ld2)"/>');
+    el.push('<text x="'+(lgx+30)+'" y="'+(lgy+62)+'" font-size="8.6" fill="var(--ink)">corner fixity moment [10]</text>');
+    el.push('<rect x="'+(lgx+9)+'" y="'+(lgy+70)+'" width="15" height="9" fill="var(--blue)" opacity="0.1" stroke="var(--rule)"/>');
+    el.push('<text x="'+(lgx+30)+'" y="'+(lgy+77)+'" font-size="8.6" fill="var(--ink)">gov. corner panel [11]</text>');
+    el.push('<text x="'+(lgx+9)+'" y="'+(lgy+92)+'" font-size="8.6" font-weight="700" fill="var(--ink)">P bold</text>');
+    el.push('<text x="'+(lgx+58)+'" y="'+(lgy+92)+'" font-size="8.6" fill="var(--ink)">governing member axial</text>');
+    el.push('<text x="'+(lgx+9)+'" y="'+(lgy+106)+'" font-size="8.4" fill="var(--ink-soft)">P = '+fmt(v.P,2)+' psi · R = '+fmt(v.R,0)+' in</text>');
+    el.push('<text x="'+(lgx+9)+'" y="'+(lgy+119)+'" font-size="8.4" fill="var(--ink-faint)">member P values: due to cut-out [17]</text>');
+
+    el.push('</svg>');
+    return el.join("");
+  }
+
+  // ---- Figure 3: Case I body-shear redistribution (section 06) ----
+  function drawShearFig(v, r, bs, auto){
+    var W=680, Hh=400;
+    var el=[];
+    el.push('<svg viewBox="0 0 '+W+' '+Hh+'" xmlns="'+NS+'" font-family="var(--mono)">');
+    el.push('<defs>'
+      +'<pattern id="hatch3" width="7" height="7" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">'
+      +'<line x1="0" y1="0" x2="0" y2="7" stroke="var(--ink)" stroke-width="0.6" opacity="0.18"/></pattern>'
+      +'<marker id="ld3" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto">'
+      +'<path d="M0,0 L7,3.2 L0,6.4 Z" fill="var(--load)"/></marker>'
+      +'<marker id="ldb3" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto">'
+      +'<path d="M0,0 L7,3.2 L0,6.4 Z" fill="var(--blue)"/></marker>'
+      +'</defs>');
+
+    // ================= left pane: fuselage cross-section =================
+    el.push('<text x="24" y="22" font-size="9" letter-spacing="0.1em" fill="var(--blue)" font-weight="600">CROSS-SECTION</text>');
+    var cx=175, cy=Hh/2+10, Rd=132;
+    if(!(isFinite(v.R)&&v.R>0)){
+      el.push('<text x="'+cx+'" y="'+cy+'" text-anchor="middle" font-size="11" fill="var(--ink-faint)">Enter R &gt; 0</text>');
+    } else {
+      var thClamp=1.72;   // ~98.5 deg drawing clamp
+      function pth(s){ var t=s/v.R; return Math.max(-thClamp, Math.min(thClamp, t)); }
+      function px(s,rad){ var t=pth(s); return cx+rad*Math.cos(t); }
+      function py(s,rad){ var t=pth(s); return cy-rad*Math.sin(t); }
+      // skin + N.A.
+      el.push('<circle cx="'+cx+'" cy="'+cy+'" r="'+Rd+'" fill="none" stroke="var(--ink-soft)" stroke-width="1.3"/>');
+      el.push('<line x1="'+(cx-Rd-14)+'" y1="'+cy+'" x2="'+(cx+Rd+14)+'" y2="'+cy+'" stroke="var(--ink-faint)" stroke-width="0.9" stroke-dasharray="5 4"/>');
+      el.push('<text x="'+(cx-Rd-16)+'" y="'+(cy+3)+'" text-anchor="end" font-size="8.6" fill="var(--ink-faint)">N.A.</text>');
+      el.push('<text x="'+cx+'" y="'+(cy-Rd-8)+'" text-anchor="middle" font-size="7.5" fill="var(--ink-faint)">crown · q = 0</text>');
+      // R dimension (into lower-left quadrant)
+      el.push('<line x1="'+cx+'" y1="'+cy+'" x2="'+(cx-Rd*0.707)+'" y2="'+(cy+Rd*0.707)+'" stroke="var(--ink-faint)" stroke-width="0.8"/>');
+      el.push('<text x="'+(cx-Rd*0.42)+'" y="'+(cy+Rd*0.32)+'" text-anchor="middle" font-size="8.6" fill="var(--ink-soft)">R = '+fmt(v.R,0)+'</text>');
+      // cos-distribution lobe on the LEFT half (mirror of door side; q symmetric port/stbd)
+      var lobe=30, pts=[], t2, RL;
+      for(t2=-1.48;t2<=1.481;t2+=0.093){
+        RL=Rd+lobe*Math.cos(t2);
+        pts.push((cx-RL*Math.cos(t2)).toFixed(1)+','+(cy-RL*Math.sin(t2)).toFixed(1));
+      }
+      for(t2=1.48;t2>=-1.481;t2-=0.185){
+        pts.push((cx-Rd*Math.cos(t2)).toFixed(1)+','+(cy-Rd*Math.sin(t2)).toFixed(1));
+      }
+      var lobeCol = auto ? 'var(--blue)' : 'var(--ink-faint)';
+      el.push('<polygon points="'+pts.join(' ')+'" fill="'+lobeCol+'" opacity="'+(auto?0.14:0.08)+'" stroke="'+lobeCol+'" stroke-width="0.9" stroke-opacity="0.5"/>');
+      el.push('<text x="'+(cx-Rd-lobe+16)+'" y="'+(cy-14)+'" text-anchor="middle" font-size="8" fill="'+lobeCol+'" transform="rotate(-90 '+(cx-Rd-lobe+16)+' '+(cy-14)+')">q = V·cosθ/πR</text>');
+      // vertical shear arrow at centre
+      if(auto){
+        el.push('<line x1="'+cx+'" y1="'+(cy-22)+'" x2="'+cx+'" y2="'+(cy+22)+'" stroke="var(--load)" stroke-width="1.8" marker-end="url(#ld3)"/>');
+        el.push('<text x="'+(cx+6)+'" y="'+(cy+20)+'" font-size="8.8" fill="var(--load)">V = '+fmt(v.Vshear,0,true)+'</text>');
+      } else {
+        el.push('<text x="'+cx+'" y="'+(cy+22)+'" text-anchor="middle" font-size="8.4" fill="var(--ink-faint)">V = 0 — bands</text>');
+        el.push('<text x="'+cx+'" y="'+(cy+33)+'" text-anchor="middle" font-size="8.4" fill="var(--ink-faint)">entered manually</text>');
+      }
+      // door arc (main sills span h) + aux-band extents, on the right side
+      var s0=v.yLS;
+      el.push('<path d="M '+px(s0,Rd)+' '+py(s0,Rd)+' A '+Rd+' '+Rd+' 0 0 0 '+px(s0+v.h,Rd)+' '+py(s0+v.h,Rd)+'" fill="none" stroke="var(--blue)" stroke-width="5" stroke-linecap="butt"/>');
+      el.push('<path d="M '+px(s0-v.b,Rd)+' '+py(s0-v.b,Rd)+' A '+Rd+' '+Rd+' 0 0 0 '+px(s0,Rd)+' '+py(s0,Rd)+'" fill="none" stroke="var(--blue)" stroke-width="2" opacity="0.45"/>');
+      el.push('<path d="M '+px(s0+v.h,Rd)+' '+py(s0+v.h,Rd)+' A '+Rd+' '+Rd+' 0 0 0 '+px(s0+v.h+v.a,Rd)+' '+py(s0+v.h+v.a,Rd)+'" fill="none" stroke="var(--blue)" stroke-width="2" opacity="0.45"/>');
+      // y0 (lower main sill) marker
+      el.push('<line x1="'+px(s0,Rd-6)+'" y1="'+py(s0,Rd-6)+'" x2="'+px(s0,Rd+9)+'" y2="'+py(s0,Rd+9)+'" stroke="var(--ink)" stroke-width="1.2"/>');
+      el.push('<text x="'+(px(s0,Rd+12)+2)+'" y="'+(py(s0,Rd+12)+9)+'" font-size="8" fill="var(--ink-soft)">y₀ = '+fmt(v.yLS,0)+'</text>');
+      // door mid-arc label
+      var smid=s0+v.h/2;
+      el.push('<text x="'+(px(smid,Rd+9)+2)+'" y="'+(py(smid,Rd+9)+3)+'" font-size="8" fill="var(--blue)" font-weight="600">DOOR</text>');
+      // band centroid ticks + q labels
+      var bands=[{s:bs.sa,q:v.qa,n:'qa'},{s:bs.sb,q:v.qb,n:'qb'},{s:bs.sc,q:v.qc,n:'qc'},{s:bs.sd,q:v.qd,n:'qd'}];
+      bands.forEach(function(bd){
+        el.push('<line x1="'+px(bd.s,Rd-5)+'" y1="'+py(bd.s,Rd-5)+'" x2="'+px(bd.s,Rd+6)+'" y2="'+py(bd.s,Rd+6)+'" stroke="var(--load)" stroke-width="1.4"/>');
+        el.push('<text x="'+(px(bd.s,Rd+30))+'" y="'+(py(bd.s,Rd+30)+3)+'" text-anchor="middle" font-size="8.4" fill="var(--ink)">'+bd.n+' '+fmt(bd.q,0)+'</text>');
+      });
+      if(auto && bs.crown){
+        el.push('<text x="'+cx+'" y="'+(Hh-8)+'" text-anchor="middle" font-size="8.4" fill="var(--load)">⚠ band at/past crown — q forced to 0 there</text>');
+      }
+    }
+
+    // ================= right pane: flat redistribution grid =================
+    el.push('<text x="352" y="22" font-size="9" letter-spacing="0.1em" fill="var(--blue)" font-weight="600">REDISTRIBUTION — NIU FIG 6.5.3–6.5.8</text>');
+    var a=v.a,b=v.b,c=v.c,d=v.d,h=v.h,L=v.L;
+    var pW=c+L+d, pH=a+h+b;
+    if(!(isFinite(pW)&&isFinite(pH)&&pW>0&&pH>0)){
+      el.push('<text x="500" y="'+(Hh/2)+'" text-anchor="middle" font-size="11" fill="var(--ink-faint)">Enter positive geometry</text>');
+      el.push('</svg>');
+      return el.join("");
+    }
+    var gx=400, gy=44, gw=228, gh=310;
+    var scale=Math.min(gw/pW, gh/pH);
+    var ox=gx+(gw-pW*scale)/2, oy=gy+(gh-pH*scale)/2;
+    var xs=[0,c,c+L,c+L+d].map(function(x){return ox+x*scale;});
+    var ys=[0,a,a+h,a+h+b].map(function(y){return oy+y*scale;});
+    var hbY = ys[1]+ (r.hb||0)*scale;   // split of cut-out height into upper/lower portions
+
+    el.push('<rect x="'+xs[0]+'" y="'+ys[0]+'" width="'+(xs[3]-xs[0])+'" height="'+(ys[3]-ys[0])+'" fill="none" stroke="var(--rule-strong)" stroke-width="1" stroke-dasharray="2 3"/>');
+    el.push('<rect x="'+xs[1]+'" y="'+ys[1]+'" width="'+(xs[2]-xs[1])+'" height="'+(ys[2]-ys[1])+'" fill="url(#hatch3)"/>');
+    // hb/hc split line across the sheet (upper/lower band boundary within the cut-out height)
+    el.push('<line x1="'+xs[0]+'" y1="'+hbY+'" x2="'+xs[3]+'" y2="'+hbY+'" stroke="var(--ink-faint)" stroke-width="0.8" stroke-dasharray="4 4"/>');
+    el.push('<text x="'+(xs[3]+3)+'" y="'+(hbY+3)+'" font-size="7.5" fill="var(--ink-faint)">hᵇ/hᶜ split</text>');
+    [1,2].forEach(function(i){
+      el.push('<line x1="'+xs[0]+'" y1="'+ys[i]+'" x2="'+xs[3]+'" y2="'+ys[i]+'" stroke="var(--blue)" stroke-width="2"/>');
+      el.push('<line x1="'+xs[i]+'" y1="'+ys[0]+'" x2="'+xs[i]+'" y2="'+ys[3]+'" stroke="var(--blue)" stroke-width="2"/>');
+    });
+
+    // applied band shears entering at the left edge
+    var bandRows=[{y:(ys[0]+ys[1])/2, q:v.qa, n:'qa'},
+                  {y:(ys[1]+hbY)/2,   q:v.qb, n:'qb'},
+                  {y:(hbY+ys[2])/2,   q:v.qc, n:'qc'},
+                  {y:(ys[2]+ys[3])/2, q:v.qd, n:'qd'}];
+    bandRows.forEach(function(br){
+      el.push('<line x1="'+(xs[0]-10)+'" y1="'+(br.y-7)+'" x2="'+(xs[0]-10)+'" y2="'+(br.y+7)+'" stroke="var(--load)" stroke-width="1.4" marker-end="url(#ld3)"/>');
+      el.push('<text x="'+(xs[0]-16)+'" y="'+(br.y+3)+'" text-anchor="end" font-size="8.4" fill="var(--ink)">'+br.n+' '+fmt(br.q,0)+'</text>');
+    });
+
+    // redistributed panel shear labels — one compact line per distinct panel
+    // flow (q1 above/below, q2 aft side, q3 fwd corners). Values repeat on the
+    // mirror panel by symmetry, so each is shown once to keep the pane readable.
+    function pq(x,y,tag,val,ref){
+      el.push('<text x="'+x+'" y="'+y+'" text-anchor="middle" font-size="9"><tspan fill="var(--blue-soft)">'+tag+'</tspan> <tspan font-weight="600" fill="var(--ink)">'+fmt(val,0)+'</tspan><tspan font-size="6.8" fill="var(--ink-faint)"> ['+ref+']</tspan></text>');
+    }
+    var mxL=(xs[0]+xs[1])/2, mxC=(xs[1]+xs[2])/2, mxR=(xs[2]+xs[3])/2;
+    var myT=(ys[0]+ys[1])/2, myB=(ys[2]+ys[3])/2;
+    var myU=(ys[1]+hbY)/2, myL2=(hbY+ys[2])/2;
+    pq(mxC,myT,'q₁ᵇ',r.q1b,'24');
+    pq(mxC,myB,'q₁ᶜ',r.q1c,'24');
+    pq(mxR,myU,'q₂ᵇ',r.q2b,'25');
+    pq(mxR,myL2,'q₂ᶜ',r.q2c,'25');
+    pq(mxL,myT,'q₃ᵇ',r.q3b,'26');
+    pq(mxL,myB,'q₃ᶜ',r.q3c,'26');
+
+    // section 6.4 member cap axial: peak-at-corner triangles + values
+    var tw=6, dmy=(ys[1]+ys[2])/2;
+    // fwd frame: axial builds from door mid-height to the corners
+    el.push('<polygon points="'+xs[1]+','+dmy+' '+(xs[1]-tw)+','+ys[1]+' '+xs[1]+','+ys[1]+'" fill="var(--blue)" opacity="0.30"/>');
+    el.push('<polygon points="'+xs[1]+','+dmy+' '+(xs[1]-tw)+','+ys[2]+' '+xs[1]+','+ys[2]+'" fill="var(--blue)" opacity="0.30"/>');
+    var frLx=xs[1]-11;
+    el.push('<text x="'+frLx+'" y="'+dmy+'" text-anchor="middle" font-size="8.6" fill="var(--ink)" transform="rotate(-90 '+frLx+' '+dmy+')">ΔP<tspan font-size="6.8" dy="1.5">fr</tspan><tspan dy="-1.5"> = '+fmt(r.dPframe,0,true)+'</tspan> <tspan font-size="6.8" fill="var(--ink-faint)">[28]</tspan></text>');
+    // governing sill: axial builds from door mid-width to the corners
+    var govUp = Math.abs(v.qb)>=Math.abs(v.qc);
+    var syl = govUp? ys[1] : ys[2];
+    var soff = govUp? -tw : tw;
+    el.push('<polygon points="'+mxC+','+syl+' '+xs[1]+','+(syl+soff)+' '+xs[1]+','+syl+'" fill="var(--blue)" opacity="0.30"/>');
+    el.push('<polygon points="'+mxC+','+syl+' '+xs[2]+','+(syl+soff)+' '+xs[2]+','+syl+'" fill="var(--blue)" opacity="0.30"/>');
+    // ΔP_si value inside the door near the governing sill (clear of the q₁ panel
+    // labels above/below the cut-out); triangles already mark which sill governs.
+    var slyText = govUp ? ys[1]+15 : ys[2]-15;
+    el.push('<rect x="'+(mxC-50)+'" y="'+(slyText-9)+'" width="100" height="12" fill="#FDFDFB" opacity="0.9"/>');
+    el.push('<text x="'+mxC+'" y="'+slyText+'" text-anchor="middle" font-size="8.6" fill="var(--ink)">ΔP<tspan font-size="6.8" dy="1.5">si</tspan><tspan dy="-1.5"> = '+fmt(r.dPsill,0,true)+'</tspan> <tspan font-size="6.8" fill="var(--ink-faint)">[29] '+(govUp?'upr':'lwr')+'</tspan></text>');
+
+    el.push('</svg>');
+    return el.join("");
+  }
+
   // ---- Recalc & render ----
   function recalc(){
     var v = readInputs();
@@ -949,6 +1246,8 @@
       q1b:r.q1b,q1c:r.q1c,q2:r.qFA,q3b:r.q3b,q3c:r.q3c,
       shLabel: bandsEq ? ('q₀ = '+fmt(v.qa,0)+' lbf/in') : ('variable '+fmt(v.qa,0)+'/'+fmt(v.qb,0)+'/'+fmt(v.qc,0)+'/'+fmt(v.qd,0))
     });
+    document.getElementById("figP").innerHTML = drawPressureFig(v, r);
+    document.getElementById("figS").innerHTML = drawShearFig(v, r, bs, !!vAuto);
 
     // key cards (ksi, 2 dp)
     setText("k_frameOC", fmt(r.frameOC,2));
