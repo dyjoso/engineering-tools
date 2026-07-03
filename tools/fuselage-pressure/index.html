@@ -1,0 +1,1113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SCT-026 — Fuselage Pressure &amp; Shell Stresses</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#EDEFEA;
+    --sheet:#FCFCFA;
+    --ink:#15191A;
+    --ink-soft:#586066;
+    --ink-faint:#8A928F;
+    --rule:#D5DAD4;
+    --rule-strong:#AAB1AA;
+    --grid:#E6E9E4;
+    --blue:#1F5673;
+    --blue-soft:#5E89A4;
+    --blue-wash:#E9F0F4;
+    --load:#C2410C;
+    --load-soft:#E3A079;
+    --load-wash:#FBEEE6;
+    --input-tint:#EEF4F7;
+    --input-border:#BFD4DF;
+    --good:#2F6B4F;
+    --disp: "Saira Condensed", "Arial Narrow", system-ui, sans-serif;
+    --body: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--body);
+    font-size:14px;
+    line-height:1.45;
+    -webkit-font-smoothing:antialiased;
+    padding:26px 18px 60px;
+    display:flex;
+    justify-content:center;
+  }
+
+  /* ---------- Toolbar ---------- */
+  .toolbar{
+    position:fixed; top:14px; right:16px; z-index:50;
+    display:flex; gap:8px;
+  }
+  .toolbar button{
+    font-family:var(--mono); font-size:11px; letter-spacing:.04em;
+    text-transform:uppercase; color:var(--ink);
+    background:var(--sheet); border:1px solid var(--rule-strong);
+    padding:7px 11px; border-radius:2px; cursor:pointer;
+    transition:background .12s, border-color .12s;
+  }
+  .toolbar button:hover{ background:var(--blue-wash); border-color:var(--blue-soft); }
+  .toolbar button:focus-visible{ outline:2px solid var(--blue); outline-offset:2px; }
+
+  /* ---------- Sheet ---------- */
+  .sheet{
+    position:relative;
+    width:100%; max-width:1080px;
+    background:var(--sheet);
+    border:1px solid var(--rule-strong);
+    box-shadow:0 1px 0 rgba(0,0,0,.04), 0 16px 40px -28px rgba(20,30,30,.5);
+    padding:0;
+  }
+  .accent{ display:flex; height:6px; }
+  .accent i{ display:block; height:100%; }
+  .accent .a1{ flex:1; background:var(--blue); }
+  .accent .a2{ width:120px; background:var(--load); }
+  .accent .a3{ width:34px; background:var(--ink); }
+
+  .tick{ position:absolute; width:13px; height:13px; pointer-events:none; }
+  .tick.tl{ top:12px; left:-1px; border-top:2px solid var(--rule-strong); border-left:2px solid var(--rule-strong); }
+  .tick.tr{ top:12px; right:-1px; border-top:2px solid var(--rule-strong); border-right:2px solid var(--rule-strong); }
+  .tick.bl{ bottom:-1px; left:-1px; border-bottom:2px solid var(--rule-strong); border-left:2px solid var(--rule-strong); }
+  .tick.br{ bottom:-1px; right:-1px; border-bottom:2px solid var(--rule-strong); border-right:2px solid var(--rule-strong); }
+
+  .inner{ padding:22px 26px 28px; }
+
+  /* ---------- Title block ---------- */
+  .titleblock{
+    display:grid;
+    grid-template-columns: 1fr 150px 150px;
+    border:1px solid var(--rule-strong);
+    margin-bottom:20px;
+  }
+  .tb-cell{ padding:10px 12px; border-left:1px solid var(--rule); }
+  .tb-cell:first-child{ border-left:none; }
+  .tb-key{ font-family:var(--mono); font-size:9.5px; letter-spacing:.13em; text-transform:uppercase; color:var(--ink-faint); display:block; margin-bottom:3px; }
+  .tb-main{ display:flex; flex-direction:column; justify-content:center; }
+  .tb-eyebrow{ font-family:var(--mono); font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--blue); margin-bottom:5px; }
+  .tb-title{ font-family:var(--disp); font-weight:700; font-size:25px; line-height:1.02; letter-spacing:.01em; text-transform:uppercase; color:var(--ink); }
+  .tb-sub{ font-family:var(--body); font-size:12px; color:var(--ink-soft); margin-top:4px; }
+  .tb-val{ font-family:var(--mono); font-size:15px; font-weight:600; color:var(--ink); }
+  .tb-val.sm{ font-size:12.5px; font-weight:500; }
+  .tb-row2{ border-top:1px solid var(--rule); }
+
+  /* ---------- Section eyebrow ---------- */
+  .sec{ margin-top:26px; }
+  .sec:first-of-type{ margin-top:0; }
+  .sec-head{ display:flex; align-items:baseline; gap:12px; margin-bottom:13px; }
+  .sec-idx{ font-family:var(--mono); font-size:11px; font-weight:600; color:var(--load); letter-spacing:.05em; }
+  .sec-title{ font-family:var(--disp); font-weight:600; font-size:16.5px; letter-spacing:.07em; text-transform:uppercase; color:var(--ink); white-space:nowrap; }
+  .sec-rule{ flex:1; height:1px; background:var(--rule); align-self:center; }
+  .sec-note{ font-family:var(--mono); font-size:10px; color:var(--ink-faint); letter-spacing:.02em; }
+  .module-tag{ font-family:var(--mono); font-size:9px; letter-spacing:.1em; text-transform:uppercase; color:#fff; background:var(--blue); padding:2px 7px; border-radius:2px; margin-right:2px; }
+  .module-tag.m2{ background:var(--load); }
+
+  /* ---------- Figure ---------- */
+  .figure{
+    border:1px solid var(--rule);
+    background:
+      linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 22px 22px,
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 22px 22px,
+      #FDFDFB;
+    padding:6px 6px 0;
+  }
+  .figure svg{ display:block; width:100%; height:auto; }
+  .fig-cap{
+    font-family:var(--mono); font-size:10.5px; color:var(--ink-soft);
+    letter-spacing:.02em; padding:9px 8px; border-top:1px solid var(--rule);
+    background:#FDFDFB;
+  }
+  .fig-cap b{ color:var(--ink); font-weight:600; }
+
+  /* ---------- Input groups ---------- */
+  .groups{ display:grid; grid-template-columns:repeat(auto-fit, minmax(248px, 1fr)); gap:14px; align-items:start; }
+  .group{ border:1px solid var(--rule); }
+  .group > h3{
+    margin:0; font-family:var(--mono); font-size:10px; font-weight:600;
+    letter-spacing:.12em; text-transform:uppercase; color:var(--blue);
+    background:var(--blue-wash); padding:7px 11px; border-bottom:1px solid var(--rule);
+  }
+  .group > h3 .gh-unit{ text-transform:none; letter-spacing:0; color:var(--ink-faint); font-weight:400; }
+  .group .gbody{ padding:4px 11px 8px; }
+  .irow{ display:grid; grid-template-columns: 1fr auto; align-items:center; gap:8px; padding:5px 0; border-bottom:1px dotted var(--rule); }
+  .irow:last-child{ border-bottom:none; }
+  .ilabel{ display:flex; flex-direction:column; min-width:0; }
+  .ilabel .lt{ font-size:12.5px; color:var(--ink); line-height:1.2; }
+  .ilabel .lt .sym{ font-family:var(--mono); font-style:italic; color:var(--blue); font-size:11.5px; margin-left:4px; }
+  .ilabel .meta{ font-family:var(--mono); font-size:9px; color:var(--ink-faint); letter-spacing:.04em; margin-top:1px; }
+  .ictrl{ display:flex; align-items:center; gap:6px; }
+  .ictrl input[type=number]{
+    font-family:var(--mono); font-size:13px; font-weight:500; text-align:right;
+    width:78px; padding:5px 7px; color:var(--ink);
+    background:var(--input-tint); border:1px solid var(--input-border); border-radius:2px;
+  }
+  .ictrl input[type=number]:focus{ outline:2px solid var(--blue); outline-offset:0; background:#fff; }
+  .ictrl input.auto{ background:#E8EBE6; color:var(--ink-soft); border-style:dashed; cursor:not-allowed; }
+  .ictrl .unit{ font-family:var(--mono); font-size:10.5px; color:var(--ink-soft); width:34px; }
+
+  /* preset / link controls */
+  .presets{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:13px; }
+  .presets label{ font-family:var(--mono); font-size:10px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft); }
+  .presets select{
+    font-family:var(--mono); font-size:11.5px; color:var(--ink);
+    background:var(--input-tint); border:1px solid var(--input-border); border-radius:2px;
+    padding:5px 8px; cursor:pointer;
+  }
+  .presets select:focus{ outline:2px solid var(--blue); outline-offset:0; }
+  .linkcheck{ display:inline-flex; align-items:center; gap:6px; font-family:var(--mono); font-size:10px; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-soft); cursor:pointer; }
+  .linkcheck input{ width:13px; height:13px; accent-color:var(--blue); }
+
+  /* ---------- Key results ---------- */
+  .keygrid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(212px,1fr)); gap:13px; }
+  .kcard{ position:relative; border:1px solid var(--rule-strong); padding:13px 15px 14px; background:#FDFDFB; }
+  .kcard.gov{ border-color:var(--load); box-shadow:inset 3px 0 0 var(--load); }
+  .kcard .klabel{ font-size:11px; color:var(--ink-soft); line-height:1.25; min-height:28px; }
+  .kcard .ksym{ font-family:var(--mono); font-size:9.5px; color:var(--ink-faint); letter-spacing:.05em; margin-top:2px; }
+  .kcard .kval{ font-family:var(--mono); font-weight:600; font-size:30px; color:var(--ink); margin-top:7px; line-height:1; letter-spacing:-.01em; }
+  .kcard .kunit{ font-family:var(--mono); font-size:13px; color:var(--ink-soft); font-weight:500; margin-left:4px; }
+  .kcard .ktag{ position:absolute; top:11px; right:12px; font-family:var(--mono); font-size:8.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--load); border:1px solid var(--load-soft); padding:2px 5px; border-radius:2px; background:var(--load-wash); }
+
+  /* ---------- Supporting results ---------- */
+  .res-cols{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:14px 22px; align-items:start; }
+  .rblock h4{
+    margin:0 0 6px; font-family:var(--mono); font-size:10px; font-weight:600;
+    letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft);
+    padding-bottom:5px; border-bottom:1px solid var(--rule-strong);
+  }
+  .rrow{ display:grid; grid-template-columns: 1fr auto auto; align-items:baseline; gap:10px; padding:3.5px 0; border-bottom:1px dotted var(--rule); }
+  .rrow:last-child{ border-bottom:none; }
+  .rrow .rl{ font-size:12px; color:var(--ink); }
+  .rrow .rl .sub{ color:var(--ink-faint); font-family:var(--mono); font-size:9.5px; letter-spacing:.03em; }
+  .rrow .rv{ font-family:var(--mono); font-size:12.5px; font-weight:500; color:var(--ink); text-align:right; white-space:nowrap; }
+  .rrow .ru{ font-family:var(--mono); font-size:10px; color:var(--ink-faint); width:52px; text-align:left; }
+  .cellref{ font-family:var(--mono); font-size:8.5px; color:var(--ink-faint); }
+  .rnote{ font-size:10.5px; color:var(--ink-faint); line-height:1.45; margin-top:8px; }
+
+  /* ---------- Residual-strength table ---------- */
+  .rstable-wrap{ border:1px solid var(--rule-strong); background:#FDFDFB; overflow-x:auto; }
+  table.rstable{ width:100%; border-collapse:collapse; font-family:var(--mono); font-size:12px; }
+  table.rstable th, table.rstable td{ padding:8px 12px; text-align:left; border-bottom:1px solid var(--rule); }
+  table.rstable thead th{
+    font-size:9.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--blue);
+    background:var(--blue-wash); border-bottom:1px solid var(--rule-strong); vertical-align:bottom;
+    white-space:nowrap;
+  }
+  table.rstable thead tr:first-child th{ border-bottom:1px solid var(--rule); }
+  table.rstable th.col-num{ text-align:right; }
+  table.rstable th.col-grp{ text-align:center; background:var(--load-wash); color:var(--load); border-left:1px solid var(--rule); }
+  table.rstable td.num{ font-family:var(--mono); font-size:13px; font-weight:500; text-align:right; white-space:nowrap; }
+  /* operating column visually emphasised */
+  table.rstable thead th:nth-child(2){ background:#E9F0F4; }
+  table.rstable td.num:nth-child(2){ font-weight:600; color:var(--ink); background:#F4F7F9; }
+  /* residual columns separated by a stronger left border */
+  table.rstable thead th.col-num:not(.col-grp),
+  table.rstable td.num:nth-child(3), table.rstable td.num:nth-child(4){ border-left:1px solid var(--rule); }
+  table.rstable th .th-sub{ font-size:8.5px; font-weight:400; text-transform:none; letter-spacing:0; color:var(--ink-faint); display:block; margin-top:2px; }
+  table.rstable th .th-cite{ font-size:8px; font-weight:400; text-transform:none; letter-spacing:0; color:var(--ink-faint); display:block; margin-top:2px; }
+  table.rstable tbody tr:last-child td{ border-bottom:none; }
+  table.rstable tbody tr.gov-row td{ background:var(--load-wash); color:var(--ink); font-weight:600; }
+  table.rstable tbody tr.gov-row td:first-child{ box-shadow:inset 3px 0 0 var(--load); }
+
+  /* pressure data table row highlights */
+  table.rstable.ptable td{ border-bottom:1px solid var(--rule); }
+  table.rstable.ptable tbody tr.row-exact td{ background:#E9F0F4; color:var(--ink); }
+  table.rstable.ptable tbody tr.row-exact td:first-child{ box-shadow:inset 3px 0 0 var(--blue); font-weight:600; }
+  table.rstable.ptable tbody tr.row-bracket td{ background:var(--load-wash); color:var(--ink); }
+  table.rstable.ptable tbody tr.row-bracket td:first-child{ box-shadow:inset 3px 0 0 var(--load); }
+  table.rstable.ptable tbody tr.row-interp td{ background:#FDFDFB; font-weight:600; color:var(--load); border-top:1px solid var(--load-soft); border-bottom:1px solid var(--rule); }
+  table.rstable.ptable tbody tr.row-interp td:first-child{ font-style:italic; }
+  table.rstable.ptable td.use{ font-family:var(--mono); font-size:9.5px; color:var(--ink-faint); white-space:nowrap; }
+  table.rstable.ptable tbody tr.row-exact td.use,
+  table.rstable.ptable tbody tr.row-bracket td.use{ color:var(--ink-soft); font-weight:500; }
+
+  /* equations block */
+  .eqns{ border:1px solid var(--rule); background:#FDFDFB; padding:11px 15px; }
+  .eqns h4{ margin:0 0 7px; font-family:var(--mono); font-size:10px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--blue); }
+  .eqns ol{ margin:0; padding-left:20px; }
+  .eqns li{ font-family:var(--mono); font-size:11px; color:var(--ink); line-height:1.7; }
+  .eqns li .lab{ color:var(--ink-faint); font-size:9.5px; margin-left:6px; }
+
+  /* ---------- Notes ---------- */
+  .notes{ border:1px solid var(--rule); background:#FBFBF8; padding:13px 16px; }
+  .notes h4{ margin:0 0 7px; font-family:var(--mono); font-size:10px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--blue); }
+  .notes ol{ margin:0; padding-left:18px; }
+  .notes li{ font-size:11.5px; color:var(--ink-soft); line-height:1.5; margin-bottom:5px; }
+  .notes li b{ color:var(--ink); font-weight:600; }
+  .notes .ref{ font-family:var(--mono); font-size:10px; color:var(--ink-faint); }
+
+  .footer{ margin-top:18px; display:flex; justify-content:space-between; align-items:baseline; border-top:1px solid var(--rule); padding-top:9px; gap:12px; flex-wrap:wrap; }
+  .footer span{ font-family:var(--mono); font-size:9.5px; color:var(--ink-faint); letter-spacing:.03em; }
+
+  @media (max-width:680px){
+    .res-cols{ grid-template-columns:1fr; }
+  }
+  @media (max-width:560px){
+    .titleblock{ grid-template-columns:1fr 1fr; }
+    .titleblock .tb-main{ grid-column:1 / -1; border-left:none; }
+    .tb-title{ font-size:21px; }
+  }
+
+  @media print{
+    body{ background:#fff; padding:0; }
+    .toolbar{ display:none; }
+    .sheet{ box-shadow:none; border:none; max-width:none; }
+    .accent{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .group > h3,.kcard.gov,.kcard .ktag,.sec-idx,.sec-title,.figure,.tb-eyebrow,.module-tag{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .sec, .group, .kcard, .rblock, .figure, .notes{ break-inside:avoid; }
+  }
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <button id="btnPrint" type="button">Print / Save PDF</button>
+  <button id="btnReset" type="button">Reset inputs</button>
+</div>
+
+<div class="sheet">
+  <div class="accent"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div>
+  <span class="tick tl"></span><span class="tick tr"></span><span class="tick bl"></span><span class="tick br"></span>
+
+  <div class="inner">
+
+    <!-- TITLE BLOCK -->
+    <div class="titleblock">
+      <div class="tb-cell tb-main">
+        <div class="tb-eyebrow">Structural Analysis · Pressurised Fuselage Shell</div>
+        <div class="tb-title">Cabin Pressure &amp; Shell Stresses</div>
+        <div class="tb-sub">Cabin-pressure differential from a max operating altitude, then skin / frame / stringer stresses by equilibrium &amp; strain compatibility</div>
+      </div>
+      <div class="tb-cell"><span class="tb-key">Document</span><span class="tb-val">SCT-026</span></div>
+      <div class="tb-cell"><span class="tb-key">Method</span><span class="tb-val sm">14 CFR 43 App. E · RAPID</span></div>
+      <div class="tb-cell tb-row2"><span class="tb-key">Analysis</span><span class="tb-val sm">Pressure &rarr; thin-shell equilibrium + Poisson compatibility</span></div>
+      <div class="tb-cell tb-row2"><span class="tb-key">Units</span><span class="tb-val sm">in · lbf · psi · ksi</span></div>
+      <div class="tb-cell tb-row2"><span class="tb-key">Status</span><span class="tb-val sm">Live — editable</span></div>
+    </div>
+
+    <!-- ============ MODULE 1 — PRESSURE ============ -->
+
+    <!-- PRESSURE INPUTS -->
+    <div class="sec">
+      <div class="sec-head">
+        <span class="sec-idx">01</span>
+        <span class="sec-title"><span class="module-tag">Module 1</span>Pressure Inputs</span>
+        <span class="sec-rule"></span>
+        <span class="sec-note">cabin altitude fixed at 8,000 ft per FAR 25 / 14 CFR practice</span>
+      </div>
+      <div class="presets">
+        <label for="preset">Aircraft type preset</label>
+        <select id="preset">
+          <option value="custom">— Custom (enter max altitude) —</option>
+          <option value="42000">727-200F · 42,000 ft (TCDS A3WE)</option>
+          <option value="41000">737-800 / -900 · 41,000 ft</option>
+          <option value="39800">A320 · 39,800 ft</option>
+          <option value="43100">767-300 · 43,100 ft</option>
+          <option value="37000">DC-9 / MD-80 · 37,000 ft</option>
+          <option value="41000crj">CRJ-200 · 41,000 ft</option>
+          <option value="25000">Unpressurised ceiling · 25,000 ft</option>
+        </select>
+      </div>
+      <div class="groups" id="pressureGroups"></div>
+    </div>
+
+    <!-- PRESSURE KEY RESULTS -->
+    <div class="sec">
+      <div class="sec-head">
+        <span class="sec-idx">02</span>
+        <span class="sec-title"><span class="module-tag">Module 1</span>Pressure &mdash; Key Results</span>
+        <span class="sec-rule"></span>
+        <span class="sec-note">cabin altitude = 8,000 ft baseline</span>
+      </div>
+      <div class="keygrid">
+        <div class="kcard" id="card-pDiff">
+          <div class="klabel">Operating pressure differential<div class="ksym">&Delta;P = P<sub>cabin</sub> &minus; P<sub>max alt</sub></div></div>
+          <div><span class="kval" id="k_pDiff">&mdash;</span><span class="kunit">psi</span></div>
+        </div>
+        <div class="kcard gov" id="card-pMaxOp">
+          <div class="klabel">Max operational cabin pressure<div class="ksym">&Delta;P + suction &rarr; feeds Module 2</div></div>
+          <div><span class="kval" id="k_pMaxOp">&mdash;</span><span class="kunit">psi</span></div>
+        </div>
+      </div>
+
+      <div class="res-cols" style="margin-top:14px">
+        <div class="rblock">
+          <h4>Pressure build-up &mdash; worked values</h4>
+          <div class="rrow"><span class="rl">Max operating altitude <span class="sub">user input</span></span><span class="rv" id="r_maxAlt">&mdash;</span><span class="ru">ft</span></div>
+          <div class="rrow"><span class="rl">Pressure at max altitude <span class="sub">Table I interp.</span></span><span class="rv" id="r_pAmbHg">&mdash;</span><span class="ru">in.Hg <span class="cellref">[1]</span></span></div>
+          <div class="rrow"><span class="rl">Pressure at max altitude <span class="sub">&times; 14.696/29.921</span></span><span class="rv" id="r_pAmbPsi">&mdash;</span><span class="ru">psi <span class="cellref">[2]</span></span></div>
+          <div class="rrow"><span class="rl">Cabin altitude <span class="sub">FAR 25 baseline</span></span><span class="rv" id="r_cabinAlt">&mdash;</span><span class="ru">ft</span></div>
+          <div class="rrow"><span class="rl">Pressure at cabin <span class="sub">Table I interp.</span></span><span class="rv" id="r_pCabinHg">&mdash;</span><span class="ru">in.Hg <span class="cellref">[3]</span></span></div>
+          <div class="rrow"><span class="rl">Pressure at cabin <span class="sub">&times; 14.696/29.921</span></span><span class="rv" id="r_pCabinPsi">&mdash;</span><span class="ru">psi <span class="cellref">[4]</span></span></div>
+        </div>
+        <div class="rblock">
+          <h4>Differential &amp; design pressure</h4>
+          <div class="rrow"><span class="rl">Operating differential <span class="sub">[4] &minus; [2]</span></span><span class="rv" id="r_pDiff2">&mdash;</span><span class="ru">psi <span class="cellref">[5]</span></span></div>
+          <div class="rrow"><span class="rl">Suction pressure allowance <span class="sub">user input</span></span><span class="rv" id="r_suction">&mdash;</span><span class="ru">psi</span></div>
+          <div class="rrow"><span class="rl"><b>Max operational cabin pressure</b> <span class="sub">[5] + suction</span></span><span class="rv" id="r_pMaxOp">&mdash;</span><span class="ru">psi <span class="cellref">[6]</span></span></div>
+          <div class="rnote"><b>Example check (727-200F):</b> at 42,000 ft max &amp; 8,000 ft cabin, Table I gives 5.065 in.Hg (2.49 psi) and 22.225 in.Hg (10.92 psi) &rarr; &Delta;P = <b>8.43 psi</b>; + 0.5 suction &rarr; <b>8.93 psi</b>. The tool reproduces these values exactly.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRESSURE DATA TABLE -->
+    <div class="sec">
+      <div class="sec-head">
+        <span class="sec-idx">03</span>
+        <span class="sec-title"><span class="module-tag">Module 1</span>Pressure Data &mdash; Table I</span>
+        <span class="sec-rule"></span>
+        <span class="sec-note">14 CFR Part 43 App. E &middot; highlighted rows used in the calculation</span>
+      </div>
+      <div class="rstable-wrap">
+        <table class="rstable ptable" id="ptable">
+          <thead>
+            <tr>
+              <th class="col-name">Altitude (ft)</th>
+              <th class="col-num">Pressure (in.Hg)</th>
+              <th class="col-num">Pressure (psi)</th>
+              <th class="col-use">Use</th>
+            </tr>
+          </thead>
+          <tbody id="ptbody"></tbody>
+        </table>
+      </div>
+      <div class="rnote" style="margin-top:9px"><span style="display:inline-block;width:10px;height:10px;background:var(--blue);vertical-align:middle;margin-right:4px;border-radius:1px"></span><b>Blue</b> rows are exact Table I points used directly (the cabin / max altitude lands on a breakpoint). <span style="display:inline-block;width:10px;height:10px;background:var(--load);vertical-align:middle;margin:0 4px;border-radius:1px"></span><b>Orange</b> rows are the two breakpoints that bracket an interpolated altitude, with the computed value shown on a final interpolated row marked <b>interp.</b> Linear interpolation is used between adjacent breakpoints.</div>
+    </div>
+
+    <!-- ============ MODULE 2 — STRESSES ============ -->
+
+    <!-- STRESS FIGURE -->
+    <div class="sec">
+      <div class="sec-head">
+        <span class="sec-idx">04</span>
+        <span class="sec-title"><span class="module-tag m2">Module 2</span>Shell Idealisation</span>
+        <span class="sec-rule"></span>
+        <span class="sec-note">skin + frames + stringers · monolithic aluminium (constant E)</span>
+      </div>
+      <div class="figure">
+        <div id="figStress"></div>
+        <div class="fig-cap"><b>Figure 2.</b> Pressurised fuselage idealisation &mdash; a thin cylindrical skin of radius <span class="cellref">R</span>, thickness <span class="cellref">t</span>, stiffened by <b>frames</b> (circumferential rings at pitch <span class="cellref">&#8467;</span>) and <b>stringers</b> (longitudinal members at pitch <span class="cellref">s</span>). Internal pressure <span class="cellref">P</span> (radial arrows) loads the shell; the resulting operating element stresses are summarised in the panel at right.</div>
+      </div>
+    </div>
+
+    <!-- STRESS INPUTS -->
+    <div class="sec">
+      <div class="sec-head">
+        <span class="sec-idx">05</span>
+        <span class="sec-title"><span class="module-tag m2">Module 2</span>Stress Inputs</span>
+        <span class="sec-rule"></span>
+        <span class="sec-note">P auto-linked from Module 1 &middot; uncheck to override</span>
+      </div>
+      <div class="presets">
+        <label class="linkcheck"><input type="checkbox" id="linkP" checked> Link P to Module 1 (<span id="linkPval">&mdash;</span>)</label>
+      </div>
+      <div class="groups" id="stressGroups"></div>
+    </div>
+
+    <!-- STRESS RESULTS (merged operating + residual strength) -->
+    <div class="sec">
+      <div class="sec-head">
+        <span class="sec-idx">06</span>
+        <span class="sec-title"><span class="module-tag m2">Module 2</span>Stress Results</span>
+        <span class="sec-rule"></span>
+        <span class="sec-note">operating stresses &middot; plus residual-strength load cases per &sect;25.571(b)(5)</span>
+      </div>
+
+      <!-- operating stresses (key cards) -->
+      <div class="keygrid" id="stressCards">
+        <div class="kcard" id="card-sH">
+          <div class="klabel">Skin hoop stress<div class="ksym">&sigma;<sub>H</sub> &mdash; pressure only</div></div>
+          <div><span class="kval" id="k_sH">&mdash;</span><span class="kunit">ksi</span></div>
+        </div>
+        <div class="kcard" id="card-sL">
+          <div class="klabel">Skin longitudinal stress<div class="ksym">&sigma;<sub>L</sub> + &sigma;<sub>B</sub> &mdash; combined</div></div>
+          <div><span class="kval" id="k_sL">&mdash;</span><span class="kunit">ksi</span></div>
+        </div>
+        <div class="kcard" id="card-sS">
+          <div class="klabel">Stringer axial stress<div class="ksym">&sigma;<sub>S</sub> + &sigma;<sub>B</sub> &mdash; combined</div></div>
+          <div><span class="kval" id="k_sS">&mdash;</span><span class="kunit">ksi</span></div>
+        </div>
+        <div class="kcard" id="card-sF">
+          <div class="klabel">Frame axial stress<div class="ksym">&sigma;<sub>F</sub> &mdash; pressure only</div></div>
+          <div><span class="kval" id="k_sF">&mdash;</span><span class="kunit">ksi</span></div>
+        </div>
+      </div>
+
+      <!-- residual strength table -->
+      <div class="presets" style="margin:18px 0 10px">
+        <span style="font-family:var(--disp);font-weight:600;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink)">Residual strength stresses</span>
+        <span style="font-family:var(--mono);font-size:10px;color:var(--ink-faint)">&middot; pressure factor</span>
+        <select id="pfactor">
+          <option value="1.10" selected>1.10 &times;</option>
+          <option value="1.15">1.15 &times;</option>
+        </select>
+      </div>
+      <div class="rstable-wrap">
+        <table class="rstable" id="rstable">
+          <thead>
+            <tr>
+              <th rowspan="2" class="col-name">Structure / direction</th>
+              <th rowspan="2" class="col-num">Operating stress<br><span class="th-sub">ksi</span></th>
+              <th colspan="2" class="col-grp">Residual strength stresses <span class="th-cite">per &sect;25.571(b)(5)</span></th>
+            </tr>
+            <tr>
+              <th class="col-num">pressure case<br><span class="th-cite">per &sect;25.571(b)(5)(ii)</span></th>
+              <th class="col-num">flight loads<br><span class="th-cite">per &sect;25.571(b)(5)(i)</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Skin &mdash; hoop (&sigma;<sub>H</sub>)</td>
+              <td class="num" id="rs_H_op">&mdash;</td><td class="num" id="rs_H_pf">&mdash;</td><td class="num" id="rs_H_bd">&mdash;</td></tr>
+            <tr><td>Skin &mdash; longitudinal (&sigma;<sub>L</sub>)</td>
+              <td class="num" id="rs_L_op">&mdash;</td><td class="num" id="rs_L_pf">&mdash;</td><td class="num" id="rs_L_bd">&mdash;</td></tr>
+            <tr><td>Stringer (&sigma;<sub>S</sub>)</td>
+              <td class="num" id="rs_S_op">&mdash;</td><td class="num" id="rs_S_pf">&mdash;</td><td class="num" id="rs_S_bd">&mdash;</td></tr>
+            <tr><td>Frame (&sigma;<sub>F</sub>)</td>
+              <td class="num" id="rs_F_op">&mdash;</td><td class="num" id="rs_F_pf">&mdash;</td><td class="num" id="rs_F_bd">&mdash;</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="rnote" style="margin-top:9px"><b>Residual-strength load cases (per 14 CFR &sect;25.571(b)(5)):</b> <b>pressure case, &sect;25.571(b)(5)(ii)</b> &mdash; the pressure-only stress &times; the pressure factor (1.10 or 1.15); <b>flight loads, &sect;25.571(b)(5)(i)</b> &mdash; operating pressure-only stress plus <b>2.5&times;</b> the bending component (limit flight loads). The bending component already carries SEF, k<sub>b</sub>, k<sub>p</sub>. <b>Skin hoop</b> carries no bending; the <b>frame</b> bending share is the Poisson term &nu;&sigma;<sub>B</sub>; <b>skin longitudinal</b> &amp; <b>stringer</b> carry the full &sigma;<sub>B</sub> and usually govern.</div>
+    </div>
+
+    <!-- STRESS SUPPORTING -->
+    <div class="sec">
+      <div class="sec-head">
+        <span class="sec-idx">07</span>
+        <span class="sec-title"><span class="module-tag m2">Module 2</span>Supporting Calculations</span>
+        <span class="sec-rule"></span>
+        <span class="sec-note">[n] = equation ref &middot; thin-tube reference shown for comparison</span>
+      </div>
+
+      <div class="eqns" style="margin-bottom:14px">
+        <h4>Governing equations</h4>
+        <ol type="1" start="1">
+          <li>&sigma;<sub>H</sub> t&#8467; + &sigma;<sub>F</sub> A<sub>F</sub> = P R &#8467;<span class="lab">circumferential (hoop) equilibrium</span></li>
+          <li>&sigma;<sub>L</sub> t s + &sigma;<sub>S</sub> A<sub>S</sub> = P R s / 2<span class="lab">longitudinal equilibrium</span></li>
+          <li>&sigma;<sub>F</sub> = &sigma;<sub>H</sub> &minus; &nu;&sigma;<sub>L</sub> &minus; &nu;&sigma;<sub>B</sub><span class="lab">frame / skin strain compatibility (E constant)</span></li>
+          <li>&sigma;<sub>S</sub> = &sigma;<sub>L</sub> &minus; &nu;&sigma;<sub>H</sub><span class="lab">stringer / skin strain compatibility</span></li>
+          <li>&sigma;<sub>B</sub> = ( C<sub>kd</sub> &middot; min(F<sub>tu</sub>/1.5, F<sub>ty</sub>) &minus; C<sub>b</sub>&middot;(P + P<sub>a</sub>) R / 2t ) / 2.5 &middot; k<sub>b</sub> &middot; k<sub>p</sub> &middot; SEF<span class="lab">fuselage bending (RAPID) · SEF on bending component only</span></li>
+        </ol>
+      </div>
+
+      <div class="res-cols">
+
+        <div class="rblock">
+          <h4>Bending stress (RAPID)</h4>
+          <div class="rrow"><span class="rl">Knockdown factor <span class="sub">user input</span></span><span class="rv" id="r_Ckd">&mdash;</span><span class="ru">C<sub>kd</sub></span></div>
+          <div class="rrow"><span class="rl">Governing material strength <span class="sub">min(F<sub>tu</sub>/1.5, F<sub>ty</sub>)</span></span><span class="rv" id="r_Flim">&mdash;</span><span class="ru">psi</span></div>
+          <div class="rrow"><span class="rl">Long. pressure stress term <span class="sub">(P+P<sub>a</sub>)R/2t</span></span><span class="rv" id="r_Plong">&mdash;</span><span class="ru">psi</span></div>
+          <div class="rrow"><span class="rl">Term subtracted from limit <span class="sub">C<sub>b</sub>&middot;(P+P<sub>a</sub>)R/2t</span></span><span class="rv" id="r_Psub">&mdash;</span><span class="ru">psi</span></div>
+          <div class="rrow"><span class="rl">Bending (reverse-eng.) <span class="sub">(C<sub>kd</sub>&middot;F &minus; term)/2.5</span></span><span class="rv" id="r_sBraw">&mdash;</span><span class="ru">psi</span></div>
+          <div class="rrow"><span class="rl">Scaling factors <span class="sub">station &times; payload</span></span><span class="rv" id="r_factors">&mdash;</span><span class="ru">k<sub>b</sub>&middot;k<sub>p</sub></span></div>
+          <div class="rrow"><span class="rl">Operating bending <span class="sub">[5] &middot; k<sub>b</sub> &middot; k<sub>p</sub></span></span><span class="rv" id="r_sBop">&mdash;</span><span class="ru">psi</span></div>
+          <div class="rrow"><span class="rl">SEF (bending only) <span class="sub">stress severity factor</span></span><span class="rv" id="r_SEF">&mdash;</span><span class="ru">&times;</span></div>
+          <div class="rrow"><span class="rl"><b>Bending stress (with SEF)</b> <span class="sub">[5] &middot; k<sub>b</sub> &middot; k<sub>p</sub> &middot; SEF</span></span><span class="rv" id="r_sB">&mdash;</span><span class="ru">psi <span class="cellref">[5]</span></span></div>
+          <div class="rnote">C<sub>kd</sub> = 0.88 typical (0.90 per Safarian). C<sub>b</sub> scales the longitudinal pressure stress subtracted from limit; k<sub>b</sub> accounts for fuselage station (1.0 = peak bending), k<sub>p</sub> for payload loading (1.0 = max). <b>SEF</b> (default 1.3) scales the bending component only and propagates through the frame-compat solve and the longitudinal additions.</div>
+        </div>
+
+        <div class="rblock">
+          <h4>Matrix solution &mdash; element stresses</h4>
+          <div class="rrow"><span class="rl">Skin hoop <span class="sub">&sigma;<sub>H</sub> · [1]</span></span><span class="rv" id="r_sH2">&mdash;</span><span class="ru">ksi <span class="cellref">[1]</span></span></div>
+          <div class="rrow"><span class="rl">Skin long. (pressure) <span class="sub">&sigma;<sub>L</sub> · [2]</span></span><span class="rv" id="r_sL2">&mdash;</span><span class="ru">ksi <span class="cellref">[2]</span></span></div>
+          <div class="rrow"><span class="rl">Stringer axial (pressure) <span class="sub">&sigma;<sub>S</sub> · [4]</span></span><span class="rv" id="r_sS2">&mdash;</span><span class="ru">ksi <span class="cellref">[4]</span></span></div>
+          <div class="rrow"><span class="rl">Frame axial (pressure) <span class="sub">&sigma;<sub>F</sub> · [3]</span></span><span class="rv" id="r_sF2">&mdash;</span><span class="ru">ksi <span class="cellref">[3]</span></span></div>
+          <div class="rrow"><span class="rl">Skin long. + bending <span class="sub">&sigma;<sub>L</sub> + &sigma;<sub>B</sub></span></span><span class="rv" id="r_sLcomb">&mdash;</span><span class="ru">ksi</span></div>
+          <div class="rrow"><span class="rl">Stringer axial + bending <span class="sub">&sigma;<sub>S</sub> + &sigma;<sub>B</sub></span></span><span class="rv" id="r_sScomb">&mdash;</span><span class="ru">ksi</span></div>
+        </div>
+
+        <div class="rblock">
+          <h4>Thin-tube reference (unstiffened)</h4>
+          <div class="rrow"><span class="rl">Hoop, bare skin <span class="sub">P R / t</span></span><span class="rv" id="r_Href">&mdash;</span><span class="ru">ksi</span></div>
+          <div class="rrow"><span class="rl">Longitudinal, bare skin <span class="sub">P R / 2t</span></span><span class="rv" id="r_Lref">&mdash;</span><span class="ru">ksi</span></div>
+          <div class="rnote">For comparison only. Stiffeners + Poisson compatibility draw load into the frames/stringers, so the skin hoop &sigma;<sub>H</sub> falls below the bare-skin <b>P R / t</b>; the difference is carried by the frame.</div>
+        </div>
+
+        <div class="rblock">
+          <h4>Resultants &amp; equilibrium check</h4>
+          <div class="rrow"><span class="rl">Hoop force per bay <span class="sub">P R &#8467;</span></span><span class="rv" id="r_Hforce">&mdash;</span><span class="ru">lbf</span></div>
+          <div class="rrow"><span class="rl">Long. force per bay <span class="sub">P R s / 2</span></span><span class="rv" id="r_Lforce">&mdash;</span><span class="ru">lbf</span></div>
+          <div class="rrow"><span class="rl">Hoop equilibrium residual <span class="sub">&sigma;<sub>H</sub>t&#8467;+&sigma;<sub>F</sub>A<sub>F</sub>&minus;PR&#8467;</span></span><span class="rv" id="r_Hres">&mdash;</span><span class="ru">lbf</span></div>
+          <div class="rrow"><span class="rl">Long. equilibrium residual <span class="sub">&sigma;<sub>L</sub>ts+&sigma;<sub>S</sub>A<sub>S</sub>&minus;PRs/2</span></span><span class="rv" id="r_Lres">&mdash;</span><span class="ru">lbf</span></div>
+          <div class="rnote">Residuals should be ~0 (within rounding) &mdash; confirms the 4&times;4 solve honours both equilibrium equations.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- NOTES -->
+    <div class="sec">
+      <div class="sec-head">
+        <span class="sec-idx">08</span>
+        <span class="sec-title">Assumptions &amp; Notes</span>
+        <span class="sec-rule"></span>
+      </div>
+      <div class="notes">
+        <h4>Method &amp; assumptions</h4>
+        <ol>
+          <li><b>Module 1 — Pressure.</b> The cabin-pressure differential is the cabin pressure minus the ambient pressure at the aircraft's max operating altitude. Pressures are interpolated linearly between the breakpoints of <b>14 CFR Part 43 Appendix E, Table I</b> (standard-atmosphere altimeter test pressures), and converted in.Hg &rarr; psi with the standard factor <b>14.696 / 29.921 = 0.49116</b>. Cabin altitude defaults to <b>8,000 ft</b> (FAR Part 25 passenger-cabin limit). <span class="ref">[14 CFR pt. 43 App. E; 727 TCDS A3WE]</span></li>
+          <li><b>Suction allowance.</b> An additional <b>0.5 psi</b> (editable) is added to the operating differential for suction pressure, giving the <b>max operational cabin pressure</b> used for stress. The 727-200F example gives &Delta;P = 8.43 psi &rarr; 8.93 psi with suction — reproduced by this tool to the precision of Table I.</li>
+          <li><b>Module 2 — Stresses.</b> The four element stresses (&sigma;<sub>H</sub>, &sigma;<sub>L</sub>, &sigma;<sub>S</sub>, &sigma;<sub>F</sub>) are the simultaneous solution of: (a) circumferential equilibrium of one frame bay, (b) longitudinal equilibrium of one stringer bay, (c) frame/skin and (d) stringer/skin strain compatibility. Because all material is aluminium (constant E), compatibility is written directly in stress with Poisson coupling.</li>
+          <li><b>Bending (RAPID).</b> Fuselage bending stress &sigma;<sub>B</sub> = ( C<sub>kd</sub>&middot;min(F<sub>tu</sub>/1.5, F<sub>ty</sub>) &minus; C<sub>b</sub>&middot;(P+P<sub>a</sub>)R/2t ) / 2.5, then &times; k<sub>b</sub> &times; k<sub>p</sub> &times; SEF. <b>C<sub>kd</sub></b> = 0.88 typical (0.90 per Safarian). <b>C<sub>b</sub></b> (default 1.0) scales the longitudinal pressure stress subtracted from limit. <b>P<sub>a</sub></b> (default 1.1 psi) replaces the fixed pressure adder in the bending term. <b>k<sub>b</sub></b> (bending factor, default 1.0) scales &sigma;<sub>B</sub> for the repair location along the fuselage length (1.0 = peak bending station). <b>k<sub>p</sub></b> (payload factor, default 1.0) scales &sigma;<sub>B</sub> for less-than-maximum cargo/passenger loading (1.0 = maximum). <b>SEF</b> (stress severity factor, default 1.3) is applied to the bending component only and propagates through the frame-compatibility solve and the longitudinal additions. The bending term is added to the skin and stringer <i>longitudinal</i> stresses after the matrix solve.</li>
+          <li><b>Thin-shell limit check.</b> As A<sub>F</sub>, A<sub>S</sub> &rarr; 0 the skin recovers the bare-tube values &sigma;<sub>H</sub> &rarr; P R / t and &sigma;<sub>L</sub> &rarr; P R / 2t; the equilibrium-residual rows confirm the solve. Stiffeners and Poisson coupling redirect skin load into the frame/stringer, lowering skin hoop below P R / t.</li>
+          <li><b>Link to Module 1.</b> The stress pressure <span class="cellref">P</span> is auto-filled with Module 1's max operational cabin pressure while the <b>Link P</b> box is checked. Uncheck it to enter a standalone pressure (e.g. a proof or ultimate case).</li>
+          <li><b>Geometry convention.</b> &#8467; = frame pitch (circumferential bay length), s = stringer pitch (longitudinal bay length); A<sub>F</sub>, A<sub>S</sub> are the effective frame and stringer cross-section areas per bay. Skin effective widths are assumed already folded into A<sub>F</sub> / A<sub>S</sub>.</li>
+          <li><b>Damage-tolerance use:</b> results are operating elastic stresses for crack-growth / residual-strength work; they are not ultimate or yield margins. Combine with local stress concentrations and bending peaking separately.</li>
+          <li><b>Residual strength (&sect;06 table).</b> Each component is decomposed into a <b>pressure-only</b> stress and a <b>bending</b> component, then two residual-strength load cases are evaluated per 14 CFR &sect;25.571(b)(5): <b>(1) pressure case, &sect;25.571(b)(5)(ii)</b> = pressure-only &times; the pressure residual factor (1.10 typical, 1.15 selectable); <b>(2) flight loads, &sect;25.571(b)(5)(i)</b> = pressure-only + <b>2.5&times;</b> the bending component (limit flight loads). Bending shares: skin hoop = 0 (no bending); skin longitudinal &amp; stringer = full &sigma;<sub>B</sub>; frame = the Poisson term &nu;&sigma;<sub>B</sub>. The bending component already carries SEF, k<sub>b</sub>, k<sub>p</sub>. The governing row (worst of the two cases across all four components) is highlighted.</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>SCT-026 &middot; Fuselage Pressure &amp; Shell Stresses &middot; 14 CFR 43 App. E / RAPID</span>
+      <span id="ts">Interactive analysis sheet</span>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---- 14 CFR Part 43 Appendix E Table I — altitude (ft) vs equivalent pressure (in.Hg) ----
+  var TABLE_I = [
+    [-1000,31.018],[0,29.921],[1000,28.856],[2000,27.821],[3000,26.817],
+    [4000,25.842],[5000,24.891],[6000,23.978],[7000,23.093],[8000,22.225],
+    [9000,21.388],[10000,20.577],[15000,16.886],[20000,13.750],[25000,11.104],
+    [30000,8.885],[35000,7.041],[40000,5.538],[45000,4.355],[50000,3.425]
+  ];
+  var PSI_PER_INHG = 14.696/29.921;   // = 0.49116
+
+  // linear interpolation against Table I (clamped at the ends)
+  function tableInterp(alt){
+    var T = TABLE_I;
+    if(alt <= T[0][0]) return T[0][1];
+    if(alt >= T[T.length-1][0]) return T[T.length-1][1];
+    for(var i=0;i<T.length-1;i++){
+      if(alt >= T[i][0] && alt <= T[i+1][0]){
+        var f = (alt - T[i][0])/(T[i+1][0]-T[i][0]);
+        return T[i][1] + f*(T[i+1][1]-T[i][1]);
+      }
+    }
+    return NaN;
+  }
+
+  // returns {exact:true} if alt is a breakpoint, else {exact:false, lo, hi}
+  // for the two bracketing breakpoints (lo/hi are [alt,in.Hg] pairs)
+  function tableBracket(alt){
+    var T = TABLE_I;
+    for(var i=0;i<T.length;i++){
+      if(T[i][0]===alt) return {exact:true, idx:i};
+    }
+    for(var j=0;j<T.length-1;j++){
+      if(alt > T[j][0] && alt < T[j+1][0]){
+        return {exact:false, lo:T[j], hi:T[j+1], loIdx:j, hiIdx:j+1};
+      }
+    }
+    // clamped at ends
+    if(alt <= T[0][0]) return {exact:true, idx:0};
+    return {exact:true, idx:T.length-1};
+  }
+
+  // ---- Module 1: pressure ----
+  function computePressure(v){
+    var pMaxAltHg  = tableInterp(v.maxAlt);
+    var pCabinHg   = tableInterp(v.cabinAlt);
+    var pMaxAltPsi = pMaxAltHg*PSI_PER_INHG;
+    var pCabinPsi  = pCabinHg*PSI_PER_INHG;
+    var diff       = pCabinPsi - pMaxAltPsi;
+    var pMaxOp     = diff + v.suction;
+    return {pMaxAltHg:pMaxAltHg, pCabinHg:pCabinHg,
+            pMaxAltPsi:pMaxAltPsi, pCabinPsi:pCabinPsi,
+            diff:diff, pMaxOp:pMaxOp};
+  }
+
+  // ---- 4x4 linear solver (Gaussian elimination + partial pivoting) ----
+  function solve4(A, b){
+    var M = [0,1,2,3].map(function(i){ return A[i].slice().concat([b[i]]); });
+    var n = 4;
+    for(var c=0;c<n;c++){
+      var piv=c;
+      for(var r=c+1;r<n;r++){ if(Math.abs(M[r][c])>Math.abs(M[piv][c])) piv=r; }
+      if(piv!==c){ var tmp=M[c]; M[c]=M[piv]; M[piv]=tmp; }
+      var d=M[c][c]; if(Math.abs(d)<1e-12) return null;
+      for(var r2=0;r2<n;r2++){
+        if(r2===c) continue;
+        var f=M[r2][c]/d;
+        for(var k=c;k<=n;k++) M[r2][k]-=f*M[c][k];
+      }
+    }
+    var x=[0,0,0,0]; for(var i=0;i<n;i++) x[i]=M[i][n]/M[i][i];
+    return x;   // [sH, sL, sS, sF] in same units as b (psi here)
+  }
+
+  // ---- Module 2: stresses ----
+  // Unknown vector x = [sH, sL, sS, sF] (psi).
+  //   (1) sH*t*L + sF*AF        = P*R*L           circumferential equilibrium
+  //   (2) sL*t*s + sS*AS        = P*R*s/2         longitudinal equilibrium
+  //   (3) -sH + sL*nu + sS*0 - sF = -nu*sB   =>  sF = sH - nu*sL - nu*sB
+  //   (4) sH*nu - sL + sS       = 0          =>  sS = sL - nu*sH
+  function computeStress(v){
+    var P=v.P, R=v.R, t=v.t, L=v.L, s=v.S, AF=v.AF, AS=v.AS, nu=v.nu;
+    var Ckd=v.Ckd, Cb=v.Cb, PbendAdd=v.PbendAdd, Ftu=v.Ftu, Fty=v.Fty;
+    var bendFactor=v.bendFactor, payFactor=v.payFactor, SEF=v.SEF;
+
+    // bending (RAPID): σ_B,op = (Ckd·Flim − Cb·(P+Pa)·R/2t)/2.5 × kb × kp  (operating).
+    // SEF (stress severity factor) scales the bending component only, so it is
+    // applied to σ_B everywhere bending enters the model: the frame compatibility
+    // equation, the longitudinal additions, and the residual-strength bending case.
+    var Flim = Math.min(Ftu/1.5, Fty);
+    var Plong = (P+PbendAdd)*R/(2*t);            // longitudinal pressure stress term (psi)
+    var Psub = Cb*Plong;                          // term subtracted from Ckd·Flim
+    var sBraw = (Ckd*Flim - Psub)/2.5;           // reverse-engineered bending (psi)
+    var sBop  = sBraw*bendFactor*payFactor;       // operating bending stress (psi)
+    var sB    = sBop*SEF;                         // bending incl. SEF (psi) — used throughout
+
+    // 4x4 system:  A x = b   (x = [sH, sL, sS, sF])
+    //   eq1  sH*t*L + sF*AF        = P*R*L        circumferential equilibrium
+    //   eq2  sL*t*s + sS*AS        = P*R*s/2      longitudinal equilibrium
+    //   eq3  sH - nu*sL - sF       = nu*sB        frame / skin compat:  sF = sH - nu*sL - nu*sB
+    //   eq4 -nu*sH + sL + sS       = 0            stringer / skin compat: sS = sL - nu*sH
+    var A = [
+      [t*L, 0,    0,   AF ],
+      [0,   t*s,  AS,  0  ],
+      [-1,  nu,   0,   1  ],
+      [nu,  -1,   1,   0  ]
+    ];
+    var b = [ P*R*L, P*R*s/2, -nu*sB, 0 ];
+
+    var x = solve4(A,b);
+    if(!x) return null;
+    var sH=x[0], sL=x[1], sS=x[2], sF=x[3];
+
+    // combined longitudinal terms (bending added to skin-long + stringer)
+    var sLcomb = sL + sB;
+    var sScomb = sS + sB;
+
+    // references / checks
+    var Href = P*R/t;          // bare-skin hoop, psi
+    var Lref = P*R/(2*t);      // bare-skin long., psi
+    var Hforce = P*R*L;        // lbf
+    var Lforce = P*R*s/2;      // lbf
+    var Hres = sH*t*L + sF*AF - P*R*L;
+    var Lres = sL*t*s + sS*AS - P*R*s/2;
+
+    return {sB:sB, sBop:sBop, sBraw:sBraw, SEF:SEF, Flim:Flim, Plong:Plong, Psub:Psub,
+            sH:sH, sL:sL, sS:sS, sF:sF, sLcomb:sLcomb, sScomb:sScomb,
+            Href:Href, Lref:Lref, Hforce:Hforce, Lforce:Lforce, Hres:Hres, Lres:Lres};
+  }
+
+  // ---- Input definitions (single source of truth) ----
+  var PGROUPS = [
+    { title:"Altitude & Suction", items:[
+      { key:"maxAlt",  label:"Max operating altitude", sym:"", unit:"ft",   val:42000, step:500, meta:"aircraft service ceiling · user input" },
+      { key:"cabinAlt",label:"Cabin altitude",          sym:"", unit:"ft",   val:8000,  step:500, meta:"FAR 25 passenger limit" },
+      { key:"suction", label:"Suction pressure",        sym:"", unit:"psi",  val:0.5,   step:0.1, meta:"added to differential" },
+    ]}
+  ];
+  var SGROUPS = [
+    { title:"Loading", items:[
+      { key:"P",  label:"Cabin pressure (stress)", sym:"P", unit:"psi",  val:8.93, step:0.01, meta:"linked to Module 1 · uncheck to edit" },
+    ]},
+    { title:"Geometry", items:[
+      { key:"R", label:"Fuselage radius",    sym:"R", unit:"in", val:74,   step:1,    meta:"pressurised skin mid-plane" },
+      { key:"t", label:"Skin thickness",     sym:"t", unit:"in", val:0.08, step:0.005,meta:"cylinder skin" },
+      { key:"L", label:"Frame pitch",        sym:"\u2113", unit:"in", val:20, step:1,  meta:"circumferential bay length" },
+      { key:"S", label:"Stringer pitch",     sym:"s", unit:"in", val:7,   step:0.5,  meta:"longitudinal bay length" },
+    ]},
+    { title:"Stiffener Sections", items:[
+      { key:"AF", label:"Frame area",          sym:"A<sub>F</sub>", unit:"in\u00B2", val:0.5,   step:0.05, meta:"per bay, eff." },
+      { key:"AS", label:"Stringer area",       sym:"A<sub>S</sub>", unit:"in\u00B2", val:0.2,   step:0.01, meta:"per bay, eff." },
+    ]},
+    { title:"Material & Bending", items:[
+      { key:"nu",  label:"Poisson ratio",      sym:"\u03BD",  unit:"\u2014",    val:0.33,  step:0.01, meta:"aluminium (constant E)" },
+      { key:"Ckd", label:"Bending knockdown",  sym:"C<sub>kd</sub>", unit:"\u2014", val:0.88, step:0.01, meta:"0.88 typ · 0.90 Safarian" },
+      { key:"Cb",  label:"Long. pressure factor", sym:"C<sub>b</sub>", unit:"\u2014", val:1.0, step:0.05, meta:"on (P+Pa)·R/2t term" },
+      { key:"PbendAdd", label:"Bending pressure adder", sym:"P<sub>a</sub>", unit:"psi", val:1.1, step:0.1, meta:"added to P in bending term" },
+      { key:"bendFactor", label:"Bending factor (station)", sym:"k<sub>b</sub>", unit:"\u2014", val:1.0, step:0.05, meta:"1.0 = peak bending station" },
+      { key:"payFactor",  label:"Payload factor",          sym:"k<sub>p</sub>", unit:"\u2014", val:1.0, step:0.05, meta:"1.0 = max cargo/pax loading" },
+      { key:"SEF",        label:"Stress severity factor",  sym:"SEF", unit:"\u2014", val:1.3, step:0.05, meta:"applied to bending components only" },
+      { key:"Ftu", label:"Ultimate strength",  sym:"F<sub>tu</sub>", unit:"psi", val:62000, step:1000,meta:"skin material" },
+      { key:"Fty", label:"Yield strength",     sym:"F<sub>ty</sub>", unit:"psi", val:40000, step:1000,meta:"skin material" },
+    ]}
+  ];
+
+  // ---- Formatting ----
+  function fmt(x, dec, sep){
+    if(x===null || x===undefined || !isFinite(x)) return "\u2014";
+    var neg = x<0; var a = Math.abs(x);
+    var s = a.toFixed(dec);
+    if(sep){
+      var p = s.split(".");
+      p[0] = p[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+      s = p.join(".");
+    }
+    return (neg?"\u2212":"") + s;
+  }
+  function setText(id, val){ var el=document.getElementById(id); if(el) el.textContent = val; }
+
+  // ---- Build inputs ----
+  function buildGroups(hostId, groups){
+    var host = document.getElementById(hostId);
+    host.innerHTML = "";
+    groups.forEach(function(g){
+      var gd = document.createElement("div"); gd.className="group";
+      var h = document.createElement("h3"); h.innerHTML = g.title; gd.appendChild(h);
+      var body = document.createElement("div"); body.className="gbody";
+      g.items.forEach(function(it){
+        var row = document.createElement("div"); row.className="irow";
+        var lab = document.createElement("div"); lab.className="ilabel";
+        var lt = document.createElement("span"); lt.className="lt";
+        lt.innerHTML = it.label + (it.sym? ' <span class="sym">'+it.sym+'</span>':'');
+        var meta = document.createElement("span"); meta.className="meta"; meta.textContent = it.meta||"";
+        lab.appendChild(lt); lab.appendChild(meta);
+        var ctrl = document.createElement("div"); ctrl.className="ictrl";
+        var inp = document.createElement("input");
+        inp.type="number"; inp.id="in_"+it.key; inp.value=it.val;
+        if(it.step) inp.step=it.step;
+        inp.setAttribute("inputmode","decimal");
+        inp.addEventListener("input", recalc);
+        var u = document.createElement("span"); u.className="unit"; u.textContent = it.unit;
+        ctrl.appendChild(inp); ctrl.appendChild(u);
+        row.appendChild(lab); row.appendChild(ctrl);
+        body.appendChild(row);
+      });
+      gd.appendChild(body);
+      host.appendChild(gd);
+    });
+  }
+
+  function readGroups(groups){
+    var v = {};
+    groups.forEach(function(g){ g.items.forEach(function(it){
+      var el = document.getElementById("in_"+it.key);
+      v[it.key] = el ? parseFloat(el.value) : NaN;
+    });});
+    return v;
+  }
+
+  // ---- P link handling (auto-fill Module 2 P from Module 1) ----
+  function applyLink(pMaxOp){
+    var el = document.getElementById("in_P");
+    var cb = document.getElementById("linkP");
+    var val = document.getElementById("linkPval");
+    if(val) val.textContent = isFinite(pMaxOp) ? (fmt(pMaxOp,2)+" psi") : "\u2014";
+    if(cb && cb.checked && el){
+      el.value = Math.round(pMaxOp*1000)/1000;
+      el.readOnly = true; el.classList.add("auto");
+    } else if(el){
+      el.readOnly = false; el.classList.remove("auto");
+    }
+  }
+
+  function resetInputs(){
+    PGROUPS.concat(SGROUPS).forEach(function(g){ g.items.forEach(function(it){
+      var el = document.getElementById("in_"+it.key); if(el) el.value = it.val;
+    });});
+    document.getElementById("linkP").checked = true;
+    document.getElementById("preset").value = "custom";
+    recalc();
+  }
+
+  var NS = "http://www.w3.org/2000/svg";
+
+  // ---- Pressure data table (Table I with cabin/max-alt rows highlighted) ----
+  // Renders the full Table I. Rows used directly (exact breakpoint match for the
+  // cabin or max altitude) are flagged row-exact (blue). If the cabin/max altitude
+  // falls between breakpoints, the two bracketing rows are flagged row-bracket
+  // (orange) and an interpolated row (row-interp) is inserted at that altitude.
+  function renderPressureTable(cabinAlt, maxAlt){
+    var body = document.getElementById("ptbody");
+    if(!body) return;
+    var cabinBr = tableBracket(cabinAlt);
+    var maxBr   = tableBracket(maxAlt);
+    // exact-match breakpoint indices
+    var exactIdx = {};
+    if(cabinBr.exact) exactIdx[cabinBr.idx] = "cabin";
+    if(maxBr.exact)   exactIdx[maxBr.idx]   = exactIdx[maxBr.idx] ? exactIdx[maxBr.idx]+"/max" : "max";
+    // bracketing breakpoint indices (when interpolation is needed)
+    var brackIdx = {};
+    if(!cabinBr.exact){ brackIdx[cabinBr.loIdx] = "cabin"; brackIdx[cabinBr.hiIdx] = "cabin"; }
+    if(!maxBr.exact)  { brackIdx[maxBr.loIdx]   = brackIdx[maxBr.loIdx]?"cabin/max":"max";
+                        brackIdx[maxBr.hiIdx]   = brackIdx[maxBr.hiIdx]?"cabin/max":"max"; }
+
+    // build the interpolated-value rows: {alt, label} for cabin & max if needed
+    var interpRows = [];
+    if(!cabinBr.exact && isFinite(cabinAlt)) interpRows.push({alt:cabinAlt, kind:"cabin"});
+    if(!maxBr.exact   && isFinite(maxAlt) && maxAlt!==cabinAlt) interpRows.push({alt:maxAlt, kind:"max"});
+    // sort descending so interpolated rows insert just above their lower bracket
+    interpRows.sort(function(a,b){ return b.alt - a.alt; });
+
+    var html = "";
+    // walk Table I top-down (highest altitude first → descending)
+    for(var i=TABLE_I.length-1; i>=0; i--){
+      var row = TABLE_I[i];
+      var hg = row[1], psi = hg*PSI_PER_INHG;
+      var cls = "", use = "";
+      if(exactIdx[i]){
+        cls = "row-exact";
+        use = (exactIdx[i]==="cabin"?"cabin altitude":(exactIdx[i]==="max"?"max altitude":exactIdx[i]));
+      } else if(brackIdx[i]){
+        cls = "row-bracket";
+        use = "interp. "+brackIdx[i];
+      }
+      html += '<tr class="'+cls+'"><td>'+fmt(row[0],0,true)+'</td>'
+        +'<td class="num">'+fmt(hg,3)+'</td><td class="num">'+fmt(psi,3)+'</td>'
+        +'<td class="use">'+use+'</td></tr>';
+      // insert any interpolated rows whose value sits between this row and the next
+      while(interpRows.length && interpRows[0].alt > (i>0?TABLE_I[i-1][0]:-Infinity) && interpRows[0].alt <= row[0] && interpRows[0].alt < row[0]){
+        var ir = interpRows.shift();
+        var ihg = tableInterp(ir.alt), ipsi = ihg*PSI_PER_INHG;
+        html += '<tr class="row-interp"><td>'+fmt(ir.alt,0,true)+' <span style="font-size:8.5px;color:var(--ink-faint);font-style:normal">('+ir.kind+')</span></td>'
+          +'<td class="num">'+fmt(ihg,3)+'</td><td class="num">'+fmt(ipsi,3)+'</td>'
+          +'<td class="use">interp. value</td></tr>';
+      }
+    }
+    body.innerHTML = html;
+  }
+
+  // ---- Stress figure (fuselage cylinder idealisation) ----
+  function drawStressFig(v, r){
+    var W=680, Hh=280;
+    var cx=170, cy=140, R=104;          // front circle (skin)
+    var persp=32;                       // back-frame ellipse half-width
+    var back = cx+170;                  // back frame ring x
+    var el = [];
+    el.push('<svg viewBox="0 0 '+W+' '+Hh+'" xmlns="'+NS+'" font-family="var(--mono)">');
+    el.push('<defs>'
+      +'<marker id="arrP" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="var(--ink-soft)"/></marker>'
+      +'</defs>');
+
+    // ---- cylinder shell ----
+    // back frame ring (far end)
+    el.push('<ellipse cx="'+back+'" cy="'+cy+'" rx="'+persp+'" ry="'+R+'" fill="none" stroke="var(--blue)" stroke-width="1.6"/>');
+    // longitudinal skin edges (top & bottom tangents)
+    el.push('<line x1="'+cx+'" y1="'+(cy-R)+'" x2="'+back+'" y2="'+(cy-R)+'" stroke="var(--ink-soft)" stroke-width="1"/>');
+    el.push('<line x1="'+cx+'" y1="'+(cy+R)+'" x2="'+back+'" y2="'+(cy+R)+'" stroke="var(--ink-soft)" stroke-width="1"/>');
+    // front skin ring
+    el.push('<circle cx="'+cx+'" cy="'+cy+'" r="'+R+'" fill="var(--blue-wash)" stroke="var(--blue)" stroke-width="1.8"/>');
+    // hidden back half of front ring (depth cue)
+    el.push('<path d="M '+(cx-persp)+' '+cy+' A '+persp+' '+R+' 0 0 1 '+(cx+persp)+' '+cy+'" fill="none" stroke="var(--blue-soft)" stroke-width="0.9" stroke-dasharray="3 3"/>');
+
+    // ---- stringers (longitudinal members, 6 around the circumference) ----
+    var nStr=6;
+    for(var i=0;i<nStr;i++){
+      var th = Math.PI*2*i/nStr + Math.PI/2;
+      var fx = cx + R*Math.cos(th), fy = cy + R*Math.sin(th);
+      var bx = back + persp*Math.cos(th), by = cy + R*Math.sin(th);
+      el.push('<line x1="'+fx+'" y1="'+fy+'" x2="'+bx+'" y2="'+by+'" stroke="var(--blue-soft)" stroke-width="1.3"/>');
+      el.push('<circle cx="'+bx+'" cy="'+by+'" r="1.6" fill="var(--blue-soft)"/>');
+    }
+
+    // ---- internal pressure arrows (radial, outward) ----
+    for(var k=0;k<8;k++){
+      var a = Math.PI*2*k/8;
+      var ax1 = cx + (R-16)*Math.cos(a), ay1 = cy + (R-16)*Math.sin(a);
+      var ax2 = cx + (R-2)*Math.cos(a),  ay2 = cy + (R-2)*Math.sin(a);
+      el.push('<line x1="'+ax1+'" y1="'+ay1+'" x2="'+ax2+'" y2="'+ay2+'" stroke="var(--ink-soft)" stroke-width="1.1" marker-end="url(#arrP)"/>');
+    }
+    el.push('<text x="'+cx+'" y="'+(cy+3)+'" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--ink)">P = '+fmt(v.P,2)+' psi</text>');
+    el.push('<text x="'+cx+'" y="'+(cy+18)+'" text-anchor="middle" font-size="8.5" fill="var(--ink-soft)">internal pressure</text>');
+
+    // ---- member labels ----
+    el.push('<text x="'+cx+'" y="'+(cy+R+18)+'" text-anchor="middle" font-size="9.5" fill="var(--blue)">frame (hoop) &middot; A<tspan font-size="7.5" dy="1.5">F</tspan><tspan dy="-1.5"> = '+fmt(v.AF,3)+' in\u00B2</tspan></text>');
+    el.push('<text x="'+back+'" y="'+(cy+R+18)+'" text-anchor="middle" font-size="9.5" fill="var(--blue-soft)">stringer (long.) &middot; A<tspan font-size="7.5" dy="1.5">S</tspan><tspan dy="-1.5"> = '+fmt(v.AS,3)+' in\u00B2</tspan></text>');
+    // skin callout
+    el.push('<line x1="'+(cx-R*0.72)+'" y1="'+(cy-R*0.71)+'" x2="'+(cx-R-26)+'" y2="'+(cy-R-22)+'" stroke="var(--rule-strong)" stroke-width="0.8"/>');
+    el.push('<text x="'+(cx-R-30)+'" y="'+(cy-R-25)+'" text-anchor="end" font-size="9.5" fill="var(--ink)">skin &middot; t = '+fmt(v.t,3)+' in</text>');
+
+    // ---- geometry dimension: frame pitch ℓ (between front & back rings) ----
+    var dimY = cy + R + 40;
+    el.push('<line x1="'+cx+'" y1="'+(dimY-4)+'" x2="'+cx+'" y2="'+(dimY+4)+'" stroke="var(--ink-faint)" stroke-width="0.8"/>');
+    el.push('<line x1="'+back+'" y1="'+(dimY-4)+'" x2="'+back+'" y2="'+(dimY+4)+'" stroke="var(--ink-faint)" stroke-width="0.8"/>');
+    el.push('<line x1="'+cx+'" y1="'+dimY+'" x2="'+back+'" y2="'+dimY+'" stroke="var(--ink-faint)" stroke-width="0.8"/>');
+    el.push('<text x="'+((cx+back)/2)+'" y="'+(dimY-4)+'" text-anchor="middle" font-size="9.5" fill="var(--ink-soft)">&#8467; = '+fmt(v.L,1)+' in (frame pitch)</text>');
+
+    // ---- radius dimension R (vertical, on the front ring) ----
+    el.push('<line x1="'+cx+'" y1="'+cy+'" x2="'+cx+'" y2="'+(cy-R)+'" stroke="var(--ink-faint)" stroke-width="0.8" stroke-dasharray="2 2"/>');
+    el.push('<text x="'+(cx+5)+'" y="'+(cy-R/2)+'" font-size="9.5" fill="var(--ink-soft)">R = '+fmt(v.R,1)+' in</text>');
+
+    // ---- results panel (operating stresses only) ----
+    var px = back+persp+70;
+    el.push('<rect x="'+(px-12)+'" y="24" width="186" height="'+(r?188:60)+'" fill="#FDFDFB" stroke="var(--rule)" stroke-width="1"/>');
+    el.push('<text x="'+px+'" y="42" font-size="10" font-weight="600" letter-spacing=".08em" fill="var(--blue)">OPERATING STRESSES</text>');
+    el.push('<line x1="'+(px-12)+'" y1="50" x2="'+(px+174)+'" y2="50" stroke="var(--rule)"/>');
+    if(r){
+      var sr = [
+        ["\u03C3H",  "skin hoop",        fmt(r.sH/1000,2),     "&mdash; pressure"],
+        ["\u03C3L",  "skin long.",       fmt(r.sLcomb/1000,2), "+ &sigma;B"],
+        ["\u03C3S",  "stringer",         fmt(r.sScomb/1000,2), "+ &sigma;B"],
+        ["\u03C3F",  "frame",            fmt(r.sF/1000,2),     "&mdash; pressure"]
+      ];
+      sr.forEach(function(rr,i){
+        var yy = 70 + i*34;
+        el.push('<text x="'+px+'" y="'+yy+'" font-size="13" font-weight="600" fill="var(--ink)">'+rr[0]+' = '+rr[2]+'<tspan font-size="9" fill="var(--ink-soft)"> ksi</tspan></text>');
+        el.push('<text x="'+px+'" y="'+(yy+13)+'" font-size="8.5" fill="var(--ink-faint)">'+rr[1]+' '+rr[3]+'</text>');
+      });
+    }
+
+    el.push('</svg>');
+    return el.join("");
+  }
+
+  // ---- Recalc & render ----
+  function recalc(){
+    var v = readGroups(PGROUPS);                  // Module 1 inputs
+    var pr = computePressure(v);
+
+    // P link
+    applyLink(pr.pMaxOp);
+    var vS = readGroups(SGROUPS);                 // Module 2 inputs (P now resolved)
+    var r = computeStress(vS);
+
+    // ---- Module 1 render ----
+    renderPressureTable(v.cabinAlt, v.maxAlt);
+
+    setText("k_pDiff",  fmt(pr.diff,2));
+    setText("k_pMaxOp", fmt(pr.pMaxOp,2));
+
+    setText("r_maxAlt",    fmt(v.maxAlt,0,true));
+    setText("r_cabinAlt",  fmt(v.cabinAlt,0,true));
+    setText("r_pAmbHg",    fmt(pr.pMaxAltHg,3));
+    setText("r_pAmbPsi",   fmt(pr.pMaxAltPsi,3));
+    setText("r_pCabinHg",  fmt(pr.pCabinHg,3));
+    setText("r_pCabinPsi", fmt(pr.pCabinPsi,3));
+    setText("r_pDiff2",    fmt(pr.diff,3));
+    setText("r_suction",   fmt(v.suction,2));
+    setText("r_pMaxOp",    fmt(pr.pMaxOp,3));
+
+    // governing flag among pressure cards: highlight the max-operational card
+    // (max operational is by definition the largest, so it stays flagged.)
+
+    // ---- Module 2 render ----
+    document.getElementById("figStress").innerHTML = drawStressFig(vS, r);
+
+    if(!r){
+      ["k_sH","k_sL","k_sS","k_sF","r_sB","r_sBraw","r_sBop","r_SEF","r_Ckd","r_Flim","r_Plong","r_Psub","r_factors",
+       "r_sH2","r_sL2","r_sS2","r_sF2","r_sLcomb","r_sScomb",
+       "r_Href","r_Lref","r_Hforce","r_Lforce","r_Hres","r_Lres",
+       "rs_H_op","rs_H_pf","rs_H_bd","rs_L_op","rs_L_pf","rs_L_bd",
+       "rs_S_op","rs_S_pf","rs_S_bd","rs_F_op","rs_F_pf","rs_F_bd"]
+       .forEach(function(id){ setText(id,"\u2014"); });
+      clearGovRow();
+      return;
+    }
+
+    setText("k_sH", fmt(r.sH/1000,2));
+    setText("k_sL", fmt(r.sLcomb/1000,2));
+    setText("k_sS", fmt(r.sScomb/1000,2));
+    setText("k_sF", fmt(r.sF/1000,2));
+
+    // governing card
+    var cards = [
+      {id:"sH", val:r.sH},
+      {id:"sL", val:r.sLcomb},
+      {id:"sS", val:r.sScomb},
+      {id:"sF", val:r.sF}
+    ];
+    var maxVal = -Infinity;
+    cards.forEach(function(cc){ if(isFinite(cc.val)&&cc.val>maxVal) maxVal=cc.val; });
+    cards.forEach(function(cc){
+      var card = document.getElementById("card-"+cc.id);
+      if(!card) return;
+      var old = card.querySelector(".ktag"); if(old) old.remove();
+      card.classList.remove("gov");
+      if(isFinite(cc.val) && Math.abs(cc.val-maxVal)<1e-6){
+        card.classList.add("gov");
+        var tag = document.createElement("span"); tag.className="ktag"; tag.textContent="Governing";
+        card.appendChild(tag);
+      }
+    });
+
+    setText("r_Ckd",    fmt(vS.Ckd,2));
+    setText("r_Flim",   fmt(r.Flim,0,true));
+    setText("r_Plong",  fmt(r.Plong,0,true));
+    setText("r_Psub",   fmt(r.Psub,0,true));
+    setText("r_sBraw",  fmt(r.sBraw,0,true));
+    setText("r_factors",fmt(vS.bendFactor,2)+" × "+fmt(vS.payFactor,2));
+    setText("r_sBop",   fmt(r.sBop,0,true));
+    setText("r_SEF",    fmt(r.SEF,2)+"×");
+    setText("r_sB",     fmt(r.sB,0,true));
+    setText("r_sH2",   fmt(r.sH/1000,2));
+    setText("r_sL2",   fmt(r.sL/1000,2));
+    setText("r_sS2",   fmt(r.sS/1000,2));
+    setText("r_sF2",   fmt(r.sF/1000,2));
+    setText("r_sLcomb",fmt(r.sLcomb/1000,2));
+    setText("r_sScomb",fmt(r.sScomb/1000,2));
+    setText("r_Href",  fmt(r.Href/1000,2));
+    setText("r_Lref",  fmt(r.Lref/1000,2));
+    setText("r_Hforce",fmt(r.Hforce,0,true));
+    setText("r_Lforce",fmt(r.Lforce,0,true));
+    setText("r_Hres",  fmt(r.Hres,2,true));
+    setText("r_Lres",  fmt(r.Lres,2,true));
+
+    // ---- residual-strength table ----
+    // Decompose each component into pressure-only + bending parts, then:
+    //   pressure case = pf × (pressure-only)
+    //   bending  case = (pressure-only) + 2.5 × (bending component)
+    // Bending shares: skin hoop = 0; skin long & stringer = σ_B; frame = νσ_B.
+    var pf = parseFloat(document.getElementById("pfactor").value) || 1.10;
+    var nu = vS.nu;
+    var rows = [
+      { op:r.sH,            pOnly:r.sH,            bend:0 },         // skin hoop
+      { op:r.sLcomb,        pOnly:r.sL,            bend:r.sB },      // skin longitudinal
+      { op:r.sScomb,        pOnly:r.sS,            bend:r.sB },      // stringer
+      { op:r.sF,            pOnly:r.sF + nu*r.sB,  bend:nu*r.sB }    // frame
+    ];
+    var ids = ["H","L","S","F"];
+    var govMax = -Infinity, govIdx = -1;
+    rows.forEach(function(rr,i){
+      var pCase = pf*rr.pOnly;
+      var bCase = rr.pOnly + 2.5*rr.bend;
+      setText("rs_"+ids[i]+"_op", fmt(rr.op/1000,2));
+      setText("rs_"+ids[i]+"_pf", fmt(pCase/1000,2));
+      setText("rs_"+ids[i]+"_bd", fmt(bCase/1000,2));
+      var worst = Math.max(pCase, bCase);
+      if(isFinite(worst) && worst>govMax){ govMax=worst; govIdx=i; }
+    });
+    clearGovRow();
+    var govTr = document.querySelector("#rstable tbody tr:nth-child("+(govIdx+1)+")");
+    if(govTr) govTr.classList.add("gov-row");
+  }
+
+  function clearGovRow(){
+    var rows = document.querySelectorAll("#rstable tbody tr");
+    rows.forEach(function(tr){ tr.classList.remove("gov-row"); });
+  }
+
+  // ---- Preset dropdown ----
+  document.getElementById("preset").addEventListener("change", function(){
+    var val = this.value;
+    if(val==="custom") return;
+    var ft = parseInt(val,10);
+    var el = document.getElementById("in_maxAlt");
+    if(el && isFinite(ft)){ el.value = ft; recalc(); }
+  });
+
+  // ---- P link checkbox ----
+  document.getElementById("linkP").addEventListener("change", recalc);
+
+  // ---- Residual-strength pressure-factor dropdown ----
+  document.getElementById("pfactor").addEventListener("change", recalc);
+
+  // ---- Wire up ----
+  document.getElementById("btnPrint").addEventListener("click", function(){ window.print(); });
+  document.getElementById("btnReset").addEventListener("click", resetInputs);
+
+  buildGroups("pressureGroups", PGROUPS);
+  buildGroups("stressGroups", SGROUPS);
+  recalc();
+})();
+</script>
+</body>
+</html>
