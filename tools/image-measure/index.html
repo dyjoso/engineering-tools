@@ -16,6 +16,21 @@
         canvas {
             cursor: crosshair;
         }
+        /* Zoom level indicator (read-only overlay) */
+        #zoom-pan-info {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            padding: 4px 8px;
+            font-size: 12px;
+            color: #374151;
+            pointer-events: none;
+            display: none;
+            z-index: 50;
+        }
         #magnifier {
             position: absolute;
             border: 3px solid #007bff;
@@ -86,6 +101,8 @@
                     <label for="image-upload" class="block text-sm font-medium text-gray-700 mb-1">Load Image</label>
                     <input type="file" id="image-upload" accept="image/*" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer">
                     <p class="text-xs text-gray-500 mt-1">Or paste an image anywhere.</p>
+                    <button id="reset-view-btn" class="mt-2 w-full bg-gray-200 text-gray-700 font-semibold py-1 px-3 rounded-md hover:bg-gray-300 transition-colors text-sm hidden">Fit to View</button>
+                    <p class="text-xs text-gray-500 mt-1 hidden" id="zoom-hint">Scroll to zoom &middot; hold Space (or middle-drag) to pan.</p>
                 </div>
 
                 <div id="controls-panel" class="space-y-4 hidden">
@@ -170,6 +187,7 @@
         <!-- Canvas Area -->
         <div class="flex-1 flex items-center justify-center bg-gray-200 rounded-lg overflow-hidden" id="canvas-container">
             <canvas id="canvas"></canvas>
+            <div id="zoom-pan-info">Zoom: 100%</div>
             <div id="magnifier"><canvas id="magnifier-canvas"></canvas></div>
             <div id="placeholder-text" class="text-gray-500">Please load an image to begin.</div>
         </div>
@@ -203,6 +221,9 @@
         const magnifier = document.getElementById('magnifier');
         const magnifierCanvas = document.getElementById('magnifier-canvas');
         const magnifierCtx = magnifierCanvas.getContext('2d');
+        const resetViewBtn = document.getElementById('reset-view-btn');
+        const zoomHint = document.getElementById('zoom-hint');
+        const zoomPanInfo = document.getElementById('zoom-pan-info');
 
         magnifierCanvas.width = 150;
         magnifierCanvas.height = 150;
@@ -210,28 +231,42 @@
         // State Variables
         let image = null;
         let offscreenCanvas, offscreenCtx; // For full-resolution processing
-        let measurements = [];
-        let holeCenters = [];
-        let highlightedHolePixels = []; // Stores arrays of {x, y} coordinates for each found hole
-        let currentPoints = [];
+        let measurements = [];             // all coords in IMAGE-pixel space
+        let holeCenters = [];              // IMAGE-pixel space
+        let highlightedHolePixels = [];    // arrays of {x,y} in native offscreen pixels
+        let currentPoints = [];            // IMAGE-pixel space
         let selectedMeasurementIndex = null;
         let isCalibrating = false;
         let isFindingHole = false;
-        let holeSelectionRect = null;
-        let calibrationPoints = [];
-        let scale = 1.0; 
+        let holeSelectionRect = null;      // IMAGE-pixel space
+        let calibrationPoints = [];        // IMAGE-pixel space
+        let scale = 1.0;
         let unit = 'px';
         let decimalPlaces = 2;
         let fontSize = 12;
         let magnifierEnabled = false;
         let highlightDarkPixels = false;
         let darknessThreshold = 0.7;
-        const SNAP_RADIUS = 10;
-        
+        const SNAP_RADIUS = 10;            // interpreted in IMAGE-pixel space
+
         let draggedMeasurement = null;
-        let dragOffset = { x: 0, y: 0 };
+        let dragOffset = { x: 0, y: 0 };   // IMAGE-pixel space
         let wasDragging = false;
         let justFinishedAction = false;
+
+        // --- View model (zoom/pan) ---
+        // All persistent geometry lives in image-pixel space; this transform maps
+        // image pixels to canvas (screen) pixels. Modeled on plot-digitizer.
+        let view = { scale: 1, offsetX: 0, offsetY: 0 };
+        const MIN_SCALE = 0.1;
+        const MAX_SCALE = 15.0;
+        const ZOOM_SENSITIVITY = 0.001;
+
+        // Pan state
+        let isSpaceDown = false;
+        let isPanning = false;
+        let panStart = { x: 0, y: 0 };     // screen coords
+        let panStartOffset = { x: 0, y: 0 };
 
         // --- Event Listeners ---
         imageUpload.addEventListener('change', (e) => {
@@ -351,6 +386,49 @@
         
         window.addEventListener('resize', () => { if(image) { resizeCanvas(); redrawCanvas(); } });
 
+        // --- Zoom / Pan input ---
+        // Wheel = cursor-anchored zoom. Pan = Space+drag or middle-mouse drag.
+        canvas.addEventListener('wheel', (e) => {
+            if (!image) return;
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            // Image-pixel coord under the cursor BEFORE zoom
+            const imgX_before = (mouseX - view.offsetX) / view.scale;
+            const imgY_before = (mouseY - view.offsetY) / view.scale;
+            const delta = e.deltaY * ZOOM_SENSITIVITY;
+            const newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, view.scale - delta));
+            // Recompute offsets so the same image pixel stays under the cursor
+            view.offsetX = mouseX - imgX_before * newScale;
+            view.offsetY = mouseY - imgY_before * newScale;
+            view.scale = newScale;
+            updateZoomPanInfo();
+            requestAnimationFrame(redrawCanvas);
+        }, { passive: false });
+
+        // Track Space for pan (avoid interfering with text inputs)
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' && e.target === document.body) {
+                e.preventDefault();
+                isSpaceDown = true;
+                canvas.style.cursor = 'grab';
+            }
+        });
+        window.addEventListener('keyup', (e) => {
+            if (e.code === 'Space') {
+                isSpaceDown = false;
+                if (!isPanning) canvas.style.cursor = 'crosshair';
+            }
+        });
+
+        resetViewBtn.addEventListener('click', () => {
+            if (!image) return;
+            fitViewToCanvas();
+            updateZoomPanInfo();
+            redrawCanvas();
+        });
+
         // --- Key/Mouse Handlers ---
         function handleKeyDown(e) {
             if (e.key === 'Escape') {
@@ -372,14 +450,24 @@
 
         function handleMouseDown(e) {
             if (!image) return;
-            const pos = getMousePos(canvas, e);
+            const screenPos = getMousePos(canvas, e);
+            // Pan: Space held OR middle mouse button. Takes priority over edits.
+            if (isSpaceDown || e.button === 1) {
+                isPanning = true;
+                panStart = { ...screenPos };
+                panStartOffset = { x: view.offsetX, y: view.offsetY };
+                canvas.style.cursor = 'grabbing';
+                e.preventDefault();
+                return;
+            }
+            const pos = screenToImage(screenPos.x, screenPos.y);
             if (isFindingHole) {
                 holeSelectionRect = { startX: pos.x, startY: pos.y, endX: pos.x, endY: pos.y };
                 return;
             }
             for (const [i, m] of measurements.entries()) {
-                const box = getLabelBoundingBox(m);
-                if (pos.x >= box.x && pos.x <= box.x + box.width && pos.y >= box.y && pos.y <= box.y + box.height) {
+                const box = getLabelBoundingBox(m); // screen space
+                if (screenPos.x >= box.x && screenPos.x <= box.x + box.width && screenPos.y >= box.y && screenPos.y <= box.y + box.height) {
                     draggedMeasurement = m;
                     selectedMeasurementIndex = i;
                     dragOffset.x = pos.x - m.labelPos.x;
@@ -393,8 +481,18 @@
 
         function handleMouseMove(e) {
             if (!image) return;
-            const pos = getMousePos(canvas, e);
-            if (magnifierEnabled) updateMagnifier(pos.x, pos.y);
+            const screenPos = getMousePos(canvas, e);
+
+            // Panning — update offsets directly from screen-space delta
+            if (isPanning) {
+                view.offsetX = panStartOffset.x + (screenPos.x - panStart.x);
+                view.offsetY = panStartOffset.y + (screenPos.y - panStart.y);
+                requestAnimationFrame(redrawCanvas);
+                return;
+            }
+
+            const pos = screenToImage(screenPos.x, screenPos.y);
+            if (magnifierEnabled) updateMagnifier(screenPos.x, screenPos.y);
 
             if (holeSelectionRect) {
                 holeSelectionRect.endX = pos.x;
@@ -411,9 +509,11 @@
             } else if (currentPoints.length === 1 && !isCalibrating) {
                 redrawCanvas();
                 const snappedPos = getSnapPoint(pos);
+                const s0 = imageToScreen(currentPoints[0].x, currentPoints[0].y);
+                const s1 = imageToScreen(snappedPos.x, snappedPos.y);
                 ctx.beginPath();
-                ctx.moveTo(currentPoints[0].x, currentPoints[0].y);
-                ctx.lineTo(snappedPos.x, snappedPos.y);
+                ctx.moveTo(s0.x, s0.y);
+                ctx.lineTo(s1.x, s1.y);
                 ctx.strokeStyle = 'rgba(255, 0, 0, 0.7)';
                 ctx.lineWidth = 2;
                 ctx.setLineDash([5, 5]);
@@ -429,6 +529,12 @@
         }
 
         function handleMouseUp(e) {
+            if (isPanning) {
+                isPanning = false;
+                canvas.style.cursor = isSpaceDown ? 'grab' : 'crosshair';
+                justFinishedAction = true; // suppress the subsequent click event
+                return;
+            }
             if (holeSelectionRect) {
                 processHoleSelection(holeSelectionRect);
                 holeSelectionRect = null;
@@ -442,10 +548,11 @@
         function handleCanvasClick(e) {
             if (justFinishedAction) { justFinishedAction = false; return; }
             if (wasDragging) { wasDragging = false; return; }
-            
-            const pos = getMousePos(canvas, e);
+
+            const screenPos = getMousePos(canvas, e);
+            const pos = screenToImage(screenPos.x, screenPos.y);
             const snappedPos = getSnapPoint(pos);
-            
+
             if (isCalibrating) { handleCalibrationClick(snappedPos); return; }
             if (isFindingHole) { return; }
 
@@ -471,7 +578,10 @@
                 placeholderText.classList.add('hidden');
                 canvas.classList.remove('hidden');
                 controlsPanel.classList.remove('hidden');
-                
+                resetViewBtn.classList.remove('hidden');
+                zoomHint.classList.remove('hidden');
+                zoomPanInfo.style.display = 'block';
+
                 // Create offscreen canvas for full-res operations
                 offscreenCanvas = document.createElement('canvas');
                 offscreenCanvas.width = image.width;
@@ -485,45 +595,62 @@
             image.src = src;
         }
         function resizeCanvas() {
-            const containerWidth = canvasContainer.clientWidth;
-            const containerHeight = canvasContainer.clientHeight;
-            const imageAspectRatio = image.width / image.height;
-            const containerAspectRatio = containerWidth / containerHeight;
-            let canvasWidth, canvasHeight;
-            if (imageAspectRatio > containerAspectRatio) {
-                canvasWidth = containerWidth;
-                canvasHeight = containerWidth / imageAspectRatio;
-            } else {
-                canvasHeight = containerHeight;
-                canvasWidth = containerHeight * imageAspectRatio;
-            }
-            canvas.width = canvasWidth;
-            canvas.height = canvasHeight;
+            // Canvas fills its container; the view transform handles fitting the image.
+            canvas.width = canvasContainer.clientWidth;
+            canvas.height = canvasContainer.clientHeight;
+            fitViewToCanvas();
+        }
+        // View helpers (screen <-> image pixels). Image is drawn at origin in image space.
+        function screenToImage(canvasX, canvasY) {
+            return { x: (canvasX - view.offsetX) / view.scale, y: (canvasY - view.offsetY) / view.scale };
+        }
+        function imageToScreen(imgX, imgY) {
+            return { x: imgX * view.scale + view.offsetX, y: imgY * view.scale + view.offsetY };
+        }
+        // Fit the whole image inside the canvas, centered.
+        function fitViewToCanvas() {
+            if (!image || image.width === 0 || image.height === 0) return;
+            const fitScale = Math.min(canvas.width / image.width, canvas.height / image.height);
+            view.scale = Math.max(MIN_SCALE, fitScale);
+            view.offsetX = (canvas.width - image.width * view.scale) / 2;
+            view.offsetY = (canvas.height - image.height * view.scale) / 2;
+            updateZoomPanInfo();
+        }
+        function updateZoomPanInfo() {
+            zoomPanInfo.textContent = `Zoom: ${Math.round(view.scale * 100)}%`;
         }
         function redrawCanvas() {
             if (!image) return;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-            
+
+            // Draw image under the view transform
+            ctx.save();
+            ctx.translate(view.offsetX, view.offsetY);
+            ctx.scale(view.scale, view.scale);
+            ctx.drawImage(image, 0, 0);
+            ctx.restore();
+
             if (highlightDarkPixels) {
                 applyLocalHighlight();
             }
 
             measurements.forEach((m, i) => drawMeasurement(m, i === selectedMeasurementIndex));
             holeCenters.forEach(p => drawHoleMarker(p));
-            
+
             if (isCalibrating && calibrationPoints.length > 0) {
+                 const c0 = imageToScreen(calibrationPoints[0].x, calibrationPoints[0].y);
                  ctx.fillStyle = 'rgba(255, 215, 0, 0.9)';
                  ctx.beginPath();
-                 ctx.arc(calibrationPoints[0].x, calibrationPoints[0].y, 5, 0, 2 * Math.PI);
+                 ctx.arc(c0.x, c0.y, 5, 0, 2 * Math.PI);
                  ctx.fill();
                  if(calibrationPoints.length === 2) {
+                    const c1 = imageToScreen(calibrationPoints[1].x, calibrationPoints[1].y);
                     ctx.beginPath();
-                    ctx.arc(calibrationPoints[1].x, calibrationPoints[1].y, 5, 0, 2 * Math.PI);
+                    ctx.arc(c1.x, c1.y, 5, 0, 2 * Math.PI);
                     ctx.fill();
                     ctx.beginPath();
-                    ctx.moveTo(calibrationPoints[0].x, calibrationPoints[0].y);
-                    ctx.lineTo(calibrationPoints[1].x, calibrationPoints[1].y);
+                    ctx.moveTo(c0.x, c0.y);
+                    ctx.lineTo(c1.x, c1.y);
                     ctx.strokeStyle = 'rgba(255, 215, 0, 0.9)';
                     ctx.lineWidth = 3;
                     ctx.stroke();
@@ -535,7 +662,7 @@
             if (currentPoints.length === 2) {
                 measurements.push({
                     start: currentPoints[0], end: currentPoints[1],
-                    labelPos: { x: (currentPoints[0].x + currentPoints[1].x) / 2, y: (currentPoints[0].y + currentPoints[1].y) / 2 - 20 }
+                    labelPos: { x: (currentPoints[0].x + currentPoints[1].x) / 2, y: (currentPoints[0].y + currentPoints[1].y) / 2 - 20 / view.scale }
                 });
                 currentPoints = [];
             }
@@ -549,15 +676,18 @@
         }
         function drawMeasurement(measurement, isSelected) {
             const { start, end, labelPos } = measurement;
+            const s0 = imageToScreen(start.x, start.y);
+            const s1 = imageToScreen(end.x, end.y);
+            const sLabel = imageToScreen(labelPos.x, labelPos.y);
             const color = isSelected ? '#f59e0b' : '#ff0000';
             ctx.beginPath();
-            ctx.moveTo(start.x, start.y);
-            ctx.lineTo(end.x, end.y);
+            ctx.moveTo(s0.x, s0.y);
+            ctx.lineTo(s1.x, s1.y);
             ctx.strokeStyle = color;
             ctx.lineWidth = isSelected ? 3 : 2;
             ctx.stroke();
-            drawArrowhead(ctx, start, end, 10, color);
-            drawArrowhead(ctx, end, start, 10, color);
+            drawArrowhead(ctx, s0, s1, 10, color);
+            drawArrowhead(ctx, s1, s0, 10, color);
             const text = getMeasurementText(measurement);
             const box = getLabelBoundingBox(measurement);
             ctx.save();
@@ -567,7 +697,7 @@
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.font = `${fontSize}px Inter`;
-            ctx.fillText(text, labelPos.x, labelPos.y);
+            ctx.fillText(text, sLabel.x, sLabel.y);
             ctx.restore();
         }
         function drawArrowhead(context, from, to, radius, color) {
@@ -588,107 +718,108 @@
         // --- New Feature Functions ---
         function applyLocalHighlight() {
             if (highlightedHolePixels.length === 0) return;
-            
+
             ctx.fillStyle = 'rgba(255, 0, 0, 0.4)'; // Semi-transparent red
 
             for (const hole of highlightedHolePixels) {
                 for (const pixel of hole) {
-                    ctx.fillRect(pixel.x, pixel.y, 1, 1);
+                    // pixel coords are native image pixels (= image space); convert to screen
+                    const s = imageToScreen(pixel.x, pixel.y);
+                    ctx.fillRect(s.x, s.y, Math.max(1, view.scale), Math.max(1, view.scale));
                 }
             }
         }
 
         function drawSelectionRect(rect) {
+            // rect is in image-pixel space
+            const s0 = imageToScreen(Math.min(rect.startX, rect.endX), Math.min(rect.startY, rect.endY));
+            const s1 = imageToScreen(Math.max(rect.startX, rect.endX), Math.max(rect.startY, rect.endY));
             ctx.strokeStyle = 'rgba(0, 123, 255, 0.7)';
             ctx.lineWidth = 2;
             ctx.setLineDash([5, 5]);
-            const width = rect.endX - rect.startX;
-            const height = rect.endY - rect.startY;
-            ctx.strokeRect(rect.startX, rect.startY, width, height);
+            ctx.strokeRect(s0.x, s0.y, s1.x - s0.x, s1.y - s0.y);
             ctx.setLineDash([]);
         }
 
         function processHoleSelection(rect) {
             if (!offscreenCanvas) return;
-            const scaleX = offscreenCanvas.width / canvas.width;
-            const scaleY = offscreenCanvas.height / canvas.height;
-
-            const offscreenRect = {
-                x: Math.min(rect.startX, rect.endX) * scaleX,
-                y: Math.min(rect.startY, rect.endY) * scaleY,
-                width: Math.abs(rect.endX - rect.startX) * scaleX,
-                height: Math.abs(rect.endY - rect.startY) * scaleY
+            // rect is in image-pixel space, which equals native offscreen pixels 1:1.
+            const offRect = {
+                x: Math.min(rect.startX, rect.endX),
+                y: Math.min(rect.startY, rect.endY),
+                width: Math.abs(rect.endX - rect.startX),
+                height: Math.abs(rect.endY - rect.startY)
             };
 
-            if (offscreenRect.width < 5 || offscreenRect.height < 5) return;
-            
-            const imageData = offscreenCtx.getImageData(offscreenRect.x, offscreenRect.y, offscreenRect.width, offscreenRect.height);
+            if (offRect.width < 5 || offRect.height < 5) return;
+
+            const w = Math.floor(offRect.width);
+            const h = Math.floor(offRect.height);
+            const imageData = offscreenCtx.getImageData(offRect.x, offRect.y, w, h);
             const data = imageData.data;
             let totalBrightness = 0;
             for (let i = 0; i < data.length; i += 4) {
                 totalBrightness += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
             }
-            const avgBrightness = totalBrightness / (offscreenRect.width * offscreenRect.height);
+            const avgBrightness = totalBrightness / (w * h);
             const threshold = avgBrightness * darknessThreshold;
             let centroidX = 0, centroidY = 0, pointCount = 0;
             const currentHolePixels = [];
 
-            for (let j = 0; j < offscreenRect.height; j++) {
-                for (let i = 0; i < offscreenRect.width; i++) {
-                    const index = (j * Math.floor(offscreenRect.width) + i) * 4;
+            for (let j = 0; j < h; j++) {
+                for (let i = 0; i < w; i++) {
+                    const index = (j * w + i) * 4;
                     const brightness = 0.299 * data[index] + 0.587 * data[index + 1] + 0.114 * data[index + 2];
                     if (brightness < threshold) {
                         centroidX += i;
                         centroidY += j;
                         pointCount++;
-                        currentHolePixels.push({x: (offscreenRect.x + i) / scaleX, y: (offscreenRect.y + j) / scaleY});
+                        currentHolePixels.push({ x: offRect.x + i, y: offRect.y + j });
                     }
                 }
             }
             if (pointCount > 0) {
-                const finalCentroidX = (offscreenRect.x + (centroidX / pointCount)) / scaleX;
-                const finalCentroidY = (offscreenRect.y + (centroidY / pointCount)) / scaleY;
-                holeCenters.push({ x: finalCentroidX, y: finalCentroidY });
+                holeCenters.push({ x: offRect.x + (centroidX / pointCount), y: offRect.y + (centroidY / pointCount) });
                 highlightedHolePixels.push(currentHolePixels);
             }
         }
 
         function drawHoleMarker(point) {
+            const s = imageToScreen(point.x, point.y);
             ctx.strokeStyle = '#007bff';
             ctx.lineWidth = 2;
             ctx.beginPath();
-            ctx.moveTo(point.x - 7, point.y); ctx.lineTo(point.x + 7, point.y);
-            ctx.moveTo(point.x, point.y - 7); ctx.lineTo(point.x, point.y + 7);
+            ctx.moveTo(s.x - 7, s.y); ctx.lineTo(s.x + 7, s.y);
+            ctx.moveTo(s.x, s.y - 7); ctx.lineTo(s.x, s.y + 7);
             ctx.stroke();
         }
-        
+
         function getSnapPoint(pos) {
+            // pos is in image-pixel space; SNAP_RADIUS is in image pixels
             for (const center of holeCenters) {
                 if (Math.hypot(pos.x - center.x, pos.y - center.y) < SNAP_RADIUS) { return center; }
             }
             return pos;
         }
 
-        function updateMagnifier(x, y) {
+        function updateMagnifier(screenX, screenY) {
             if (!offscreenCanvas) return;
             magnifier.style.display = 'block';
-            magnifier.style.left = (x + 20) + 'px';
-            magnifier.style.top = (y + 20) + 'px';
-            
-            const scaleX = offscreenCanvas.width / canvas.width;
-            const scaleY = offscreenCanvas.height / canvas.height;
-            const offscreenX = x * scaleX;
-            const offscreenY = y * scaleY;
+            magnifier.style.left = (screenX + 20) + 'px';
+            magnifier.style.top = (screenY + 20) + 'px';
+
+            // Convert the screen point to image pixels to sample from the offscreen canvas
+            const img = screenToImage(screenX, screenY);
 
             const zoomLevel = 5;
             const sourceSize = 150 / zoomLevel;
-            
+
             magnifierCtx.imageSmoothingEnabled = false;
             magnifierCtx.clearRect(0, 0, magnifierCanvas.width, magnifierCanvas.height);
-            magnifierCtx.drawImage(offscreenCanvas, 
-                offscreenX - sourceSize / 2, offscreenY - sourceSize / 2, 
-                sourceSize, sourceSize, 
-                0, 0, 
+            magnifierCtx.drawImage(offscreenCanvas,
+                img.x - sourceSize / 2, img.y - sourceSize / 2,
+                sourceSize, sourceSize,
+                0, 0,
                 magnifierCanvas.width, magnifierCanvas.height
             );
 
@@ -731,19 +862,22 @@
             return `${realDistance.toFixed(decimalPlaces)} ${unit}`;
         }
         function getLabelBoundingBox(measurement) {
-            const { labelPos } = measurement;
+            // labelPos is in image-pixel space; box is in screen space
+            const sLabel = imageToScreen(measurement.labelPos.x, measurement.labelPos.y);
             const text = getMeasurementText(measurement);
             ctx.font = `${fontSize}px Inter`;
             const textMetrics = ctx.measureText(text);
             const padding = 4;
             const width = textMetrics.width + padding * 2;
             const height = fontSize + padding * 2;
-            return { x: labelPos.x - width / 2, y: labelPos.y - height / 2, width, height };
+            return { x: sLabel.x - width / 2, y: sLabel.y - height / 2, width, height };
         }
-        
+
         function isPointOnMeasurement(point, measurement) {
+            // point is in image-pixel space; convert to screen to compare with the screen-space box
+            const screenPt = imageToScreen(point.x, point.y);
             const box = getLabelBoundingBox(measurement);
-            return (point.x >= box.x && point.x <= box.x + box.width && point.y >= box.y && point.y <= box.y + box.height);
+            return (screenPt.x >= box.x && screenPt.x <= box.x + box.width && screenPt.y >= box.y && screenPt.y <= box.y + box.height);
         }
         
     </script>
