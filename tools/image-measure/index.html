@@ -86,6 +86,15 @@
         input:checked + .slider:before {
             transform: translateX(26px);
         }
+        /* Axis scale toggle buttons */
+        .axis-btn.axis-active {
+            background-color: #2563eb;
+            color: #fff;
+        }
+        .axis-btn:not(.axis-active) {
+            background-color: #fff;
+            color: #374151;
+        }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800 flex h-screen">
@@ -180,6 +189,52 @@
                              <button id="clear-btn" class="w-full bg-red-600 text-white font-bold py-2 px-4 rounded-md hover:bg-red-700 transition-colors">Clear All</button>
                         </div>
                     </div>
+
+                    <!-- Plot Coordinates (digitizer) -->
+                    <div>
+                        <h2 class="text-lg font-semibold mb-2 mt-4">Plot Coordinates</h2>
+                        <p class="text-xs text-gray-500 mb-2">Digitize (x, y) values from a plot by defining two axis corners.</p>
+                        <div class="flex justify-around mb-3">
+                            <div>
+                                <span class="block text-xs font-medium text-gray-700 mb-1">X-Axis:</span>
+                                <div class="inline-flex rounded-md overflow-hidden border border-gray-300" id="x-axis-group">
+                                    <button type="button" data-axis="x" data-type="linear" class="px-2 py-1 text-xs bg-blue-600 text-white axis-btn axis-active">Linear</button>
+                                    <button type="button" data-axis="x" data-type="log" class="px-2 py-1 text-xs bg-white text-gray-700 axis-btn">Log</button>
+                                </div>
+                            </div>
+                            <div>
+                                <span class="block text-xs font-medium text-gray-700 mb-1">Y-Axis:</span>
+                                <div class="inline-flex rounded-md overflow-hidden border border-gray-300" id="y-axis-group">
+                                    <button type="button" data-axis="y" data-type="linear" class="px-2 py-1 text-xs bg-blue-600 text-white axis-btn axis-active">Linear</button>
+                                    <button type="button" data-axis="y" data-type="log" class="px-2 py-1 text-xs bg-white text-gray-700 axis-btn">Log</button>
+                                </div>
+                            </div>
+                        </div>
+                        <button id="define-axes-btn" class="w-full bg-indigo-600 text-white font-bold py-2 px-4 rounded-md hover:bg-indigo-700 transition-colors">Define Plot Axes</button>
+                        <div id="axes-input-container" class="hidden mt-2 space-y-2">
+                            <p class="text-sm font-medium text-indigo-700 bg-indigo-50 p-2 rounded-md" id="axes-instruction">Click the top-left corner of the plot area.</p>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <span class="block text-xs font-medium text-gray-700">Top-Left</span>
+                                    <input type="number" id="x1" placeholder="X1" step="any" class="block w-full text-xs rounded-md border-gray-300 shadow-sm">
+                                    <input type="number" id="y1" placeholder="Y1" step="any" class="block w-full mt-1 text-xs rounded-md border-gray-300 shadow-sm">
+                                    <p id="top-left-pixel" class="text-xs text-gray-500 mt-1">Pixel: not set</p>
+                                </div>
+                                <div>
+                                    <span class="block text-xs font-medium text-gray-700">Bottom-Right</span>
+                                    <input type="number" id="x2" placeholder="X2" step="any" class="block w-full text-xs rounded-md border-gray-300 shadow-sm">
+                                    <input type="number" id="y2" placeholder="Y2" step="any" class="block w-full mt-1 text-xs rounded-md border-gray-300 shadow-sm">
+                                    <p id="bottom-right-pixel" class="text-xs text-gray-500 mt-1">Pixel: not set</p>
+                                </div>
+                            </div>
+                            <button id="cancel-axes-btn" class="w-full bg-gray-500 text-white font-bold py-1 px-4 rounded-md hover:bg-gray-600 transition-colors text-sm">Cancel</button>
+                        </div>
+                        <button id="digitize-btn" class="mt-2 w-full bg-green-600 text-white font-bold py-2 px-4 rounded-md hover:bg-green-700 transition-colors">Digitize Points</button>
+                        <div class="flex space-x-2 mt-2">
+                            <button id="clear-points-btn" class="flex-1 bg-gray-300 text-gray-800 font-semibold py-1 px-3 rounded-md hover:bg-gray-400 transition-colors text-sm">Clear Points</button>
+                        </div>
+                        <div id="point-result" class="text-xs text-gray-800 bg-gray-100 rounded-md p-2 mt-2">No points digitized yet.</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -225,6 +280,23 @@
         const zoomHint = document.getElementById('zoom-hint');
         const zoomPanInfo = document.getElementById('zoom-pan-info');
 
+        // Plot Coordinates (digitizer) DOM refs
+        const defineAxesBtn = document.getElementById('define-axes-btn');
+        const axesInputContainer = document.getElementById('axes-input-container');
+        const axesInstruction = document.getElementById('axes-instruction');
+        const cancelAxesBtn = document.getElementById('cancel-axes-btn');
+        const x1Input = document.getElementById('x1');
+        const y1Input = document.getElementById('y1');
+        const x2Input = document.getElementById('x2');
+        const y2Input = document.getElementById('y2');
+        const topLeftPixel = document.getElementById('top-left-pixel');
+        const bottomRightPixel = document.getElementById('bottom-right-pixel');
+        const digitizeBtn = document.getElementById('digitize-btn');
+        const clearPointsBtn = document.getElementById('clear-points-btn');
+        const pointResult = document.getElementById('point-result');
+        const xAxisGroup = document.getElementById('x-axis-group');
+        const yAxisGroup = document.getElementById('y-axis-group');
+
         magnifierCanvas.width = 150;
         magnifierCanvas.height = 150;
 
@@ -267,6 +339,20 @@
         let isPanning = false;
         let panStart = { x: 0, y: 0 };     // screen coords
         let panStartOffset = { x: 0, y: 0 };
+
+        // --- Plot digitizer state ---
+        // Independent of the linear distance calibration above.
+        let isDefiningAxes = false;
+        let isDigitizing = false;
+        let axisCalibrationStep = null;    // 'topLeft' | 'bottomRight' | null
+        let xAxisType = 'linear';          // 'linear' | 'log'
+        let yAxisType = 'linear';          // 'linear' | 'log'
+        // Each corner: { imgPx, imgPy (image-pixel pos), x, y (real axis values) }
+        let plotBoundaries = {
+            topLeft: null,        // { imgPx, imgPy }
+            bottomRight: null
+        };
+        let digitizedPoints = [];           // each: { imgPx, imgPy, label }
 
         // --- Event Listeners ---
         imageUpload.addEventListener('change', (e) => {
@@ -429,13 +515,72 @@
             redrawCanvas();
         });
 
+        // --- Plot Coordinates (digitizer) listeners ---
+        defineAxesBtn.addEventListener('click', () => {
+            resetAllModes();
+            isDefiningAxes = true;
+            axisCalibrationStep = 'topLeft';
+            defineAxesBtn.disabled = true;
+            findHoleBtn.disabled = true;
+            calibrateBtn.disabled = true;
+            defineAxesBtn.textContent = 'Defining Axes...';
+            axesInputContainer.classList.remove('hidden');
+            axesInstruction.textContent = 'Click the top-left corner of the plot area.';
+            clearBtn.disabled = true;
+        });
+
+        cancelAxesBtn.addEventListener('click', () => {
+            resetAllModes();
+            redrawCanvas();
+        });
+
+        digitizeBtn.addEventListener('click', () => {
+            if (!arePlotBoundariesFullyDefined()) {
+                alert('Please define both plot axis corners and enter their values first.');
+                return;
+            }
+            resetAllModes();
+            isDigitizing = true;
+            digitizeBtn.textContent = 'Digitizing... (Esc to stop)';
+            digitizeBtn.disabled = true;
+            defineAxesBtn.disabled = true;
+        });
+
+        clearPointsBtn.addEventListener('click', () => {
+            digitizedPoints = [];
+            updatePointResult();
+            redrawCanvas();
+        });
+
+        // Axis Log/Linear toggles — re-run calculateCoords over all stored points
+        function bindAxisToggle(group) {
+            group.querySelectorAll('.axis-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const axis = btn.dataset.axis;
+                    const type = btn.dataset.type;
+                    if (axis === 'x') xAxisType = type; else yAxisType = type;
+                    group.querySelectorAll('.axis-btn').forEach(b => b.classList.toggle('axis-active', b === btn));
+                    // Refresh stored labels in case values flip sign / log space
+                    relabelDigitizedPoints();
+                    redrawCanvas();
+                });
+            });
+        }
+        bindAxisToggle(xAxisGroup);
+        bindAxisToggle(yAxisGroup);
+
         // --- Key/Mouse Handlers ---
         function handleKeyDown(e) {
+            // Don't intercept key presses while the user is typing in a field
+            const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
+            const typing = (tag === 'input' || tag === 'textarea');
+            if (typing && e.key !== 'Escape') return;
+
             if (e.key === 'Escape') {
                 let needsRedraw = false;
                 if (currentPoints.length > 0) { currentPoints = []; needsRedraw = true; }
                 if (selectedMeasurementIndex !== null) { selectedMeasurementIndex = null; needsRedraw = true; }
-                if (isCalibrating || isFindingHole) { resetAllModes(); needsRedraw = true; }
+                if (isCalibrating || isFindingHole || isDefiningAxes || isDigitizing) { resetAllModes(); needsRedraw = true; }
                 if (needsRedraw) redrawCanvas();
             }
 
@@ -555,6 +700,8 @@
 
             if (isCalibrating) { handleCalibrationClick(snappedPos); return; }
             if (isFindingHole) { return; }
+            if (isDefiningAxes) { handleAxisCalibrationClick(pos); return; }
+            if (isDigitizing) { handleDigitizeClick(pos); return; }
 
             let clickedMeasurementIndex = -1;
             for (const [i, m] of measurements.entries()) {
@@ -636,6 +783,10 @@
 
             measurements.forEach((m, i) => drawMeasurement(m, i === selectedMeasurementIndex));
             holeCenters.forEach(p => drawHoleMarker(p));
+
+            // Plot digitizer overlays
+            drawPlotBoundaries();
+            digitizedPoints.forEach(p => drawDigitizedPoint(p));
 
             if (isCalibrating && calibrationPoints.length > 0) {
                  const c0 = imageToScreen(calibrationPoints[0].x, calibrationPoints[0].y);
@@ -831,10 +982,142 @@
             magnifierCtx.stroke();
         }
 
+        // --- Plot Digitizer functions ---
+        function arePlotBoundariesFullyDefined() {
+            const tl = plotBoundaries.topLeft;
+            const br = plotBoundaries.bottomRight;
+            if (!tl || !br) return false;
+            const x1 = parseFloat(x1Input.value), y1 = parseFloat(y1Input.value);
+            const x2 = parseFloat(x2Input.value), y2 = parseFloat(y2Input.value);
+            const finiteVals = [x1, y1, x2, y2].every(v => Number.isFinite(v));
+            if (!finiteVals) return false;
+            // Log axes require positive values
+            if (xAxisType === 'log' && (x1 <= 0 || x2 <= 0)) return false;
+            if (yAxisType === 'log' && (y1 <= 0 || y2 <= 0)) return false;
+            if (tl.imgPx === br.imgPx || tl.imgPy === br.imgPy) return false;
+            return true;
+        }
+
+        function calculateCoords(imgPx, imgPy) {
+            const tl = plotBoundaries.topLeft;
+            const br = plotBoundaries.bottomRight;
+            const x1 = parseFloat(x1Input.value), y1 = parseFloat(y1Input.value);
+            const x2 = parseFloat(x2Input.value), y2 = parseFloat(y2Input.value);
+            // Take log of boundary values if axis is log
+            const valX1 = (xAxisType === 'log') ? Math.log10(x1) : x1;
+            const valY1 = (yAxisType === 'log') ? Math.log10(y1) : y1;
+            const valX2 = (xAxisType === 'log') ? Math.log10(x2) : x2;
+            const valY2 = (yAxisType === 'log') ? Math.log10(y2) : y2;
+            const imgPxRange = br.imgPx - tl.imgPx;
+            const imgPyRange = br.imgPy - tl.imgPy;
+            const imgPxFrac = (imgPx - tl.imgPx) / imgPxRange;
+            const imgPyFrac = (imgPy - tl.imgPy) / imgPyRange;
+            const interpX = valX1 + imgPxFrac * (valX2 - valX1);
+            const interpY = valY1 + imgPyFrac * (valY2 - valY1);
+            const finalX = (xAxisType === 'log') ? Math.pow(10, interpX) : interpX;
+            const finalY = (yAxisType === 'log') ? Math.pow(10, interpY) : interpY;
+            return { finalX, finalY };
+        }
+
+        function handleAxisCalibrationClick(point) {
+            if (axisCalibrationStep === 'topLeft') {
+                plotBoundaries.topLeft = { imgPx: point.x, imgPy: point.y };
+                topLeftPixel.textContent = `Pixel: (${point.x.toFixed(0)}, ${point.y.toFixed(0)})`;
+                axisCalibrationStep = 'bottomRight';
+                axesInstruction.textContent = 'Now click the bottom-right corner.';
+            } else if (axisCalibrationStep === 'bottomRight') {
+                plotBoundaries.bottomRight = { imgPx: point.x, imgPy: point.y };
+                bottomRightPixel.textContent = `Pixel: (${point.x.toFixed(0)}, ${point.y.toFixed(0)})`;
+                axisCalibrationStep = null;
+                axesInstruction.textContent = 'Enter the real axis values for X1/Y1/X2/Y2, then click "Digitize Points".';
+                resetAllModes(); // re-enable buttons; user reviews inputs next
+                // keep the input container open for value entry
+                axesInputContainer.classList.remove('hidden');
+            }
+            redrawCanvas();
+        }
+
+        function handleDigitizeClick(point) {
+            if (!arePlotBoundariesFullyDefined()) return;
+            const { finalX, finalY } = calculateCoords(point.x, point.y);
+            digitizedPoints.push({ imgPx: point.x, imgPy: point.y, label: `(${finalX.toPrecision(4)}, ${finalY.toPrecision(4)})` });
+            updatePointResult();
+            redrawCanvas();
+        }
+
+        function relabelDigitizedPoints() {
+            if (!arePlotBoundariesFullyDefined()) return;
+            for (const p of digitizedPoints) {
+                const { finalX, finalY } = calculateCoords(p.imgPx, p.imgPy);
+                p.label = `(${finalX.toPrecision(4)}, ${finalY.toPrecision(4)})`;
+            }
+            updatePointResult();
+        }
+
+        function updatePointResult() {
+            if (digitizedPoints.length === 0) {
+                pointResult.textContent = 'No points digitized yet.';
+            } else {
+                const last = digitizedPoints[digitizedPoints.length - 1];
+                pointResult.innerHTML = `${digitizedPoints.length} point(s). Last: <span class="font-mono">${last.label}</span>`;
+            }
+        }
+
+        function drawPlotBoundaries() {
+            const tl = plotBoundaries.topLeft;
+            const br = plotBoundaries.bottomRight;
+            if (tl) {
+                const s = imageToScreen(tl.imgPx, tl.imgPy);
+                ctx.fillStyle = '#2563eb';
+                ctx.beginPath(); ctx.arc(s.x, s.y, 6, 0, 2 * Math.PI); ctx.fill();
+            }
+            if (br) {
+                const s = imageToScreen(br.imgPx, br.imgPy);
+                ctx.fillStyle = '#dc2626';
+                ctx.beginPath(); ctx.arc(s.x, s.y, 6, 0, 2 * Math.PI); ctx.fill();
+            }
+            if (tl && br) {
+                const s0 = imageToScreen(tl.imgPx, tl.imgPy);
+                const s1 = imageToScreen(br.imgPx, br.imgPy);
+                ctx.strokeStyle = 'rgba(37, 99, 235, 0.7)';
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([6, 4]);
+                ctx.strokeRect(Math.min(s0.x, s1.x), Math.min(s0.y, s1.y),
+                               Math.abs(s1.x - s0.x), Math.abs(s1.y - s0.y));
+                ctx.setLineDash([]);
+            }
+        }
+
+        function drawDigitizedPoint(p) {
+            const s = imageToScreen(p.imgPx, p.imgPy);
+            ctx.fillStyle = '#16a34a';
+            ctx.beginPath(); ctx.arc(s.x, s.y, 5, 0, 2 * Math.PI); ctx.fill();
+            ctx.strokeStyle = '#064e3b';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            // Label box above the point
+            ctx.font = `${fontSize}px Inter`;
+            const tm = ctx.measureText(p.label);
+            const pad = 3;
+            const w = tm.width + pad * 2;
+            const h = fontSize + pad * 2;
+            const bx = s.x - w / 2;
+            const by = s.y - 8 - h;
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.fillRect(bx, by, w, h);
+            ctx.fillStyle = '#1a202c';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(p.label, s.x, by + h / 2);
+        }
+
         // --- Helper Functions ---
         function resetAllModes() {
             isCalibrating = false;
             isFindingHole = false;
+            isDefiningAxes = false;
+            isDigitizing = false;
+            axisCalibrationStep = null;
             selectedMeasurementIndex = null;
             currentPoints = [];
             calibrationPoints = [];
@@ -842,7 +1125,12 @@
             findHoleBtn.disabled = false;
             calibrateBtn.textContent = 'Start Calibration';
             findHoleBtn.textContent = 'Find Hole Center';
+            defineAxesBtn.disabled = false;
+            digitizeBtn.disabled = false;
+            defineAxesBtn.textContent = 'Define Plot Axes';
+            digitizeBtn.textContent = 'Digitize Points';
             calibrationInputContainer.classList.add('hidden');
+            axesInputContainer.classList.add('hidden');
             holeExplanationContainer.classList.add('hidden'); // Hide explanation
             clearBtn.disabled = false;
         }
