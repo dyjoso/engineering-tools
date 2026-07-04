@@ -326,6 +326,13 @@
         let wasDragging = false;
         let justFinishedAction = false;
 
+        // Digitized point drag state (dot and label are independently movable)
+        let draggedPoint = null;           // digitized point obj being dragged, or null
+        let draggedPointPart = null;       // 'dot' | 'label'
+        let dragPointStartImg = { x: 0, y: 0 };   // image pos of dot at drag start
+        let dragPointStartLabel = { x: 0, y: 0 }; // image pos of label at drag start
+        let dragPointCursorStart = { x: 0, y: 0 }; // image pos of cursor at drag start
+
         // --- View model (zoom/pan) ---
         // All persistent geometry lives in image-pixel space; this transform maps
         // image pixels to canvas (screen) pixels. Modeled on plot-digitizer.
@@ -610,6 +617,29 @@
                 holeSelectionRect = { startX: pos.x, startY: pos.y, endX: pos.x, endY: pos.y };
                 return;
             }
+            // Digitized points: labels drawn on top, test label first then dot.
+            // (Not active in digitize mode — clicks there place new points.)
+            if (!isDigitizing) {
+                let hit = null, hitPart = null;
+                for (const p of digitizedPoints) {
+                    if (isOnDigitizedLabel(screenPos, p)) { hit = p; hitPart = 'label'; break; }
+                }
+                if (!hit) {
+                    for (const p of digitizedPoints) {
+                        if (isOnDigitizedDot(screenPos, p)) { hit = p; hitPart = 'dot'; break; }
+                    }
+                }
+                if (hit) {
+                    draggedPoint = hit;
+                    draggedPointPart = hitPart;
+                    dragPointStartImg = { x: hit.imgPx, y: hit.imgPy };
+                    dragPointStartLabel = { x: hit.labelPos.x, y: hit.labelPos.y };
+                    dragPointCursorStart = { x: pos.x, y: pos.y };
+                    wasDragging = false;
+                    redrawCanvas();
+                    return;
+                }
+            }
             for (const [i, m] of measurements.entries()) {
                 const box = getLabelBoundingBox(m); // screen space
                 if (screenPos.x >= box.x && screenPos.x <= box.x + box.width && screenPos.y >= box.y && screenPos.y <= box.y + box.height) {
@@ -639,6 +669,31 @@
             const pos = screenToImage(screenPos.x, screenPos.y);
             if (magnifierEnabled) updateMagnifier(screenPos.x, screenPos.y);
 
+            // Dragging a digitized point (dot or label)
+            if (draggedPoint) {
+                wasDragging = true;
+                const dx = pos.x - dragPointCursorStart.x;
+                const dy = pos.y - dragPointCursorStart.y;
+                if (draggedPointPart === 'dot') {
+                    draggedPoint.imgPx = dragPointStartImg.x + dx;
+                    draggedPoint.imgPy = dragPointStartImg.y + dy;
+                    // Move the label with the dot so their relative offset is preserved
+                    draggedPoint.labelPos.x = dragPointStartLabel.x + dx;
+                    draggedPoint.labelPos.y = dragPointStartLabel.y + dy;
+                    // Recompute coordinate label live
+                    if (arePlotBoundariesFullyDefined()) {
+                        const { finalX, finalY } = calculateCoords(draggedPoint.imgPx, draggedPoint.imgPy);
+                        draggedPoint.label = `(${finalX.toPrecision(4)}, ${finalY.toPrecision(4)})`;
+                    }
+                } else {
+                    // label-only drag
+                    draggedPoint.labelPos.x = dragPointStartLabel.x + dx;
+                    draggedPoint.labelPos.y = dragPointStartLabel.y + dy;
+                }
+                redrawCanvas();
+                return;
+            }
+
             if (holeSelectionRect) {
                 holeSelectionRect.endX = pos.x;
                 holeSelectionRect.endY = pos.y;
@@ -665,11 +720,16 @@
                 ctx.stroke();
                 ctx.setLineDash([]);
             } else {
-                let onLabel = false;
+                let cursorStyle = 'crosshair';
                 for (const m of measurements) {
-                    if (isPointOnMeasurement(pos, m)) { onLabel = true; break; }
+                    if (isPointOnMeasurement(pos, m)) { cursorStyle = 'pointer'; break; }
                 }
-                canvas.style.cursor = onLabel ? 'pointer' : 'crosshair';
+                if (cursorStyle === 'crosshair' && !isDigitizing) {
+                    for (const p of digitizedPoints) {
+                        if (isOnDigitizedLabel(screenPos, p) || isOnDigitizedDot(screenPos, p)) { cursorStyle = 'pointer'; break; }
+                    }
+                }
+                canvas.style.cursor = cursorStyle;
             }
         }
 
@@ -686,6 +746,14 @@
                 resetAllModes();
                 redrawCanvas();
                 justFinishedAction = true;
+            }
+            if (draggedPoint) {
+                if (wasDragging) {
+                    justFinishedAction = true; // a drag is not a click
+                    updatePointResult();
+                }
+                draggedPoint = null;
+                draggedPointPart = null;
             }
             draggedMeasurement = null;
         }
@@ -1040,7 +1108,11 @@
         function handleDigitizeClick(point) {
             if (!arePlotBoundariesFullyDefined()) return;
             const { finalX, finalY } = calculateCoords(point.x, point.y);
-            digitizedPoints.push({ imgPx: point.x, imgPy: point.y, label: `(${finalX.toPrecision(4)}, ${finalY.toPrecision(4)})` });
+            digitizedPoints.push({
+                imgPx: point.x, imgPy: point.y,
+                label: `(${finalX.toPrecision(4)}, ${finalY.toPrecision(4)})`,
+                labelPos: { x: point.x, y: point.y - 20 / view.scale } // image space; offset scales with zoom
+            });
             updatePointResult();
             redrawCanvas();
         }
@@ -1095,20 +1167,40 @@
             ctx.strokeStyle = '#064e3b';
             ctx.lineWidth = 1;
             ctx.stroke();
-            // Label box above the point
+            // Label box — uses p.labelPos (image space) so it can be dragged independently
+            const box = getDigitizedLabelBox(p);
+            ctx.font = `${fontSize}px Inter`;
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.fillRect(box.x, box.y, box.width, box.height);
+            ctx.fillStyle = '#1a202c';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(p.label, box.x + box.width / 2, box.y + box.height / 2);
+        }
+
+        // Label box in SCREEN coords (for hit-testing and drawing)
+        function getDigitizedLabelBox(p) {
+            const sLabel = imageToScreen(p.labelPos.x, p.labelPos.y);
             ctx.font = `${fontSize}px Inter`;
             const tm = ctx.measureText(p.label);
             const pad = 3;
             const w = tm.width + pad * 2;
             const h = fontSize + pad * 2;
-            const bx = s.x - w / 2;
-            const by = s.y - 8 - h;
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-            ctx.fillRect(bx, by, w, h);
-            ctx.fillStyle = '#1a202c';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(p.label, s.x, by + h / 2);
+            return { x: sLabel.x - w / 2, y: sLabel.y - h / 2, width: w, height: h };
+        }
+
+        // Hit radius for grabbing a digitized point dot (screen pixels)
+        const POINT_DOT_HIT_RADIUS = 9;
+        // Test a SCREEN-space cursor against a digitized point's dot
+        function isOnDigitizedDot(screenPt, p) {
+            const s = imageToScreen(p.imgPx, p.imgPy);
+            return Math.hypot(screenPt.x - s.x, screenPt.y - s.y) <= POINT_DOT_HIT_RADIUS;
+        }
+        // Test a SCREEN-space cursor against a digitized point's label box
+        function isOnDigitizedLabel(screenPt, p) {
+            const box = getDigitizedLabelBox(p);
+            return screenPt.x >= box.x && screenPt.x <= box.x + box.width &&
+                   screenPt.y >= box.y && screenPt.y <= box.y + box.height;
         }
 
         // --- Helper Functions ---
