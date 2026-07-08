@@ -129,6 +129,50 @@
   }
   .fig-cap b{ color:var(--ink); font-weight:600; }
 
+  /* ---------- Analysis description steps ---------- */
+  .step{
+    display:grid; grid-template-columns:minmax(0,1fr) 318px;
+    border:1px solid var(--rule); margin-bottom:13px; background:#FDFDFB;
+  }
+  .step .stext{ padding:13px 16px 14px; min-width:0; }
+  .step .shead{ display:flex; align-items:baseline; gap:9px; margin-bottom:7px; }
+  .step .snum{
+    font-family:var(--mono); font-size:9.5px; font-weight:600; letter-spacing:.08em;
+    color:#fff; background:var(--blue); padding:2.5px 8px; border-radius:2px; white-space:nowrap;
+  }
+  .step .stitle{
+    font-family:var(--disp); font-weight:600; font-size:14.5px; letter-spacing:.05em;
+    text-transform:uppercase; color:var(--ink); line-height:1.15;
+  }
+  .step p{ margin:0 0 8px; font-size:12.5px; color:var(--ink-soft); line-height:1.55; }
+  .step p:last-of-type{ margin-bottom:0; }
+  .step p b{ color:var(--ink); font-weight:600; }
+  .step .eq{
+    font-family:var(--mono); font-size:11px; color:var(--ink);
+    background:var(--blue-wash); border:1px solid var(--input-border); border-radius:2px;
+    padding:7px 10px; margin-top:9px; line-height:1.7; overflow-x:auto;
+  }
+  .step .eq .res{ font-weight:600; color:var(--blue); }
+  .step .eq .ref{ font-size:8.5px; color:var(--ink-faint); }
+  .step .sfig{
+    border-left:1px solid var(--rule);
+    background:
+      linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 22px 22px,
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 22px 22px,
+      #FDFDFB;
+    padding:8px 8px 6px; display:flex; flex-direction:column; justify-content:center;
+  }
+  .step .sfig svg{ display:block; width:100%; height:auto; }
+  .step .sfig .cap{
+    font-family:var(--mono); font-size:9.5px; color:var(--ink-soft); letter-spacing:.02em;
+    line-height:1.4; padding:6px 3px 1px; border-top:1px solid var(--rule); margin-top:6px;
+  }
+  .step .sfig .cap b{ color:var(--ink); }
+  @media (max-width:760px){
+    .step{ grid-template-columns:1fr; }
+    .step .sfig{ border-left:none; border-top:1px solid var(--rule); }
+  }
+
   /* ---------- Input groups ---------- */
   .groups{ display:grid; grid-template-columns:repeat(auto-fit, minmax(248px, 1fr)); gap:14px; align-items:start; }
   .group{ border:1px solid var(--rule); }
@@ -215,8 +259,9 @@
     .toolbar{ display:none; }
     .sheet{ box-shadow:none; border:none; max-width:none; }
     .accent{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-    .group > h3,.kcard.gov,.kcard .ktag,.sec-idx,.sec-title,.figure,.tb-eyebrow{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-    .sec, .group, .kcard, .rblock, .figure, .notes{ break-inside:avoid; }
+    .group > h3,.kcard.gov,.kcard .ktag,.sec-idx,.sec-title,.figure,.tb-eyebrow,.step .snum,.step .eq,.step .sfig{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .sec, .group, .kcard, .rblock, .figure, .notes, .step{ break-inside:avoid; }
+    .sec:has(.step){ break-inside:auto; }
   }
 </style>
 </head>
@@ -261,10 +306,108 @@
       </div>
     </div>
 
-    <!-- INPUTS -->
+    <!-- ANALYSIS DESCRIPTION -->
     <div class="sec">
       <div class="sec-head">
         <span class="sec-idx">02</span>
+        <span class="sec-title">Analysis Description &mdash; Step by Step</span>
+        <span class="sec-rule"></span>
+        <span class="sec-note">all values live from the inputs &middot; [n] = equation refs used throughout</span>
+      </div>
+      <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 13px;max-width:76ch;line-height:1.55;">
+        This section walks the load path from the applied cabin-pressure stress to the tension stress in the
+        <b style="color:var(--ink)">main frame</b> and <b style="color:var(--ink)">main sill</b>, in the order the sheet computes it.
+        Steps 1&ndash;6 are the pressure (Case&nbsp;III) chain; Step&nbsp;7 adds flight body shear (Case&nbsp;I) and combines.
+        Every value shown updates live from the current inputs and carries the same equation reference
+        <span class="cellref">[n]</span> used in the Supporting Calculations tables.
+      </p>
+
+      <div class="step">
+        <div class="stext">
+          <div class="shead"><span class="snum">STEP 1</span><span class="stitle">Applied loading &mdash; pressure membrane running loads</span></div>
+          <p>The fuselage is a thin-walled pressurised cylinder. The cabin pressure differential <b>P</b> acting at radius <b>R</b> stretches the skin in two directions, producing membrane <b>running loads</b> &mdash; force per inch run of skin: hoop (circumferential) <b>w = P&middot;R</b>, and longitudinal <b>w&prime; = P&middot;R/2</b> (half the hoop value &mdash; the classic 2:1 cylinder ratio). Skin stress is simply the running load divided by the skin thickness; these loads exist everywhere in the uncut shell.</p>
+          <p>The door capability factors &eta;<sub>h</sub>, &eta;<sub>l</sub> represent any membrane load carried through the door itself. At the default &eta; = 0 the door is a plug carrying none of it, so the <b>full</b> running loads must divert around the opening.</p>
+          <div class="eq">w&nbsp; = P&middot;R&middot;(1&minus;&eta;<sub>h</sub>) = <span class="res" id="sv_w">&mdash;</span> lbf/in <span class="ref">[1]</span><br>
+          w&prime; = P&middot;R/2&middot;(1&minus;&eta;<sub>l</sub>) = <span class="res" id="sv_wl">&mdash;</span> lbf/in <span class="ref">[2]</span></div>
+        </div>
+        <div class="sfig"><div id="sfig1"></div><div class="cap"><b>Fig. D1.</b> Cabin pressure P generates hoop (w) and longitudinal (w&prime;) membrane running loads in the skin.</div></div>
+      </div>
+
+      <div class="step">
+        <div class="stext">
+          <div class="shead"><span class="snum">STEP 2</span><span class="stitle">The cut-out interrupts the load path</span></div>
+          <p>In uninterrupted skin the running loads flow in straight lines. The cut-out removes the load path over its width &#8467; (hoop) and height h (longitudinal), so the load that used to pass through the opening must flow around it. By symmetry it splits half to each side:</p>
+          <p>&bull;&ensp;the interrupted hoop load w&middot;&#8467; splits between the <b>two main frames</b> (the vertical edge members fwd &amp; aft of the door) &mdash; each picks up a tension P<sub>HT</sub> = w&#8467;/2;<br>
+          &bull;&ensp;the interrupted longitudinal load w&prime;&middot;h splits between the <b>two main sills</b> (the horizontal edge members above &amp; below) &mdash; each picks up a tension P<sub>LT</sub> = w&prime;h/2.</p>
+          <p>These are the fundamental cut-out loads. The remaining steps cover how they physically enter the members, and the secondary effects that add to them.</p>
+          <div class="eq">P<sub>HT</sub> = w&middot;&#8467;/2 = <span class="res" id="sv_PHT">&mdash;</span> lbf per main frame<br>
+          P<sub>LT</sub> = w&prime;&middot;h/2 = <span class="res" id="sv_PLT">&mdash;</span> lbf per main sill</div>
+        </div>
+        <div class="sfig"><div id="sfig2"></div><div class="cap"><b>Fig. D2.</b> Hoop load interrupted over the door width &#8467; diverts half to each main frame (longitudinal load behaves identically, rotated 90&deg;).</div></div>
+      </div>
+
+      <div class="step">
+        <div class="stext">
+          <div class="shead"><span class="snum">STEP 3</span><span class="stitle">Diverted load enters the members through skin shear</span></div>
+          <p>A skin running load cannot enter a frame or sill as a point force &mdash; it transfers by <b>shear along the riveted skin/member interface</b>. The interrupted hoop load is carried sideways into the main frames by shear in the skin panels immediately above and below the opening (the auxiliary bays, depth a upper / b lower). The interrupted longitudinal load transfers likewise through the panels forward and aft of the opening (widths c / d) into the main sills.</p>
+          <p>Member tension therefore <b>builds up progressively</b>: zero at the auxiliary member, fully developed at the cut-out corner, essentially constant along the door edge, then shed back into the skin symmetrically on the far side. The peak member load &mdash; and the peak fastener shear &mdash; occurs at the <b>cut-out corners</b>.</p>
+          <div class="eq">q<sub>upper</sub> = w&#8467;/2a = <span class="res" id="sv_qup">&mdash;</span> &middot;&nbsp; q<sub>lower</sub> = w&#8467;/2b = <span class="res" id="sv_qlo">&mdash;</span> lbf/in <span class="ref">[12]</span><br>
+          q<sub>fwd</sub>&nbsp; = w&prime;h/2c = <span class="res" id="sv_qfwd">&mdash;</span> &middot;&nbsp; q<sub>aft</sub>&nbsp; = w&prime;h/2d = <span class="res" id="sv_qaft">&mdash;</span> lbf/in <span class="ref">[13]</span></div>
+        </div>
+        <div class="sfig"><div id="sfig3"></div><div class="cap"><b>Fig. D3.</b> Skin shear in the auxiliary bays feeds the diverted hoop load into the main frame; the frame tension diagram peaks at the cut-out corners.</div></div>
+      </div>
+
+      <div class="step">
+        <div class="stext">
+          <div class="shead"><span class="snum">STEP 4</span><span class="stitle">Corner fixity &mdash; the frame-bending correction</span></div>
+          <p>The main frames and main sills form a rigid-jointed rectangular frame around the opening. Pressure bows each edge member inward between its corners, and because the corner joints are continuous they develop moments. Niu idealises the corners at <b>50% fixity</b>: the fixed-end moments of the two members meeting at each corner (w&prime;h&sup2;/12 vertical, w&#8467;&sup2;/12 horizontal <span class="cellref">[5],[6]</span>) are balanced by one cycle of moment distribution using the stiffness factors K&#8321; = h/(h+&#8467;), K&#8322; = &#8467;/(h+&#8467;) <span class="cellref">[3],[4]</span>, giving a single adjusted corner moment M<sub>adj</sub>.</p>
+          <p>The skin reacts M<sub>adj</sub> as a constant shear flow in each <b>corner panel</b>, and that shear drags <b>additional axial load</b> into the members: &frac12;M<sub>adj</sub> divided by the adjacent bay length &mdash; added to each frame (&divide;c fwd, &divide;d aft) and each sill (&divide;a upper, &divide;b lower).</p>
+          <div class="eq">M<sub>adj</sub> = <span class="res" id="sv_Madj">&mdash;</span> lbf&middot;in <span class="ref">[10]</span> &middot;&nbsp; q<sub>corner</sub> (gov.) = &frac12;M<sub>adj</sub>/area = <span class="res" id="sv_qcor">&mdash;</span> lbf/in <span class="ref">[11]</span><br>
+          &Delta;P<sub>frame</sub> = &frac12;M<sub>adj</sub>/min(c,d) = <span class="res" id="sv_dfr">&mdash;</span> lbf &middot;&nbsp; &Delta;P<sub>sill</sub> = &frac12;M<sub>adj</sub>/min(a,b) = <span class="res" id="sv_dsi">&mdash;</span> lbf</div>
+        </div>
+        <div class="sfig"><div id="sfig4"></div><div class="cap"><b>Fig. D4.</b> 50%-fixed corner moments M<sub>adj</sub> are reacted as corner-panel shear plus extra member axial load.</div></div>
+      </div>
+
+      <div class="step">
+        <div class="stext">
+          <div class="shead"><span class="snum">STEP 5</span><span class="stitle">Total pressure tension in each member</span></div>
+          <p>Summing Steps 2&ndash;4 gives the member tension <b>due to the cut-out</b> <span class="cellref">[17]</span>; the sheet evaluates fwd/aft frames and upper/lower sills separately and carries the governing side. Two further contributions complete the design load:</p>
+          <p>&bull;&ensp;<b>Door-stop check (frame only)</b> &mdash; the plug door bears on stop fittings offset S from the frame plane; prying amplification can generate a frame hoop load <span class="cellref">[16]</span> exceeding the redistribution value, so the worst case <span class="cellref">[19]</span> takes the greater of the two.<br>
+          &bull;&ensp;<b>Adjacent-bay tributary load</b> <span class="cellref">[18]</span> &mdash; each member also carries its ordinary share of shell pressure from the neighbouring uncut bay, P&middot;R&middot;(bay/2).</p>
+          <div class="eq">Frame: [17]<sub>F</sub> = <span class="res" id="sv_f17">&mdash;</span> &middot; stop [16] = <span class="res" id="sv_f16">&mdash;</span> &middot; + [18]<sub>F</sub> = <span class="res" id="sv_f18">&mdash;</span> &rarr; <b>[20]<sub>F</sub> = <span class="res" id="sv_f20">&mdash;</span> lbf</b><br>
+          Sill:&nbsp; [17]<sub>S</sub> = <span class="res" id="sv_s17">&mdash;</span> &middot; + [18]<sub>S</sub> = <span class="res" id="sv_s18">&mdash;</span> &rarr; <b>[20]<sub>S</sub> = <span class="res" id="sv_s20">&mdash;</span> lbf</b></div>
+        </div>
+        <div class="sfig"><div id="sfig5"></div><div class="cap"><b>Fig. D5.</b> Member design tension = redistributed cut-out load (incl. stop check) + adjacent-bay tributary load.</div></div>
+      </div>
+
+      <div class="step">
+        <div class="stext">
+          <div class="shead"><span class="snum">STEP 6</span><span class="stitle">Built-up section &mdash; tension stress in frame &amp; sill</span></div>
+          <p>The tension is not resisted by the frame or sill alone. At the cut-out edge the load-bearing section is <b>built up</b> from three parts acting in parallel: the member itself, the <b>bear strap</b> (doubler), and an <b>effective width of skin</b>. The total area <span class="cellref">[21]</span> is the simple sum of the three, and the nominal tension stress is load &divide; area.</p>
+          <p><b>Frame bending:</b> the redistributed load arrives through the skin plane, offset &#563; from the built-up section&rsquo;s neutral axis, so it also bends the section: M = [17]<sub>F</sub>&middot;&#563; <span class="cellref">[22]</span>, adding M&middot;&#563;/I at the outer chord <span class="cellref">[23]</span>. (&#563; and I are computed separately for the built-up section and entered as inputs.) The sill is treated as axial-only.</p>
+          <div class="eq">A<sub>F</sub> = frame + strap + skin = <span class="res" id="sv_AF">&mdash;</span> in&sup2; &middot;&nbsp; A<sub>S</sub> = sill + strap + skin = <span class="res" id="sv_AS">&mdash;</span> in&sup2; <span class="ref">[21]</span><br>
+          &sigma;<sub>frame</sub> = [20]<sub>F</sub>/A<sub>F</sub> = <span class="res" id="sv_sigF">&mdash;</span> ksi &middot;&nbsp; &sigma;<sub>sill</sub> = [20]<sub>S</sub>/A<sub>S</sub> = <span class="res" id="sv_sigS">&mdash;</span> ksi <span class="ref">(pressure only)</span><br>
+          M = <span class="res" id="sv_M22">&mdash;</span> lbf&middot;in <span class="ref">[22]</span> &rarr; outer chord + <span class="res" id="sv_s23">&mdash;</span> ksi <span class="ref">[23]</span></div>
+        </div>
+        <div class="sfig"><div id="sfig6"></div><div class="cap"><b>Fig. D6.</b> Built-up tension section: member + bear strap + effective skin width. The frame load path (skin line) is offset &#563; from the N.A., adding bending.</div></div>
+      </div>
+
+      <div class="step">
+        <div class="stext">
+          <div class="shead"><span class="snum">STEP 7</span><span class="stitle">Add flight body shear (Case I) and combine</span></div>
+          <p>Under flight loads the fuselage skin also carries body shear, and the shear flow that used to cross the door region must likewise divert around it. This raises the shear in the surrounding panels <span class="cellref">[24]&ndash;[26]</span> and, per Niu &sect;6.4, the redistributing shear develops additional <b>cap (liquidating) axial load</b> in the edge members &mdash; tension on one diagonal corner pair, compression on the other. The tension value is taken and added to the pressure tension of Step 5.</p>
+          <p>The <b>Key Results</b> cards report the combined member stresses: nominal tension ([20]+&Delta;P) &divide; [21], plus the Step-6 outer-chord bending for the frame.</p>
+          <div class="eq">&Delta;P<sub>fr</sub> = &frac12;(q<sub>b</sub>+q<sub>c</sub>)&middot;h/2 = <span class="res" id="sv_dPfr">&mdash;</span> lbf <span class="ref">[28]</span> &middot;&nbsp; &Delta;P<sub>si</sub> = max(q<sub>b</sub>,q<sub>c</sub>)&middot;&#8467;/2 = <span class="res" id="sv_dPsi">&mdash;</span> lbf <span class="ref">[29]</span><br>
+          &sigma;<sub>frame</sub> = <span class="res" id="sv_cF">&mdash;</span> ksi &middot;&nbsp; frame outer chord = <span class="res" id="sv_cOC">&mdash;</span> ksi &middot;&nbsp; &sigma;<sub>sill</sub> = <span class="res" id="sv_cS">&mdash;</span> ksi</div>
+        </div>
+        <div class="sfig"><div id="sfig7"></div><div class="cap"><b>Fig. D7.</b> Body shear diverts around the cut-out, adding cap tension &Delta;P to the main frames and sills; combined with pressure for the final member stresses.</div></div>
+      </div>
+    </div>
+
+    <!-- INPUTS -->
+    <div class="sec">
+      <div class="sec-head">
+        <span class="sec-idx">03</span>
         <span class="sec-title">Input Parameters</span>
         <span class="sec-rule"></span>
         <span class="sec-note">edit any value &middot; results update live</span>
@@ -275,7 +418,7 @@
     <!-- KEY RESULTS -->
     <div class="sec">
       <div class="sec-head">
-        <span class="sec-idx">03</span>
+        <span class="sec-idx">04</span>
         <span class="sec-title">Key Results &mdash; Member Stresses</span>
         <span class="sec-rule"></span>
         <span class="sec-note">combined: pressure (III) + in-plane shear (&sect;6.4)</span>
@@ -303,7 +446,7 @@
     <!-- CASE I — BODY SHEAR -->
     <div class="sec">
       <div class="sec-head">
-        <span class="sec-idx">04</span>
+        <span class="sec-idx">05</span>
         <span class="sec-title">Key Results &mdash; Body Shear (Case I)</span>
         <span class="sec-rule"></span>
         <span class="sec-note">flight skin-shear redistribution</span>
@@ -319,7 +462,7 @@
     <!-- SUPPORTING RESULTS -->
     <div class="sec">
       <div class="sec-head">
-        <span class="sec-idx">05</span>
+        <span class="sec-idx">06</span>
         <span class="sec-title">Supporting Calculations &mdash; Pressure Loads</span>
         <span class="sec-rule"></span>
         <span class="sec-note">[n] = equation ref · subscript F/S = frame/sill column</span>
@@ -379,7 +522,7 @@
     <!-- SUPPORTING RESULTS — SHEAR -->
     <div class="sec">
       <div class="sec-head">
-        <span class="sec-idx">06</span>
+        <span class="sec-idx">07</span>
         <span class="sec-title">Supporting Calculations &mdash; Shear Loads</span>
         <span class="sec-rule"></span>
         <span class="sec-note">[n] = equation ref · circular-fuselage bands + &sect;6.4 member axial</span>
@@ -426,7 +569,7 @@
     <!-- NOTES -->
     <div class="sec">
       <div class="sec-head">
-        <span class="sec-idx">07</span>
+        <span class="sec-idx">08</span>
         <span class="sec-title">Assumptions &amp; Notes</span>
         <span class="sec-rule"></span>
       </div>
@@ -1215,6 +1358,288 @@
     return el.join("");
   }
 
+  // ---- Analysis-description step figures (schematic, live-labelled) ----
+  function aDef(id,col){
+    return '<marker id="'+id+'" markerWidth="8" markerHeight="8" refX="6" refY="2.8" orient="auto">'
+      +'<path d="M0,0 L6,2.8 L0,5.6 Z" fill="'+col+'"/></marker>';
+  }
+  function hDef(id){
+    return '<pattern id="'+id+'" width="7" height="7" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">'
+      +'<line x1="0" y1="0" x2="0" y2="7" stroke="var(--ink)" stroke-width="0.6" opacity="0.18"/></pattern>';
+  }
+
+  // D1: pressurised cylinder → hoop & longitudinal running loads
+  function drawS1(v,r){
+    var e=[]; e.push('<svg viewBox="0 0 300 195" xmlns="'+NS+'" font-family="var(--mono)">');
+    e.push('<defs>'+aDef('aD1','var(--load)')+aDef('aD1b','var(--blue)')+'</defs>');
+    e.push('<text x="12" y="15" font-size="8" letter-spacing=".08em" fill="var(--blue)" font-weight="600">SECTION — HOOP</text>');
+    e.push('<text x="168" y="15" font-size="8" letter-spacing=".08em" fill="var(--blue)" font-weight="600">SIDE — LONGITUDINAL</text>');
+    var cx=78,cy=106,R2=50;
+    e.push('<circle cx="'+cx+'" cy="'+cy+'" r="'+R2+'" fill="none" stroke="var(--ink)" stroke-width="1.6"/>');
+    for(var i=0;i<8;i++){ var t=i*Math.PI/4;
+      e.push('<line x1="'+(cx+12*Math.cos(t)).toFixed(1)+'" y1="'+(cy+12*Math.sin(t)).toFixed(1)
+        +'" x2="'+(cx+36*Math.cos(t)).toFixed(1)+'" y2="'+(cy+36*Math.sin(t)).toFixed(1)
+        +'" stroke="var(--load)" stroke-width="1.1" marker-end="url(#aD1)"/>');
+    }
+    e.push('<text x="'+cx+'" y="'+(cy+3)+'" text-anchor="middle" font-size="9.5" fill="var(--load)" font-weight="600">P</text>');
+    // hoop tension arc arrow above the crown
+    e.push('<path d="M 48 58 A 58 58 0 0 1 108 58" fill="none" stroke="var(--blue)" stroke-width="1.5" marker-end="url(#aD1b)"/>');
+    e.push('<text x="'+cx+'" y="48" text-anchor="middle" font-size="9" fill="var(--blue)" font-weight="600">w (hoop)</text>');
+    e.push('<text x="'+cx+'" y="182" text-anchor="middle" font-size="9" fill="var(--ink)">w = P·R = '+fmt(r.Hoop,0)+'</text>');
+    // side view
+    var rx=176,ry=66,rw=100,rh=80;
+    e.push('<rect x="'+rx+'" y="'+ry+'" width="'+rw+'" height="'+rh+'" fill="none" stroke="var(--ink)" stroke-width="1.4"/>');
+    [0.28,0.5,0.72].forEach(function(f){
+      var y=ry+rh*f;
+      e.push('<line x1="'+rx+'" y1="'+y+'" x2="'+(rx-18)+'" y2="'+y+'" stroke="var(--blue)" stroke-width="1.3" marker-end="url(#aD1b)"/>');
+      e.push('<line x1="'+(rx+rw)+'" y1="'+y+'" x2="'+(rx+rw+18)+'" y2="'+y+'" stroke="var(--blue)" stroke-width="1.3" marker-end="url(#aD1b)"/>');
+    });
+    e.push('<text x="'+(rx+rw/2)+'" y="'+(ry+rh/2+3)+'" text-anchor="middle" font-size="8" fill="var(--ink-faint)">fuselage skin</text>');
+    e.push('<text x="'+(rx+rw/2)+'" y="182" text-anchor="middle" font-size="9" fill="var(--ink)">w′ = P·R/2 = '+fmt(r.Long,0)+'</text>');
+    e.push('</svg>'); return e.join("");
+  }
+
+  // D2: hoop flow lines diverting around the cut-out
+  function drawS2(v,r){
+    var e=[]; e.push('<svg viewBox="0 0 300 212" xmlns="'+NS+'" font-family="var(--mono)">');
+    e.push('<defs>'+hDef('hD2')+aDef('aD2','var(--load-soft)')+aDef('aD2b','var(--blue)')+'</defs>');
+    e.push('<rect x="18" y="22" width="264" height="168" fill="none" stroke="var(--rule-strong)" stroke-width="1" stroke-dasharray="2 3"/>');
+    // main sills (light) + main frames (strong)
+    [82,150].forEach(function(y){ e.push('<line x1="18" y1="'+y+'" x2="282" y2="'+y+'" stroke="var(--blue)" stroke-width="1.3" opacity="0.5"/>'); });
+    [112,188].forEach(function(x){ e.push('<line x1="'+x+'" y1="22" x2="'+x+'" y2="190" stroke="var(--blue)" stroke-width="2.4"/>'); });
+    e.push('<rect x="112" y="82" width="76" height="68" fill="url(#hD2)"/>');
+    // straight flow lines outside the door band
+    [32,52,72,92,208,228,248,268].forEach(function(x){
+      e.push('<line x1="'+x+'" y1="24" x2="'+x+'" y2="186" stroke="var(--load-soft)" stroke-width="1" marker-end="url(#aD2)"/>');
+    });
+    // diverted flow lines
+    e.push('<path d="M126,24 C126,58 100,62 100,106 C100,150 126,154 126,186" fill="none" stroke="var(--load)" stroke-width="1.1" marker-end="url(#aD2)"/>');
+    e.push('<path d="M143,24 C143,60 106,64 106,106 C106,148 143,152 143,186" fill="none" stroke="var(--load)" stroke-width="1.1" marker-end="url(#aD2)"/>');
+    e.push('<path d="M157,24 C157,60 194,64 194,106 C194,148 157,152 157,186" fill="none" stroke="var(--load)" stroke-width="1.1" marker-end="url(#aD2)"/>');
+    e.push('<path d="M174,24 C174,58 200,62 200,106 C200,150 174,154 174,186" fill="none" stroke="var(--load)" stroke-width="1.1" marker-end="url(#aD2)"/>');
+    // width dim + split labels
+    e.push('<line x1="112" y1="74" x2="188" y2="74" stroke="var(--ink-soft)" stroke-width="0.8"/>');
+    e.push('<line x1="112" y1="70" x2="112" y2="78" stroke="var(--ink-soft)" stroke-width="0.8"/>');
+    e.push('<line x1="188" y1="70" x2="188" y2="78" stroke="var(--ink-soft)" stroke-width="0.8"/>');
+    e.push('<rect x="139" y="66" width="22" height="13" fill="#FDFDFB"/>');
+    e.push('<text x="150" y="76" text-anchor="middle" font-size="9" fill="var(--ink)">ℓ</text>');
+    e.push('<rect x="34" y="110" width="52" height="12" fill="#FDFDFB" opacity="0.9"/>');
+    e.push('<text x="60" y="119" text-anchor="middle" font-size="8.6" fill="var(--blue)" font-weight="600">wℓ/2 →</text>');
+    e.push('<rect x="214" y="110" width="52" height="12" fill="#FDFDFB" opacity="0.9"/>');
+    e.push('<text x="240" y="119" text-anchor="middle" font-size="8.6" fill="var(--blue)" font-weight="600">← wℓ/2</text>');
+    e.push('<text x="112" y="202" text-anchor="middle" font-size="8" fill="var(--blue)">main frame</text>');
+    e.push('<text x="188" y="202" text-anchor="middle" font-size="8" fill="var(--blue)">main frame</text>');
+    e.push('<text x="150" y="14" text-anchor="middle" font-size="8" fill="var(--ink-faint)">hoop running load w flows top → bottom</text>');
+    e.push('</svg>'); return e.join("");
+  }
+
+  // D3: shear transfer into the frame + axial build-up diagram
+  function drawS3(v,r){
+    var e=[]; e.push('<svg viewBox="0 0 300 215" xmlns="'+NS+'" font-family="var(--mono)">');
+    e.push('<defs>'+hDef('hD3')+aDef('aD3','var(--blue)')+'</defs>');
+    var fx=168, yTop=25, yUC=72, yLC=158, yBot=198;   // frame x; aux sill, upper corner, lower corner, aux sill
+    // aux sills (top/bottom) + main sills bounding the door
+    e.push('<line x1="30" y1="'+yTop+'" x2="285" y2="'+yTop+'" stroke="var(--blue)" stroke-width="1.2" opacity="0.45"/>');
+    e.push('<line x1="30" y1="'+yBot+'" x2="285" y2="'+yBot+'" stroke="var(--blue)" stroke-width="1.2" opacity="0.45"/>');
+    e.push('<line x1="'+fx+'" y1="'+yUC+'" x2="285" y2="'+yUC+'" stroke="var(--blue)" stroke-width="1.4" opacity="0.7"/>');
+    e.push('<line x1="'+fx+'" y1="'+yLC+'" x2="285" y2="'+yLC+'" stroke="var(--blue)" stroke-width="1.4" opacity="0.7"/>');
+    // door hatch (right of the frame)
+    e.push('<rect x="'+fx+'" y="'+yUC+'" width="'+(285-fx)+'" height="'+(yLC-yUC)+'" fill="url(#hD3)"/>');
+    e.push('<text x="'+((fx+285)/2)+'" y="'+((yUC+yLC)/2+3)+'" text-anchor="middle" font-size="8.5" fill="var(--ink-soft)">DOOR</text>');
+    // frame member
+    e.push('<line x1="'+fx+'" y1="'+yTop+'" x2="'+fx+'" y2="'+yBot+'" stroke="var(--blue)" stroke-width="3"/>');
+    // shear arrows along frame in the aux bays (transfer regions)
+    [[yTop+8,yUC-8,1],[yBot-8,yLC+8,-1]].forEach(function(seg){
+      var y0=seg[0],y1=seg[1],dir=seg[2];
+      for(var k=0;k<3;k++){
+        var ya=y0+(y1-y0)*(k+0.5)/3;
+        e.push('<line x1="'+(fx+7)+'" y1="'+(ya-5*dir)+'" x2="'+(fx+7)+'" y2="'+(ya+5*dir)+'" stroke="var(--load)" stroke-width="1.3" marker-end="url(#aD3)"/>');
+      }
+    });
+    e.push('<text x="'+(fx+14)+'" y="'+((yTop+yUC)/2+3)+'" font-size="8.4" fill="var(--load)">q = wℓ/2a <tspan font-size="7" fill="var(--ink-faint)">[12]</tspan></text>');
+    e.push('<text x="'+(fx+14)+'" y="'+((yLC+yBot)/2+3)+'" font-size="8.4" fill="var(--load)">q = wℓ/2b</text>');
+    // axial-force diagram (trapezoid) left of the frame
+    e.push('<polygon points="'+fx+','+yTop+' '+(fx-62)+','+yUC+' '+(fx-62)+','+yLC+' '+fx+','+yBot+'" fill="var(--blue)" opacity="0.16" stroke="var(--blue)" stroke-width="0.8" stroke-opacity="0.5"/>');
+    e.push('<text x="'+(fx-70)+'" y="'+((yUC+yLC)/2+3)+'" text-anchor="end" font-size="8.6" fill="var(--ink)">P<tspan font-size="6.8" dy="1.5">HT</tspan><tspan dy="-1.5"> = wℓ/2</tspan></text>');
+    e.push('<text x="'+(fx-70)+'" y="'+((yUC+yLC)/2+14)+'" text-anchor="end" font-size="8.6" fill="var(--blue)" font-weight="600">= '+fmt(r.P_HT,0,true)+' lbf</text>');
+    // bay labels
+    e.push('<text x="40" y="'+(yTop-6)+'" font-size="7.6" fill="var(--ink-faint)">aux sill</text>');
+    e.push('<text x="'+(fx-6)+'" y="'+(yUC-5)+'" text-anchor="end" font-size="7.6" fill="var(--ink-faint)">upper corner — peak load</text>');
+    e.push('<text x="'+(fx+8)+'" y="'+(yTop-6)+'" font-size="7.6" fill="var(--ink-faint)">bay a</text>');
+    e.push('<text x="'+(fx+8)+'" y="'+(yBot+12)+'" font-size="7.6" fill="var(--ink-faint)">bay b</text>');
+    e.push('<text x="'+fx+'" y="'+(yBot+13)+'" text-anchor="end" font-size="8" fill="var(--blue)">main frame&nbsp;&nbsp;</text>');
+    e.push('</svg>'); return e.join("");
+  }
+
+  // D4: corner fixity moments
+  function drawS4(v,r){
+    var e=[]; e.push('<svg viewBox="0 0 300 200" xmlns="'+NS+'" font-family="var(--mono)">');
+    e.push('<defs>'+hDef('hD4')+aDef('aD4','var(--load)')+'</defs>');
+    var x0=95,x1=205,y0=58,y1=142;
+    // corner panels (tinted)
+    e.push('<rect x="45" y="28" width="'+(x0-45)+'" height="'+(y0-28)+'" fill="var(--blue)" opacity="0.07"/>');
+    e.push('<rect x="'+x1+'" y="28" width="50" height="'+(y0-28)+'" fill="var(--blue)" opacity="0.07"/>');
+    e.push('<rect x="45" y="'+y1+'" width="'+(x0-45)+'" height="30" fill="var(--blue)" opacity="0.07"/>');
+    e.push('<rect x="'+x1+'" y="'+y1+'" width="50" height="30" fill="var(--blue)" opacity="0.07"/>');
+    // members
+    e.push('<line x1="45" y1="'+y0+'" x2="255" y2="'+y0+'" stroke="var(--blue)" stroke-width="2.2"/>');
+    e.push('<line x1="45" y1="'+y1+'" x2="255" y2="'+y1+'" stroke="var(--blue)" stroke-width="2.2"/>');
+    e.push('<line x1="'+x0+'" y1="28" x2="'+x0+'" y2="172" stroke="var(--blue)" stroke-width="2.2"/>');
+    e.push('<line x1="'+x1+'" y1="28" x2="'+x1+'" y2="172" stroke="var(--blue)" stroke-width="2.2"/>');
+    e.push('<rect x="'+x0+'" y="'+y0+'" width="'+(x1-x0)+'" height="'+(y1-y0)+'" fill="url(#hD4)"/>');
+    // corner moment arcs
+    var ca=12;
+    e.push('<path d="M '+(x0+ca)+','+y0+' A '+ca+' '+ca+' 0 0 1 '+x0+','+(y0+ca)+'" fill="none" stroke="var(--ink-soft)" stroke-width="1.4" marker-end="url(#aD4)"/>');
+    e.push('<path d="M '+(x1-ca)+','+y0+' A '+ca+' '+ca+' 0 0 0 '+x1+','+(y0+ca)+'" fill="none" stroke="var(--ink-soft)" stroke-width="1.4" marker-end="url(#aD4)"/>');
+    e.push('<path d="M '+(x0+ca)+','+y1+' A '+ca+' '+ca+' 0 0 0 '+x0+','+(y1-ca)+'" fill="none" stroke="var(--ink-soft)" stroke-width="1.4" marker-end="url(#aD4)"/>');
+    e.push('<path d="M '+(x1-ca)+','+y1+' A '+ca+' '+ca+' 0 0 1 '+x1+','+(y1-ca)+'" fill="none" stroke="var(--ink-soft)" stroke-width="1.4" marker-end="url(#aD4)"/>');
+    // labels
+    e.push('<text x="150" y="22" text-anchor="middle" font-size="8.4" fill="var(--ink-soft)">M<tspan font-size="6.6" dy="1.5">h</tspan><tspan dy="-1.5"> = wℓ²/12</tspan> <tspan font-size="6.8" fill="var(--ink-faint)">[6]</tspan></text>');
+    e.push('<text x="34" y="100" text-anchor="middle" font-size="8.4" fill="var(--ink-soft)" transform="rotate(-90 34 100)">M<tspan font-size="6.6" dy="1.5">v</tspan><tspan dy="-1.5"> = w′h²/12</tspan> <tspan font-size="6.8" fill="var(--ink-faint)">[5]</tspan></text>');
+    e.push('<text x="150" y="95" text-anchor="middle" font-size="9" fill="var(--ink)">M<tspan font-size="7" dy="2">adj</tspan><tspan dy="-2" font-weight="600" fill="var(--blue)"> = '+fmt(r.Madj,0,true)+'</tspan> <tspan font-size="7" fill="var(--ink-faint)">[10]</tspan></text>');
+    e.push('<text x="150" y="108" text-anchor="middle" font-size="7.6" fill="var(--ink-faint)">at each corner · 50% fixity</text>');
+    e.push('<text x="66" y="43" text-anchor="middle" font-size="7.2" fill="var(--blue)">corner panel</text>');
+    e.push('<text x="66" y="52" text-anchor="middle" font-size="7.2" fill="var(--blue)">shear [11]</text>');
+    e.push('<text x="150" y="190" text-anchor="middle" font-size="8" fill="var(--ink-soft)">K₁ = h/(h+ℓ) · K₂ = ℓ/(h+ℓ) <tspan font-size="7" fill="var(--ink-faint)">[3],[4]</tspan></text>');
+    e.push('</svg>'); return e.join("");
+  }
+
+  // D5: stacked contribution bars for frame & sill design tension
+  function drawS5(v,r){
+    var e=[]; e.push('<svg viewBox="0 0 300 168" xmlns="'+NS+'" font-family="var(--mono)">');
+    var fSeg1=Math.max(r.Pframe,r.PcoFcut), fSeg2=r.PtypF, fTot=r.PcoFtot;
+    var sSeg1=r.PsiCut, sSeg2=r.PtypS, sTot=r.PcoStot;
+    var maxT=Math.max(fTot,sTot); var ok=isFinite(maxT)&&maxT>0;
+    var x0=58, wMax=172;
+    function bar(y,seg1,seg2,tot,name){
+      e.push('<text x="'+(x0-6)+'" y="'+(y+17)+'" text-anchor="end" font-size="8.6" font-weight="600" fill="var(--ink)">'+name+'</text>');
+      if(!ok) return;
+      var w1=seg1/maxT*wMax, w2=seg2/maxT*wMax;
+      e.push('<rect x="'+x0+'" y="'+y+'" width="'+w1+'" height="26" fill="var(--blue)" opacity="0.75"/>');
+      e.push('<rect x="'+(x0+w1)+'" y="'+y+'" width="'+w2+'" height="26" fill="var(--load)" opacity="0.55"/>');
+      e.push('<rect x="'+x0+'" y="'+y+'" width="'+(w1+w2)+'" height="26" fill="none" stroke="var(--ink-soft)" stroke-width="0.8"/>');
+      e.push('<text x="'+(x0+w1+w2+6)+'" y="'+(y+17)+'" font-size="8.8" font-weight="600" fill="var(--ink)">'+fmt(tot,0,true)+'</text>');
+      if(w1>44) e.push('<text x="'+(x0+w1/2)+'" y="'+(y+17)+'" text-anchor="middle" font-size="8" fill="#fff">'+fmt(seg1,0,true)+'</text>');
+      if(w2>44) e.push('<text x="'+(x0+w1+w2/2)+'" y="'+(y+17)+'" text-anchor="middle" font-size="8" fill="var(--ink)">'+fmt(seg2,0,true)+'</text>');
+    }
+    e.push('<text x="'+x0+'" y="20" font-size="8" letter-spacing=".08em" fill="var(--blue)" font-weight="600">DESIGN TENSION [20] (lbf)</text>');
+    bar(34,fSeg1,fSeg2,fTot,'FRAME');
+    bar(84,sSeg1,sSeg2,sTot,'SILL');
+    // legend
+    e.push('<rect x="'+x0+'" y="132" width="11" height="9" fill="var(--blue)" opacity="0.75"/>');
+    e.push('<text x="'+(x0+16)+'" y="140" font-size="7.8" fill="var(--ink-soft)">cut-out redistribution [17]/[19]</text>');
+    e.push('<rect x="'+x0+'" y="148" width="11" height="9" fill="var(--load)" opacity="0.55"/>');
+    e.push('<text x="'+(x0+16)+'" y="156" font-size="7.8" fill="var(--ink-soft)">adjacent-bay tributary [18]</text>');
+    e.push('</svg>'); return e.join("");
+  }
+
+  // D6: built-up cross-section (member + bear strap + effective skin)
+  function drawS6(v,r){
+    var e=[]; e.push('<svg viewBox="0 0 300 212" xmlns="'+NS+'" font-family="var(--mono)">');
+    e.push('<defs>'+aDef('aD6','var(--ink-soft)')+'</defs>');
+    var skY=52, naY=96;
+    // effective-skin dimension
+    e.push('<line x1="34" y1="40" x2="266" y2="40" stroke="var(--ink-soft)" stroke-width="0.8"/>');
+    e.push('<line x1="34" y1="36" x2="34" y2="44" stroke="var(--ink-soft)" stroke-width="0.8"/>');
+    e.push('<line x1="266" y1="36" x2="266" y2="44" stroke="var(--ink-soft)" stroke-width="0.8"/>');
+    e.push('<rect x="98" y="32" width="104" height="14" fill="#FDFDFB"/>');
+    e.push('<text x="150" y="42" text-anchor="middle" font-size="8.2" fill="var(--ink)">effective skin width × t</text>');
+    // skin
+    e.push('<rect x="34" y="'+skY+'" width="232" height="7" fill="var(--ink)" opacity="0.28" stroke="var(--ink-soft)" stroke-width="0.8"/>');
+    // bear strap
+    e.push('<rect x="74" y="'+(skY+7)+'" width="152" height="9" fill="var(--blue)" opacity="0.35" stroke="var(--blue)" stroke-width="0.8"/>');
+    e.push('<text x="232" y="'+(skY+15)+'" font-size="8.2" fill="var(--blue)">bear strap</text>');
+    // member: web + inner flange (T)
+    e.push('<rect x="146" y="'+(skY+16)+'" width="8" height="76" fill="var(--load)" opacity="0.22" stroke="var(--load-soft)" stroke-width="0.9"/>');
+    e.push('<rect x="114" y="'+(skY+92)+'" width="72" height="9" fill="var(--load)" opacity="0.22" stroke="var(--load-soft)" stroke-width="0.9"/>');
+    e.push('<text x="162" y="'+(skY+58)+'" font-size="8.2" fill="var(--load)">frame / sill member</text>');
+    e.push('<text x="192" y="'+(skY+100)+'" font-size="7.6" fill="var(--ink-faint)">outer chord (frame)</text>');
+    // N.A. + ȳ offset
+    e.push('<line x1="40" y1="'+naY+'" x2="260" y2="'+naY+'" stroke="var(--ink-faint)" stroke-width="0.9" stroke-dasharray="5 4"/>');
+    e.push('<text x="258" y="'+(naY-4)+'" text-anchor="end" font-size="7.8" fill="var(--ink-faint)">built-up section N.A.</text>');
+    e.push('<line x1="56" y1="'+(skY+3.5)+'" x2="56" y2="'+naY+'" stroke="var(--ink-soft)" stroke-width="0.8" marker-end="url(#aD6)"/>');
+    e.push('<text x="50" y="'+((skY+naY)/2+5)+'" text-anchor="end" font-size="8.6" fill="var(--ink)">ȳ</text>');
+    // load-at-skin-line symbol (tension normal to page)
+    e.push('<circle cx="90" cy="'+(skY+3.5)+'" r="5" fill="#FDFDFB" stroke="var(--load)" stroke-width="1.2"/>');
+    e.push('<circle cx="90" cy="'+(skY+3.5)+'" r="1.4" fill="var(--load)"/>');
+    e.push('<text x="84" y="'+(skY-6)+'" text-anchor="end" font-size="7.8" fill="var(--load)">P (⊥ page)</text>');
+    // notes
+    e.push('<text x="150" y="178" text-anchor="middle" font-size="8.4" fill="var(--ink)">A = A<tspan font-size="6.6" dy="1.5">member</tspan><tspan dy="-1.5"> + A</tspan><tspan font-size="6.6" dy="1.5">strap</tspan><tspan dy="-1.5"> + A</tspan><tspan font-size="6.6" dy="1.5">skin</tspan> <tspan font-size="7" fill="var(--ink-faint)">[21]</tspan></text>');
+    e.push('<text x="150" y="192" text-anchor="middle" font-size="8" fill="var(--ink-soft)">frame A = '+fmt(r.frTotA,3)+' in² · sill A = '+fmt(r.siTotA,3)+' in²</text>');
+    e.push('<text x="150" y="205" text-anchor="middle" font-size="7.6" fill="var(--ink-faint)">load offset ȳ from N.A. → bending M = P·ȳ (frame) [22]</text>');
+    e.push('</svg>'); return e.join("");
+  }
+
+  // D7: body shear diverting around the cut-out → cap tension
+  function drawS7(v,r){
+    var e=[]; e.push('<svg viewBox="0 0 300 205" xmlns="'+NS+'" font-family="var(--mono)">');
+    e.push('<defs>'+hDef('hD7')+aDef('aD7','var(--load)')+aDef('aD7b','var(--blue)')+'</defs>');
+    var x0=110,x1=190,y0=72,y1=134;
+    e.push('<rect x="24" y="26" width="252" height="156" fill="none" stroke="var(--rule-strong)" stroke-width="1" stroke-dasharray="2 3"/>');
+    [y0,y1].forEach(function(y){ e.push('<line x1="24" y1="'+y+'" x2="276" y2="'+y+'" stroke="var(--blue)" stroke-width="2"/>'); });
+    [x0,x1].forEach(function(x){ e.push('<line x1="'+x+'" y1="26" x2="'+x+'" y2="182" stroke="var(--blue)" stroke-width="2"/>'); });
+    e.push('<rect x="'+x0+'" y="'+y0+'" width="'+(x1-x0)+'" height="'+(y1-y0)+'" fill="url(#hD7)"/>');
+    // applied body shear entering at left edge
+    [46,160].forEach(function(ya){
+      e.push('<line x1="14" y1="'+ya+'" x2="14" y2="'+(ya+16)+'" stroke="var(--load)" stroke-width="1.4" marker-end="url(#aD7)"/>');
+    });
+    e.push('<text x="28" y="18" font-size="8" fill="var(--load)">body shear q<tspan font-size="6.4" dy="1.5">b</tspan><tspan dy="-1.5">, q</tspan><tspan font-size="6.4" dy="1.5">c</tspan><tspan dy="-1.5"> diverts around door</tspan></text>');
+    // increased panel shear arrows (circulating pairs) above/below and fwd/aft
+    function shearPair(cxp,cyp,horiz){
+      if(horiz){
+        e.push('<line x1="'+(cxp-16)+'" y1="'+(cyp-6)+'" x2="'+(cxp+16)+'" y2="'+(cyp-6)+'" stroke="var(--load)" stroke-width="1.1" marker-end="url(#aD7)"/>');
+        e.push('<line x1="'+(cxp+16)+'" y1="'+(cyp+6)+'" x2="'+(cxp-16)+'" y2="'+(cyp+6)+'" stroke="var(--load)" stroke-width="1.1" marker-end="url(#aD7)"/>');
+      } else {
+        e.push('<line x1="'+(cxp-6)+'" y1="'+(cyp+16)+'" x2="'+(cxp-6)+'" y2="'+(cyp-16)+'" stroke="var(--load)" stroke-width="1.1" marker-end="url(#aD7)"/>');
+        e.push('<line x1="'+(cxp+6)+'" y1="'+(cyp-16)+'" x2="'+(cxp+6)+'" y2="'+(cyp+16)+'" stroke="var(--load)" stroke-width="1.1" marker-end="url(#aD7)"/>');
+      }
+    }
+    shearPair(150,49,true);   // above door
+    shearPair(150,158,true);  // below door
+    shearPair(66,103,false);  // fwd of door
+    shearPair(234,103,false); // aft of door
+    e.push('<text x="150" y="40" text-anchor="middle" font-size="7.6" fill="var(--ink-soft)">q₁ [24]</text>');
+    e.push('<text x="150" y="172" text-anchor="middle" font-size="7.6" fill="var(--ink-soft)">q₁ [24]</text>');
+    e.push('<text x="66" y="130" text-anchor="middle" font-size="7.6" fill="var(--ink-soft)">q₂ [25]</text>');
+    e.push('<text x="234" y="130" text-anchor="middle" font-size="7.6" fill="var(--ink-soft)">q₂ [25]</text>');
+    // cap axial labels (inside the door opening, horizontal)
+    e.push('<rect x="'+(150-56)+'" y="'+(y0+8)+'" width="112" height="12" fill="#FDFDFB" opacity="0.9"/>');
+    e.push('<text x="150" y="'+(y0+17)+'" text-anchor="middle" font-size="8.4" fill="var(--blue)" font-weight="600">ΔP<tspan font-size="6.6" dy="1.5">si</tspan><tspan dy="-1.5"> = '+fmt(r.dPsill,0,true)+' [29]</tspan></text>');
+    e.push('<rect x="'+(150-56)+'" y="'+(y1-19)+'" width="112" height="12" fill="#FDFDFB" opacity="0.9"/>');
+    e.push('<text x="150" y="'+(y1-10)+'" text-anchor="middle" font-size="8.4" fill="var(--blue)" font-weight="600">ΔP<tspan font-size="6.6" dy="1.5">fr</tspan><tspan dy="-1.5"> = '+fmt(r.dPframe,0,true)+' [28]</tspan></text>');
+    e.push('<text x="150" y="196" text-anchor="middle" font-size="7.8" fill="var(--ink-faint)">cap tension adds to Step-5 pressure tension → Key Results</text>');
+    e.push('</svg>'); return e.join("");
+  }
+
+  // Fill the step-description live values + figures
+  function fillSteps(v,r){
+    setText("sv_w", fmt(r.Hoop,1));  setText("sv_wl", fmt(r.Long,1));
+    setText("sv_PHT", fmt(r.P_HT,0,true)); setText("sv_PLT", fmt(r.P_LT,0,true));
+    setText("sv_qup", fmt(r.qHup,1)); setText("sv_qlo", fmt(r.qHlo,1));
+    setText("sv_qfwd", fmt(r.qLfwd,1)); setText("sv_qaft", fmt(r.qLaft,1));
+    setText("sv_Madj", fmt(r.Madj,0,true)); setText("sv_qcor", fmt(r.qCorner,1));
+    setText("sv_dfr", fmt(0.5*r.Madj/Math.min(v.c,v.d),0,true));
+    setText("sv_dsi", fmt(0.5*r.Madj/Math.min(v.a,v.b),0,true));
+    setText("sv_f17", fmt(r.PcoFcut,0,true)); setText("sv_f16", fmt(r.fStop,0,true));
+    setText("sv_f18", fmt(r.PtypF,0,true));  setText("sv_f20", fmt(r.PcoFtot,0,true));
+    setText("sv_s17", fmt(r.PsiCut,0,true)); setText("sv_s18", fmt(r.PtypS,0,true));
+    setText("sv_s20", fmt(r.PcoStot,0,true));
+    setText("sv_AF", fmt(r.frTotA,3)); setText("sv_AS", fmt(r.siTotA,3));
+    setText("sv_sigF", fmt(r.PcoFtot/r.frTotA/1000,2));
+    setText("sv_sigS", fmt(r.PcoStot/r.siTotA/1000,2));
+    setText("sv_M22", fmt(r.fBM,0,true)); setText("sv_s23", fmt(r.ocs,2));
+    setText("sv_dPfr", fmt(r.dPframe,0,true)); setText("sv_dPsi", fmt(r.dPsill,0,true));
+    setText("sv_cF", fmt(r.frameHoop,2)); setText("sv_cOC", fmt(r.frameOC,2));
+    setText("sv_cS", fmt(r.sillLong,2));
+    document.getElementById("sfig1").innerHTML = drawS1(v,r);
+    document.getElementById("sfig2").innerHTML = drawS2(v,r);
+    document.getElementById("sfig3").innerHTML = drawS3(v,r);
+    document.getElementById("sfig4").innerHTML = drawS4(v,r);
+    document.getElementById("sfig5").innerHTML = drawS5(v,r);
+    document.getElementById("sfig6").innerHTML = drawS6(v,r);
+    document.getElementById("sfig7").innerHTML = drawS7(v,r);
+  }
+
   // ---- Recalc & render ----
   function recalc(){
     var v = readInputs();
@@ -1248,6 +1673,7 @@
     });
     document.getElementById("figP").innerHTML = drawPressureFig(v, r);
     document.getElementById("figS").innerHTML = drawShearFig(v, r, bs, !!vAuto);
+    fillSteps(v, r);
 
     // key cards (ksi, 2 dp)
     setText("k_frameOC", fmt(r.frameOC,2));
