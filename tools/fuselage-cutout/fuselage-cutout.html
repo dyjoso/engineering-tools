@@ -317,7 +317,7 @@
       <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 13px;max-width:76ch;line-height:1.55;">
         This section walks the load path from the applied cabin-pressure stress to the tension stress in the
         <b style="color:var(--ink)">main frame</b> and <b style="color:var(--ink)">main sill</b>, in the order the sheet computes it.
-        Steps 1&ndash;6 are the pressure (Case&nbsp;III) chain; Step&nbsp;7 adds flight body shear (Case&nbsp;I) and combines.
+        Steps 1&ndash;6 are the pressure (Case&nbsp;III) chain; Steps 7&ndash;8 add flight body shear (Case&nbsp;I) and combine.
         Every value shown updates live from the current inputs and carries the same equation reference
         <span class="cellref">[n]</span> used in the Supporting Calculations tables.
       </p>
@@ -374,8 +374,9 @@
           <p>Summing Steps 2&ndash;4 gives the member tension <b>due to the cut-out</b> <span class="cellref">[17]</span>; the sheet evaluates fwd/aft frames and upper/lower sills separately and carries the governing side. Two further contributions complete the design load:</p>
           <p>&bull;&ensp;<b>Door-stop check (frame only)</b> &mdash; the plug door bears on stop fittings offset S from the frame plane; prying amplification can generate a frame hoop load <span class="cellref">[16]</span> exceeding the redistribution value, so the worst case <span class="cellref">[19]</span> takes the greater of the two.<br>
           &bull;&ensp;<b>Adjacent-bay tributary load</b> <span class="cellref">[18]</span> &mdash; each member also carries its ordinary share of shell pressure from the neighbouring uncut bay, P&middot;R&middot;(bay/2).</p>
-          <div class="eq">Frame: [17]<sub>F</sub> = <span class="res" id="sv_f17">&mdash;</span> &middot; stop [16] = <span class="res" id="sv_f16">&mdash;</span> &middot; + [18]<sub>F</sub> = <span class="res" id="sv_f18">&mdash;</span> &rarr; <b>[20]<sub>F</sub> = <span class="res" id="sv_f20">&mdash;</span> lbf</b><br>
-          Sill:&nbsp; [17]<sub>S</sub> = <span class="res" id="sv_s17">&mdash;</span> &middot; + [18]<sub>S</sub> = <span class="res" id="sv_s18">&mdash;</span> &rarr; <b>[20]<sub>S</sub> = <span class="res" id="sv_s20">&mdash;</span> lbf</b></div>
+          <div class="eq">Frame: max([17]<sub>F</sub> = <span class="res" id="sv_f17">&mdash;</span>, stop [16] = <span class="res" id="sv_f16">&mdash;</span>) &rarr; [19] = <span class="res" id="sv_f19">&mdash;</span><br>
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; [19] + [18]<sub>F</sub> = <span class="res" id="sv_f18">&mdash;</span> &rarr; <b>[20]<sub>F</sub> = <span class="res" id="sv_f20">&mdash;</span> lbf</b><br>
+          Sill:&nbsp; [17]<sub>S</sub> = <span class="res" id="sv_s17">&mdash;</span> &middot; [17]<sub>S</sub> + [18]<sub>S</sub> = <span class="res" id="sv_s18">&mdash;</span> &rarr; <b>[20]<sub>S</sub> = <span class="res" id="sv_s20">&mdash;</span> lbf</b></div>
         </div>
         <div class="sfig"><div id="sfig5"></div><div class="cap"><b>Fig. D5.</b> Member design tension = redistributed cut-out load (incl. stop check) + adjacent-bay tributary load.</div></div>
       </div>
@@ -394,13 +395,25 @@
 
       <div class="step">
         <div class="stext">
-          <div class="shead"><span class="snum">STEP 7</span><span class="stitle">Add flight body shear (Case I) and combine</span></div>
-          <p>Under flight loads the fuselage skin also carries body shear, and the shear flow that used to cross the door region must likewise divert around it. This raises the shear in the surrounding panels <span class="cellref">[24]&ndash;[26]</span> and, per Niu &sect;6.4, the redistributing shear develops additional <b>cap (liquidating) axial load</b> in the edge members &mdash; tension on one diagonal corner pair, compression on the other. The tension value is taken and added to the pressure tension of Step 5.</p>
-          <p>The <b>Key Results</b> cards report the combined member stresses: nominal tension ([20]+&Delta;P) &divide; [21], plus the Step-6 outer-chord bending for the frame.</p>
-          <div class="eq">&Delta;P<sub>fr</sub> = &frac12;(q<sub>b</sub>+q<sub>c</sub>)&middot;h/2 = <span class="res" id="sv_dPfr">&mdash;</span> lbf <span class="ref">[28]</span> &middot;&nbsp; &Delta;P<sub>si</sub> = max(q<sub>b</sub>,q<sub>c</sub>)&middot;&#8467;/2 = <span class="res" id="sv_dPsi">&mdash;</span> lbf <span class="ref">[29]</span><br>
-          &sigma;<sub>frame</sub> = <span class="res" id="sv_cF">&mdash;</span> ksi &middot;&nbsp; frame outer chord = <span class="res" id="sv_cOC">&mdash;</span> ksi &middot;&nbsp; &sigma;<sub>sill</sub> = <span class="res" id="sv_cS">&mdash;</span> ksi</div>
+          <div class="shead"><span class="snum">STEP 7</span><span class="stitle">Body shear (Case I) &mdash; redistribution around the cut-out</span></div>
+          <p>Under flight loads the fuselage skin carries a <b>body shear flow</b>, entered as the four band values q<sub>a</sub>&hellip;q<sub>d</sub> (or auto-computed from the vertical shear V). The shear in the two bands crossing the cut-out height (q<sub>b</sub> upper, q<sub>c</sub> lower) cannot pass through the opening &mdash; exactly as in the pressure case, it must divert into the structure around it. The cut-out height splits between the two bands in proportion to the bays: h<sub>b</sub> = a&middot;h/(a+b), h<sub>c</sub> = b&middot;h/(a+b).</p>
+          <p>Niu&rsquo;s redistribution (Figs 6.5.3&ndash;6.5.8) follows from statics on each surrounding panel: the panels <b>forward and aft</b> of the opening carry the door band&rsquo;s shear in bypass, rising by &Delta;q = q&middot;&#8467;/(c+d) <span class="cellref">[25]</span>; the panels <b>above and below</b> pick up the share shed vertically through the main sills, q&#8321; = q<sub>a</sub> + q<sub>b</sub>&middot;h<sub>b</sub>/a upper (q<sub>d</sub> + q<sub>c</sub>&middot;h<sub>c</sub>/b lower) <span class="cellref">[24]</span>; and the <b>corner panels</b> balance the two effects, q&#8323; <span class="cellref">[26]</span>. The governing panel&rsquo;s gross shear stress q/t is the Case&nbsp;I Key Result; the member loads follow in Step&nbsp;8.</p>
+          <div class="eq">q&#8321; (above / below) = <span class="res" id="sv_q1b">&mdash;</span> / <span class="res" id="sv_q1c">&mdash;</span> lbf/in <span class="ref">[24]</span><br>
+          q&#8322; (fwd&ndash;aft, upper / lower) = <span class="res" id="sv_q2b">&mdash;</span> / <span class="res" id="sv_q2c">&mdash;</span> lbf/in <span class="ref">[25]</span><br>
+          q&#8323; (corners, upper / lower) = <span class="res" id="sv_q3b">&mdash;</span> / <span class="res" id="sv_q3c">&mdash;</span> lbf/in <span class="ref">[26]</span></div>
         </div>
-        <div class="sfig"><div id="sfig7"></div><div class="cap"><b>Fig. D7.</b> Body shear diverts around the cut-out, adding cap tension &Delta;P to the main frames and sills; combined with pressure for the final member stresses.</div></div>
+        <div class="sfig"><div id="sfig7"></div><div class="cap"><b>Fig. D7.</b> Body shear diverting around the cut-out: fwd/aft panels carry the bypass (q&#8322;), the panels above/below take the share shed through the sills (q&#8321;), and the corner panels balance the two (q&#8323;).</div></div>
+      </div>
+
+      <div class="step">
+        <div class="stext">
+          <div class="shead"><span class="snum">STEP 8</span><span class="stitle">Redistributed shear &rarr; member cap tension &middot; combine</span></div>
+          <p>The diverted shear also loads the members bounding the opening. Along a main sill the skin shear acting on its panel side is <b>not balanced</b> by skin on the door side; the imbalance is dragged into the member as axial load, accumulating from the middle of the door edge toward the corners &mdash; exactly as a spar cap picks up web shear. Per Niu &sect;6.4 the resulting <b>cap (liquidating) load</b> is the driving shear flow times half the cut-out dimension: each sill uses its own band (q<sub>b</sub> upper / q<sub>c</sub> lower, governing = max); the frames see the mean of the two bands acting over the cut-out height h.</p>
+          <p>The load is &plusmn; &mdash; tension at one corner of a diagonal pair, compression at the opposite &mdash; and the <b>tension</b> value is carried forward: added to the Step-5 pressure tension and divided by the Step-6 built-up area. The <b>Key Results</b> cards report these combined stresses, plus the frame outer-chord bending of Step&nbsp;6.</p>
+          <div class="eq">&Delta;P<sub>fr</sub> = &frac12;(q<sub>b</sub>+q<sub>c</sub>)&middot;h/2 = <span class="res" id="sv_dPfr">&mdash;</span> lbf <span class="ref">[28]</span> &middot;&nbsp; &Delta;P<sub>si</sub> = max(q<sub>b</sub>,q<sub>c</sub>)&middot;&#8467;/2 = <span class="res" id="sv_dPsi">&mdash;</span> lbf <span class="ref">[29]</span><br>
+          &sigma;<sub>frame</sub> = ([20]<sub>F</sub>+[28])/A<sub>F</sub> = <span class="res" id="sv_cF">&mdash;</span> ksi &middot;&nbsp; outer chord = <span class="res" id="sv_cOC">&mdash;</span> ksi &middot;&nbsp; &sigma;<sub>sill</sub> = ([20]<sub>S</sub>+[29])/A<sub>S</sub> = <span class="res" id="sv_cS">&mdash;</span> ksi</div>
+        </div>
+        <div class="sfig"><div id="sfig8"></div><div class="cap"><b>Fig. D8.</b> Unbalanced panel shear along the door edge accumulates as cap axial load in the sill &mdash; linear from zero at mid-span to &Delta;P = q&middot;&#8467;/2 at the corners (frame analogous over h). The tension corner combines with pressure.</div></div>
       </div>
     </div>
 
@@ -1538,12 +1551,12 @@
     var e=[]; e.push('<svg viewBox="0 0 300 212" xmlns="'+NS+'" font-family="var(--mono)">');
     e.push('<defs>'+aDef('aD6','var(--ink-soft)')+'</defs>');
     var skY=52, naY=96;
-    // effective-skin dimension
-    e.push('<line x1="34" y1="40" x2="266" y2="40" stroke="var(--ink-soft)" stroke-width="0.8"/>');
-    e.push('<line x1="34" y1="36" x2="34" y2="44" stroke="var(--ink-soft)" stroke-width="0.8"/>');
-    e.push('<line x1="266" y1="36" x2="266" y2="44" stroke="var(--ink-soft)" stroke-width="0.8"/>');
-    e.push('<rect x="98" y="32" width="104" height="14" fill="#FDFDFB"/>');
-    e.push('<text x="150" y="42" text-anchor="middle" font-size="8.2" fill="var(--ink)">effective skin width × t</text>');
+    // effective-skin dimension — kept at the very top, clear of the P callout below
+    e.push('<line x1="34" y1="24" x2="266" y2="24" stroke="var(--ink-soft)" stroke-width="0.8"/>');
+    e.push('<line x1="34" y1="20" x2="34" y2="28" stroke="var(--ink-soft)" stroke-width="0.8"/>');
+    e.push('<line x1="266" y1="20" x2="266" y2="28" stroke="var(--ink-soft)" stroke-width="0.8"/>');
+    e.push('<rect x="96" y="17" width="108" height="13" fill="#FDFDFB"/>');
+    e.push('<text x="150" y="27" text-anchor="middle" font-size="8.2" fill="var(--ink)">effective skin width × t</text>');
     // skin
     e.push('<rect x="34" y="'+skY+'" width="232" height="7" fill="var(--ink)" opacity="0.28" stroke="var(--ink-soft)" stroke-width="0.8"/>');
     // bear strap
@@ -1562,7 +1575,8 @@
     // load-at-skin-line symbol (tension normal to page)
     e.push('<circle cx="90" cy="'+(skY+3.5)+'" r="5" fill="#FDFDFB" stroke="var(--load)" stroke-width="1.2"/>');
     e.push('<circle cx="90" cy="'+(skY+3.5)+'" r="1.4" fill="var(--load)"/>');
-    e.push('<text x="84" y="'+(skY-6)+'" text-anchor="end" font-size="7.8" fill="var(--load)">P (⊥ page)</text>');
+    e.push('<line x1="93" y1="'+(skY+0.5)+'" x2="103" y2="'+(skY-6)+'" stroke="var(--load)" stroke-width="0.8"/>');
+    e.push('<text x="106" y="'+(skY-7)+'" font-size="7.8" fill="var(--load)">P — tension ⊥ page, at skin line</text>');
     // notes
     e.push('<text x="150" y="178" text-anchor="middle" font-size="8.4" fill="var(--ink)">A = A<tspan font-size="6.6" dy="1.5">member</tspan><tspan dy="-1.5"> + A</tspan><tspan font-size="6.6" dy="1.5">strap</tspan><tspan dy="-1.5"> + A</tspan><tspan font-size="6.6" dy="1.5">skin</tspan> <tspan font-size="7" fill="var(--ink-faint)">[21]</tspan></text>');
     e.push('<text x="150" y="192" text-anchor="middle" font-size="8" fill="var(--ink-soft)">frame A = '+fmt(r.frTotA,3)+' in² · sill A = '+fmt(r.siTotA,3)+' in²</text>');
@@ -1598,16 +1612,56 @@
     shearPair(150,158,true);  // below door
     shearPair(66,103,false);  // fwd of door
     shearPair(234,103,false); // aft of door
-    e.push('<text x="150" y="40" text-anchor="middle" font-size="7.6" fill="var(--ink-soft)">q₁ [24]</text>');
-    e.push('<text x="150" y="172" text-anchor="middle" font-size="7.6" fill="var(--ink-soft)">q₁ [24]</text>');
-    e.push('<text x="66" y="130" text-anchor="middle" font-size="7.6" fill="var(--ink-soft)">q₂ [25]</text>');
-    e.push('<text x="234" y="130" text-anchor="middle" font-size="7.6" fill="var(--ink-soft)">q₂ [25]</text>');
-    // cap axial labels (inside the door opening, horizontal)
-    e.push('<rect x="'+(150-56)+'" y="'+(y0+8)+'" width="112" height="12" fill="#FDFDFB" opacity="0.9"/>');
-    e.push('<text x="150" y="'+(y0+17)+'" text-anchor="middle" font-size="8.4" fill="var(--blue)" font-weight="600">ΔP<tspan font-size="6.6" dy="1.5">si</tspan><tspan dy="-1.5"> = '+fmt(r.dPsill,0,true)+' [29]</tspan></text>');
-    e.push('<rect x="'+(150-56)+'" y="'+(y1-19)+'" width="112" height="12" fill="#FDFDFB" opacity="0.9"/>');
-    e.push('<text x="150" y="'+(y1-10)+'" text-anchor="middle" font-size="8.4" fill="var(--blue)" font-weight="600">ΔP<tspan font-size="6.6" dy="1.5">fr</tspan><tspan dy="-1.5"> = '+fmt(r.dPframe,0,true)+' [28]</tspan></text>');
-    e.push('<text x="150" y="196" text-anchor="middle" font-size="7.8" fill="var(--ink-faint)">cap tension adds to Step-5 pressure tension → Key Results</text>');
+    // redistributed panel shear labels with live values (upper-band value shown
+    // above / fwd, lower-band below / aft; corners on one diagonal for clarity)
+    function pql(x,y,txt){
+      e.push('<rect x="'+(x-42)+'" y="'+(y-9)+'" width="84" height="11" fill="#FDFDFB" opacity="0.88"/>');
+      e.push('<text x="'+x+'" y="'+y+'" text-anchor="middle" font-size="7.8" fill="var(--ink)">'+txt+'</text>');
+    }
+    pql(150,40,'q₁ᵇ = '+fmt(r.q1b,0)+' [24]');
+    pql(150,176,'q₁ᶜ = '+fmt(r.q1c,0)+' [24]');
+    pql(66,132,'q₂ᵇ = '+fmt(r.q2b,0)+' [25]');
+    pql(234,132,'q₂ᶜ = '+fmt(r.q2c,0)+' [25]');
+    pql(66,48,'q₃ᵇ = '+fmt(r.q3b,0)+' [26]');
+    pql(234,162,'q₃ᶜ = '+fmt(r.q3c,0)+' [26]');
+    e.push('<text x="150" y="'+((y0+y1)/2+3)+'" text-anchor="middle" font-size="8" fill="var(--ink-soft)">DOOR</text>');
+    e.push('<text x="150" y="196" text-anchor="middle" font-size="7.8" fill="var(--ink-faint)">raised panel shears → member cap tension in Step 8</text>');
+    e.push('</svg>'); return e.join("");
+  }
+
+  // D8: unbalanced shear along the door edge → cap axial in the member
+  function drawS8(v,r){
+    var e=[]; e.push('<svg viewBox="0 0 300 208" xmlns="'+NS+'" font-family="var(--mono)">');
+    e.push('<defs>'+hDef('hD8')+aDef('aD8','var(--load)')+'</defs>');
+    e.push('<text x="14" y="15" font-size="8" letter-spacing=".06em" fill="var(--blue)" font-weight="600">UPPER MAIN SILL — CAP AXIAL FROM SHEAR (§6.4)</text>');
+    var x0=45,x1=255,sy=62;
+    // skin panel above (carries band shear) / door below (no skin)
+    e.push('<rect x="'+x0+'" y="30" width="'+(x1-x0)+'" height="'+(sy-30)+'" fill="var(--blue)" opacity="0.05"/>');
+    e.push('<rect x="'+x0+'" y="'+sy+'" width="'+(x1-x0)+'" height="44" fill="url(#hD8)"/>');
+    e.push('<text x="150" y="'+(sy+26)+'" text-anchor="middle" font-size="7.8" fill="var(--ink-soft)">DOOR — no skin, no balancing shear</text>');
+    // sill member + corner frames
+    e.push('<line x1="'+x0+'" y1="'+sy+'" x2="'+x1+'" y2="'+sy+'" stroke="var(--blue)" stroke-width="3"/>');
+    e.push('<line x1="'+x0+'" y1="26" x2="'+x0+'" y2="108" stroke="var(--blue)" stroke-width="1.6" opacity="0.6"/>');
+    e.push('<line x1="'+x1+'" y1="26" x2="'+x1+'" y2="108" stroke="var(--blue)" stroke-width="1.6" opacity="0.6"/>');
+    e.push('<text x="'+x0+'" y="118" text-anchor="middle" font-size="7.4" fill="var(--blue)">frame</text>');
+    e.push('<text x="'+x1+'" y="118" text-anchor="middle" font-size="7.4" fill="var(--blue)">frame</text>');
+    // one-sided skin shear drag along the member
+    for(var k=0;k<5;k++){ var ax=x0+20+k*(x1-x0-40)/4;
+      e.push('<line x1="'+(ax-9)+'" y1="'+(sy-8)+'" x2="'+(ax+9)+'" y2="'+(sy-8)+'" stroke="var(--load)" stroke-width="1.3" marker-end="url(#aD8)"/>');
+    }
+    e.push('<text x="150" y="'+(sy-16)+'" text-anchor="middle" font-size="7.8" fill="var(--load)">panel shear q — unbalanced along the door edge</text>');
+    // axial (cap load) diagram: 0 at mid-span, ±q·ℓ/2 at the corners
+    var by=160, amp=26;
+    e.push('<text x="14" y="140" font-size="7.8" fill="var(--ink-soft)">member axial (cap load):</text>');
+    e.push('<line x1="'+x0+'" y1="'+by+'" x2="'+x1+'" y2="'+by+'" stroke="var(--ink-faint)" stroke-width="0.9"/>');
+    e.push('<polygon points="'+x0+','+by+' 150,'+by+' '+x0+','+(by+amp)+'" fill="var(--blue)" opacity="0.14" stroke="var(--blue)" stroke-opacity="0.4" stroke-width="0.7"/>');
+    e.push('<polygon points="150,'+by+' '+x1+','+by+' '+x1+','+(by-amp)+'" fill="var(--blue)" opacity="0.30" stroke="var(--blue)" stroke-opacity="0.5" stroke-width="0.7"/>');
+    e.push('<line x1="'+x0+'" y1="'+(by+amp)+'" x2="'+x1+'" y2="'+(by-amp)+'" stroke="var(--blue)" stroke-width="1.1"/>');
+    e.push('<text x="'+(x0+18)+'" y="'+(by+amp-3)+'" font-size="8" fill="var(--ink-soft)">C</text>');
+    e.push('<text x="'+(x1-24)+'" y="'+(by-amp+11)+'" font-size="8" fill="var(--ink)" font-weight="600">T</text>');
+    e.push('<text x="150" y="'+(by+12)+'" text-anchor="middle" font-size="7.2" fill="var(--ink-faint)">0 at mid-span</text>');
+    e.push('<text x="'+x1+'" y="'+(by-amp-6)+'" text-anchor="end" font-size="8.4" fill="var(--blue)" font-weight="600">ΔP<tspan font-size="6.6" dy="1.5">si</tspan><tspan dy="-1.5"> = q·ℓ/2 = '+fmt(r.dPsill,0,true)+' [29]</tspan></text>');
+    e.push('<text x="150" y="200" text-anchor="middle" font-size="7.8" fill="var(--ink-soft)">frame likewise over h: ΔP<tspan font-size="6.4" dy="1.5">fr</tspan><tspan dy="-1.5"> = ½(q</tspan><tspan font-size="6.4" dy="1.5">b</tspan><tspan dy="-1.5">+q</tspan><tspan font-size="6.4" dy="1.5">c</tspan><tspan dy="-1.5">)·h/2 = '+fmt(r.dPframe,0,true)+' [28]</tspan></text>');
     e.push('</svg>'); return e.join("");
   }
 
@@ -1621,6 +1675,7 @@
     setText("sv_dfr", fmt(0.5*r.Madj/Math.min(v.c,v.d),0,true));
     setText("sv_dsi", fmt(0.5*r.Madj/Math.min(v.a,v.b),0,true));
     setText("sv_f17", fmt(r.PcoFcut,0,true)); setText("sv_f16", fmt(r.fStop,0,true));
+    setText("sv_f19", fmt(r.Pframe,0,true));
     setText("sv_f18", fmt(r.PtypF,0,true));  setText("sv_f20", fmt(r.PcoFtot,0,true));
     setText("sv_s17", fmt(r.PsiCut,0,true)); setText("sv_s18", fmt(r.PtypS,0,true));
     setText("sv_s20", fmt(r.PcoStot,0,true));
@@ -1628,6 +1683,9 @@
     setText("sv_sigF", fmt(r.PcoFtot/r.frTotA/1000,2));
     setText("sv_sigS", fmt(r.PcoStot/r.siTotA/1000,2));
     setText("sv_M22", fmt(r.fBM,0,true)); setText("sv_s23", fmt(r.ocs,2));
+    setText("sv_q1b", fmt(r.q1b,1,true)); setText("sv_q1c", fmt(r.q1c,1,true));
+    setText("sv_q2b", fmt(r.q2b,1,true)); setText("sv_q2c", fmt(r.q2c,1,true));
+    setText("sv_q3b", fmt(r.q3b,1,true)); setText("sv_q3c", fmt(r.q3c,1,true));
     setText("sv_dPfr", fmt(r.dPframe,0,true)); setText("sv_dPsi", fmt(r.dPsill,0,true));
     setText("sv_cF", fmt(r.frameHoop,2)); setText("sv_cOC", fmt(r.frameOC,2));
     setText("sv_cS", fmt(r.sillLong,2));
@@ -1638,6 +1696,7 @@
     document.getElementById("sfig5").innerHTML = drawS5(v,r);
     document.getElementById("sfig6").innerHTML = drawS6(v,r);
     document.getElementById("sfig7").innerHTML = drawS7(v,r);
+    document.getElementById("sfig8").innerHTML = drawS8(v,r);
   }
 
   // ---- Recalc & render ----
