@@ -286,7 +286,7 @@
         <div class="tb-sub">Frame hoop, sill longitudinal &amp; body-shear redistribution around a skin cut-out</div>
       </div>
       <div class="tb-cell"><span class="tb-key">Document</span><span class="tb-val">SCT-025</span></div>
-      <div class="tb-cell"><span class="tb-key">Method</span><span class="tb-val sm">Niu §6.4 / §6.5</span></div>
+      <div class="tb-cell"><span class="tb-key">Method</span><span class="tb-val sm">Niu §6.5</span></div>
       <div class="tb-cell tb-row2"><span class="tb-key">Analysis</span><span class="tb-val sm">Pressure (Case III/IV) + body shear (Case I)</span></div>
       <div class="tb-cell tb-row2"><span class="tb-key">Units</span><span class="tb-val sm">in · lbf · psi · ksi</span></div>
       <div class="tb-cell tb-row2"><span class="tb-key">Status</span><span class="tb-val sm">Live — editable</span></div>
@@ -420,12 +420,13 @@
       <div class="step">
         <div class="stext">
           <div class="shead"><span class="snum">STEP 9</span><span class="stitle">Redistributed shear &rarr; member cap tension &middot; combine</span></div>
-          <p>The diverted shear also loads the members bounding the opening. Along a main sill the skin shear acting on its panel side is <b>not balanced</b> by skin on the door side; the imbalance is dragged into the member as axial load, accumulating from the middle of the door edge toward the corners &mdash; exactly as a spar cap picks up web shear. Per Niu &sect;6.4 the resulting <b>cap (liquidating) load</b> is the driving shear flow times half the cut-out dimension: each sill uses its own band (q<sub>b</sub> upper / q<sub>c</sub> lower, governing = max); the frames see the mean of the two bands acting over the cut-out height h.</p>
-          <p>The load is &plusmn; &mdash; tension at one corner of a diagonal pair, compression at the opposite &mdash; and the <b>tension</b> value is carried forward: added to the Step-5 pressure tension and divided by the Step-6 built-up area. The <b>Key Results</b> cards report these combined stresses, plus the frame outer-chord bending of Step&nbsp;6.</p>
-          <div class="eq">&Delta;P<sub>fr</sub> = &frac12;(q<sub>b</sub>+q<sub>c</sub>)&middot;h/2 = <span class="res" id="sv_dPfr">&mdash;</span> lbf <span class="ref">[28]</span> &middot;&nbsp; &Delta;P<sub>si</sub> = max(q<sub>b</sub>,q<sub>c</sub>)&middot;&#8467;/2 = <span class="res" id="sv_dPsi">&mdash;</span> lbf <span class="ref">[29]</span><br>
+          <p>The member axial load follows by <b>summation of the redistributed shears</b> (Niu&rsquo;s &ldquo;summation of q&rsquo;s&rdquo;): wherever the flows on a member&rsquo;s two sides differ, the imbalance is dragged in as axial load &mdash; exactly as a spar cap picks up web shear. Beyond each cut-out corner a sill lies between the raised side panel (q&#8322;) and the corner panel (q&#8323;, direction reversed &mdash; so the two drags <b>add</b>): the axial builds over the adjacent bay from the adjacent frame to its <b>peak at the cut-out corner</b>, &Delta;P = (q&#8322;+q&#8323;)&times;(c or d) per corner. The frames build identically over the auxiliary bays: &Delta;P = (q&#8321;+q&#8323;)&times;(a or b). Across the door edge the load reverses through zero near mid-span &mdash; tension at one corner of a diagonal pair, compression at the opposite; the <b>tension</b> value is carried forward: added to the Step-5 pressure tension and divided by the Step-6 built-up area. The <b>Key Results</b> cards report these combined stresses, plus the frame outer-chord bending of Step&nbsp;6.</p>
+          <p><b>Applicability:</b> summing the redistributed flows assumes the opening carries <b>no shear at all</b> &mdash; this method applies <b>only to cut-outs with no shear load transfer across them</b> (a door that cannot transfer in-plane shear, e.g. a plug door on stop fittings). If the door is shear-tied to the skin along two parallel edges, shear crosses the cut-out and these member loads are conservative.</p>
+          <div class="eq">&Delta;P<sub>fr</sub> = max[(q&#8321;ᵇ+q&#8323;ᵇ)&middot;a, (q&#8321;ᶜ+q&#8323;ᶜ)&middot;b] = <span class="res" id="sv_dPfr">&mdash;</span> lbf <span class="ref">[28]</span><br>
+          &Delta;P<sub>si</sub> = max[(q&#8322;+q&#8323;)&middot;c, (q&#8322;+q&#8323;)&middot;d] over b/c bands = <span class="res" id="sv_dPsi">&mdash;</span> lbf <span class="ref">[29] per corner App. A</span><br>
           &sigma;<sub>frame</sub> = ([20]<sub>F</sub>+[28])/A<sub>F</sub> = <span class="res" id="sv_cF">&mdash;</span> ksi &middot;&nbsp; outer chord = <span class="res" id="sv_cOC">&mdash;</span> ksi &middot;&nbsp; &sigma;<sub>sill</sub> = ([20]<sub>S</sub>+[29])/A<sub>S</sub> = <span class="res" id="sv_cS">&mdash;</span> ksi</div>
         </div>
-        <div class="sfig"><div id="sfig9"></div><div class="cap"><b>Fig. D9.</b> Unbalanced panel shear along the door edge accumulates as cap axial load in the sill &mdash; linear from zero at mid-span to &Delta;P = q&middot;&#8467;/2 at the corners (frame analogous over h). The tension corner combines with pressure.</div></div>
+        <div class="sfig"><div id="sfig9"></div><div class="cap"><b>Fig. D9.</b> Sill cap axial by summation of the redistributed shears: builds over the adjacent bay to &Delta;P = (q&#8322;+q&#8323;)&middot;c (or &middot;d) at each corner, reversing across the door (frame analogous over a/b). Valid only with no shear transfer across the opening.</div></div>
       </div>
     </div>
 
@@ -446,7 +447,7 @@
         <span class="sec-idx">04</span>
         <span class="sec-title">Key Results &mdash; Member Stresses</span>
         <span class="sec-rule"></span>
-        <span class="sec-note">combined: pressure (III) + in-plane shear (&sect;6.4)</span>
+        <span class="sec-note">combined: pressure (III) + in-plane shear (&sect;6.5)</span>
       </div>
       <div class="keygrid">
         <div class="kcard" id="card-frameOC">
@@ -550,11 +551,11 @@
         <span class="sec-idx">07</span>
         <span class="sec-title">Supporting Calculations &mdash; Shear Loads</span>
         <span class="sec-rule"></span>
-        <span class="sec-note">[n] = equation ref · circular-fuselage bands + &sect;6.4 member axial</span>
+        <span class="sec-note">[n] = equation ref · circular-fuselage bands + &sect;6.5 member axial</span>
       </div>
       <div class="figure">
         <div id="figS"></div>
-        <div class="fig-cap"><b>Figure 3.</b> Case I body shear &mdash; left: circular-fuselage cross-section with the door arc, band positions and shear-flow distribution (q = V&middot;cos&theta;/&pi;R when V is entered; greyed when bands are manual); right: band shears q<sub>a</sub>..q<sub>d</sub> redistribute around the cut-out into the surrounding panels <span class="cellref">[24],[25],[26]</span> (Niu Fig 6.5.3&ndash;6.5.8) and develop cap axial in the frames and sills <span class="cellref">[28],[29]</span> (&sect;6.4).</div>
+        <div class="fig-cap"><b>Figure 3.</b> Case I body shear &mdash; left: circular-fuselage cross-section with the door arc, band positions and shear-flow distribution (q = V&middot;cos&theta;/&pi;R when V is entered; greyed when bands are manual); right: band shears q<sub>a</sub>..q<sub>d</sub> redistribute around the cut-out into the surrounding panels <span class="cellref">[24],[25],[26]</span> (Niu Fig 6.5.3&ndash;6.5.8) and develop cap axial in the frames and sills <span class="cellref">[28],[29]</span> by summation of the redistributed q&rsquo;s (&sect;6.5).</div>
       </div>
       <div class="res-cols">
 
@@ -579,13 +580,13 @@
         </div>
 
         <div class="rblock">
-          <h4>In-plane shear &mdash; member loads <span style="text-transform:none;letter-spacing:0;color:var(--ink-faint)">(Niu &sect;6.4, flat-plate / large R)</span></h4>
-          <div class="rrow"><span class="rl">Frame driving shear <span class="sub">q<sub>fr</sub> = &frac12;(q<sub>b</sub>+q<sub>c</sub>)</span></span><span class="rv" id="r_qfr">&mdash;</span><span class="ru">lbf/in <span class="cellref">[27]</span></span></div>
-          <div class="rrow"><span class="rl">Frame axial &mdash; shear <span class="sub">&Delta;P<sub>fr</sub> = [27]&middot;h/2</span></span><span class="rv" id="r_dPframe">&mdash;</span><span class="ru">lbf <span class="cellref">[28]</span></span></div>
+          <h4>In-plane shear &mdash; member loads <span style="text-transform:none;letter-spacing:0;color:var(--ink-faint)">(Niu &sect;6.5 &middot; summation of redistributed q&rsquo;s)</span></h4>
+          <div class="rrow"><span class="rl">Frame driving drag (gov.) <span class="sub">q&#8321;+q&#8323; &middot; q&#8323; reversed &rarr; adds</span></span><span class="rv" id="r_qfr">&mdash;</span><span class="ru">lbf/in <span class="cellref">[27]</span></span></div>
+          <div class="rrow"><span class="rl">Frame axial &mdash; shear <span class="sub">&Delta;P<sub>fr</sub> = max[(q&#8321;ᵇ+q&#8323;ᵇ)&middot;a, (q&#8321;ᶜ+q&#8323;ᶜ)&middot;b]</span></span><span class="rv" id="r_dPframe">&mdash;</span><span class="ru">lbf <span class="cellref">[28]</span></span></div>
           <div class="rrow"><span class="rl" style="padding-left:10px">&middot; shear stress <span class="sub">[28] / [21]<sub>F</sub></span></span><span class="rv" id="r_dSigFrame">&mdash;</span><span class="ru">ksi</span></div>
-          <div class="rrow"><span class="rl">Sill axial &mdash; shear (gov.) <span class="sub">&Delta;P<sub>si</sub> = max(q<sub>b</sub>,q<sub>c</sub>)&middot;&#8467;/2</span></span><span class="rv" id="r_dPsill">&mdash;</span><span class="ru">lbf <span class="cellref">[29]</span></span></div>
+          <div class="rrow"><span class="rl">Sill axial &mdash; shear (gov.) <span class="sub">&Delta;P<sub>si</sub> = max[(q&#8322;+q&#8323;)&middot;c, (q&#8322;+q&#8323;)&middot;d] &middot; per corner App.&nbsp;A</span></span><span class="rv" id="r_dPsill">&mdash;</span><span class="ru">lbf <span class="cellref">[29]</span></span></div>
           <div class="rrow"><span class="rl" style="padding-left:10px">&middot; shear stress <span class="sub">[29] / [21]<sub>S</sub></span></span><span class="rv" id="r_dSigSill">&mdash;</span><span class="ru">ksi</span></div>
-          <div class="rnote">These loads are calculated using the applied far-field shear stress &mdash; an assumption shown to match FEM results when the door is connected to the skin along <b>two parallel edges</b> (e.g. the upper &amp; lower edges of a cargo door), so that shear is transferred across the cut-out, except along the two other (parallel, unconnected) edges.</div>
+          <div class="rnote"><b>Applicability:</b> these member loads are summed from the redistributed panel shears, which assumes the opening carries <b>no shear at all</b> &mdash; valid only for a cut-out with <b>no shear load transfer across it</b> (a door that cannot transfer in-plane shear, e.g. a plug door on stop fittings). If the door <i>is</i> shear-tied to the skin along two parallel edges, shear crosses the cut-out and these member loads are conservative (FEM comparison shows &asymp; far-field q &times; &frac12;&middot;dimension in that case).</div>
         </div>
 
       </div>
@@ -601,7 +602,7 @@
       <div class="notes">
         <h4>Method &amp; assumptions</h4>
         <ol>
-          <li>Method follows <b>Niu, <i>Airframe Stress Analysis &amp; Sizing</i>, Sections 6.4 &amp; 6.5</b> &mdash; load redistribution around a skin cut-out: fixed-end-moment frame idealisation for cabin-pressure tension, plus flat-plate liquidating-shear for in-plane (flight) shear. <span class="ref">[SCT-025]</span></li>
+          <li>Method follows <b>Niu, <i>Airframe Structural Design</i>, Section 6.5</b> (cf. <i>Airframe Stress Analysis &amp; Sizing</i> Ch.&nbsp;13.6) &mdash; load redistribution around a skin cut-out: fixed-end-moment frame idealisation for cabin-pressure tension, plus Case&nbsp;I panel-shear redistribution with member axial loads by <b>summation of the redistributed shear flows</b>. <span class="ref">[SCT-025]</span></li>
           <li><b>Door capability factors</b> &eta;<sub>h</sub> / &eta;<sub>l</sub> default to <b>0 = full Niu redistribution</b> (the plug door transfers all hoop / longitudinal load to the surrounding frames &amp; sills). Set a non-zero value <i>only</i> with a substantiated door load path &mdash; &eta;<sub>h</sub> &gt; 0 reduces the redistributed frame load and is unconservative without justification. <span class="ref">[deviates from Niu §6.5]</span></li>
           <li><b>General bays (Niu §6.5):</b> upper <span class="cellref">a</span>, lower <span class="cellref">b</span>, forward <span class="cellref">c</span>, aft <span class="cellref">d</span> are independent. Each corner panel (a&times;c, a&times;d, b&times;c, b&times;d) and each side has its own shear / axial &mdash; corner shears, edge redistribution and member loads are evaluated <b>per location</b> and only the <b>governing</b> (worst) value feeds the headline. The original spreadsheet assumed equal corners; the full per-corner / per-side breakdown is tabulated in <b>Appendix&nbsp;A</b> (reference only). Frame &amp; sill member axial loads already reflect the different auxiliary distances (frame &rarr; c/d, sill &rarr; a/b). The default geometry reproduces Niu's worked example: the Case I body-shear chain gives q&#8321;/q&#8322;/q&#8323; = 1108/932/255 lbf/in (bands = 450, independent of P); the Case III pressure chain reproduces Niu at P = 17.2 psi (corner moment 169,198 in&middot;lb, upper-fwd corner 210.2 lbf/in). Headline values are the governing (worst) location.</li>
           <li><b>Section properties</b> &mdash; neutral-axis offset <span class="cellref">ȳ</span> and second moment of area <span class="cellref">I</span> must be derived separately from the built-up frame + bear-strap + skin section. Enter the computed values.</li>
@@ -610,7 +611,7 @@
           <li><b>Body shear (Case I)</b> &mdash; the fuselage skin shear flow is diverted around the cut-out per Niu §6.5. Enter four band shear flows: <span class="cellref">q<sub>a</sub></span> (upper aux), <span class="cellref">q<sub>b</sub></span> (upper main), <span class="cellref">q<sub>c</sub></span> (lower main), <span class="cellref">q<sub>d</sub></span> (lower aux). <b>Equal bands &rarr; uniform shear</b> (cut-out on the neutral axis, Fig 6.5.3/6.5.4) &mdash; validated against Niu's worked example (450 &rarr; q&#8321;/q&#8322;/q&#8323; = 1108/932/255 lbf/in). <b>Unequal bands &rarr; variable shear</b> for off-NA cut-outs (floor / cargo, Fig 6.5.6&ndash;6.5.8): the cut-out height splits <span class="cellref">h<sub>b</sub>=a&middot;h/(a+b)</span>, <span class="cellref">h<sub>c</sub>=b&middot;h/(a+b)</span> and the upper/lower panels redistribute their own band shear. Headline checks use the governing (worst) panel. <span class="ref">[Niu §6.5 Case I]</span></li>
           <li><b>Band shears from vertical load (optional)</b> &mdash; entering a non-zero fuselage vertical shear <span class="cellref">V</span> auto-computes the four bands from a thin-walled circular-fuselage shear distribution <span class="cellref">q=V&middot;cos&theta;/(k&middot;2&pi;R)</span>, taking the <b>effective shear area</b> of the skin as the exact thin-ring value <span class="cellref">k&middot;A = 0.5&middot;A</span> (A = full skin area), giving q<sub>max</sub>=V/&pi;R at the N.A. q is max at the N.A. and &rarr;0 at the crown. The geometry is <b>circumferential</b> &mdash; the cut-out height <span class="cellref">h</span>, bays and the lower-main-sill offset <span class="cellref">y<sub>0</sub></span> are arc distances along the skin from the N.A. &mdash; so each band's arc position is mapped to angle <span class="cellref">&theta;=arc/R</span> (equivalent vertical height <span class="cellref">y=R&middot;sin&theta;</span>) before evaluating q at the band centroid. The four band inputs then become read-only. <b>Bare-skin idealisation &mdash; not necessarily conservative:</b> a uniform-shell first estimate that ignores the cabin floor beam and stringers; in a real fuselage these divert bending and can <b>raise</b> the side-skin shear above the bare-ring value, so replace <span class="cellref">q<sub>a</sub>..q<sub>d</sub></span> with an internal-loads / FEM shear-flow distribution (manual entry, V=0) when available. The shear is assumed to act through the section centroid (an offset adds a torsional shear, not included); centroid sampling is within ~3% of the band average. A band reaching the crown (arc &ge; &frac14;-circle, &theta; &ge; 90&deg;) is flagged and its q forced to 0. Set <span class="cellref">V</span> = 0 to enter the bands manually.</li>
           <li><b>Corner peaking</b> &mdash; the panel shears q&#8321;/q&#8322;/q&#8323; and their gross-area stresses are <b>bay-average</b>; the shear migrates to the stiff main sills, so the actual <b>peak at the cut-out corners is ~+50%</b> (two stringer bays, 3:1) up to <b>~+67%</b> (three bays, 5:3:1). Apply <b>~1.5&ndash;1.67&times;</b> to the average for local peak skin stress / corner-detail fatigue.</li>
-          <li><b>In-plane shear member axial (Niu &sect;6.4, flat-plate / large R)</b> &mdash; shear redistributing around the cut-out develops cap (liquidating) axial in the bounding members, axial = q &times; &frac12;(cut-out dimension): <span class="cellref">&Delta;P<sub>frame</sub> = q<sub>fr</sub>&middot;h/2</span> with <span class="cellref">q<sub>fr</sub> = &frac12;(q<sub>b</sub>+q<sub>c</sub>)</span>; <span class="cellref">&Delta;P<sub>sill</sub> = q<sub>b</sub>&middot;&#8467;/2</span> (upper) or <span class="cellref">q<sub>c</sub>&middot;&#8467;/2</span> (lower), governing = max. It is <b>bay-independent</b> (only &#8467;, h, the bands and member areas matter), <b>peaks at the cut-out corners</b>, and reduces to <span class="cellref">q&#8320;&middot;&frac12;(dim)</span> when bands are equal. The load is &plusmn; (tension on one diagonal corner pair); the <b>tension</b> value is taken and <b>added to the pressure member axial</b>, so the Member Stresses cards read the combined operating member tension. Shear axial is pure cap tension &mdash; it adds no extra bending. <span class="ref">[Niu &sect;6.4]</span></li>
+          <li><b>In-plane shear member axial (Niu &sect;6.5, summation of the redistributed q&rsquo;s; cf. ASAS 13.6)</b> &mdash; the member cap (liquidating) axial is summed from the redistributed panel shears acting on the member&rsquo;s two sides. Beyond each cut-out corner the drags of the raised side panel and the corner panel (whose flow is <b>reversed</b>, so the two <b>add</b>) build the axial over the adjacent bay to its <b>peak at the corner</b>: <span class="cellref">&Delta;P<sub>sill</sub> = (q&#8322;+q&#8323;)&middot;c</span> (fwd) or <span class="cellref">&middot;d</span> (aft), per band (b upper / c lower); <span class="cellref">&Delta;P<sub>frame</sub> = (q&#8321;ᵇ+q&#8323;ᵇ)&middot;a</span> (upper) or <span class="cellref">(q&#8321;ᶜ+q&#8323;ᶜ)&middot;b</span> (lower). All per-corner values are tabulated in <b>Appendix&nbsp;A</b>; the governing (largest) feeds <span class="cellref">[28],[29]</span>. The load is &plusmn; (tension at one corner of a diagonal pair, compression at the opposite); the <b>tension</b> value is taken and <b>added to the pressure member axial</b>, so the Member Stresses cards read the combined operating member tension. Shear axial is treated as pure cap tension &mdash; no extra bending. <b>Applicability: this method assumes the opening carries no shear and is valid only for cut-outs with no shear load transfer across them</b> (a door that cannot transfer in-plane shear, e.g. a plug door on stop fittings). A door shear-tied to the skin along two parallel edges carries shear across the cut-out, reducing both the panel redistribution and the member loads (FEM comparison &asymp; far-field q &times; &frac12;&middot;dimension in that case) &mdash; these results are then conservative. <span class="ref">[Niu &sect;6.5 / ASAS 13.6]</span></li>
           <li><b>Damage-tolerance use:</b> enter <span class="cellref">P</span> as the operating cabin-pressure differential and the body-shear bands at the typical (1g) flight level &mdash; results are operating stresses for crack-growth / residual-strength work, not ultimate design loads.</li>
         </ol>
       </div>
@@ -650,6 +651,15 @@
           <div class="rrow"><span class="rl">Sill &mdash; lower <span class="sub">P<sub>LT</sub> + 0.5&middot;[10]/b</span></span><span class="rv" id="r_PcoSlo">&mdash;</span><span class="ru">lbf</span></div>
         </div>
 
+        <div class="rblock">
+          <h4>Case I member shear axial per corner <span style="text-transform:none;letter-spacing:0;color:var(--ink-faint)">(lbf &middot; &rarr; governing [28],[29])</span></h4>
+          <div class="twohdr fs"><span></span><span>Fwd</span><span>Aft</span></div>
+          <div class="rrow fs"><span class="rl">Upper sill <span class="sub">(q&#8322;ᵇ+q&#8323;ᵇ)&middot;c &middot; &middot;d</span></span><span class="rv" id="r_dsiUF">&mdash;</span><span class="rv" id="r_dsiUA">&mdash;</span></div>
+          <div class="rrow fs"><span class="rl">Lower sill <span class="sub">(q&#8322;ᶜ+q&#8323;ᶜ)&middot;c &middot; &middot;d</span></span><span class="rv" id="r_dsiLF">&mdash;</span><span class="rv" id="r_dsiLA">&mdash;</span></div>
+          <div class="twohdr fs" style="margin-top:6px"><span></span><span>Upper</span><span>Lower</span></div>
+          <div class="rrow fs"><span class="rl">Frame (fwd = aft) <span class="sub">(q&#8321;ᵇ+q&#8323;ᵇ)&middot;a &middot; (q&#8321;ᶜ+q&#8323;ᶜ)&middot;b</span></span><span class="rv" id="r_dfrU">&mdash;</span><span class="rv" id="r_dfrL">&mdash;</span></div>
+        </div>
+
       </div>
       <div class="notes" style="margin-top:11px">
         <h4>Appendix notes</h4>
@@ -661,7 +671,7 @@
     </div>
 
     <div class="footer">
-      <span>SCT-025 &middot; Fuselage Door Cut-out Load Analysis &middot; Niu §6.4 / §6.5</span>
+      <span>SCT-025 &middot; Fuselage Door Cut-out Load Analysis &middot; Niu §6.5</span>
       <span id="ts">Interactive analysis sheet</span>
     </div>
 
@@ -800,18 +810,26 @@
     var qPanelMax = Math.max(Math.abs(q1b),Math.abs(q1c),Math.abs(q2b),Math.abs(q2c),Math.abs(q3b),Math.abs(q3c));
     var tauMax = qPanelMax/v.tPanel/1000;
 
-    // --- In-plane shear member axial (Niu §6.4 flat-plate / large R; bay-independent) ---
-    // Shear redistributing around the cut-out develops cap (liquidating) axial in the
-    // bounding members: ΔP = q · ½(cut-out dimension), peak at corners. Take tension for DTA.
-    var q_fr = 0.5*(v.qb + v.qc);               // frame driving shear = ½(q_b+q_c)
-    var dPframe = Math.abs(q_fr*v.h/2);         // frame cap axial from shear
-    var dPsillU = Math.abs(v.qb*v.L/2);         // upper sill axial
-    var dPsillL = Math.abs(v.qc*v.L/2);         // lower sill axial
+    // --- In-plane shear member axial (Niu §6.5 "summation of q's" / ASAS 13.6) ---
+    // Member cap axial summed from the REDISTRIBUTED flows: beyond each cut-out
+    // corner the member lies between the raised side panel and the corner panel
+    // (q3 is stored in the reversed sense, so the two drags ADD); axial builds over
+    // the adjacent bay to its peak at the corner. ± on diagonal corner pairs —
+    // tension taken for DTA. Valid ONLY for a cut-out with NO shear transfer across
+    // it (door cannot carry in-plane shear); a shear-tied door reduces these loads.
+    var dPsi_UF = Math.abs((q2b+q3b)*v.c), dPsi_UA = Math.abs((q2b+q3b)*v.d);
+    var dPsi_LF = Math.abs((q2c+q3c)*v.c), dPsi_LA = Math.abs((q2c+q3c)*v.d);
+    var dPsillU = Math.max(dPsi_UF, dPsi_UA);   // upper sill (gov of fwd/aft corner)
+    var dPsillL = Math.max(dPsi_LF, dPsi_LA);   // lower sill
     var dPsill  = Math.max(dPsillU, dPsillL);   // governing sill axial
+    var dPfrU = Math.abs((q1b+q3b)*v.a);        // frame axial at upper corners
+    var dPfrL = Math.abs((q1c+q3c)*v.b);        // frame axial at lower corners
+    var dPframe = Math.max(dPfrU, dPfrL);       // governing frame axial
+    var q_fr = (dPfrU>=dPfrL)? (q1b+q3b) : (q1c+q3c);  // governing frame driving drag [27]
     var dSigFrame = dPframe/frTotA/1000;        // ksi (shear contribution)
     var dSigSill  = dPsill /siTotA/1000;
 
-    // --- Member stresses (ksi): pressure (Case III) + in-plane shear (§6.4), combined ---
+    // --- Member stresses (ksi): pressure (Case III) + in-plane shear (§6.5), combined ---
     var Nfr = PcoFtot + dPframe;                // combined frame axial (tension + tension)
     var Nsi = PcoStot + dPsill;                 // combined sill axial
     var frameHoop = Nfr/frTotA/1000;
@@ -824,6 +842,8 @@
     return {Hoop:Hoop,Long:Long,K1:K1,K2:K2,Mvb:Mvb,Mhb:Mhb,MvC:MvC,MhC:MhC,MvA:MvA,MhA:MhA,Madj:Madj,
       hb:hb,hc:hc,q1b:q1b,q1c:q1c,q2b:q2b,q2c:q2c,q3b:q3b,q3c:q3c,
       q_fr:q_fr,dPframe:dPframe,dPsill:dPsill,dSigFrame:dSigFrame,dSigSill:dSigSill,
+      dPsi_UF:dPsi_UF,dPsi_UA:dPsi_UA,dPsi_LF:dPsi_LF,dPsi_LA:dPsi_LA,
+      dPsillU:dPsillU,dPsillL:dPsillL,dPfrU:dPfrU,dPfrL:dPfrL,
       qcUF:qcUF,qcUA:qcUA,qcLF:qcLF,qcLA:qcLA,qCorner:qCorner,
       qHup:qHup,qHlo:qHlo,qLfwd:qLfwd,qLaft:qLaft,qSill:qSill,qEdge:qEdge,
       P_HT:P_HT,P_LT:P_LT,PcoF_fwd:PcoF_fwd,PcoF_aft:PcoF_aft,PcoS_up:PcoS_up,PcoS_lo:PcoS_lo,
@@ -1360,22 +1380,23 @@
     pq(mxL,myT,'q₃ᵇ',r.q3b,'26');
     pq(mxL,myB,'q₃ᶜ',r.q3c,'26');
 
-    // section 6.4 member cap axial: peak-at-corner triangles + values
+    // §6.5 member cap axial (summation of redistributed q's): builds over the
+    // adjacent/aux bays, peak AT the cut-out corners.
     var tw=6, dmy=(ys[1]+ys[2])/2;
-    // fwd frame: axial builds from door mid-height to the corners
-    el.push('<polygon points="'+xs[1]+','+dmy+' '+(xs[1]-tw)+','+ys[1]+' '+xs[1]+','+ys[1]+'" fill="var(--blue)" opacity="0.30"/>');
-    el.push('<polygon points="'+xs[1]+','+dmy+' '+(xs[1]-tw)+','+ys[2]+' '+xs[1]+','+ys[2]+'" fill="var(--blue)" opacity="0.30"/>');
+    // fwd frame: axial builds over the aux bays a (top) and b (bottom) to the corners
+    el.push('<polygon points="'+xs[1]+','+ys[0]+' '+(xs[1]-tw)+','+ys[1]+' '+xs[1]+','+ys[1]+'" fill="var(--blue)" opacity="0.30"/>');
+    el.push('<polygon points="'+xs[1]+','+ys[3]+' '+(xs[1]-tw)+','+ys[2]+' '+xs[1]+','+ys[2]+'" fill="var(--blue)" opacity="0.30"/>');
     // ΔP_fr label INSIDE the door (right of the fwd frame) so the fwd-panel q₂ᵇ
     // label has the bay to itself; white backing lifts it off the door hatch.
     var frLx=xs[1]+11;
     el.push('<rect x="'+(xs[1]+3)+'" y="'+(dmy-52)+'" width="15" height="104" fill="#FDFDFB" opacity="0.9"/>');
     el.push('<text x="'+frLx+'" y="'+dmy+'" text-anchor="middle" font-size="8.6" fill="var(--ink)" transform="rotate(-90 '+frLx+' '+dmy+')">ΔP<tspan font-size="6.8" dy="1.5">fr</tspan><tspan dy="-1.5"> = '+fmt(r.dPframe,0,true)+'</tspan> <tspan font-size="6.8" fill="var(--ink-faint)">[28]</tspan></text>');
-    // governing sill: axial builds from door mid-width to the corners
-    var govUp = Math.abs(v.qb)>=Math.abs(v.qc);
+    // governing sill: axial builds over the fwd (c) and aft (d) bays to the corners
+    var govUp = r.dPsillU >= r.dPsillL;
     var syl = govUp? ys[1] : ys[2];
     var soff = govUp? -tw : tw;
-    el.push('<polygon points="'+mxC+','+syl+' '+xs[1]+','+(syl+soff)+' '+xs[1]+','+syl+'" fill="var(--blue)" opacity="0.30"/>');
-    el.push('<polygon points="'+mxC+','+syl+' '+xs[2]+','+(syl+soff)+' '+xs[2]+','+syl+'" fill="var(--blue)" opacity="0.30"/>');
+    el.push('<polygon points="'+xs[0]+','+syl+' '+xs[1]+','+(syl+soff)+' '+xs[1]+','+syl+'" fill="var(--blue)" opacity="0.30"/>');
+    el.push('<polygon points="'+xs[3]+','+syl+' '+xs[2]+','+(syl+soff)+' '+xs[2]+','+syl+'" fill="var(--blue)" opacity="0.30"/>');
     // ΔP_si value inside the door near the governing sill (clear of the q₁ panel
     // labels above/below the cut-out); triangles already mark which sill governs.
     var slyText = govUp ? ys[1]+15 : ys[2]-15;
@@ -1681,39 +1702,58 @@
     e.push('</svg>'); return e.join("");
   }
 
-  // D9: unbalanced shear along the door edge → cap axial in the member
+  // D9: cap axial by summation of the redistributed shears (no shear across door)
   function drawS9(v,r){
-    var e=[]; e.push('<svg viewBox="0 0 300 208" xmlns="'+NS+'" font-family="var(--mono)">');
+    var e=[]; e.push('<svg viewBox="0 0 300 214" xmlns="'+NS+'" font-family="var(--mono)">');
     e.push('<defs>'+hDef('hD9')+aDef('aD9','var(--load)')+'</defs>');
-    e.push('<text x="14" y="15" font-size="8" letter-spacing=".06em" fill="var(--blue)" font-weight="600">UPPER MAIN SILL — CAP AXIAL FROM SHEAR (§6.4)</text>');
-    var x0=45,x1=255,sy=62;
-    // skin panel above (carries band shear) / door below (no skin)
-    e.push('<rect x="'+x0+'" y="30" width="'+(x1-x0)+'" height="'+(sy-30)+'" fill="var(--blue)" opacity="0.05"/>');
-    e.push('<rect x="'+x0+'" y="'+sy+'" width="'+(x1-x0)+'" height="44" fill="url(#hD9)"/>');
-    e.push('<text x="150" y="'+(sy+26)+'" text-anchor="middle" font-size="7.8" fill="var(--ink-soft)">DOOR — no skin, no balancing shear</text>');
-    // sill member + corner frames
-    e.push('<line x1="'+x0+'" y1="'+sy+'" x2="'+x1+'" y2="'+sy+'" stroke="var(--blue)" stroke-width="3"/>');
-    e.push('<line x1="'+x0+'" y1="26" x2="'+x0+'" y2="108" stroke="var(--blue)" stroke-width="1.6" opacity="0.6"/>');
-    e.push('<line x1="'+x1+'" y1="26" x2="'+x1+'" y2="108" stroke="var(--blue)" stroke-width="1.6" opacity="0.6"/>');
-    e.push('<text x="'+x0+'" y="118" text-anchor="middle" font-size="7.4" fill="var(--blue)">frame</text>');
-    e.push('<text x="'+x1+'" y="118" text-anchor="middle" font-size="7.4" fill="var(--blue)">frame</text>');
-    // one-sided skin shear drag along the member
-    for(var k=0;k<5;k++){ var ax=x0+20+k*(x1-x0-40)/4;
-      e.push('<line x1="'+(ax-9)+'" y1="'+(sy-8)+'" x2="'+(ax+9)+'" y2="'+(sy-8)+'" stroke="var(--load)" stroke-width="1.3" marker-end="url(#aD9)"/>');
+    e.push('<text x="14" y="15" font-size="8" letter-spacing=".05em" fill="var(--blue)" font-weight="600">LOWER MAIN SILL — SUMMATION OF REDISTRIBUTED q&rsquo;s</text>');
+    var xAF=32,xC1=104,xC2=196,xAA=268, sy=76, pT=36, pB=112;
+    // door (no skin) above the sill between the corners; side panels + corner panels
+    e.push('<rect x="'+xAF+'" y="'+pT+'" width="'+(xC1-xAF)+'" height="'+(sy-pT)+'" fill="var(--blue)" opacity="0.08"/>');
+    e.push('<rect x="'+xC2+'" y="'+pT+'" width="'+(xAA-xC2)+'" height="'+(sy-pT)+'" fill="var(--blue)" opacity="0.08"/>');
+    e.push('<rect x="'+xAF+'" y="'+sy+'" width="'+(xC1-xAF)+'" height="'+(pB-sy)+'" fill="var(--blue)" opacity="0.04"/>');
+    e.push('<rect x="'+xC2+'" y="'+sy+'" width="'+(xAA-xC2)+'" height="'+(pB-sy)+'" fill="var(--blue)" opacity="0.04"/>');
+    e.push('<rect x="'+xC1+'" y="'+pT+'" width="'+(xC2-xC1)+'" height="'+(sy-pT)+'" fill="url(#hD9)"/>');
+    e.push('<text x="150" y="'+((pT+sy)/2+3)+'" text-anchor="middle" font-size="7.8" fill="var(--ink-soft)">DOOR — no shear across</text>');
+    // panel labels
+    e.push('<text x="'+((xAF+xC1)/2)+'" y="'+(pT+12)+'" text-anchor="middle" font-size="7.8" fill="var(--ink)">q₂ᶜ</text>');
+    e.push('<text x="'+((xC2+xAA)/2)+'" y="'+(pT+12)+'" text-anchor="middle" font-size="7.8" fill="var(--ink)">q₂ᶜ</text>');
+    e.push('<text x="'+((xAF+xC1)/2)+'" y="'+(pB-6)+'" text-anchor="middle" font-size="7.8" fill="var(--ink)">q₃ᶜ (rev.)</text>');
+    e.push('<text x="'+((xC2+xAA)/2)+'" y="'+(pB-6)+'" text-anchor="middle" font-size="7.8" fill="var(--ink)">q₃ᶜ (rev.)</text>');
+    e.push('<text x="150" y="'+(pB-6)+'" text-anchor="middle" font-size="7.8" fill="var(--ink)">q₁ᶜ</text>');
+    // sill + edge frames + adjacent frames
+    e.push('<line x1="'+xAF+'" y1="'+sy+'" x2="'+xAA+'" y2="'+sy+'" stroke="var(--blue)" stroke-width="3"/>');
+    e.push('<line x1="'+xC1+'" y1="'+pT+'" x2="'+xC1+'" y2="'+pB+'" stroke="var(--blue)" stroke-width="1.8"/>');
+    e.push('<line x1="'+xC2+'" y1="'+pT+'" x2="'+xC2+'" y2="'+pB+'" stroke="var(--blue)" stroke-width="1.8"/>');
+    e.push('<line x1="'+xAF+'" y1="'+pT+'" x2="'+xAF+'" y2="'+pB+'" stroke="var(--blue)" stroke-width="1.2" opacity="0.45"/>');
+    e.push('<line x1="'+xAA+'" y1="'+pT+'" x2="'+xAA+'" y2="'+pB+'" stroke="var(--blue)" stroke-width="1.2" opacity="0.45"/>');
+    e.push('<text x="'+xAF+'" y="'+(pB+10)+'" text-anchor="middle" font-size="6.8" fill="var(--ink-faint)">adj. frame</text>');
+    e.push('<text x="'+xC1+'" y="'+(pB+10)+'" text-anchor="middle" font-size="6.8" fill="var(--blue)">edge frame</text>');
+    e.push('<text x="'+xC2+'" y="'+(pB+10)+'" text-anchor="middle" font-size="6.8" fill="var(--blue)">edge frame</text>');
+    e.push('<text x="'+xAA+'" y="'+(pB+10)+'" text-anchor="middle" font-size="6.8" fill="var(--ink-faint)">adj. frame</text>');
+    // drag arrows: outer bays toward the corners (q2+q3 add), reversed across the door (q1)
+    [[xAF+12,xC1-10,1],[xAA-12,xC2+10,-1]].forEach(function(sg){
+      for(var k=0;k<2;k++){ var ax=sg[0]+(sg[1]-sg[0])*(k+0.5)/2;
+        e.push('<line x1="'+(ax-8*sg[2])+'" y1="'+(sy-7)+'" x2="'+(ax+8*sg[2])+'" y2="'+(sy-7)+'" stroke="var(--load)" stroke-width="1.2" marker-end="url(#aD9)"/>');
+        e.push('<line x1="'+(ax-8*sg[2])+'" y1="'+(sy+8)+'" x2="'+(ax+8*sg[2])+'" y2="'+(sy+8)+'" stroke="var(--load)" stroke-width="1.2" marker-end="url(#aD9)"/>');
+      }
+    });
+    for(var k2=0;k2<3;k2++){ var ax2=xC1+18+(xC2-xC1-36)*k2/2;
+      e.push('<line x1="'+(ax2+7)+'" y1="'+(sy+8)+'" x2="'+(ax2-7)+'" y2="'+(sy+8)+'" stroke="var(--load)" stroke-width="1.2" marker-end="url(#aD9)"/>');
     }
-    e.push('<text x="150" y="'+(sy-16)+'" text-anchor="middle" font-size="7.8" fill="var(--load)">panel shear q — unbalanced along the door edge</text>');
-    // axial (cap load) diagram: 0 at mid-span, ±q·ℓ/2 at the corners
-    var by=160, amp=26;
-    e.push('<text x="14" y="140" font-size="7.8" fill="var(--ink-soft)">member axial (cap load):</text>');
-    e.push('<line x1="'+x0+'" y1="'+by+'" x2="'+x1+'" y2="'+by+'" stroke="var(--ink-faint)" stroke-width="0.9"/>');
-    e.push('<polygon points="'+x0+','+by+' 150,'+by+' '+x0+','+(by+amp)+'" fill="var(--blue)" opacity="0.14" stroke="var(--blue)" stroke-opacity="0.4" stroke-width="0.7"/>');
-    e.push('<polygon points="150,'+by+' '+x1+','+by+' '+x1+','+(by-amp)+'" fill="var(--blue)" opacity="0.30" stroke="var(--blue)" stroke-opacity="0.5" stroke-width="0.7"/>');
-    e.push('<line x1="'+x0+'" y1="'+(by+amp)+'" x2="'+x1+'" y2="'+(by-amp)+'" stroke="var(--blue)" stroke-width="1.1"/>');
-    e.push('<text x="'+(x0+18)+'" y="'+(by+amp-3)+'" font-size="8" fill="var(--ink-soft)">C</text>');
-    e.push('<text x="'+(x1-24)+'" y="'+(by-amp+11)+'" font-size="8" fill="var(--ink)" font-weight="600">T</text>');
-    e.push('<text x="150" y="'+(by+12)+'" text-anchor="middle" font-size="7.2" fill="var(--ink-faint)">0 at mid-span</text>');
-    e.push('<text x="'+x1+'" y="'+(by-amp-6)+'" text-anchor="end" font-size="8.4" fill="var(--blue)" font-weight="600">ΔP<tspan font-size="6.6" dy="1.5">si</tspan><tspan dy="-1.5"> = q·ℓ/2 = '+fmt(r.dPsill,0,true)+' [29]</tspan></text>');
-    e.push('<text x="150" y="200" text-anchor="middle" font-size="7.8" fill="var(--ink-soft)">frame likewise over h: ΔP<tspan font-size="6.4" dy="1.5">fr</tspan><tspan dy="-1.5"> = ½(q</tspan><tspan font-size="6.4" dy="1.5">b</tspan><tspan dy="-1.5">+q</tspan><tspan font-size="6.4" dy="1.5">c</tspan><tspan dy="-1.5">)·h/2 = '+fmt(r.dPframe,0,true)+' [28]</tspan></text>');
+    // axial diagram: builds over c, peaks at fwd corner, reverses across door, peaks at aft corner
+    var by=168, amp=26;
+    var ratio = (r.dPsi_LF>0)? Math.min(1, r.dPsi_LA/r.dPsi_LF) : 0.85;
+    var amp2 = amp*(isFinite(ratio)&&ratio>0 ? ratio : 0.85);
+    var xz = xC1 + (xC2-xC1)*amp/(amp+amp2);   // zero crossing across the door
+    e.push('<text x="14" y="146" font-size="7.8" fill="var(--ink-soft)">sill axial (cap load):</text>');
+    e.push('<line x1="'+xAF+'" y1="'+by+'" x2="'+xAA+'" y2="'+by+'" stroke="var(--ink-faint)" stroke-width="0.9"/>');
+    e.push('<polygon points="'+xAF+','+by+' '+xC1+','+(by-amp)+' '+xz+','+by+'" fill="var(--blue)" opacity="0.30" stroke="var(--blue)" stroke-opacity="0.5" stroke-width="0.7"/>');
+    e.push('<polygon points="'+xz+','+by+' '+xC2+','+(by+amp2)+' '+xAA+','+by+'" fill="var(--blue)" opacity="0.14" stroke="var(--blue)" stroke-opacity="0.4" stroke-width="0.7"/>');
+    e.push('<text x="'+(xC1+4)+'" y="'+(by-amp-5)+'" font-size="8" fill="var(--blue)" font-weight="600">T  (q₂ᶜ+q₃ᶜ)·c = '+fmt(r.dPsi_LF,0,true)+'</text>');
+    e.push('<text x="'+(xC2+8)+'" y="'+(by+amp2+3)+'" font-size="8" fill="var(--ink-soft)">C  ·d = '+fmt(r.dPsi_LA,0,true)+'</text>');
+    e.push('<text x="'+xAA+'" y="'+(by-8)+'" text-anchor="end" font-size="7" fill="var(--ink-faint)">gov → [29]</text>');
+    e.push('<text x="150" y="206" text-anchor="middle" font-size="7.8" fill="var(--ink-soft)">frame likewise: ΔP<tspan font-size="6.4" dy="1.5">fr</tspan><tspan dy="-1.5"> = (q₁+q₃)·a or ·b = '+fmt(r.dPframe,0,true)+' [28]</tspan></text>');
     e.push('</svg>'); return e.join("");
   }
 
@@ -1866,6 +1906,9 @@
     setText("r_dSigFrame", fmt(r.dSigFrame,2));
     setText("r_dPsill", fmt(r.dPsill,0,true));
     setText("r_dSigSill", fmt(r.dSigSill,2));
+    setText("r_dsiUF", fmt(r.dPsi_UF,0,true)); setText("r_dsiUA", fmt(r.dPsi_UA,0,true));
+    setText("r_dsiLF", fmt(r.dPsi_LF,0,true)); setText("r_dsiLA", fmt(r.dPsi_LA,0,true));
+    setText("r_dfrU", fmt(r.dPfrU,0,true)); setText("r_dfrL", fmt(r.dPfrL,0,true));
   }
 
   // ---- Wire up ----
