@@ -1,0 +1,2407 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beam Calculator &mdash; Euler &amp; Timoshenko</title>
+    <style>
+        :root {
+            --bg: #f1f5f9;
+            --panel: #ffffff;
+            --panel-2: #f8fafc;
+            --border: #e2e8f0;
+            --border-2: #cbd5e1;
+            --text: #0f172a;
+            --muted: #64748b;
+            --primary: #2563eb;
+            --primary-dk: #1d4ed8;
+            --accent: #ea580c;
+            --green: #059669;
+            --red: #dc2626;
+            --amber: #d97706;
+            --shadow: 0 1px 2px rgba(15, 23, 42, .06), 0 4px 12px rgba(15, 23, 42, .06);
+            --radius: 10px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            font-size: 14px;
+            line-height: 1.45;
+        }
+
+        /* ---------- Header ---------- */
+        header.app {
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            background: #0f172a;
+            color: #f8fafc;
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, .25);
+        }
+
+        header.app h1 {
+            font-size: 17px;
+            margin: 0;
+            font-weight: 700;
+            letter-spacing: .2px;
+            white-space: nowrap;
+        }
+
+        header.app h1 span {
+            color: var(--accent);
+        }
+
+        .hdr-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .hdr-group>label.cap {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            color: #94a3b8;
+            font-weight: 700;
+        }
+
+        .spacer {
+            flex: 1;
+        }
+
+        /* ---------- Segmented toggle ---------- */
+        .seg {
+            display: inline-flex;
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 2px;
+        }
+
+        .seg button {
+            background: transparent;
+            border: 0;
+            color: #cbd5e1;
+            padding: 5px 12px;
+            font-size: 12.5px;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: inherit;
+            white-space: nowrap;
+        }
+
+        .seg button.active {
+            background: var(--primary);
+            color: #fff;
+        }
+
+        .seg button:hover:not(.active) {
+            background: #334155;
+            color: #fff;
+        }
+
+        @media (max-width: 520px) {
+            header.app {
+                gap: 8px;
+                padding: 8px 10px;
+            }
+
+            header.app h1 small {
+                display: none;
+            }
+
+            .hdr-group {
+                flex-wrap: wrap;
+            }
+
+            .seg button {
+                padding: 4px 8px;
+                font-size: 11.5px;
+            }
+        }
+
+        /* ---------- Layout ---------- */
+        .wrap {
+            display: grid;
+            grid-template-columns: 468px minmax(0, 1fr);
+            gap: 16px;
+            padding: 16px;
+            align-items: start;
+        }
+
+        @media (max-width: 1100px) {
+            .wrap {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .col-left {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            min-width: 0;
+            position: sticky;
+            top: 62px;
+            max-height: calc(100vh - 78px);
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        @media (max-width: 1100px) {
+            .col-left {
+                position: static;
+                max-height: none;
+                overflow: visible;
+            }
+        }
+
+        .col-right {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            min-width: 0;
+        }
+
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+
+        .card>h2 {
+            margin: 0;
+            font-size: 12.5px;
+            text-transform: uppercase;
+            letter-spacing: .07em;
+            font-weight: 700;
+            color: #334155;
+            padding: 10px 14px;
+            background: var(--panel-2);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card>h2 .pill {
+            font-size: 10.5px;
+            letter-spacing: 0;
+            text-transform: none;
+            background: #e0e7ff;
+            color: #3730a3;
+            padding: 1px 8px;
+            border-radius: 999px;
+            font-weight: 600;
+        }
+
+        .card .body {
+            padding: 12px 14px;
+        }
+
+        .card .body.tight {
+            padding: 8px;
+        }
+
+        /* ---------- Inputs ---------- */
+        input,
+        select,
+        button {
+            font-family: inherit;
+            font-size: 13px;
+            color: var(--text);
+        }
+
+        input[type=number],
+        input[type=text],
+        select {
+            width: 100%;
+            padding: 5px 6px;
+            border: 1px solid var(--border-2);
+            border-radius: 6px;
+            background: #fff;
+            min-width: 0;
+        }
+
+        input[type=number]:focus,
+        select:focus,
+        input[type=text]:focus {
+            outline: 2px solid rgba(37, 99, 235, .35);
+            border-color: var(--primary);
+        }
+
+        input:disabled,
+        select:disabled {
+            background: #f1f5f9;
+            color: #94a3b8;
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .field label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--muted);
+        }
+
+        .row {
+            display: flex;
+            gap: 8px;
+            align-items: flex-end;
+        }
+
+        .btn {
+            background: var(--primary);
+            color: #fff;
+            border: 0;
+            border-radius: 7px;
+            padding: 6px 12px;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .btn:hover {
+            background: var(--primary-dk);
+        }
+
+        .btn.ghost {
+            background: #fff;
+            color: #334155;
+            border: 1px solid var(--border-2);
+        }
+
+        .btn.ghost:hover {
+            background: #f1f5f9;
+        }
+
+        .btn.dark {
+            background: #334155;
+        }
+
+        .btn.dark:hover {
+            background: #1e293b;
+        }
+
+        .btn.sm {
+            padding: 4px 9px;
+            font-size: 12px;
+        }
+
+        .btn.icon {
+            padding: 3px 8px;
+            background: #fff;
+            color: var(--red);
+            border: 1px solid var(--border-2);
+            font-weight: 700;
+            line-height: 1.2;
+        }
+
+        .btn.icon:hover {
+            background: #fee2e2;
+            border-color: #fca5a5;
+        }
+
+        /* ---------- Tables ---------- */
+        table.grid {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12.5px;
+        }
+
+        table.grid th {
+            text-align: left;
+            font-size: 11px;
+            text-transform: none;
+            letter-spacing: .01em;
+            color: var(--muted);
+            font-weight: 700;
+            padding: 4px 4px;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+
+        table.grid td {
+            padding: 3px 3px;
+            vertical-align: middle;
+        }
+
+        table.grid tbody tr:nth-child(even) {
+            background: #fbfdff;
+        }
+
+        table.grid td input,
+        table.grid td select {
+            padding: 4px 5px;
+            font-size: 12.5px;
+        }
+
+        .tbl-scroll {
+            overflow-x: auto;
+        }
+
+        table.data {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        table.data th {
+            background: var(--panel-2);
+            text-align: right;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+            color: var(--muted);
+            font-weight: 700;
+            padding: 7px 10px;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+
+        table.data th:first-child,
+        table.data td:first-child {
+            text-align: left;
+        }
+
+        table.data td {
+            padding: 6px 10px;
+            text-align: right;
+            border-bottom: 1px solid #f1f5f9;
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+        }
+
+        table.data tbody tr:hover {
+            background: #f8fafc;
+        }
+
+        .mono {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        }
+
+        /* ---------- Summary tiles ---------- */
+        .tiles {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
+            gap: 10px;
+        }
+
+        .tile {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 10px 12px;
+            box-shadow: var(--shadow);
+        }
+
+        .tile .k {
+            font-size: 10.5px;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            color: var(--muted);
+            font-weight: 700;
+        }
+
+        .tile .v {
+            font-size: 19px;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            margin-top: 2px;
+            letter-spacing: -.2px;
+        }
+
+        .tile .u {
+            font-size: 11px;
+            color: var(--muted);
+            font-weight: 600;
+        }
+
+        .tile .sub {
+            font-size: 11.5px;
+            color: var(--muted);
+            margin-top: 1px;
+        }
+
+        .tile.eu {
+            border-left: 3px solid var(--primary);
+        }
+
+        .tile.ti {
+            border-left: 3px solid var(--accent);
+        }
+
+        /* ---------- Messages ---------- */
+        .msg {
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 12.5px;
+            margin-bottom: 8px;
+            border: 1px solid;
+        }
+
+        .msg.err {
+            background: #fef2f2;
+            border-color: #fecaca;
+            color: #991b1b;
+        }
+
+        .msg.warn {
+            background: #fffbeb;
+            border-color: #fde68a;
+            color: #92400e;
+        }
+
+        .msg.ok {
+            background: #ecfdf5;
+            border-color: #a7f3d0;
+            color: #065f46;
+        }
+
+        .note {
+            font-size: 11.5px;
+            color: var(--muted);
+        }
+
+        .legend {
+            display: flex;
+            gap: 14px;
+            align-items: center;
+            flex-wrap: wrap;
+            font-size: 11.5px;
+            color: var(--muted);
+            font-weight: 600;
+        }
+
+        .legend i {
+            display: inline-block;
+            width: 16px;
+            height: 3px;
+            border-radius: 2px;
+            margin-right: 5px;
+            vertical-align: middle;
+        }
+
+        /* ---------- Charts ---------- */
+        .charts {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(430px, 1fr));
+            gap: 14px;
+        }
+
+        @media (max-width: 900px) {
+            .charts {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .chart-host svg {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+
+        #schematic svg {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+
+        /* ---------- Modal ---------- */
+        .modal-bg {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, .55);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+            padding: 20px;
+        }
+
+        .modal-bg.open {
+            display: flex;
+        }
+
+        .modal {
+            background: #fff;
+            border-radius: 12px;
+            max-width: 900px;
+            width: 100%;
+            max-height: 85vh;
+            overflow: auto;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, .3);
+        }
+
+        .modal h3 {
+            margin: 0;
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--border);
+            font-size: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .modal .mbody {
+            padding: 16px 18px;
+        }
+
+        details.help {
+            font-size: 12.5px;
+            color: #334155;
+        }
+
+        details.help summary {
+            cursor: pointer;
+            font-weight: 700;
+            color: var(--primary);
+            font-size: 12px;
+            padding: 2px 0;
+        }
+
+        details.help p,
+        details.help ul {
+            margin: 6px 0;
+        }
+
+        details.help li {
+            margin-bottom: 3px;
+        }
+
+        code.k {
+            background: #f1f5f9;
+            padding: 1px 5px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .foot {
+            padding: 4px 18px 26px;
+            font-size: 11.5px;
+            color: var(--muted);
+            text-align: center;
+        }
+
+        @media print {
+
+            header.app,
+            .col-left,
+            .noprint {
+                display: none !important;
+            }
+
+            .wrap {
+                grid-template-columns: 1fr;
+                padding: 0;
+            }
+
+            body {
+                background: #fff;
+            }
+
+            .card {
+                box-shadow: none;
+                break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <header class="app">
+        <h1>Beam<span>Calc</span> &nbsp;<small style="font-weight:500;font-size:12px;color:#94a3b8">Multi-segment beam
+                analysis</small></h1>
+
+        <div class="hdr-group">
+            <label class="cap">Theory</label>
+            <div class="seg" id="theorySeg">
+                <button data-theory="euler">Euler&ndash;Bernoulli</button>
+                <button data-theory="timoshenko">Timoshenko</button>
+                <button data-theory="both" class="active">Compare both</button>
+            </div>
+        </div>
+
+        <div class="hdr-group">
+            <label class="cap">Units</label>
+            <select id="unitSel" style="width:auto;padding:5px 8px">
+                <option value="us">in &middot; lb &middot; psi</option>
+                <option value="mm">mm &middot; N &middot; MPa</option>
+                <option value="si">m &middot; N &middot; Pa</option>
+            </select>
+        </div>
+
+        <div class="spacer"></div>
+
+        <div class="hdr-group">
+            <button class="btn ghost sm" id="btnExample">Examples</button>
+            <button class="btn ghost sm" id="btnVerify">Verify</button>
+            <button class="btn ghost sm" id="btnSave">Save</button>
+            <button class="btn ghost sm" id="btnLoad">Load</button>
+            <button class="btn ghost sm" id="btnCsv">CSV</button>
+            <button class="btn ghost sm" id="btnPrint">Print</button>
+            <input type="file" id="fileIn" accept=".json" style="display:none">
+        </div>
+    </header>
+
+    <div class="wrap">
+        <!-- ================= LEFT: INPUTS ================= -->
+        <div class="col-left">
+
+            <div class="card">
+                <h2>Beam Sections <span class="pill" id="lenPill">L = 0</span></h2>
+                <div class="body tight">
+                    <div class="tbl-scroll">
+                        <table class="grid" id="segTable">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th title="Segment length">Length</th>
+                                    <th title="Young's modulus">E</th>
+                                    <th title="Poisson ratio">&nu;</th>
+                                    <th title="Second moment of area">I</th>
+                                    <th title="Cross-section area">A</th>
+                                    <th title="Shear correction factor (A_s = k*A)">&kappa;</th>
+                                    <th title="Distance to extreme fibre (for bending stress)">c</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="segBody"></tbody>
+                        </table>
+                    </div>
+                    <div class="row" style="margin-top:8px">
+                        <button class="btn sm" id="addSeg">+ Section</button>
+                        <button class="btn ghost sm" id="dupSeg">Duplicate last</button>
+                        <div class="spacer"></div>
+                        <span class="note" id="segUnits"></span>
+                    </div>
+                    <details class="help" style="margin-top:8px">
+                        <summary>About section properties</summary>
+                        <p>Sections are laid end-to-end from x&nbsp;=&nbsp;0. Total beam length is the sum of the segment
+                            lengths. Each segment may have its own material and geometry, giving a stepped or tapered
+                            (stepwise) beam.</p>
+                        <ul>
+                            <li><code class="k">&kappa;</code> is the shear correction factor: shear area
+                                A<sub>s</sub>&nbsp;=&nbsp;&kappa;A. Typical values &mdash; rectangle 5/6, circle 0.9,
+                                thin tube 0.5, I-beam &asymp; A<sub>web</sub>/A. Only used by Timoshenko theory.</li>
+                            <li><code class="k">G</code> = E / (2(1+&nu;)).</li>
+                            <li><code class="k">c</code> is the extreme-fibre distance used for &sigma; = Mc/I. Set to 0
+                                to skip the stress diagram.</li>
+                        </ul>
+                    </details>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Supports &amp; Boundary Conditions</h2>
+                <div class="body tight">
+                    <div class="tbl-scroll">
+                        <table class="grid" id="supTable">
+                            <thead>
+                                <tr>
+                                    <th>x</th>
+                                    <th>Type</th>
+                                    <th title="Vertical spring stiffness">K<sub>v</sub></th>
+                                    <th title="Rotational spring stiffness">K<sub>&theta;</sub></th>
+                                    <th title="Prescribed settlement (down +)">&Delta;</th>
+                                    <th title="Prescribed rotation (CCW +)">&theta;<sub>0</sub></th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="supBody"></tbody>
+                        </table>
+                    </div>
+                    <div class="row" style="margin-top:8px">
+                        <button class="btn sm" id="addSup">+ Support</button>
+                        <div class="spacer"></div>
+                        <span class="note">Any x along the beam &mdash; including interior props.</span>
+                    </div>
+                    <details class="help" style="margin-top:8px">
+                        <summary>Support types</summary>
+                        <ul>
+                            <li><b>Pinned / roller</b> &mdash; v = 0, rotation free.</li>
+                            <li><b>Fixed</b> &mdash; v = 0 and &theta; = 0 (built-in / clamped).</li>
+                            <li><b>Guided (slider)</b> &mdash; &theta; = 0, vertical translation free.</li>
+                            <li><b>Vertical spring</b> &mdash; elastic support of stiffness K<sub>v</sub> (force/length).
+                            </li>
+                            <li><b>Rotational spring</b> &mdash; elastic restraint K<sub>&theta;</sub>
+                                (moment/radian).</li>
+                            <li><b>Pin + rot. spring</b>, <b>Vert. + rot. spring</b> &mdash; combinations for partially
+                                fixed ends.</li>
+                            <li><b>&Delta;</b> imposes a support settlement (positive = downward),
+                                <b>&theta;<sub>0</sub></b> an imposed rotation on a fixed/guided support.
+                            </li>
+                        </ul>
+                    </details>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Loads</h2>
+                <div class="body tight">
+                    <div class="tbl-scroll">
+                        <table class="grid" id="loadTable">
+                            <thead>
+                                <tr>
+                                    <th>Type</th>
+                                    <th>x<sub>1</sub></th>
+                                    <th>x<sub>2</sub></th>
+                                    <th>w<sub>1</sub> / P / M</th>
+                                    <th>w<sub>2</sub></th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="loadBody"></tbody>
+                        </table>
+                    </div>
+                    <div class="row" style="margin-top:8px">
+                        <button class="btn sm" id="addLoad">+ Load</button>
+                        <div class="spacer"></div>
+                        <span class="note">Down +ve &nbsp;|&nbsp; Moment CCW +ve</span>
+                    </div>
+                    <details class="help" style="margin-top:8px">
+                        <summary>Load conventions</summary>
+                        <ul>
+                            <li><b>Point load P</b> &mdash; positive downward, applied at x<sub>1</sub>.</li>
+                            <li><b>Point moment M</b> &mdash; positive counter-clockwise, applied at x<sub>1</sub>.</li>
+                            <li><b>Distributed w</b> &mdash; positive downward, varying linearly from w<sub>1</sub> at
+                                x<sub>1</sub> to w<sub>2</sub> at x<sub>2</sub>. Set w<sub>1</sub>&nbsp;=&nbsp;w<sub>2</sub>
+                                for a UDL, or w<sub>1</sub>&nbsp;=&nbsp;0 for a triangular load.</li>
+                        </ul>
+                    </details>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Analysis Options</h2>
+                <div class="body">
+                    <div class="row">
+                        <div class="field" style="flex:1">
+                            <label>Mesh density (elements) <span title="Nodal displacements are exact for any mesh; the mesh mainly sets diagram resolution. Very fine meshes are more ill-conditioned." style="color:#94a3b8;cursor:help">&#9432;</span></label>
+                            <input type="number" id="nEl" min="20" max="2000" step="20" value="160">
+                        </div>
+                        <div class="field" style="flex:1">
+                            <label>Deflection plot scale</label>
+                            <select id="defScale">
+                                <option value="auto">Auto (exaggerated)</option>
+                                <option value="true">True scale</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row" style="margin-top:10px">
+                        <label style="font-size:12.5px;display:flex;gap:6px;align-items:center">
+                            <input type="checkbox" id="showDeformed" checked style="width:auto"> Overlay deflected shape
+                            on schematic
+                        </label>
+                    </div>
+                    <div class="row" style="margin-top:10px">
+                        <button class="btn ghost sm" id="btnReset">Reset model</button>
+                        <button class="btn dark sm" id="btnSolve">Recalculate</button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ================= RIGHT: RESULTS ================= -->
+        <div class="col-right">
+            <div id="msgHost"></div>
+
+            <div class="card">
+                <h2>Model</h2>
+                <div class="body tight" id="schematic"></div>
+            </div>
+
+            <div class="tiles" id="tiles"></div>
+
+            <div class="card">
+                <h2>Support Reactions</h2>
+                <div class="body tight">
+                    <div class="tbl-scroll">
+                        <table class="data" id="reactTable">
+                            <thead id="reactHead"></thead>
+                            <tbody id="reactBody"></tbody>
+                        </table>
+                    </div>
+                    <p class="note" style="margin:8px 4px 2px" id="equilNote"></p>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Diagrams
+                    <span class="spacer"></span>
+                    <span class="legend" id="chartLegend"></span>
+                </h2>
+                <div class="body tight">
+                    <div class="charts" id="charts"></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Results at a Section</h2>
+                <div class="body">
+                    <div class="row">
+                        <div class="field" style="max-width:180px">
+                            <label>Station x</label>
+                            <input type="number" id="probeX" step="any" value="0">
+                        </div>
+                        <input type="range" id="probeSlider" min="0" max="1" step="0.001" value="0"
+                            style="flex:1;margin-bottom:4px">
+                    </div>
+                    <div class="tbl-scroll" style="margin-top:10px">
+                        <table class="data" id="probeTable">
+                            <thead id="probeHead"></thead>
+                            <tbody id="probeBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card noprint">
+                <h2>Theory &amp; Method</h2>
+                <div class="body">
+                    <details class="help" open>
+                        <summary>How this tool works</summary>
+                        <p>The beam is solved by the <b>direct stiffness method</b> with 2 degrees of freedom per node
+                            (transverse displacement v and rotation &theta;). Nodes are placed at every section change,
+                            support, point load and distributed-load boundary, and each interval is then subdivided into
+                            a fine mesh.</p>
+                        <p><b>Euler&ndash;Bernoulli</b> elements use the classical Hermitian cubic stiffness matrix
+                            (plane sections remain plane <i>and</i> normal &mdash; no shear deformation).</p>
+                        <p><b>Timoshenko</b> elements use the shear-flexible (interdependent interpolation) stiffness
+                            matrix, which is exact for the homogeneous solution and free of shear locking:</p>
+                        <p class="mono" style="font-size:11.5px">&Phi; = 12EI / (&kappa;GA L&sup2;) &nbsp;&nbsp;
+                            k = EI/(L&sup3;(1+&Phi;)) &middot; [[12, 6L, -12, 6L], [6L, (4+&Phi;)L&sup2;, -6L,
+                            (2&minus;&Phi;)L&sup2;], [-12, -6L, 12, -6L], [6L, (2&minus;&Phi;)L&sup2;, -6L,
+                            (4+&Phi;)L&sup2;]]</p>
+                        <p>Distributed loads are applied as consistent nodal load vectors. Shear and bending moment
+                            diagrams are then recovered by <b>statics</b> &mdash; integrating the applied loads and the
+                            computed reactions from the left-hand end &mdash; so the diagrams satisfy equilibrium exactly
+                            and are independent of the element interpolation. Deflections and rotations come from the
+                            nodal solution.</p>
+                        <p>Sign conventions: v positive upward, &theta; positive counter-clockwise, sagging bending
+                            moment positive, shear positive when the left-hand free body is pushed upward. Applied loads
+                            are entered positive downward and applied moments positive counter-clockwise.</p>
+                        <p>The Timoshenko rotation &theta; is the rotation of the cross-section; the slope of the
+                            neutral axis is dv/dx = &theta; + &gamma;, where &gamma; = V/(&kappa;GA) is the shear strain.
+                        </p>
+                    </details>
+                    <details class="help" style="margin-top:8px">
+                        <summary>Assumptions &amp; limitations</summary>
+                        <ul>
+                            <li>Linear-elastic, small-displacement analysis of a straight, planar beam.</li>
+                            <li>Bending about one principal axis only; no axial force, torsion or P-&Delta; effects.</li>
+                            <li>Section properties are constant within each segment (a taper is modelled as a series of
+                                steps).</li>
+                            <li>Bending stress &sigma; = Mc/I ignores stress concentrations and shear stress.</li>
+                            <li>Use the <b>Verify</b> button to check the solver against closed-form solutions.</li>
+                        </ul>
+                    </details>
+                </div>
+            </div>
+
+            <p class="foot">Beam calculator &mdash; Euler&ndash;Bernoulli &amp; Timoshenko finite-element beam solver.
+                Results should be checked against hand calculations before use in design.</p>
+        </div>
+    </div>
+
+    <div class="modal-bg" id="modalBg">
+        <div class="modal">
+            <h3 id="modalTitle">Title<span class="spacer" style="flex:1"></span>
+                <button class="btn ghost sm" id="modalClose">Close</button>
+            </h3>
+            <div class="mbody" id="modalBody"></div>
+        </div>
+    </div>
+
+    <script>
+        'use strict';
+
+        /* =====================================================================
+           UNITS
+           ===================================================================== */
+        const UNITS = {
+            us: { key: 'us', L: 'in', F: 'lb', E: 'psi', w: 'lb/in', M: 'lb·in', d: 'in', S: 'psi', Kv: 'lb/in', Kr: 'lb·in/rad', A: 'in²', I: 'in⁴' },
+            mm: { key: 'mm', L: 'mm', F: 'N', E: 'MPa', w: 'N/mm', M: 'N·mm', d: 'mm', S: 'MPa', Kv: 'N/mm', Kr: 'N·mm/rad', A: 'mm²', I: 'mm⁴' },
+            si: { key: 'si', L: 'm', F: 'N', E: 'Pa', w: 'N/m', M: 'N·m', d: 'm', S: 'Pa', Kv: 'N/m', Kr: 'N·m/rad', A: 'm²', I: 'm⁴' }
+        };
+
+        const DEFAULT_MODELS = {
+            us: {
+                segments: [{ L: 120, E: 10.3e6, nu: 0.33, I: 10, A: 3, k: 0.85, c: 3 }],
+                supports: [{ x: 0, type: 'pin', Kv: 0, Kr: 0, dv: 0, dr: 0 }, { x: 120, type: 'pin', Kv: 0, Kr: 0, dv: 0, dr: 0 }],
+                loads: [{ type: 'dist', x1: 0, x2: 120, w1: 50, w2: 50 }]
+            },
+            mm: {
+                segments: [{ L: 3000, E: 200000, nu: 0.3, I: 4.0e7, A: 4000, k: 0.4, c: 150 }],
+                supports: [{ x: 0, type: 'pin', Kv: 0, Kr: 0, dv: 0, dr: 0 }, { x: 3000, type: 'pin', Kv: 0, Kr: 0, dv: 0, dr: 0 }],
+                loads: [{ type: 'dist', x1: 0, x2: 3000, w1: 10, w2: 10 }]
+            },
+            si: {
+                segments: [{ L: 3, E: 200e9, nu: 0.3, I: 4.0e-5, A: 4.0e-3, k: 0.4, c: 0.15 }],
+                supports: [{ x: 0, type: 'pin', Kv: 0, Kr: 0, dv: 0, dr: 0 }, { x: 3, type: 'pin', Kv: 0, Kr: 0, dv: 0, dr: 0 }],
+                loads: [{ type: 'dist', x1: 0, x2: 3, w1: 10000, w2: 10000 }]
+            }
+        };
+
+        /* Support type -> restraint definition.
+           rv / rr : 'free' | 'fixed' | 'spring'   */
+        const SUP_TYPES = {
+            pin: { name: 'Pinned / roller', rv: 'fixed', rr: 'free' },
+            fixed: { name: 'Fixed (built-in)', rv: 'fixed', rr: 'fixed' },
+            guided: { name: 'Guided (slider)', rv: 'free', rr: 'fixed' },
+            springV: { name: 'Vertical spring', rv: 'spring', rr: 'free' },
+            springR: { name: 'Rotational spring', rv: 'free', rr: 'spring' },
+            pinR: { name: 'Pin + rot. spring', rv: 'fixed', rr: 'spring' },
+            springVR: { name: 'Vert. + rot. spring', rv: 'spring', rr: 'spring' },
+            free: { name: 'Free (no restraint)', rv: 'free', rr: 'free' }
+        };
+
+        /* =====================================================================
+           STATE
+           ===================================================================== */
+        const state = {
+            units: 'us',
+            theory: 'both',
+            nEl: 160,
+            defScale: 'auto',
+            showDeformed: true,
+            segments: [],
+            supports: [],
+            loads: [],
+            probeX: 0
+        };
+
+        function loadDefaults(u) {
+            const d = JSON.parse(JSON.stringify(DEFAULT_MODELS[u]));
+            state.segments = d.segments;
+            state.supports = d.supports;
+            state.loads = d.loads;
+            state.probeX = totalLength() / 2;
+        }
+
+        const U = () => UNITS[state.units];
+        const totalLength = () => state.segments.reduce((a, s) => a + (+s.L || 0), 0);
+
+        /* =====================================================================
+           NUMBER FORMATTING
+           ===================================================================== */
+        function fmt(v, sig) {
+            sig = sig || 4;
+            if (v === null || v === undefined || !isFinite(v)) return '—';
+            const a = Math.abs(v);
+            if (a === 0) return '0';
+            if (a < 1e-4 || a >= 1e6) {
+                return v.toExponential(Math.max(1, sig - 1)).replace('e', 'e');
+            }
+            let s = v.toPrecision(sig);
+            if (s.indexOf('.') >= 0) s = s.replace(/0+$/, '').replace(/\.$/, '');
+            return s;
+        }
+        function fmtEng(v, sig) { return fmt(v, sig || 4); }
+
+        /* =====================================================================
+           BANDED SYMMETRIC MATRIX  (half bandwidth = 3 for a 2-DOF beam)
+           ===================================================================== */
+        const HB = 3;
+        function bandNew(n) { return { n: n, hb: HB, a: new Float64Array(n * (HB + 1)) }; }
+        function bandCopy(B) { return { n: B.n, hb: B.hb, a: Float64Array.from(B.a) }; }
+        function bAdd(B, i, j, v) {
+            if (j < i) { const t = i; i = j; j = t; }
+            const d = j - i;
+            if (d > B.hb) throw new Error('bandwidth exceeded');
+            B.a[i * (B.hb + 1) + d] += v;
+        }
+        function bGet(B, i, j) {
+            if (j < i) { const t = i; i = j; j = t; }
+            const d = j - i;
+            if (d > B.hb || i < 0 || j >= B.n) return 0;
+            return B.a[i * (B.hb + 1) + d];
+        }
+        function bSet(B, i, j, v) {
+            if (j < i) { const t = i; i = j; j = t; }
+            const d = j - i;
+            if (d > B.hb) return;
+            B.a[i * (B.hb + 1) + d] = v;
+        }
+        function bandMul(B, u) {
+            const n = B.n, hb = B.hb, r = new Float64Array(n);
+            for (let i = 0; i < n; i++) {
+                let s = 0;
+                for (let d = 0; d <= hb; d++) { const j = i + d; if (j < n) s += bGet(B, i, j) * u[j]; }
+                for (let d = 1; d <= hb; d++) { const j = i - d; if (j >= 0) s += bGet(B, j, i) * u[j]; }
+                r[i] = s;
+            }
+            return r;
+        }
+        /* In-place banded Cholesky (upper factor R, A = R^T R). Returns false if not positive definite. */
+        function bandChol(B) {
+            const n = B.n, hb = B.hb, a = B.a, w = hb + 1;
+            for (let i = 0; i < n; i++) {
+                for (let d = 0; d <= hb; d++) {
+                    const j = i + d;
+                    if (j >= n) break;
+                    let s = a[i * w + d];
+                    const m0 = Math.max(0, i - hb);
+                    for (let m = m0; m < i; m++) {
+                        const di = i - m, dj = j - m;
+                        if (dj <= hb) s -= a[m * w + di] * a[m * w + dj];
+                    }
+                    if (d === 0) {
+                        if (!(s > 0)) return false;
+                        a[i * w] = Math.sqrt(s);
+                    } else {
+                        a[i * w + d] = s / a[i * w];
+                    }
+                }
+            }
+            return true;
+        }
+        function bandSolve(R, f) {
+            const n = R.n, hb = R.hb, a = R.a, w = hb + 1;
+            const y = new Float64Array(n);
+            for (let i = 0; i < n; i++) {
+                let s = f[i];
+                const m0 = Math.max(0, i - hb);
+                for (let m = m0; m < i; m++) s -= a[m * w + (i - m)] * y[m];
+                y[i] = s / a[i * w];
+            }
+            const x = new Float64Array(n);
+            for (let i = n - 1; i >= 0; i--) {
+                let s = y[i];
+                for (let d = 1; d <= hb; d++) { const j = i + d; if (j < n) s -= a[i * w + d] * x[j]; }
+                x[i] = s / a[i * w];
+            }
+            return x;
+        }
+
+        /* =====================================================================
+           MODEL PREPARATION / VALIDATION
+           ===================================================================== */
+        function prepareModel() {
+            const errors = [], warnings = [];
+            const segs = state.segments.map((s, i) => ({
+                i: i, L: +s.L, E: +s.E, nu: +s.nu, I: +s.I, A: +s.A, k: +s.k, c: +s.c
+            }));
+            if (!segs.length) errors.push('Add at least one beam section.');
+            let x = 0;
+            segs.forEach((s, i) => {
+                if (!(s.L > 0)) errors.push('Section ' + (i + 1) + ': length must be greater than zero.');
+                if (!(s.E > 0)) errors.push('Section ' + (i + 1) + ': E must be greater than zero.');
+                if (!(s.I > 0)) errors.push('Section ' + (i + 1) + ': I must be greater than zero.');
+                if (!(s.A > 0)) warnings.push('Section ' + (i + 1) + ': A must be > 0 for Timoshenko theory.');
+                if (!(s.k > 0)) warnings.push('Section ' + (i + 1) + ': κ must be > 0 for Timoshenko theory.');
+                if (s.nu <= -1 || s.nu >= 0.5) warnings.push('Section ' + (i + 1) + ': ν outside the usual range -1 < ν < 0.5.');
+                s.x0 = x; x += s.L; s.x1 = x;
+            });
+            const L = x;
+            if (errors.length) return { ok: false, errors: errors, warnings: warnings };
+
+            const tol = 1e-9 * Math.max(L, 1);
+            const clamp = v => Math.min(L, Math.max(0, v));
+
+            const sups = state.supports.map(s => ({
+                x: clamp(+s.x), type: s.type, def: SUP_TYPES[s.type] || SUP_TYPES.pin,
+                Kv: +s.Kv || 0, Kr: +s.Kr || 0, dv: +s.dv || 0, dr: +s.dr || 0
+            })).sort((a, b) => a.x - b.x);
+            state.supports.forEach(s => {
+                if (+s.x < -tol || +s.x > L + tol) warnings.push('A support at x = ' + fmt(+s.x) + ' lies outside the beam and was clamped to the ends.');
+            });
+
+            const loads = [];
+            state.loads.forEach((l, i) => {
+                if (l.type === 'dist') {
+                    let a = clamp(+l.x1), b = clamp(+l.x2);
+                    if (b < a) { const t = a; a = b; b = t; }
+                    if (b - a <= tol) { warnings.push('Load ' + (i + 1) + ': distributed load has zero length and was ignored.'); return; }
+                    loads.push({ type: 'dist', x1: a, x2: b, w1: +l.w1 || 0, w2: +l.w2 || 0 });
+                } else if (l.type === 'point') {
+                    loads.push({ type: 'point', x1: clamp(+l.x1), P: +l.w1 || 0 });
+                } else if (l.type === 'moment') {
+                    loads.push({ type: 'moment', x1: clamp(+l.x1), M: +l.w1 || 0 });
+                }
+            });
+
+            const nRestr = sups.reduce((a, s) => a + (s.def.rv !== 'free' ? 1 : 0) + (s.def.rr !== 'free' ? 1 : 0), 0);
+            if (nRestr < 2) warnings.push('The model looks under-restrained — at least two independent restraints are normally required.');
+
+            const segAt = function (xq) {
+                for (let i = 0; i < segs.length; i++) if (xq <= segs[i].x1 + tol) return segs[i];
+                return segs[segs.length - 1];
+            };
+
+            return { ok: true, errors: errors, warnings: warnings, segs: segs, L: L, tol: tol, supports: sups, loads: loads, segAt: segAt };
+        }
+
+        /* =====================================================================
+           MESH
+           ===================================================================== */
+        function meshNodes(m, nTarget) {
+            const L = m.L, tol = m.tol;
+            const bps = [0, L];
+            m.segs.forEach(s => bps.push(s.x1));
+            m.supports.forEach(s => bps.push(s.x));
+            m.loads.forEach(l => { bps.push(l.x1); if (l.type === 'dist') bps.push(l.x2); });
+            bps.sort((a, b) => a - b);
+            const key = [];
+            bps.forEach(v => { if (!key.length || v - key[key.length - 1] > tol) key.push(v); });
+            const nodes = [key[0]];
+            for (let i = 0; i < key.length - 1; i++) {
+                const a = key[i], b = key[i + 1], len = b - a;
+                let n = Math.max(2, Math.round(nTarget * len / L));
+                if (!isFinite(n)) n = 2;
+                n = Math.min(n, 4000);
+                for (let k = 1; k <= n; k++) nodes.push(a + len * k / n);
+            }
+            return { nodes: nodes, key: key };
+        }
+
+        function nodeIndex(nodes, x, tol) {
+            let lo = 0, hi = nodes.length - 1, best = 0, bd = Infinity;
+            while (lo <= hi) {
+                const mid = (lo + hi) >> 1;
+                const d = Math.abs(nodes[mid] - x);
+                if (d < bd) { bd = d; best = mid; }
+                if (nodes[mid] < x) lo = mid + 1; else hi = mid - 1;
+            }
+            for (let i = Math.max(0, best - 2); i <= Math.min(nodes.length - 1, best + 2); i++) {
+                const d = Math.abs(nodes[i] - x);
+                if (d < bd) { bd = d; best = i; }
+            }
+            return best;
+        }
+
+        /* =====================================================================
+           SOLVER  -  returns nodal displacements + reactions for one theory
+           ===================================================================== */
+        function solveTheory(m, mesh, theory) {
+            const nodes = mesh.nodes, nn = nodes.length, ndof = 2 * nn, tol = m.tol;
+            const K0 = bandNew(ndof);
+            const F0 = new Float64Array(ndof);
+
+            /* ---- element stiffness + consistent distributed load vector ---- */
+            for (let e = 0; e < nn - 1; e++) {
+                const xa = nodes[e], xb = nodes[e + 1], Le = xb - xa;
+                if (Le <= 0) continue;
+                const s = m.segAt(0.5 * (xa + xb));
+                const EI = s.E * s.I;
+                let phi = 0;
+                if (theory === 'timoshenko') {
+                    const G = s.E / (2 * (1 + s.nu));
+                    const As = s.k * s.A;
+                    if (G > 0 && As > 0) phi = 12 * EI / (G * As * Le * Le);
+                }
+                const cc = EI / (Le * Le * Le * (1 + phi));
+                const L2 = Le * Le;
+                const ke = [
+                    [12 * cc, 6 * Le * cc, -12 * cc, 6 * Le * cc],
+                    [6 * Le * cc, (4 + phi) * L2 * cc, -6 * Le * cc, (2 - phi) * L2 * cc],
+                    [-12 * cc, -6 * Le * cc, 12 * cc, -6 * Le * cc],
+                    [6 * Le * cc, (2 - phi) * L2 * cc, -6 * Le * cc, (4 + phi) * L2 * cc]
+                ];
+                const idx = [2 * e, 2 * e + 1, 2 * e + 2, 2 * e + 3];
+                for (let a = 0; a < 4; a++)
+                    for (let b = a; b < 4; b++) bAdd(K0, idx[a], idx[b], ke[a][b]);
+
+                /* distributed load: q positive upward */
+                let q1 = 0, q2 = 0;
+                const xm = 0.5 * (xa + xb);
+                for (const l of m.loads) {
+                    if (l.type !== 'dist') continue;
+                    if (xm <= l.x1 || xm >= l.x2) continue;
+                    const sl = (l.w2 - l.w1) / (l.x2 - l.x1);
+                    q1 += -(l.w1 + sl * (xa - l.x1));
+                    q2 += -(l.w1 + sl * (xb - l.x1));
+                }
+                if (q1 !== 0 || q2 !== 0) {
+                    F0[idx[0]] += Le * (7 * q1 + 3 * q2) / 20;
+                    F0[idx[1]] += Le * Le * (3 * q1 + 2 * q2) / 60;
+                    F0[idx[2]] += Le * (3 * q1 + 7 * q2) / 20;
+                    F0[idx[3]] += -Le * Le * (2 * q1 + 3 * q2) / 60;
+                }
+            }
+
+            /* ---- nodal (point) loads ---- */
+            for (const l of m.loads) {
+                if (l.type === 'point') {
+                    const i = nodeIndex(nodes, l.x1, tol);
+                    F0[2 * i] += -l.P;                 /* down-positive -> up-positive */
+                } else if (l.type === 'moment') {
+                    const i = nodeIndex(nodes, l.x1, tol);
+                    F0[2 * i + 1] += l.M;              /* CCW positive */
+                }
+            }
+
+            /* ---- boundary conditions ---- */
+            const K = bandCopy(K0);
+            const F = Float64Array.from(F0);
+            const presc = [];
+            const supDof = [];
+            for (const s of m.supports) {
+                const i = nodeIndex(nodes, s.x, tol);
+                const dv = 2 * i, dr = 2 * i + 1;
+                supDof.push({ s: s, node: i, dv: dv, dr: dr });
+                if (s.def.rv === 'fixed') presc.push({ dof: dv, val: -s.dv });   /* settlement down-positive */
+                else if (s.def.rv === 'spring') bAdd(K, dv, dv, Math.max(0, s.Kv));
+                if (s.def.rr === 'fixed') presc.push({ dof: dr, val: s.dr });
+                else if (s.def.rr === 'spring') bAdd(K, dr, dr, Math.max(0, s.Kr));
+            }
+            const pset = new Set(presc.map(p => p.dof));
+            for (const p of presc) {
+                if (p.val !== 0) {
+                    for (let i = Math.max(0, p.dof - HB); i <= Math.min(ndof - 1, p.dof + HB); i++) {
+                        if (i !== p.dof && !pset.has(i)) F[i] -= bGet(K, i, p.dof) * p.val;
+                    }
+                }
+            }
+            for (const p of presc) {
+                for (let i = Math.max(0, p.dof - HB); i <= Math.min(ndof - 1, p.dof + HB); i++) {
+                    if (i !== p.dof) bSet(K, i, p.dof, 0);
+                }
+                bSet(K, p.dof, p.dof, 1);
+                F[p.dof] = p.val;
+            }
+
+            const Kbc = bandCopy(K);
+            if (!bandChol(K)) {
+                return { ok: false, reason: 'The stiffness matrix is singular — the beam is unrestrained or forms a mechanism. Check the supports.' };
+            }
+            const u = bandSolve(K, F);
+            /* one step of iterative refinement — a fine beam mesh is ill-conditioned,
+               and reactions are recovered by differencing large stiffness terms */
+            for (let pass = 0; pass < 2; pass++) {
+                const res = bandMul(Kbc, u);
+                for (let i = 0; i < ndof; i++) res[i] = F[i] - res[i];
+                const du = bandSolve(K, res);
+                for (let i = 0; i < ndof; i++) u[i] += du[i];
+            }
+
+            /* ---- reactions: R = K0 u - F0 (external nodal forces from supports) ---- */
+            const r = bandMul(K0, u);
+            for (let i = 0; i < ndof; i++) r[i] -= F0[i];
+
+            const reactions = supDof.map(sd => ({
+                x: sd.s.x, type: sd.s.type, name: sd.s.def.name,
+                Fy: (sd.s.def.rv === 'free') ? 0 : r[sd.dv],           /* up-positive */
+                Mz: (sd.s.def.rr === 'free') ? 0 : r[sd.dr],           /* CCW positive */
+                v: u[sd.dv], th: u[sd.dr]
+            }));
+
+            return { ok: true, u: u, reactions: reactions, nodes: nodes };
+        }
+
+        /* =====================================================================
+           STATICS RECOVERY OF SHEAR AND MOMENT
+           ===================================================================== */
+        function makeStatics(m, reactions) {
+            const P = [], C = [], D = [];
+            for (const l of m.loads) {
+                if (l.type === 'point') P.push({ x: l.x1, F: -l.P });
+                else if (l.type === 'moment') C.push({ x: l.x1, M: l.M });
+                else if (l.type === 'dist') D.push({ x1: l.x1, x2: l.x2, q1: -l.w1, q2: -l.w2 });
+            }
+            for (const R of reactions) {
+                if (R.Fy) P.push({ x: R.x, F: R.Fy });
+                if (R.Mz) C.push({ x: R.x, M: R.Mz });
+            }
+            const tol = m.tol;
+            return function (x, side) {
+                let V = 0, M = 0;
+                const inc = xi => (side < 0 ? xi < x - tol : xi <= x + tol);
+                for (const p of P) if (inc(p.x)) { V += p.F; M += p.F * (x - p.x); }
+                for (const c of C) if (inc(c.x)) { M -= c.M; }
+                for (const d of D) {
+                    if (x <= d.x1 + tol) continue;
+                    const b = Math.min(x, d.x2);
+                    const len = d.x2 - d.x1;
+                    const s = b - d.x1;
+                    const sl = (d.q2 - d.q1) / len;
+                    V += d.q1 * s + sl * s * s / 2;
+                    const a = x - d.x1;
+                    M += d.q1 * (a * s - s * s / 2) + sl * (a * s * s / 2 - s * s * s / 3);
+                }
+                return { V: V, M: M };
+            };
+        }
+
+        /* =====================================================================
+           FULL ANALYSIS FOR ONE THEORY
+           ===================================================================== */
+        function analyze(m, mesh, theory) {
+            const sol = solveTheory(m, mesh, theory);
+            if (!sol.ok) return sol;
+            const nodes = mesh.nodes, tol = m.tol;
+            const vm = makeStatics(m, sol.reactions);
+
+            /* stations where V, M or sigma may jump */
+            const crit = [];
+            m.loads.forEach(l => { if (l.type === 'point' || l.type === 'moment') crit.push(l.x1); });
+            m.supports.forEach(s => crit.push(s.x));
+            m.segs.forEach(s => { crit.push(s.x0); crit.push(s.x1); });
+            crit.sort((a, b) => a - b);
+            const isCrit = x => {
+                for (const c of crit) { if (Math.abs(c - x) <= 1e-7 * Math.max(m.L, 1)) return true; if (c > x) break; }
+                return false;
+            };
+
+            const S = [];
+            const push = (x, side, i) => {
+                const q = vm(x, side);
+                const seg = m.segAt(side < 0 ? Math.max(0, x - tol * 10) : Math.min(m.L, x + tol * 10));
+                const sig = seg.c > 0 && seg.I > 0 ? q.M * seg.c / seg.I : NaN;
+                let gam = NaN;
+                if (theory === 'timoshenko') {
+                    const G = seg.E / (2 * (1 + seg.nu)), As = seg.k * seg.A;
+                    if (G > 0 && As > 0) gam = q.V / (G * As);
+                }
+                S.push({ x: x, v: sol.u[2 * i], th: sol.u[2 * i + 1], V: q.V, M: q.M, sig: sig, gam: gam });
+            };
+            for (let i = 0; i < nodes.length; i++) {
+                const x = nodes[i];
+                const c = isCrit(x);
+                if (c && i > 0) push(x, -1, i);
+                push(x, +1, i);
+                if (c && i < nodes.length - 1) { /* right-side value already pushed */ }
+            }
+
+            /* extremes */
+            const ext = k => {
+                let mx = -Infinity, mn = Infinity, xmx = 0, xmn = 0;
+                for (const s of S) {
+                    const val = s[k];
+                    if (!isFinite(val)) continue;
+                    if (val > mx) { mx = val; xmx = s.x; }
+                    if (val < mn) { mn = val; xmn = s.x; }
+                }
+                if (!isFinite(mx)) return null;
+                const takeMax = Math.abs(mx) >= Math.abs(mn) * (1 - 1e-9);
+                const abs = takeMax ? mx : mn;
+                const xabs = takeMax ? xmx : xmn;
+                return { max: mx, xmax: xmx, min: mn, xmin: xmn, abs: abs, xabs: xabs };
+            };
+
+            /* global equilibrium check */
+            let sumF = 0, sumM = 0;
+            for (const l of m.loads) {
+                if (l.type === 'point') { sumF += -l.P; sumM += -l.P * l.x1; }
+                else if (l.type === 'moment') { sumM += l.M; }
+                else if (l.type === 'dist') {
+                    const len = l.x2 - l.x1, q1 = -l.w1, q2 = -l.w2;
+                    const R = (q1 + q2) / 2 * len;
+                    const xc = len * (q1 + 2 * q2) / (3 * (q1 + q2 || 1));
+                    sumF += R; sumM += R * (l.x1 + (q1 + q2 === 0 ? len / 2 : xc));
+                }
+            }
+            let refF = 0;
+            for (const R of sol.reactions) { sumF += R.Fy; sumM += R.Fy * R.x + R.Mz; refF += Math.abs(R.Fy); }
+
+            return {
+                ok: true, theory: theory, u: sol.u, reactions: sol.reactions, S: S, vm: vm,
+                extV: ext('V'), extM: ext('M'), extv: ext('v'), extth: ext('th'), extsig: ext('sig'),
+                resF: sumF, resM: sumM, refF: refF
+            };
+        }
+
+        /* =====================================================================
+           TOP-LEVEL SOLVE
+           ===================================================================== */
+        let RESULT = null;
+        function runAnalysis() {
+            const m = prepareModel();
+            RESULT = { model: m, euler: null, timo: null, messages: [] };
+            if (!m.ok) { RESULT.errors = m.errors; return RESULT; }
+            const mesh = meshNodes(m, Math.max(20, Math.min(2000, state.nEl | 0)));
+            RESULT.mesh = mesh;
+            const need = state.theory === 'both' ? ['euler', 'timoshenko'] :
+                (state.theory === 'euler' ? ['euler'] : ['timoshenko']);
+            RESULT.errors = [];
+            for (const t of need) {
+                const r = analyze(m, mesh, t);
+                if (!r.ok) { RESULT.errors.push(r.reason); continue; }
+                if (t === 'euler') RESULT.euler = r; else RESULT.timo = r;
+            }
+            RESULT.warnings = m.warnings.slice();
+            return RESULT;
+        }
+        const activeResults = () => {
+            const out = [];
+            if (RESULT && RESULT.euler) out.push({ key: 'euler', label: 'Euler–Bernoulli', color: '#2563eb', r: RESULT.euler });
+            if (RESULT && RESULT.timo) out.push({ key: 'timoshenko', label: 'Timoshenko', color: '#ea580c', r: RESULT.timo });
+            return out;
+        };
+
+        /* =====================================================================
+           SMALL DOM HELPERS
+           ===================================================================== */
+        const $ = id => document.getElementById(id);
+        const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        const SVGNS = 'http://www.w3.org/2000/svg';
+
+        function niceTicks(min, max, n) {
+            const span = max - min;
+            if (!(span > 0)) return [min];
+            const step0 = span / n;
+            const mag = Math.pow(10, Math.floor(Math.log(step0) / Math.LN10));
+            const norm = step0 / mag;
+            const step = mag * (norm < 1.5 ? 1 : norm < 3 ? 2 : norm < 7 ? 5 : 10);
+            const out = [];
+            for (let v = Math.ceil(min / step - 1e-9) * step; v <= max + 1e-9 * step; v += step) {
+                out.push(Math.abs(v) < 1e-12 * Math.max(Math.abs(min), Math.abs(max)) ? 0 : v);
+            }
+            return out;
+        }
+
+        /* =====================================================================
+           INPUT TABLES
+           ===================================================================== */
+        function renderSegTable() {
+            const u = U();
+            const rows = state.segments.map((s, i) => `
+      <tr data-i="${i}">
+        <td style="color:#94a3b8;font-weight:700">${i + 1}</td>
+        <td style="min-width:62px"><input type="number" step="any" data-f="L" value="${s.L}"></td>
+        <td style="min-width:80px"><input type="number" step="any" data-f="E" value="${s.E}"></td>
+        <td style="min-width:48px"><input type="number" step="any" data-f="nu" value="${s.nu}"></td>
+        <td style="min-width:64px"><input type="number" step="any" data-f="I" value="${s.I}"></td>
+        <td style="min-width:56px"><input type="number" step="any" data-f="A" value="${s.A}"></td>
+        <td style="min-width:46px"><input type="number" step="any" data-f="k" value="${s.k}"></td>
+        <td style="min-width:50px"><input type="number" step="any" data-f="c" value="${s.c}"></td>
+        <td><button class="btn icon" data-del="${i}" title="Delete section">&times;</button></td>
+      </tr>`).join('');
+            $('segBody').innerHTML = rows;
+            $('segUnits').textContent = `L [${u.L}] · E [${u.E}] · I [${u.I}] · A [${u.A}] · c [${u.L}]`;
+            $('lenPill').textContent = 'L = ' + fmt(totalLength()) + ' ' + u.L;
+        }
+
+        function renderSupTable() {
+            const opts = Object.keys(SUP_TYPES).map(k => `<option value="${k}">${SUP_TYPES[k].name}</option>`).join('');
+            $('supBody').innerHTML = state.supports.map((s, i) => {
+                const d = SUP_TYPES[s.type] || SUP_TYPES.pin;
+                return `
+      <tr data-i="${i}">
+        <td style="min-width:56px"><input type="number" step="any" data-f="x" value="${s.x}"></td>
+        <td style="min-width:118px"><select data-f="type">${opts}</select></td>
+        <td style="min-width:66px"><input type="number" step="any" data-f="Kv" value="${s.Kv}" ${d.rv === 'spring' ? '' : 'disabled'}></td>
+        <td style="min-width:66px"><input type="number" step="any" data-f="Kr" value="${s.Kr}" ${d.rr === 'spring' ? '' : 'disabled'}></td>
+        <td style="min-width:54px"><input type="number" step="any" data-f="dv" value="${s.dv}" ${d.rv === 'fixed' ? '' : 'disabled'}></td>
+        <td style="min-width:54px"><input type="number" step="any" data-f="dr" value="${s.dr}" ${d.rr === 'fixed' ? '' : 'disabled'}></td>
+        <td><button class="btn icon" data-del="${i}" title="Delete support">&times;</button></td>
+      </tr>`;
+            }).join('');
+            state.supports.forEach((s, i) => {
+                const sel = $('supBody').querySelector(`tr[data-i="${i}"] select`);
+                if (sel) sel.value = s.type;
+            });
+        }
+
+        const LOAD_TYPES = { point: 'Point load P', moment: 'Point moment M', dist: 'Distributed w' };
+        function renderLoadTable() {
+            const opts = Object.keys(LOAD_TYPES).map(k => `<option value="${k}">${LOAD_TYPES[k]}</option>`).join('');
+            $('loadBody').innerHTML = state.loads.map((l, i) => {
+                const isD = l.type === 'dist';
+                return `
+      <tr data-i="${i}">
+        <td style="min-width:116px"><select data-f="type">${opts}</select></td>
+        <td style="min-width:58px"><input type="number" step="any" data-f="x1" value="${l.x1}"></td>
+        <td style="min-width:58px"><input type="number" step="any" data-f="x2" value="${isD ? l.x2 : ''}" ${isD ? '' : 'disabled'}></td>
+        <td style="min-width:66px"><input type="number" step="any" data-f="w1" value="${l.w1}"></td>
+        <td style="min-width:66px"><input type="number" step="any" data-f="w2" value="${isD ? l.w2 : ''}" ${isD ? '' : 'disabled'}></td>
+        <td><button class="btn icon" data-del="${i}" title="Delete load">&times;</button></td>
+      </tr>`;
+            }).join('');
+            state.loads.forEach((l, i) => {
+                const sel = $('loadBody').querySelector(`tr[data-i="${i}"] select`);
+                if (sel) sel.value = l.type;
+            });
+        }
+
+        function renderInputs() { renderSegTable(); renderSupTable(); renderLoadTable(); }
+
+        /* =====================================================================
+           SCHEMATIC
+           ===================================================================== */
+        function renderSchematic() {
+            const host = $('schematic');
+            const m = RESULT && RESULT.model;
+            if (!m || !m.ok) { host.innerHTML = '<p class="note" style="padding:10px">Model incomplete.</p>'; return; }
+            const L = m.L, u = U();
+            const W = 960, H = 300;
+            const padL = 60, padR = 40;
+            const x0 = padL, x1 = W - padR;
+            const X = xx => x0 + (x1 - x0) * (L > 0 ? xx / L : 0);
+            const yBeam = 175, hBeam = 16;
+            const top = yBeam - hBeam / 2, bot = yBeam + hBeam / 2;
+            let s = '';
+
+            s += `<defs>
+      <pattern id="hatch" width="7" height="7" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+        <line x1="0" y1="0" x2="0" y2="7" stroke="#94a3b8" stroke-width="1.6"/></pattern>
+      <marker id="arrDn" markerWidth="9" markerHeight="9" refX="4.5" refY="8" orient="auto">
+        <path d="M0.5,1 L4.5,8 L8.5,1" fill="none" stroke="#dc2626" stroke-width="1.6"/></marker>
+      <marker id="arrHead" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+        <path d="M0,0.6 L7.4,4 L0,7.4 z" fill="#dc2626"/></marker>
+      <marker id="arrDim" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+        <path d="M0,1 L7.4,4 L0,7 z" fill="#64748b"/></marker>
+      <marker id="arrDim2" markerWidth="8" markerHeight="8" refX="1" refY="4" orient="auto">
+        <path d="M7.4,1 L0,4 L7.4,7 z" fill="#64748b"/></marker>
+    </defs>`;
+
+            /* --- beam body, one rectangle per segment --- */
+            const segCols = ['#dbeafe', '#e0e7ff', '#cffafe', '#dcfce7', '#fef3c7', '#fae8ff'];
+            m.segs.forEach((sg, i) => {
+                s += `<rect x="${X(sg.x0)}" y="${top}" width="${Math.max(1, X(sg.x1) - X(sg.x0))}" height="${hBeam}"
+              fill="${segCols[i % segCols.length]}" stroke="#1e3a8a" stroke-width="1.2"><title>Section ${i + 1}: E=${fmt(sg.E)} ${u.E}, I=${fmt(sg.I)} ${u.I}, A=${fmt(sg.A)} ${u.A}, κ=${fmt(sg.k)}</title></rect>`;
+                if (i > 0) s += `<line x1="${X(sg.x0)}" y1="${top - 6}" x2="${X(sg.x0)}" y2="${bot + 6}" stroke="#1e3a8a" stroke-width="1" stroke-dasharray="3 2"/>`;
+                const xc = (X(sg.x0) + X(sg.x1)) / 2;
+                if (X(sg.x1) - X(sg.x0) > 26) s += `<text x="${xc}" y="${yBeam + 4}" text-anchor="middle" font-size="10" fill="#1e3a8a" font-weight="700">S${i + 1}</text>`;
+            });
+
+            /* --- deflected shape --- */
+            if (state.showDeformed) {
+                const res = activeResults();
+                res.forEach(rr => {
+                    const S = rr.r.S;
+                    let vmax = 0;
+                    S.forEach(p => { if (Math.abs(p.v) > vmax) vmax = Math.abs(p.v); });
+                    if (vmax <= 0) return;
+                    const sc = state.defScale === 'true' ? (x1 - x0) / L : 30 / vmax;
+                    let d = '';
+                    S.forEach((p, i) => { d += (i ? 'L' : 'M') + X(p.x).toFixed(2) + ',' + (yBeam - p.v * sc).toFixed(2); });
+                    s += `<path d="${d}" fill="none" stroke="${rr.color}" stroke-width="1.8" stroke-dasharray="${rr.key === 'euler' ? '6 3' : '2 3'}" opacity="0.9"/>`;
+                });
+            }
+
+            /* --- supports --- */
+            m.supports.forEach(sp => {
+                const px = X(sp.x), d = sp.def;
+                const g = [];
+                if (d.rv === 'fixed' && d.rr === 'fixed') {          /* built-in wall */
+                    const wl = 12, hh = 30;
+                    const side = (sp.x < L / 2) ? -1 : 1;
+                    g.push(`<rect x="${px + (side < 0 ? -wl : 0)}" y="${yBeam - hh}" width="${wl}" height="${2 * hh}" fill="url(#hatch)" stroke="#475569" stroke-width="1.2"/>`);
+                } else if (d.rv === 'fixed' && d.rr === 'free') {    /* pin / roller */
+                    g.push(`<path d="M${px},${bot} L${px - 11},${bot + 20} L${px + 11},${bot + 20} z" fill="#fff" stroke="#334155" stroke-width="1.4"/>`);
+                    g.push(`<line x1="${px - 16}" y1="${bot + 20}" x2="${px + 16}" y2="${bot + 20}" stroke="#334155" stroke-width="1.6"/>`);
+                    g.push(`<rect x="${px - 16}" y="${bot + 20}" width="32" height="6" fill="url(#hatch)"/>`);
+                } else if (d.rv === 'fixed' && d.rr === 'spring') {  /* pin + rotational spring */
+                    g.push(`<path d="M${px},${bot} L${px - 11},${bot + 20} L${px + 11},${bot + 20} z" fill="#fff" stroke="#334155" stroke-width="1.4"/>`);
+                    g.push(`<line x1="${px - 16}" y1="${bot + 20}" x2="${px + 16}" y2="${bot + 20}" stroke="#334155" stroke-width="1.6"/>`);
+                    g.push(spiral(px, top - 14, 10));
+                } else if (d.rv === 'free' && d.rr === 'fixed') {    /* guided / slider */
+                    g.push(`<rect x="${px - 14}" y="${top - 7}" width="28" height="${hBeam + 14}" fill="none" stroke="#334155" stroke-width="1.4"/>`);
+                    g.push(`<line x1="${px - 20}" y1="${top - 10}" x2="${px + 20}" y2="${top - 10}" stroke="#334155" stroke-width="1.6"/>`);
+                    g.push(`<line x1="${px - 20}" y1="${bot + 10}" x2="${px + 20}" y2="${bot + 10}" stroke="#334155" stroke-width="1.6"/>`);
+                } else if (d.rv === 'spring') {                      /* vertical spring */
+                    g.push(zigzag(px, bot, 34));
+                    g.push(`<line x1="${px - 14}" y1="${bot + 38}" x2="${px + 14}" y2="${bot + 38}" stroke="#334155" stroke-width="1.6"/>`);
+                    g.push(`<rect x="${px - 14}" y="${bot + 38}" width="28" height="6" fill="url(#hatch)"/>`);
+                    if (d.rr === 'spring') g.push(spiral(px, top - 14, 10));
+                } else if (d.rr === 'spring') {                      /* rotational spring only */
+                    g.push(spiral(px, top - 14, 10));
+                }
+                s += g.join('');
+                s += `<text x="${px}" y="${bot + 58}" text-anchor="middle" font-size="9.5" fill="#475569">x=${fmt(sp.x, 4)}</text>`;
+            });
+
+            /* --- distributed loads --- */
+            let wmax = 0;
+            m.loads.forEach(l => { if (l.type === 'dist') wmax = Math.max(wmax, Math.abs(l.w1), Math.abs(l.w2)); });
+            m.loads.forEach(l => {
+                if (l.type !== 'dist' || wmax <= 0) return;
+                const hMax = 42;
+                const h1 = Math.abs(l.w1) / wmax * hMax, h2 = Math.abs(l.w2) / wmax * hMax;
+                const pa = X(l.x1), pb = X(l.x2);
+                const yA = top - 8 - h1, yB = top - 8 - h2;
+                s += `<path d="M${pa},${top - 8} L${pa},${yA} L${pb},${yB} L${pb},${top - 8} z" fill="rgba(220,38,38,.10)" stroke="#dc2626" stroke-width="1.3"/>`;
+                const n = Math.max(2, Math.min(24, Math.round((pb - pa) / 26)));
+                for (let i = 0; i <= n; i++) {
+                    const t = i / n, px = pa + (pb - pa) * t, py = yA + (yB - yA) * t;
+                    const wv = l.w1 + (l.w2 - l.w1) * t;
+                    if (Math.abs(wv) < 1e-12) continue;
+                    s += `<line x1="${px}" y1="${wv > 0 ? py : top - 9}" x2="${px}" y2="${wv > 0 ? top - 9 : py}" stroke="#dc2626" stroke-width="1" marker-end="url(#arrHead)" marker-start="none"/>`;
+                }
+                s += `<text x="${(pa + pb) / 2}" y="${Math.min(yA, yB) - 6}" text-anchor="middle" font-size="10.5" fill="#b91c1c" font-weight="700">` +
+                    (Math.abs(l.w1 - l.w2) < 1e-12 ? `w = ${fmt(l.w1)} ${u.w}` : `w = ${fmt(l.w1)} → ${fmt(l.w2)} ${u.w}`) + `</text>`;
+            });
+
+            /* --- point loads --- */
+            m.loads.forEach(l => {
+                if (l.type !== 'point' || !l.P) return;
+                const px = X(l.x1), len = 48;
+                const up = l.P < 0;
+                const yTail = up ? top - 6 : top - 6 - len, yTip = up ? top - 6 - len : top - 6;
+                s += `<line x1="${px}" y1="${yTail}" x2="${px}" y2="${yTip}" stroke="#dc2626" stroke-width="2.2" marker-end="url(#arrHead)"/>`;
+                s += `<text x="${px + 4}" y="${top - len - 12}" text-anchor="middle" font-size="10.5" fill="#b91c1c" font-weight="700">P = ${fmt(l.P)} ${u.F}</text>`;
+            });
+
+            /* --- point moments --- */
+            m.loads.forEach(l => {
+                if (l.type !== 'moment' || !l.M) return;
+                const px = X(l.x1), r = 18, cy = yBeam;
+                const ccw = l.M > 0;
+                const a0 = ccw ? -0.6 : 0.6, a1 = ccw ? 3.6 : -3.6;
+                const p0 = [px + r * Math.cos(a0), cy + r * Math.sin(a0)];
+                const p1 = [px + r * Math.cos(a1), cy + r * Math.sin(a1)];
+                s += `<path d="M${p0[0]},${p0[1]} A${r},${r} 0 1 ${ccw ? 1 : 0} ${p1[0]},${p1[1]}" fill="none" stroke="#7c3aed" stroke-width="2.2" marker-end="url(#arrHead)" style="marker-end:none"/>`;
+                s += `<path d="M${p1[0]},${p1[1]} l${ccw ? -6 : 6},-7 l${ccw ? 9 : -9},2 z" fill="#7c3aed"/>`;
+                s += `<text x="${px}" y="${cy - r - 8}" text-anchor="middle" font-size="10.5" fill="#6d28d9" font-weight="700">M = ${fmt(l.M)} ${u.M}</text>`;
+            });
+
+            /* --- overall dimension --- */
+            const yd = bot + 74;
+            s += `<line x1="${X(0)}" y1="${yd}" x2="${X(L)}" y2="${yd}" stroke="#64748b" stroke-width="1" marker-start="url(#arrDim2)" marker-end="url(#arrDim)"/>`;
+            s += `<line x1="${X(0)}" y1="${bot + 4}" x2="${X(0)}" y2="${yd + 6}" stroke="#cbd5e1" stroke-width="1"/>`;
+            s += `<line x1="${X(L)}" y1="${bot + 4}" x2="${X(L)}" y2="${yd + 6}" stroke="#cbd5e1" stroke-width="1"/>`;
+            s += `<text x="${(X(0) + X(L)) / 2}" y="${yd - 5}" text-anchor="middle" font-size="10.5" fill="#475569" font-weight="700">L = ${fmt(L)} ${u.L}</text>`;
+            s += `<text x="${x0 - 8}" y="${yBeam + 4}" text-anchor="end" font-size="10" fill="#94a3b8">x=0</text>`;
+
+            host.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Beam schematic">${s}</svg>`;
+
+            function zigzag(px, y, h) {
+                const n = 6, w = 9;
+                let d = `M${px},${y} L${px},${y + 5}`;
+                for (let i = 0; i < n; i++) {
+                    const yy = y + 5 + (h - 10) * (i + 0.5) / n;
+                    d += ` L${px + (i % 2 ? -w : w)},${yy}`;
+                }
+                d += ` L${px},${y + h - 5} L${px},${y + h + 4}`;
+                return `<path d="${d}" fill="none" stroke="#0f766e" stroke-width="1.6"/>`;
+            }
+            function spiral(px, py, r) {
+                let d = '', turns = 2.2, N = 60;
+                for (let i = 0; i <= N; i++) {
+                    const t = i / N, a = t * turns * 2 * Math.PI, rr = r * (0.25 + 0.75 * t);
+                    const xx = px + rr * Math.cos(a), yy = py + rr * Math.sin(a);
+                    d += (i ? 'L' : 'M') + xx.toFixed(1) + ',' + yy.toFixed(1);
+                }
+                return `<path d="${d}" fill="none" stroke="#0f766e" stroke-width="1.5"/>`;
+            }
+        }
+
+        /* =====================================================================
+           XY CHART (SVG, self-contained)
+           ===================================================================== */
+        function drawChart(host, cfg) {
+            const W = 780, H = 250;
+            const mL = 74, mR = 16, mT = 26, mB = 34;
+            const pw = W - mL - mR, ph = H - mT - mB;
+            const xs = cfg.xmin, xe = cfg.xmax;
+            let ymin = Infinity, ymax = -Infinity;
+            cfg.series.forEach(se => se.y.forEach(v => { if (isFinite(v)) { if (v < ymin) ymin = v; if (v > ymax) ymax = v; } }));
+            if (!isFinite(ymin)) { ymin = -1; ymax = 1; }
+            if (ymin > 0) ymin = 0;
+            if (ymax < 0) ymax = 0;
+            if (ymax - ymin < 1e-30) { ymax = 1; ymin = -1; }
+            const pad = (ymax - ymin) * 0.10;
+            ymin -= pad; ymax += pad;
+            const X = v => mL + pw * (xe - xs > 0 ? (v - xs) / (xe - xs) : 0);
+            const Y = v => mT + ph * (1 - (v - ymin) / (ymax - ymin));
+
+            let s = '';
+            s += `<rect x="${mL}" y="${mT}" width="${pw}" height="${ph}" fill="#fcfdff" stroke="#e2e8f0"/>`;
+            niceTicks(ymin, ymax, 5).forEach(t => {
+                const y = Y(t);
+                if (y < mT - 1 || y > mT + ph + 1) return;
+                s += `<line x1="${mL}" y1="${y.toFixed(2)}" x2="${mL + pw}" y2="${y.toFixed(2)}" stroke="${Math.abs(t) < 1e-14 ? '#94a3b8' : '#eef2f7'}" stroke-width="1"/>`;
+                s += `<text x="${mL - 6}" y="${(y + 3.5).toFixed(2)}" text-anchor="end" font-size="10" fill="#64748b">${fmt(t, 3)}</text>`;
+            });
+            niceTicks(xs, xe, 8).forEach(t => {
+                const x = X(t);
+                if (x < mL - 1 || x > mL + pw + 1) return;
+                s += `<line x1="${x.toFixed(2)}" y1="${mT}" x2="${x.toFixed(2)}" y2="${mT + ph}" stroke="#eef2f7" stroke-width="1"/>`;
+                s += `<text x="${x.toFixed(2)}" y="${mT + ph + 14}" text-anchor="middle" font-size="10" fill="#64748b">${fmt(t, 3)}</text>`;
+            });
+
+            cfg.series.forEach(se => {
+                let d = '', da = '';
+                for (let i = 0; i < se.x.length; i++) {
+                    if (!isFinite(se.y[i])) continue;
+                    d += (d ? 'L' : 'M') + X(se.x[i]).toFixed(2) + ',' + Y(se.y[i]).toFixed(2);
+                }
+                if (cfg.fill && d) {
+                    da = 'M' + X(se.x[0]).toFixed(2) + ',' + Y(0).toFixed(2) + d.substring(1) +
+                        'L' + X(se.x[se.x.length - 1]).toFixed(2) + ',' + Y(0).toFixed(2) + 'Z';
+                    s += `<path d="${da}" fill="${se.color}" opacity="0.10"/>`;
+                }
+                s += `<path d="${d}" fill="none" stroke="${se.color}" stroke-width="1.9" stroke-linejoin="round"${se.dash ? ' stroke-dasharray="6 3"' : ''}/>`;
+            });
+
+            /* extreme annotations for the first series */
+            (cfg.marks || []).forEach(mk => {
+                if (!isFinite(mk.y)) return;
+                const px = X(mk.x), py = Y(mk.y);
+                s += `<circle cx="${px.toFixed(2)}" cy="${py.toFixed(2)}" r="3.2" fill="#fff" stroke="${mk.color}" stroke-width="2"/>`;
+                const anchor = px > mL + pw * 0.75 ? 'end' : 'start';
+                const dx = anchor === 'end' ? -6 : 6;
+                s += `<text x="${(px + dx).toFixed(2)}" y="${(py + (mk.y >= 0 ? -8 : 14)).toFixed(2)}" text-anchor="${anchor}" font-size="10" font-weight="700" fill="${mk.color}">${esc(mk.label)}</text>`;
+            });
+
+            s += `<line x1="${mL}" y1="${Y(0).toFixed(2)}" x2="${mL + pw}" y2="${Y(0).toFixed(2)}" stroke="#334155" stroke-width="1"/>`;
+            s += `<text x="${mL}" y="${mT - 10}" font-size="12" font-weight="700" fill="#0f172a">${esc(cfg.title)}</text>`;
+            s += `<text x="${mL + pw}" y="${mT - 10}" text-anchor="end" font-size="10.5" fill="#64748b">${esc(cfg.ylabel)}</text>`;
+            s += `<text x="${mL + pw}" y="${H - 4}" text-anchor="end" font-size="10" fill="#94a3b8">x [${esc(U().L)}]</text>`;
+
+            /* hover layer */
+            s += `<g class="hov" style="display:none">
+      <line class="hovline" y1="${mT}" y2="${mT + ph}" stroke="#0f172a" stroke-width="1" stroke-dasharray="3 3"/>
+      <g class="hovlab"></g></g>`;
+            s += `<rect class="cap" x="${mL}" y="${mT}" width="${pw}" height="${ph}" fill="transparent" style="cursor:crosshair"/>`;
+
+            host.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+
+            const svg = host.querySelector('svg');
+            const cap = svg.querySelector('.cap');
+            const hov = svg.querySelector('.hov');
+            const hline = svg.querySelector('.hovline');
+            const hlab = svg.querySelector('.hovlab');
+            const px2x = ev => {
+                const r = svg.getBoundingClientRect();
+                const sx = (ev.clientX - r.left) / r.width * W;
+                return xs + (xe - xs) * Math.min(1, Math.max(0, (sx - mL) / pw));
+            };
+            cap.addEventListener('mousemove', ev => {
+                const xv = px2x(ev);
+                hov.style.display = '';
+                hline.setAttribute('x1', X(xv).toFixed(2));
+                hline.setAttribute('x2', X(xv).toFixed(2));
+                let txt = `<rect x="0" y="0" width="1" height="1" fill="none"/>`;
+                const lines = [`x = ${fmt(xv, 5)}`];
+                cfg.series.forEach(se => {
+                    const i = nearestIdx(se.x, xv);
+                    lines.push(`${se.label}: ${fmt(se.y[i], 5)}`);
+                });
+                const boxW = 8 + 6.2 * Math.max.apply(null, lines.map(t => t.length));
+                const bx = X(xv) + 10 + boxW > mL + pw ? X(xv) - 10 - boxW : X(xv) + 10;
+                txt = `<rect x="${bx.toFixed(1)}" y="${mT + 4}" width="${boxW.toFixed(1)}" height="${14 + 13 * lines.length}" rx="5" fill="#0f172a" opacity="0.92"/>`;
+                lines.forEach((t, i) => {
+                    txt += `<text x="${(bx + 7).toFixed(1)}" y="${mT + 21 + 13 * i}" font-size="10.5" fill="${i === 0 ? '#e2e8f0' : (cfg.series[i - 1] ? cfg.series[i - 1].color : '#fff')}" font-weight="${i === 0 ? 600 : 700}">${esc(t)}</text>`;
+                });
+                hlab.innerHTML = txt;
+            });
+            cap.addEventListener('mouseleave', () => { hov.style.display = 'none'; });
+            cap.addEventListener('click', ev => { setProbe(px2x(ev)); });
+        }
+
+        function nearestIdx(arr, v) {
+            let lo = 0, hi = arr.length - 1;
+            while (lo < hi) { const mid = (lo + hi) >> 1; if (arr[mid] < v) lo = mid + 1; else hi = mid; }
+            if (lo > 0 && Math.abs(arr[lo - 1] - v) < Math.abs(arr[lo] - v)) lo--;
+            return lo;
+        }
+
+        /* =====================================================================
+           RESULT RENDERING
+           ===================================================================== */
+        function renderMessages() {
+            const host = $('msgHost');
+            let h = '';
+            (RESULT.errors || []).forEach(e => h += `<div class="msg err"><b>Error:</b> ${esc(e)}</div>`);
+            (RESULT.warnings || []).forEach(e => h += `<div class="msg warn"><b>Note:</b> ${esc(e)}</div>`);
+            host.innerHTML = h;
+        }
+
+        function renderTiles() {
+            const u = U(), res = activeResults();
+            if (!res.length) { $('tiles').innerHTML = ''; return; }
+            const rows = (get, unit, dec) => res.map(rr => {
+                const e = get(rr.r);
+                if (!e) return '';
+                return `<div class="v" style="color:${rr.color};font-size:17px">${fmt(e.abs, 5)} <span class="u">${unit}</span></div>
+              <div class="sub">${res.length > 1 ? rr.label + ' — ' : ''}at x = ${fmt(e.xabs, 4)} ${u.L}</div>`;
+            }).join('');
+            const delta = (get) => {
+                if (res.length < 2) return '';
+                const a = get(RESULT.euler), b = get(RESULT.timo);
+                if (!a || !b || Math.abs(a.abs) < 1e-30) return '';
+                const p = (Math.abs(b.abs) - Math.abs(a.abs)) / Math.abs(a.abs) * 100;
+                return `<div class="sub" style="color:#0f766e;font-weight:700;margin-top:4px">Shear deformation adds ${fmt(p, 3)} % to the magnitude</div>`;
+            };
+            const tiles = [];
+            tiles.push(`<div class="tile"><div class="k">Max deflection</div>${rows(r => r.extv, u.d)}${delta(r => r.extv)}</div>`);
+            tiles.push(`<div class="tile"><div class="k">Max bending moment</div>${rows(r => r.extM, u.M)}</div>`);
+            tiles.push(`<div class="tile"><div class="k">Max shear</div>${rows(r => r.extV, u.F)}</div>`);
+            const hasSig = RESULT.model.segs.some(s => s.c > 0);
+            if (hasSig) tiles.push(`<div class="tile"><div class="k">Max bending stress</div>${rows(r => r.extsig, u.S)}</div>`);
+            tiles.push(`<div class="tile"><div class="k">Max rotation</div>${rows(r => r.extth, 'rad')}</div>`);
+            $('tiles').innerHTML = tiles.join('');
+        }
+
+        function renderReactions() {
+            const u = U(), res = activeResults();
+            if (!res.length) { $('reactHead').innerHTML = ''; $('reactBody').innerHTML = ''; $('equilNote').textContent = ''; return; }
+            let head = `<tr><th>Support</th><th>Type</th>`;
+            res.forEach(rr => { head += `<th>${esc(rr.label)}<br>F<sub>y</sub> [${u.F}]</th><th>${esc(rr.label)}<br>M<sub>z</sub> [${u.M}]</th>`; });
+            head += `<th>v [${u.d}]</th><th>&theta; [rad]</th></tr>`;
+            $('reactHead').innerHTML = head;
+            const n = res[0].r.reactions.length;
+            let body = '';
+            const tot = res.map(() => 0);
+            for (let i = 0; i < n; i++) {
+                const R0 = res[0].r.reactions[i];
+                body += `<tr><td class="mono">x = ${fmt(R0.x, 5)}</td><td style="text-align:left">${esc(R0.name)}</td>`;
+                res.forEach((rr, j) => {
+                    const R = rr.r.reactions[i];
+                    tot[j] += R.Fy;
+                    body += `<td>${fmt(R.Fy, 5)}</td><td>${fmt(R.Mz, 5)}</td>`;
+                });
+                const Rl = res[res.length - 1].r.reactions[i];
+                body += `<td>${fmt(Rl.v, 4)}</td><td>${fmt(Rl.th, 4)}</td></tr>`;
+            }
+            body += `<tr style="font-weight:700;background:#f8fafc"><td>Σ (upward +)</td><td></td>`;
+            res.forEach((rr, j) => { body += `<td>${fmt(tot[j], 5)}</td><td></td>`; });
+            body += `<td></td><td></td></tr>`;
+            $('reactBody').innerHTML = body;
+
+            const r0 = res[0].r;
+            const scale = Math.max(r0.refF, 1e-12);
+            const ok = Math.abs(r0.resF) < 1e-5 * scale + 1e-9;
+            $('equilNote').innerHTML = `Global equilibrium check — ΣF<sub>y</sub> residual = ${fmt(r0.resF, 3)} ${u.F}, ΣM residual = ${fmt(r0.resM, 3)} ${u.M} ` +
+                (ok ? '<span style="color:#059669;font-weight:700">✓ satisfied</span>' : '<span style="color:#b45309;font-weight:700">(check model)</span>') +
+                `. Reactions are given with F<sub>y</sub> positive upward and M<sub>z</sub> positive counter-clockwise.`;
+        }
+
+        function renderCharts() {
+            const host = $('charts'), u = U(), res = activeResults();
+            host.innerHTML = '';
+            if (!res.length) return;
+            const L = RESULT.model.L;
+            const hasSig = RESULT.model.segs.some(s => s.c > 0);
+            const defs = [
+                { k: 'V', title: 'Shear force  V(x)', unit: u.F, fill: true },
+                { k: 'M', title: 'Bending moment  M(x)', unit: u.M, fill: true },
+                { k: 'v', title: 'Deflection  v(x)', unit: u.d, fill: false },
+                { k: 'th', title: 'Rotation  θ(x)', unit: 'rad', fill: false }
+            ];
+            if (hasSig) defs.push({ k: 'sig', title: 'Bending stress  σ = Mc/I', unit: u.S, fill: true });
+
+            defs.forEach(d => {
+                const div = document.createElement('div');
+                div.className = 'chart-host';
+                host.appendChild(div);
+                const series = res.map((rr, i) => ({
+                    label: rr.label, color: rr.color, dash: i > 0,
+                    x: rr.r.S.map(p => p.x), y: rr.r.S.map(p => p[d.k])
+                }));
+                const marks = res.map(rr => {
+                    const e = rr.r['ext' + (d.k === 'th' ? 'th' : d.k)];
+                    if (!e) return null;
+                    return { x: e.xabs, y: e.abs, color: rr.color, label: fmt(e.abs, 4) };
+                }).filter(Boolean);
+                drawChart(div, {
+                    title: d.title, ylabel: '[' + d.unit + ']', xmin: 0, xmax: L,
+                    series: series, fill: d.fill, marks: marks
+                });
+            });
+
+            $('chartLegend').innerHTML = res.map((rr, i) => `<span><i style="background:${rr.color}${i > 0 ? ';background-image:repeating-linear-gradient(90deg,' + rr.color + ' 0 6px,#fff 6px 9px)' : ''}"></i>${esc(rr.label)}</span>`).join('') +
+                `<span style="font-weight:500">Click a diagram to set the section station.</span>`;
+        }
+
+        function sampleAt(r, x) {
+            const m = RESULT.model;
+            const q = r.vm(x, +1);
+            const nodes = RESULT.mesh.nodes;
+            const i = nearestIdx(nodes, x);
+            let v, th;
+            if (nodes[i] === x || i === nodes.length - 1) { v = r.u[2 * i]; th = r.u[2 * i + 1]; }
+            else {
+                let a = i, b = i + 1;
+                if (nodes[i] > x) { a = Math.max(0, i - 1); b = a + 1; }
+                const t = (x - nodes[a]) / (nodes[b] - nodes[a] || 1);
+                v = r.u[2 * a] * (1 - t) + r.u[2 * b] * t;
+                th = r.u[2 * a + 1] * (1 - t) + r.u[2 * b + 1] * t;
+            }
+            const seg = m.segAt(x);
+            const sig = seg.c > 0 ? q.M * seg.c / seg.I : NaN;
+            let gam = NaN;
+            if (r.theory === 'timoshenko') {
+                const G = seg.E / (2 * (1 + seg.nu)), As = seg.k * seg.A;
+                if (G > 0 && As > 0) gam = q.V / (G * As);
+            }
+            return { V: q.V, M: q.M, v: v, th: th, sig: sig, gam: gam, seg: seg };
+        }
+
+        function renderProbe() {
+            const u = U(), res = activeResults();
+            if (!res.length) { $('probeHead').innerHTML = ''; $('probeBody').innerHTML = ''; return; }
+            const L = RESULT.model.L;
+            const x = Math.min(L, Math.max(0, state.probeX));
+            let head = `<tr><th>Quantity</th>`;
+            res.forEach(rr => head += `<th>${esc(rr.label)}</th>`);
+            head += `<th>Unit</th></tr>`;
+            $('probeHead').innerHTML = head;
+            const smp = res.map(rr => sampleAt(rr.r, x));
+            const seg = smp[0].seg;
+            const rows = [
+                ['Shear force V', s => s.V, u.F],
+                ['Bending moment M', s => s.M, u.M],
+                ['Deflection v', s => s.v, u.d],
+                ['Rotation θ', s => s.th, 'rad'],
+                ['Bending stress σ = Mc/I', s => s.sig, u.S],
+                ['Shear strain γ = V/κGA', s => s.gam, 'rad']
+            ];
+            let body = '';
+            rows.forEach(rw => {
+                if (smp.every(s => !isFinite(rw[1](s)))) return;
+                body += `<tr><td>${rw[0]}</td>` + smp.map(s => `<td>${fmt(rw[1](s), 5)}</td>`).join('') + `<td style="color:#94a3b8">${rw[2]}</td></tr>`;
+            });
+            body += `<tr><td>Section at x</td><td colspan="${res.length + 1}" style="text-align:left;color:#475569">` +
+                `Segment ${seg.i + 1}: E = ${fmt(seg.E)} ${u.E}, I = ${fmt(seg.I)} ${u.I}, A = ${fmt(seg.A)} ${u.A}, κ = ${fmt(seg.k)}, G = ${fmt(seg.E / (2 * (1 + seg.nu)))} ${u.E}</td></tr>`;
+            $('probeBody').innerHTML = body;
+        }
+
+        function setProbe(x) {
+            const L = RESULT && RESULT.model && RESULT.model.ok ? RESULT.model.L : totalLength();
+            state.probeX = Math.min(L, Math.max(0, x));
+            $('probeX').value = fmt(state.probeX, 6);
+            $('probeSlider').max = L || 1;
+            $('probeSlider').step = (L || 1) / 1000;
+            $('probeSlider').value = state.probeX;
+            renderProbe();
+        }
+
+        /* =====================================================================
+           UPDATE CYCLE
+           ===================================================================== */
+        let solveTimer = null;
+        function update(immediate) {
+            clearTimeout(solveTimer);
+            const go = () => {
+                const t0 = performance.now();
+                try { runAnalysis(); }
+                catch (err) { RESULT = { model: { ok: false }, errors: ['Unexpected solver error: ' + err.message], warnings: [] }; }
+                $('lenPill').textContent = 'L = ' + fmt(totalLength()) + ' ' + U().L;
+                renderMessages();
+                if (RESULT.model && RESULT.model.ok) {
+                    renderSchematic();
+                    renderTiles();
+                    renderReactions();
+                    renderCharts();
+                    setProbe(state.probeX);
+                } else {
+                    $('schematic').innerHTML = '<p class="note" style="padding:10px">Fix the errors above to see results.</p>';
+                    $('tiles').innerHTML = ''; $('charts').innerHTML = '';
+                    $('reactHead').innerHTML = ''; $('reactBody').innerHTML = '';
+                    $('probeHead').innerHTML = ''; $('probeBody').innerHTML = '';
+                }
+                void t0;
+            };
+            if (immediate) go(); else solveTimer = setTimeout(go, 140);
+        }
+
+        /* =====================================================================
+           EVENT WIRING
+           ===================================================================== */
+        function bindTable(bodyId, arrName, onStructural) {
+            const body = $(bodyId);
+            body.addEventListener('input', ev => {
+                const tr = ev.target.closest('tr'); if (!tr) return;
+                const i = +tr.dataset.i, f = ev.target.dataset.f;
+                if (f === undefined) return;
+                const arr = state[arrName];
+                if (!arr[i]) return;
+                if (f === 'type') return;
+                arr[i][f] = ev.target.value === '' ? 0 : parseFloat(ev.target.value);
+                if (arrName === 'segments' && f === 'L') $('lenPill').textContent = 'L = ' + fmt(totalLength()) + ' ' + U().L;
+                update();
+            });
+            body.addEventListener('change', ev => {
+                const tr = ev.target.closest('tr'); if (!tr) return;
+                const i = +tr.dataset.i, f = ev.target.dataset.f;
+                if (f !== 'type') return;
+                state[arrName][i].type = ev.target.value;
+                if (arrName === 'loads' && ev.target.value === 'dist') {
+                    const l = state.loads[i];
+                    if (!(l.x2 > l.x1)) l.x2 = Math.min(totalLength(), (+l.x1 || 0) + totalLength() / 4);
+                    if (l.w2 === undefined || isNaN(l.w2)) l.w2 = l.w1;
+                }
+                onStructural();
+                update();
+            });
+            body.addEventListener('click', ev => {
+                const b = ev.target.closest('button[data-del]'); if (!b) return;
+                state[arrName].splice(+b.dataset.del, 1);
+                onStructural();
+                update();
+            });
+        }
+
+        function wire() {
+            bindTable('segBody', 'segments', renderSegTable);
+            bindTable('supBody', 'supports', renderSupTable);
+            bindTable('loadBody', 'loads', renderLoadTable);
+
+            $('addSeg').onclick = () => {
+                const last = state.segments[state.segments.length - 1] || DEFAULT_MODELS[state.units].segments[0];
+                state.segments.push(Object.assign({}, last));
+                renderSegTable(); update();
+            };
+            $('dupSeg').onclick = $('addSeg').onclick;
+            $('addSup').onclick = () => {
+                state.supports.push({ x: totalLength(), type: 'pin', Kv: 0, Kr: 0, dv: 0, dr: 0 });
+                renderSupTable(); update();
+            };
+            $('addLoad').onclick = () => {
+                const L = totalLength();
+                state.loads.push({ type: 'point', x1: L / 2, x2: L, w1: DEFAULT_MODELS[state.units].loads[0].w1 * 10, w2: 0 });
+                renderLoadTable(); update();
+            };
+
+            document.querySelectorAll('#theorySeg button').forEach(b => {
+                b.onclick = () => {
+                    document.querySelectorAll('#theorySeg button').forEach(x => x.classList.remove('active'));
+                    b.classList.add('active');
+                    state.theory = b.dataset.theory;
+                    update(true);
+                };
+            });
+
+            $('unitSel').onchange = () => {
+                state.units = $('unitSel').value;
+                loadDefaults(state.units);
+                renderInputs(); update(true);
+            };
+            $('nEl').oninput = () => { state.nEl = Math.max(20, Math.min(2000, +$('nEl').value || 160)); update(); };
+            $('defScale').onchange = () => { state.defScale = $('defScale').value; update(true); };
+            $('showDeformed').onchange = () => { state.showDeformed = $('showDeformed').checked; update(true); };
+            $('btnSolve').onclick = () => update(true);
+            $('btnReset').onclick = () => { loadDefaults(state.units); renderInputs(); update(true); };
+            $('probeX').oninput = () => setProbe(parseFloat($('probeX').value) || 0);
+            $('probeSlider').oninput = () => setProbe(parseFloat($('probeSlider').value) || 0);
+
+            $('btnPrint').onclick = () => window.print();
+            $('btnCsv').onclick = exportCsv;
+            $('btnSave').onclick = saveModel;
+            $('btnLoad').onclick = () => $('fileIn').click();
+            $('fileIn').onchange = ev => {
+                const f = ev.target.files[0]; if (!f) return;
+                const rd = new FileReader();
+                rd.onload = () => {
+                    try {
+                        const d = JSON.parse(rd.result);
+                        if (!d.segments || !d.supports) throw new Error('not a beam model file');
+                        state.units = d.units || state.units;
+                        state.segments = d.segments; state.supports = d.supports; state.loads = d.loads || [];
+                        state.theory = d.theory || state.theory;
+                        state.nEl = d.nEl || state.nEl;
+                        $('unitSel').value = state.units;
+                        $('nEl').value = state.nEl;
+                        document.querySelectorAll('#theorySeg button').forEach(x => x.classList.toggle('active', x.dataset.theory === state.theory));
+                        state.probeX = totalLength() / 2;
+                        renderInputs(); update(true);
+                    } catch (e) { alert('Could not read that file: ' + e.message); }
+                    ev.target.value = '';
+                };
+                rd.readAsText(f);
+            };
+            $('btnExample').onclick = showExamples;
+            $('btnVerify').onclick = showVerify;
+            $('modalClose').onclick = () => $('modalBg').classList.remove('open');
+            $('modalBg').addEventListener('click', ev => { if (ev.target === $('modalBg')) $('modalBg').classList.remove('open'); });
+            window.addEventListener('resize', () => { clearTimeout(solveTimer); });
+        }
+
+        /* =====================================================================
+           SAVE / LOAD / CSV
+           ===================================================================== */
+        function download(name, text, mime) {
+            const blob = new Blob([text], { type: mime || 'text/plain' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = name;
+            document.body.appendChild(a); a.click();
+            setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+        }
+        function saveModel() {
+            download('beam-model.json', JSON.stringify({
+                units: state.units, theory: state.theory, nEl: state.nEl,
+                segments: state.segments, supports: state.supports, loads: state.loads
+            }, null, 2), 'application/json');
+        }
+        function exportCsv() {
+            const res = activeResults();
+            if (!res.length) { alert('Nothing to export — solve the model first.'); return; }
+            const u = U();
+            let head = `x [${u.L}]`;
+            res.forEach(rr => {
+                head += `,${rr.label} V [${u.F}],${rr.label} M [${u.M}],${rr.label} v [${u.d}],${rr.label} theta [rad],${rr.label} sigma [${u.S}]`;
+            });
+            const lines = [head];
+            const n = res[0].r.S.length;
+            for (let i = 0; i < n; i++) {
+                let row = res[0].r.S[i].x.toPrecision(10);
+                res.forEach(rr => {
+                    const p = rr.r.S[i] || {};
+                    row += ',' + [p.V, p.M, p.v, p.th, p.sig].map(v => (isFinite(v) ? v.toPrecision(8) : '')).join(',');
+                });
+                lines.push(row);
+            }
+            download('beam-results.csv', lines.join('\n'), 'text/csv');
+        }
+
+        /* =====================================================================
+           EXAMPLES
+           ===================================================================== */
+        function baseProps() {
+            const d = JSON.parse(JSON.stringify(DEFAULT_MODELS[state.units]));
+            const seg = d.segments[0];
+            const w = d.loads[0].w1;
+            const P = w * seg.L / 4;
+            return { seg: seg, L: seg.L, w: w, P: P };
+        }
+        function EXAMPLES() {
+            const b = baseProps(), L = b.L, S = () => JSON.parse(JSON.stringify(b.seg));
+            const sup = (x, type, extra) => Object.assign({ x: x, type: type, Kv: 0, Kr: 0, dv: 0, dr: 0 }, extra || {});
+            const seg = (len, mult) => { const s = S(); s.L = len; if (mult) { s.I *= mult; s.A *= Math.cbrt(mult); s.c *= Math.sqrt(mult); } return s; };
+            return [
+                {
+                    n: 'Simply supported — UDL', d: 'Pin/roller ends with a uniform load over the full span.',
+                    m: { segments: [seg(L)], supports: [sup(0, 'pin'), sup(L, 'pin')], loads: [{ type: 'dist', x1: 0, x2: L, w1: b.w, w2: b.w }] }
+                },
+                {
+                    n: 'Cantilever — tip load', d: 'Built-in at the left end, point load at the free tip.',
+                    m: { segments: [seg(L)], supports: [sup(0, 'fixed')], loads: [{ type: 'point', x1: L, w1: b.P, w2: 0, x2: L }] }
+                },
+                {
+                    n: 'Fixed–fixed — central point load', d: 'Both ends clamped; statically indeterminate to 2nd degree.',
+                    m: { segments: [seg(L)], supports: [sup(0, 'fixed'), sup(L, 'fixed')], loads: [{ type: 'point', x1: L / 2, w1: b.P, w2: 0, x2: L }] }
+                },
+                {
+                    n: 'Propped cantilever — UDL', d: 'Fixed at one end, propped at the other.',
+                    m: { segments: [seg(L)], supports: [sup(0, 'fixed'), sup(L, 'pin')], loads: [{ type: 'dist', x1: 0, x2: L, w1: b.w, w2: b.w }] }
+                },
+                {
+                    n: 'Two-span continuous beam', d: 'Three supports, UDL over both spans.',
+                    m: { segments: [seg(L), seg(L)], supports: [sup(0, 'pin'), sup(L, 'pin'), sup(2 * L, 'pin')], loads: [{ type: 'dist', x1: 0, x2: 2 * L, w1: b.w, w2: b.w }] }
+                },
+                {
+                    n: 'Stepped beam — 3 sections', d: 'Deeper middle section (3× I) between two lighter end sections.',
+                    m: {
+                        segments: [seg(L / 3), seg(L / 3, 3), seg(L / 3)],
+                        supports: [sup(0, 'pin'), sup(L, 'pin')],
+                        loads: [{ type: 'point', x1: L / 2, w1: b.P, w2: 0, x2: L }]
+                    }
+                },
+                {
+                    n: 'Overhanging beam — triangular load', d: 'Back-span plus a cantilever overhang with a linearly varying load.',
+                    m: {
+                        segments: [seg(0.7 * L), seg(0.3 * L)],
+                        supports: [sup(0, 'pin'), sup(0.7 * L, 'pin')],
+                        loads: [{ type: 'dist', x1: 0, x2: L, w1: 0, w2: b.w * 2 }]
+                    }
+                },
+                {
+                    n: 'Elastic (spring) supports', d: 'Beam on two vertical springs — settlement of the supports included.',
+                    m: {
+                        segments: [seg(L)],
+                        supports: [sup(0, 'springV', { Kv: 3 * b.seg.E * b.seg.I / Math.pow(L, 3) }), sup(L, 'springV', { Kv: 3 * b.seg.E * b.seg.I / Math.pow(L, 3) })],
+                        loads: [{ type: 'dist', x1: 0, x2: L, w1: b.w, w2: b.w }]
+                    }
+                },
+                {
+                    n: 'Partially fixed end (rotational spring)', d: 'Pin plus a rotational spring at the left end — semi-rigid connection.',
+                    m: {
+                        segments: [seg(L)],
+                        supports: [sup(0, 'pinR', { Kr: 4 * b.seg.E * b.seg.I / L }), sup(L, 'pin')],
+                        loads: [{ type: 'dist', x1: 0, x2: L, w1: b.w, w2: b.w }]
+                    }
+                },
+                {
+                    n: 'Support settlement', d: 'Two-span beam with a prescribed settlement of the centre support.',
+                    m: {
+                        segments: [seg(L), seg(L)],
+                        supports: [sup(0, 'pin'), sup(L, 'pin', { dv: L / 500 }), sup(2 * L, 'pin')],
+                        loads: [{ type: 'dist', x1: 0, x2: 2 * L, w1: b.w, w2: b.w }]
+                    }
+                },
+                {
+                    n: 'Short deep beam (shear dominated)', d: 'Span/depth ≈ 2 — compare Euler and Timoshenko deflections here.',
+                    m: {
+                        segments: [seg(L / 8)],
+                        supports: [sup(0, 'fixed')],
+                        loads: [{ type: 'point', x1: L / 8, w1: b.P, w2: 0, x2: L / 8 }]
+                    }
+                },
+                {
+                    n: 'Applied end moment', d: 'Simply supported beam with a counter-clockwise moment at the left end.',
+                    m: {
+                        segments: [seg(L)],
+                        supports: [sup(0, 'pin'), sup(L, 'pin')],
+                        loads: [{ type: 'moment', x1: 0, w1: b.P * L / 4, w2: 0, x2: L }]
+                    }
+                }
+            ];
+        }
+        function showExamples() {
+            const ex = EXAMPLES();
+            $('modalTitle').firstChild.textContent = 'Example models ';
+            $('modalBody').innerHTML = `<p class="note" style="margin-top:0">Examples are generated in the current unit system (${esc(U().L)} · ${esc(U().F)}). Loading one replaces the current model.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px">` +
+                ex.map((e, i) => `<button class="btn ghost" data-ex="${i}" style="text-align:left;padding:10px 12px">
+        <div style="font-weight:700;margin-bottom:2px">${esc(e.n)}</div>
+        <div style="font-weight:400;color:#64748b;font-size:11.5px">${esc(e.d)}</div></button>`).join('') + `</div>`;
+            $('modalBody').querySelectorAll('button[data-ex]').forEach(b => {
+                b.onclick = () => {
+                    const e = ex[+b.dataset.ex];
+                    state.segments = e.m.segments; state.supports = e.m.supports; state.loads = e.m.loads;
+                    state.probeX = totalLength() / 2;
+                    renderInputs(); update(true);
+                    $('modalBg').classList.remove('open');
+                };
+            });
+            $('modalBg').classList.add('open');
+        }
+
+        /* =====================================================================
+           VERIFICATION AGAINST CLOSED-FORM SOLUTIONS
+           ===================================================================== */
+        function runCase(model, theory, nEl) {
+            const save = { s: state.segments, u: state.supports, l: state.loads, n: state.nEl };
+            state.segments = model.segments; state.supports = model.supports; state.loads = model.loads;
+            state.nEl = nEl || 200;
+            let r;
+            try {
+                const m = prepareModel();
+                const mesh = meshNodes(m, state.nEl);
+                r = analyze(m, mesh, theory);
+            } finally {
+                state.segments = save.s; state.supports = save.u; state.loads = save.l; state.nEl = save.n;
+            }
+            return r;
+        }
+        function verifyCases() {
+            const E = 1e4, I = 1, A = 1, k = 5 / 6, nu = 0.3, L = 10, w = 2, P = 5;
+            const G = E / (2 * (1 + nu));
+            const sec = (len) => ({ L: len, E: E, nu: nu, I: I, A: A, k: k, c: 0 });
+            const sup = (x, type, extra) => Object.assign({ x: x, type: type, Kv: 0, Kr: 0, dv: 0, dr: 0 }, extra || {});
+            const out = [];
+            const add = (name, theory, quantity, fe, exact) => {
+                const err = Math.abs(exact) > 1e-14 ? (fe - exact) / exact * 100 : (fe - exact);
+                out.push({ name: name, theory: theory, q: quantity, fe: fe, exact: exact, err: err, pass: Math.abs(err) < 0.5 });
+            };
+
+            /* 1 - simply supported, UDL */
+            let r = runCase({ segments: [sec(L)], supports: [sup(0, 'pin'), sup(L, 'pin')], loads: [{ type: 'dist', x1: 0, x2: L, w1: w, w2: w }] }, 'euler');
+            add('Simply supported, UDL', 'Euler', 'δ max', r.extv.abs, -5 * w * Math.pow(L, 4) / (384 * E * I));
+            add('Simply supported, UDL', 'Euler', 'M max', r.extM.abs, w * L * L / 8);
+
+            /* 2 - cantilever, tip point load */
+            r = runCase({ segments: [sec(L)], supports: [sup(0, 'fixed')], loads: [{ type: 'point', x1: L, w1: P }] }, 'euler');
+            add('Cantilever, tip load', 'Euler', 'δ tip', r.extv.abs, -P * Math.pow(L, 3) / (3 * E * I));
+            add('Cantilever, tip load', 'Euler', 'M root', r.extM.abs, -P * L);
+
+            /* 3 - fixed-fixed, central point load */
+            r = runCase({ segments: [sec(L)], supports: [sup(0, 'fixed'), sup(L, 'fixed')], loads: [{ type: 'point', x1: L / 2, w1: P }] }, 'euler');
+            add('Fixed–fixed, central load', 'Euler', 'δ mid', r.extv.abs, -P * Math.pow(L, 3) / (192 * E * I));
+            add('Fixed–fixed, central load', 'Euler', 'M end', r.extM.min, -P * L / 8);
+
+            /* 4 - propped cantilever, UDL */
+            r = runCase({ segments: [sec(L)], supports: [sup(0, 'fixed'), sup(L, 'pin')], loads: [{ type: 'dist', x1: 0, x2: L, w1: w, w2: w }] }, 'euler');
+            add('Propped cantilever, UDL', 'Euler', 'R prop', r.reactions[1].Fy, 3 * w * L / 8);
+            add('Propped cantilever, UDL', 'Euler', 'M fixed end', r.reactions[0].Mz, w * L * L / 8);
+
+            /* 5 - two-span continuous, UDL */
+            r = runCase({ segments: [sec(L), sec(L)], supports: [sup(0, 'pin'), sup(L, 'pin'), sup(2 * L, 'pin')], loads: [{ type: 'dist', x1: 0, x2: 2 * L, w1: w, w2: w }] }, 'euler');
+            add('Two-span continuous, UDL', 'Euler', 'R centre', r.reactions[1].Fy, 10 * w * L / 8);
+            add('Two-span continuous, UDL', 'Euler', 'M over support', r.extM.min, -w * L * L / 8);
+
+            /* 6 - cantilever on a tip spring */
+            const Ks = 3 * E * I / Math.pow(L, 3);
+            r = runCase({ segments: [sec(L)], supports: [sup(0, 'fixed'), sup(L, 'springV', { Kv: Ks })], loads: [{ type: 'point', x1: L, w1: P }] }, 'euler');
+            add('Cantilever + tip spring', 'Euler', 'δ tip', r.extv.abs, -P / (Ks + 3 * E * I / Math.pow(L, 3)));
+
+            /* 7 - propped cantilever with prop settlement, no load */
+            const dset = 0.05;
+            r = runCase({ segments: [sec(L)], supports: [sup(0, 'fixed'), sup(L, 'pin', { dv: dset })], loads: [] }, 'euler');
+            add('Prop settlement Δ', 'Euler', 'R prop', r.reactions[1].Fy, -3 * E * I * dset / Math.pow(L, 3));
+
+            /* 8 - Timoshenko cantilever, tip load */
+            r = runCase({ segments: [sec(L)], supports: [sup(0, 'fixed')], loads: [{ type: 'point', x1: L, w1: P }] }, 'timoshenko');
+            add('Cantilever, tip load', 'Timoshenko', 'δ tip', r.extv.abs, -(P * Math.pow(L, 3) / (3 * E * I) + P * L / (k * G * A)));
+
+            /* 9 - Timoshenko simply supported, UDL */
+            r = runCase({ segments: [sec(L)], supports: [sup(0, 'pin'), sup(L, 'pin')], loads: [{ type: 'dist', x1: 0, x2: L, w1: w, w2: w }] }, 'timoshenko');
+            add('Simply supported, UDL', 'Timoshenko', 'δ mid', r.extv.abs, -(5 * w * Math.pow(L, 4) / (384 * E * I) + w * L * L / (8 * k * G * A)));
+
+            /* 10 - Timoshenko fixed-fixed, central load */
+            r = runCase({ segments: [sec(L)], supports: [sup(0, 'fixed'), sup(L, 'fixed')], loads: [{ type: 'point', x1: L / 2, w1: P }] }, 'timoshenko');
+            add('Fixed–fixed, central load', 'Timoshenko', 'δ mid', r.extv.abs, -(P * Math.pow(L, 3) / (192 * E * I) + P * L / (4 * k * G * A)));
+
+            /* 11 - stepped beam: cantilever with 2I over the inner half, tip load */
+            r = runCase({
+                segments: [Object.assign(sec(L / 2), { I: 2 * I }), sec(L / 2)],
+                supports: [sup(0, 'fixed')], loads: [{ type: 'point', x1: L, w1: P }]
+            }, 'euler');
+            /* closed form by the unit-load method:  d = INT P(L-x)^2/EI(x) dx */
+            const a = L / 2;
+            const dExact = -P * ((Math.pow(L, 3) - Math.pow(L - a, 3)) / 3 / (E * 2 * I)
+                + Math.pow(L - a, 3) / 3 / (E * I));
+            add('Stepped cantilever (2I / I)', 'Euler', 'δ tip', r.extv.abs, dExact);
+
+            /* 12 - simply supported, moment at left end */
+            const M0 = 20;
+            r = runCase({ segments: [sec(L)], supports: [sup(0, 'pin'), sup(L, 'pin')], loads: [{ type: 'moment', x1: 0, w1: M0 }] }, 'euler');
+            add('Simply supported, end moment', 'Euler', 'θ at loaded end', r.reactions[0].th !== undefined ? r.reactions[0].th : NaN, M0 * L / (3 * E * I));
+            add('Simply supported, end moment', 'Euler', 'R left', r.reactions[0].Fy, M0 / L);
+
+            return out;
+        }
+        function showVerify() {
+            let rows;
+            try { rows = verifyCases(); }
+            catch (e) { rows = []; }
+            const nPass = rows.filter(r => r.pass).length;
+            $('modalTitle').firstChild.textContent = 'Solver verification ';
+            $('modalBody').innerHTML =
+                `<div class="msg ${nPass === rows.length ? 'ok' : 'warn'}"><b>${nPass} of ${rows.length} checks passed</b> — finite-element results compared with published closed-form
+       solutions (tolerance 0.5 %). Cases use E = 10⁴, I = 1, A = 1, κ = 5/6, ν = 0.3, L = 10, w = 2, P = 5 in consistent units.</div>
+       <div class="tbl-scroll"><table class="data"><thead><tr><th>Case</th><th>Theory</th><th>Quantity</th><th>This tool</th><th>Closed form</th><th>Error</th><th>Result</th></tr></thead><tbody>` +
+                rows.map(r => `<tr><td>${esc(r.name)}</td><td style="text-align:left">${esc(r.theory)}</td><td style="text-align:left">${esc(r.q)}</td>
+        <td>${fmt(r.fe, 6)}</td><td>${fmt(r.exact, 6)}</td><td>${fmt(r.err, 2)} %</td>
+        <td style="font-weight:700;color:${r.pass ? '#059669' : '#dc2626'}">${r.pass ? 'PASS' : 'FAIL'}</td></tr>`).join('') +
+                `</tbody></table></div>
+       <p class="note" style="margin-top:10px">Closed-form references: Roark's <i>Formulas for Stress and Strain</i>, Table 8.1; Timoshenko shear deflections from
+       δ<sub>s</sub> = ∫ V²/(κGA) dx (Timoshenko &amp; Gere, <i>Mechanics of Materials</i>).</p>`;
+            $('modalBg').classList.add('open');
+        }
+
+        /* =====================================================================
+           INIT
+           ===================================================================== */
+        function init() {
+            $('unitSel').value = state.units;
+            loadDefaults(state.units);
+            renderInputs();
+            wire();
+            update(true);
+        }
+        init();
+    </script>
+</body>
+
+</html>
