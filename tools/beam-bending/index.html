@@ -107,6 +107,9 @@
   .pill.bad { background: rgba(226,59,59,.14); color: var(--danger); }
   .plot-wrap { position: relative; width: 100%; }
   canvas { display: block; width: 100%; }
+  .plot-toolbar { display: flex; align-items: center; gap: 14px; padding: 0 0 8px; }
+  .chk { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text); cursor: pointer; user-select: none; }
+  .chk input { width: 15px; height: 15px; margin: 0; accent-color: var(--accent); cursor: pointer; }
   .legend { display: flex; gap: 16px; flex-wrap: wrap; padding: 6px 16px 12px; font-size: 11.5px; color: var(--text-dim); }
   .legend span { display: inline-flex; align-items: center; gap: 6px; }
   .swatch { width: 14px; height: 3px; border-radius: 2px; }
@@ -249,7 +252,6 @@
       <div class="body">
         <div class="row">
           <div><label class="fld">Elements per break-segment</label><input id="mesh" type="number" value="24" min="1" max="500" step="1"></div>
-          <div><label class="fld">Deflection exaggeration</label><input id="exagg" type="number" value="30" min="0" step="1"></div>
         </div>
         <div class="hint" id="meshHint" style="margin-top:10px"></div>
         <div class="hint">Everything updates live as you type — no solve step needed.</div>
@@ -262,6 +264,9 @@
     <div class="card">
       <h2>Model &amp; deflected shape</h2>
       <div class="body" style="padding-bottom:6px">
+        <div class="plot-toolbar">
+          <label class="chk"><input type="checkbox" id="showDefl" checked> Show deflected shape</label>
+        </div>
         <div class="plot-wrap"><canvas id="beamCanvas"></canvas></div>
       </div>
     </div>
@@ -991,11 +996,11 @@ function drawBeam(model, sys, reactions, result) {
   const X = (x) => ml + (x / L) * pw;
   const yc = mt + ph * 0.44;
   const bh = 15; // beam body height
-  const exagg = Math.max(0, readNumber(document.getElementById('exagg')) || 30);
-  // deflected-shape amplitude
+ const showDefl = document.getElementById('showDefl').checked; // toggle: overlay the deflected shape
+    // scale so the maximum deflection spans ~3× the illustrated beam depth (self-normalising)
   const wmax = Math.max(...result.ws.map(Math.abs), 1e-30);
-  const amp = exagg * wmax * (ph * 0.3) / L;
-  const Yd = (w) => yc + Math.max(-ph * 0.3, Math.min(ph * 0.3, w * amp));
+  const amp = (3 * bh) / wmax;
+  const Yd = (w) => yc + w * amp;
    // section boundaries
   const secStart = [0];
   for (const s of model.sections) secStart.push(secStart[secStart.length - 1] + s.len);
@@ -1005,19 +1010,27 @@ function drawBeam(model, sys, reactions, result) {
      { x: L, type: model.rightBC },
      ...model.supports,
    ];
-   // --- deflected shape (orange dotted) ---
-  if (result.ws.length > 1) {
-    ctx.beginPath();
-    for (let i = 0; i < result.xs.length; i++) { const px = X(result.xs[i]), py = Yd(result.ws[i]); i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
-    ctx.strokeStyle = '#e0872b'; ctx.lineWidth = 2; ctx.setLineDash([2, 3]); ctx.stroke(); ctx.setLineDash([]);
-    }
    // --- supports (drawn behind the beam so a fixed block meets it at its centre -- a T-join) ---
   for (const s of supportsAll) drawSupport(ctx, X(s.x), yc + bh / 2, s.type, yc);
     // --- beam body (light blue) ---
   ctx.fillStyle = '#d6e4f7'; ctx.strokeStyle = '#2f6fed'; ctx.lineWidth = 1.4;
   ctx.fillRect(X(0), yc - bh / 2, pw, bh);
   ctx.strokeRect(X(0), yc - bh / 2, pw, bh);
-   // section break dashes + S# labels
+    // --- deflected beam shape: a bent band centred on the neutral axis (y = 0 = beam midline) ---
+  if (showDefl && result.ws.length > 1) {
+    const n = result.xs.length;
+    const hy = new Array(n);
+    for (let i = 0; i < n; i++) hy[i] = Yd(result.ws[i]); // neutral-axis y at each sample
+    ctx.beginPath();
+    for (let i = 0; i < n; i++) { const px = X(result.xs[i]); i ? ctx.lineTo(px, hy[i] - bh / 2) : ctx.moveTo(px, hy[i] - bh / 2); }
+    for (let i = n - 1; i >= 0; i--) ctx.lineTo(X(result.xs[i]), hy[i] + bh / 2);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(224,135,43,0.16)';
+    ctx.fill();
+    ctx.strokeStyle = '#e0872b'; ctx.lineWidth = 2; ctx.lineJoin = 'round';
+    ctx.stroke();
+    }
+    // section break dashes + S# labels
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   for (let i = 0; i < model.sections.length; i++) {
     const x0 = secStart[i], x1 = secStart[i + 1];
