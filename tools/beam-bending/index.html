@@ -1,1037 +1,1603 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
 <head>
-    <title>Generic Beam Analysis Tool</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
-    <style>
-        :root {
-            --primary: #2563eb;
-            --bg: #f8fafc;
-            --panel: #ffffff;
-            --border: #e2e8f0;
-            --text: #0f172a;
-            --input-bg: #ffffff;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: var(--bg);
-            margin: 0;
-            padding: 20px;
-            color: var(--text);
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: grid;
-            grid-template-columns: 450px 1fr;
-            gap: 20px;
-        }
-
-        /* Sidebar Styles */
-        .controls {
-            background: var(--panel);
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-            height: fit-content;
-        }
-
-        h2,
-        h3 {
-            margin-top: 0;
-            color: var(--text);
-        }
-
-        .form-group {
-            margin-bottom: 15px;
-        }
-
-        label {
-            display: block;
-            font-size: 0.9em;
-            font-weight: 600;
-            margin-bottom: 5px;
-            color: #475569;
-        }
-
-        input,
-        select {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid var(--border);
-            border-radius: 4px;
-            box-sizing: border-box;
-            background: var(--input-bg);
-            color: var(--text);
-        }
-
-        .load-item {
-            background: #f1f5f9;
-            padding: 10px;
-            border-radius: 4px;
-            margin-bottom: 10px;
-            display: flex;
-            gap: 10px;
-            align-items: flex-end;
-        }
-
-        .load-item .form-group {
-            margin-bottom: 0;
-            flex: 1;
-        }
-
-        .btn {
-            background: var(--primary);
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: 500;
-            width: 100%;
-        }
-
-        .btn:hover {
-            opacity: 0.9;
-        }
-
-        .btn-red {
-            background: #ef4444;
-            width: auto;
-            height: 34px;
-            margin-top: 0;
-        }
-
-        /* Main Display Styles */
-        .results {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        .canvas-container {
-            background: var(--panel);
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-        }
-
-        #beamViz {
-            width: 100%;
-            height: 150px;
-            border-bottom: 1px solid var(--border);
-            margin-bottom: 15px;
-        }
-
-        .reaction-box {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-bottom: 15px;
-            font-family: monospace;
-            background: #f1f5f9;
-            padding: 10px;
-            border-radius: 4px;
-            border: 1px solid var(--border);
-        }
-
-        .critical-val-header {
-            grid-column: span 2;
-            margin-top: 10px;
-            padding-top: 10px;
-            border-top: 2px solid #cbd5e1;
-            font-weight: bold;
-            color: var(--primary);
-        }
-
-        @media (max-width: 800px) {
-            .container {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        /* Remove arrows/spinners for Chrome, Safari, Edge, Opera */
-        input::-webkit-outer-spin-button,
-        input::-webkit-inner-spin-button {
-            -webkit-appearance: none;
-            margin: 0;
-        }
-
-        /* Remove arrows/spinners for Firefox */
-        input[type=number] {
-            -moz-appearance: textfield;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Beam Calculator — Euler–Bernoulli &amp; Timoshenko</title>
+<style>
+  :root {
+    --bg: #eef1f7;
+    --panel: #ffffff;
+    --panel2: #f3f6fb;
+    --line: #dce3ef;
+    --line2: #c4cddd;
+    --text: #222c46;
+    --text-dim: #69748e;
+    --accent: #2f6fed;
+    --accent2: #12a37a;
+    --warn: #d9822b;
+    --danger: #e23b3b;
+    --grid: #eef1f6;
+    --curve: #2f6fed;
+    --curve2: #12a37a;
+    --curveV: #e0872b;
+    --curveM: #7c5cf0;
+    --shadow: 0 1px 2px rgba(20,30,60,.06), 0 10px 26px rgba(20,30,60,.07);
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 22px; background: #ffffff;
+    border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 10;
+  }
+  header h1 { font-size: 18px; margin: 0; font-weight: 650; letter-spacing: .2px; }
+  header .sub { color: var(--text-dim); font-size: 12px; margin-top: 2px; }
+  .wrap { display: grid; grid-template-columns: minmax(510px, 615px) minmax(0, 865px); gap: 18px; padding: 18px; align-items: start; max-width: 1520px; margin: 0 auto; justify-content: center; }
+  @media (max-width: 1080px) { .wrap { grid-template-columns: 1fr; } }
+  .card {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 16px;
+  }
+  .card > h2 {
+    font-size: 12px; text-transform: uppercase; letter-spacing: .8px;
+    color: var(--text-dim); margin: 0; padding: 12px 16px 8px;
+    border-bottom: 1px solid var(--line);
+  }
+  .card .body { padding: 14px 16px; }
+  label.fld { display: block; font-size: 11px; color: var(--text-dim); margin: 8px 0 3px; }
+  input, select {
+    width: 100%; background: var(--panel2); color: var(--text);
+    border: 1px solid var(--line2); border-radius: 6px; padding: 6px 8px;
+    font-size: 13px; font-family: "Cascadia Code", "Consolas", monospace;
+  }
+  input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+  input.err { border-color: var(--danger); }
+  .row { display: flex; gap: 8px; }
+  .row > div { flex: 1; }
+  button {
+    background: var(--panel2); color: var(--text); border: 1px solid var(--line2);
+    border-radius: 6px; padding: 7px 12px; font-size: 13px; cursor: pointer;
+    transition: background .12s, border-color .12s;
+  }
+  button:hover { background: #e7edf7; border-color: var(--accent); }
+  button.primary { background: var(--accent); color: #fff; border-color: transparent; font-weight: 600; }
+  button.primary:hover { background: #2560d0; }
+  button.ghost { background: transparent; }
+  button.danger { color: var(--danger); }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th, td { padding: 5px 6px; text-align: left; border-bottom: 1px solid var(--line); }
+  th { color: var(--text-dim); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .4px; }
+  /* Reactions: right-align the force/moment value columns under their labels (Location stays left). */
+  #reactTable th, #reactTable td { text-align: right; }
+  #reactTable th:first-child, #reactTable td:first-child { text-align: left; }
+  td input { padding: 4px 6px; font-size: 12.5px; }
+     #secTable td input, #supTable td input, #loadTable td input { font-size: 11.5px; padding: 4px 5px; }
+  .xbtn { background: transparent; border: none; color: var(--danger); cursor: pointer; font-size: 15px; padding: 0 4px; }
+  .xbtn:hover { color: #ff9b9b; }
+  .seg { display: inline-flex; background: var(--panel2); border: 1px solid var(--line2); border-radius: 8px; padding: 3px; gap: 3px; }
+  .seg button { border: none; background: transparent; padding: 6px 12px; font-size: 12.5px; }
+  .seg button.on { background: var(--accent); color: #fff; font-weight: 600; }
+  .hint { color: var(--text-dim); font-size: 11px; margin-top: 4px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .grid4 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 720px) { .grid2, .grid4 { grid-template-columns: 1fr; } }
+  .stat { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed var(--line); font-size: 13px; }
+  .stat .k { color: var(--text-dim); }
+  .stat .v { font-family: "Cascadia Code", "Consolas", monospace; font-weight: 600; }
+  .statgrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+  @media (max-width: 1240px) { .statgrid { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 760px) { .statgrid { grid-template-columns: repeat(2, 1fr); } }
+  .statcard { border: 1px solid var(--line); border-radius: 8px; padding: 11px 13px; background: var(--panel2); }
+  .statcard .k { font-size: 10px; text-transform: uppercase; letter-spacing: .6px; color: var(--accent); font-weight: 700; }
+  .statcard .v { font-family: "Cascadia Code", "Consolas", monospace; font-size: 15px; font-weight: 700; color: var(--warn); margin-top: 5px; white-space: nowrap; }
+  .statcard .v .u { font-size: 10.5px; color: var(--text-dim); font-weight: 500; margin-left: 3px; }
+  .statcard .at { font-size: 11px; color: var(--text-dim); margin-top: 3px; }
+  .xres { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .pill.ok { background: rgba(18,163,122,.14); color: var(--accent2); }
+  .pill.bad { background: rgba(226,59,59,.14); color: var(--danger); }
+  .plot-wrap { position: relative; width: 100%; }
+  canvas { display: block; width: 100%; }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; padding: 6px 16px 12px; font-size: 11.5px; color: var(--text-dim); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .swatch { width: 14px; height: 3px; border-radius: 2px; }
+  .msg { padding: 10px 16px; font-size: 12.5px; }
+  .msg.err { color: var(--danger); }
+  .msg.warn { color: var(--warn); }
+  details summary { cursor: pointer; color: var(--text-dim); font-size: 12px; padding: 6px 0; }
+  .footer { color: var(--text-dim); font-size: 11px; text-align: center; padding: 16px; }
+  code { background: var(--panel2); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+  .units { font-family: "Cascadia Code","Consolas",monospace; font-size: 10.5px; color: var(--text-dim); }
+  .head-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .head-actions .seg { margin: 0; }
+  .head-actions button { padding: 6px 10px; font-size: 12.5px; }
+  .head-actions #helpBtn { font-weight: 700; min-width: 30px; padding: 6px 0; }
+  .divider { width: 1px; height: 22px; background: var(--line2); margin: 0 2px; }
+  button:disabled { opacity: .38; cursor: default; }
+  button:disabled:hover { background: var(--panel2); border-color: var(--line2); }
+  .help-overlay { position: fixed; inset: 0; background: rgba(20,30,60,.42); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 20px; }
+  .help-overlay[hidden] { display: none; }
+  .help-card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; max-width: 660px; width: 100%; max-height: 86vh; overflow: auto; box-shadow: var(--shadow); }
+  .help-head { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--panel); }
+  .help-head h2 { margin: 0; font-size: 15px; font-weight: 650; }
+  .help-body { padding: 12px 18px 18px; }
+  .help-body h3 { margin: 16px 0 4px; font-size: 12px; color: var(--accent2); text-transform: uppercase; letter-spacing: .6px; }
+  .help-body h3:first-child { margin-top: 4px; }
+  .help-body p, .help-body li { font-size: 13px; color: var(--text); }
+  .help-body ul { margin: 4px 0; padding-left: 18px; }
+  .help-body li { margin: 3px 0; }
+  .help-body strong { color: var(--text); font-weight: 650; }
+   @media print {
+    header, .footer, .help-overlay { display: none !important; }
+    body { background: #fff; color: #000; }
+    .wrap { display: block; padding: 0; gap: 0; }
+    .col:first-child { display: none !important; }
+    .card { break-inside: avoid; box-shadow: none; border: 1px solid #bbb; margin-bottom: 10px; }
+    .card > h2 { border-color: #ccc; }
+   }
+</style>
 </head>
-
 <body>
+<header>
+  <div>
+    <h1>Beam Calculator</h1>
+    <div class="sub">Euler–Bernoulli &amp; Timoshenko · finite-element solver · single section or many</div>
+  </div>
+  <div class="head-actions">
+    <div class="seg" id="theorySeg">
+      <button data-theory="euler" class="on">Euler–Bernoulli</button>
+      <button data-theory="timo">Timoshenko</button>
+    </div>
+    <div class="seg" id="unitSeg" title="Unit system">
+      <button data-unit="metric" class="on">SI</button>
+      <button data-unit="imperial">Imperial</button>
+    </div>
+    <button class="ghost" id="undoBtn" title="Undo (Ctrl+Z)" disabled>↶ Undo</button>
+    <button class="ghost" id="redoBtn" title="Redo (Ctrl+Y / Ctrl+Shift+Z)" disabled>↷ Redo</button>
+    <span class="divider"></span>
+    <button class="ghost" id="exportCsvBtn" title="Export results, internal forces & reactions as CSV">Export CSV</button>
+    <button class="ghost" id="printBtn" title="Print / save as PDF">Print / PDF</button>
+    <button class="ghost" id="helpBtn" title="Help &amp; sign conventions">?</button>
+  </div>
+</header>
 
-    <div class="container">
-        <div class="controls">
-            <h2>Beam Config</h2>
-            <div class="form-group">
-                <label>Length (in)</label>
-                <input type="number" id="beamLength" value="10" min="1" step="0.1" onchange="updateAnalysis()">
-            </div>
-
-            <div class="form-group">
-                <label>Left Support</label>
-                <select id="leftSupport" onchange="updateAnalysis()">
-                    <option value="pinned">Pinned</option>
-                    <option value="fixed">Fixed</option>
-                    <option value="free">Free</option>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label>Right Support</label>
-                <select id="rightSupport" onchange="updateAnalysis()">
-                    <option value="pinned">Pinned</option>
-                    <option value="fixed">Fixed</option>
-                    <option value="free">Free</option>
-                </select>
-            </div>
-
-            <hr style="border-color: var(--border);">
-            <h3>Loads</h3>
-            <div id="loadsContainer"></div>
-            <button class="btn" onclick="addLoad()">+ Add Load</button>
-
-            <hr style="border-color: var(--border);">
-            <h3>Point Constraints</h3>
-            <div id="constraintsContainer"></div>
-            <button class="btn" onclick="addConstraint()">+ Add Constraint</button>
-
-            <div style="margin-top: 20px; font-size: 0.8em; color: #64748b;">
-                Note: Solves determinate and indeterminate systems.
-            </div>
+<div class="wrap">
+  <!-- ============ INPUTS ============ -->
+  <div class="col">
+    <div class="card">
+      <h2>Examples</h2>
+      <div class="body">
+        <div class="row">
+          <select id="preset">
+            <option value="udl">Simply supported + UDL</option>
+            <option value="cant">Cantilever + tip load</option>
+            <option value="ff">Fixed–fixed + UDL</option>
+            <option value="point">Simply supported + central point</option>
+            <option value="overhang">Overhang + tip load</option>
+            <option value="trim">Timoshenko stubby beam</option>
+            <option value="varsec">Variable section (2 I)</option>
+            <option value="blank">Blank</option>
+          </select>
+          <button class="ghost" id="loadPreset" style="white-space:nowrap">Load</button>
         </div>
-
-        <div class="results">
-            <div class="canvas-container">
-                <h3>Beam Arrangement and Key Results</h3>
-                <canvas id="beamViz"></canvas>
-                <div id="reactionOutput" class="reaction-box"></div>
-            </div>
-
-            <div class="canvas-container">
-                <h3>Shear Force Diagram (lbf)</h3>
-                <canvas id="shearChart"></canvas>
-            </div>
-
-            <div class="canvas-container">
-                <h3>Bending Moment Diagram (in.lbf)</h3>
-                <canvas id="momentChart"></canvas>
-            </div>
-
-            <div class="canvas-container">
-                <h3>Displacement (in)</h3>
-                <canvas id="dispChart"></canvas>
-            </div>
-        </div>
+        <div class="hint">Pick a preset, or build your own below. Results update automatically.</div>
+      </div>
     </div>
 
-    <script>
-        // --- State Management ---
-        let loads = [
-            { type: 'point', magnitude: 10, location: 5 } // Default load
-        ];
-
-        let constraints = []; // { location: number, displacement: number }
-
-        let charts = {};
-
-        // --- Initialization ---
-        window.onload = function () {
-            renderLoadInputs();
-            renderConstraintInputs();
-            updateAnalysis();
-        };
-
-        // --- Input Handling ---
-        function addLoad() {
-            loads.push({ type: 'point', magnitude: 10, location: 0, endLocation: 0 });
-            renderLoadInputs();
-            updateAnalysis();
-        }
-
-        function removeLoad(index) {
-            loads.splice(index, 1);
-            renderLoadInputs();
-            updateAnalysis();
-        }
-
-        function updateLoad(index, field, value) {
-            loads[index][field] = parseFloat(value);
-            updateAnalysis();
-        }
-
-        function updateLoadType(index, value) {
-            loads[index].type = value;
-            renderLoadInputs(); // Re-render to show/hide endLocation
-            updateAnalysis();
-        }
-
-        function renderLoadInputs() {
-            const container = document.getElementById('loadsContainer');
-            container.innerHTML = '';
-
-            loads.forEach((load, index) => {
-                let html = `
-                <div class="load-item">
-                    <div class="form-group" style="flex: 2; min-width: 140px;">
-                        <label>Type</label>
-                        <select onchange="updateLoadType(${index}, this.value)">
-                            <option value="point" ${load.type === 'point' ? 'selected' : ''}>Point Load (lbf)</option>
-                            <option value="moment" ${load.type === 'moment' ? 'selected' : ''}>Moment (in.lbf)</option>
-                            <option value="distributed" ${load.type === 'distributed' ? 'selected' : ''}>Distributed (lbf/in)</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Magnitude</label>
-                        <input type="number" value="${load.magnitude}" step="0.1" onchange="updateLoad(${index}, 'magnitude', this.value)">
-                    </div>
-                    <div class="form-group">
-                        <label>Start (in)</label>
-                        <input type="number" value="${load.location}" step="0.1" onchange="updateLoad(${index}, 'location', this.value)">
-                    </div>
-            `;
-
-                if (load.type === 'distributed') {
-                    html += `
-                    <div class="form-group">
-                        <label>End (in)</label>
-                        <input type="number" value="${load.endLocation || load.location + 1}" step="0.1" onchange="updateLoad(${index}, 'endLocation', this.value)">
-                    </div>
-                `;
-                }
-
-                html += `<button class="btn btn-red" onclick="removeLoad(${index})">X</button></div>`;
-                container.innerHTML += html;
-            });
-        }
-
-        function addConstraint() {
-            constraints.push({ location: 5, displacement: 0 });
-            renderConstraintInputs();
-            updateAnalysis();
-        }
-
-        function removeConstraint(index) {
-            constraints.splice(index, 1);
-            renderConstraintInputs();
-            updateAnalysis();
-        }
-
-        function updateConstraint(index, field, value) {
-            constraints[index][field] = parseFloat(value);
-            updateAnalysis();
-        }
-
-        function renderConstraintInputs() {
-            const container = document.getElementById('constraintsContainer');
-            container.innerHTML = '';
-
-            constraints.forEach((c, index) => {
-                let html = `
-                <div class="load-item" style="background: #eff6ff; border: 1px solid #bfdbfe;">
-                    <div class="form-group">
-                        <label>Location (in)</label>
-                        <input type="number" value="${c.location}" step="0.1" onchange="updateConstraint(${index}, 'location', this.value)">
-                    </div>
-                    <div class="form-group">
-                        <label>Disp. (in)</label>
-                        <input type="number" value="${c.displacement}" step="0.1" onchange="updateConstraint(${index}, 'displacement', this.value)">
-                    </div>
-                    <button class="btn btn-red" onclick="removeConstraint(${index})">X</button>
-                </div>`;
-                container.innerHTML += html;
-            });
-        }
-
-        // --- Physics Engine (Matrix Stiffness Method / FEM) ---
-
-        // Matrix Helper Class
-        class Matrix {
-            constructor(rows, cols) {
-                this.rows = rows;
-                this.cols = cols;
-                this.data = Array(rows).fill().map(() => Array(cols).fill(0));
-            }
-
-            static zeros(rows, cols) { return new Matrix(rows, cols); }
-
-            get(r, c) { return this.data[r][c]; }
-            set(r, c, val) { this.data[r][c] = val; }
-            add(r, c, val) { this.data[r][c] += val; }
-        }
-
-        // Linear Solver (Gaussian Elimination)
-        function solveLinearSystem(K, F, constrainedDOFs) {
-            const n = F.length;
-            const freeDOFs = [];
-            for (let i = 0; i < n; i++) {
-                if (!constrainedDOFs.has(i)) freeDOFs.push(i);
-            }
-
-            const dim = freeDOFs.length;
-            const A = Array(dim).fill().map(() => Array(dim).fill(0));
-            const b = Array(dim).fill(0);
-
-            // Extract submatrix for free DOFs
-            for (let i = 0; i < dim; i++) {
-                b[i] = F[freeDOFs[i]];
-                for (let j = 0; j < dim; j++) {
-                    A[i][j] = K.get(freeDOFs[i], freeDOFs[j]);
-                }
-            }
-
-            // Solve Ax = b
-            const x = gaussianElimination(A, b);
-
-            // Construct full displacement vector
-            const d = Array(n).fill(0);
-            for (let i = 0; i < dim; i++) {
-                d[freeDOFs[i]] = x[i];
-            }
-            return d;
-        }
-
-        function gaussianElimination(A, b) {
-            const n = b.length;
-            for (let i = 0; i < n; i++) {
-                // Pivot
-                let maxRow = i;
-                for (let k = i + 1; k < n; k++) {
-                    if (Math.abs(A[k][i]) > Math.abs(A[maxRow][i])) maxRow = k;
-                }
-                [A[i], A[maxRow]] = [A[maxRow], A[i]];
-                [b[i], b[maxRow]] = [b[maxRow], b[i]];
-
-                // Eliminate
-                for (let k = i + 1; k < n; k++) {
-                    const factor = A[k][i] / A[i][i];
-                    b[k] -= factor * b[i];
-                    for (let j = i; j < n; j++) {
-                        A[k][j] -= factor * A[i][j];
-                    }
-                }
-            }
-
-            // Back Substitution
-            const x = Array(n).fill(0);
-            for (let i = n - 1; i >= 0; i--) {
-                let sum = 0;
-                for (let j = i + 1; j < n; j++) {
-                    sum += A[i][j] * x[j];
-                }
-                x[i] = (b[i] - sum) / A[i][i];
-            }
-            return x;
-        }
-
-        function solveBeam(L, leftType, rightType, loadList, constraintList) {
-            // 1. Discretization (Nodes)
-            let nodes = new Set([0, L]);
-            loadList.forEach(l => {
-                nodes.add(l.location);
-                if (l.type === 'distributed') nodes.add(l.endLocation);
-            });
-
-            if (constraintList) {
-                constraintList.forEach(c => nodes.add(c.location));
-            }
-
-            const sortedNodes = Array.from(nodes).sort((a, b) => a - b);
-            // Remove duplicates (tolerance)
-            let uniqueNodes = [sortedNodes[0]];
-            for (let i = 1; i < sortedNodes.length; i++) {
-                if (sortedNodes[i] - uniqueNodes[uniqueNodes.length - 1] > 1e-6) {
-                    uniqueNodes.push(sortedNodes[i]);
-                }
-            }
-
-            // Mesh Refinement: Subdivide large elements
-            const maxElLen = L / 20; // Ensure at least 20 elements
-            let refinedNodes = [uniqueNodes[0]];
-            for (let i = 0; i < uniqueNodes.length - 1; i++) {
-                const x1 = uniqueNodes[i];
-                const x2 = uniqueNodes[i + 1];
-                const L_el = x2 - x1;
-                if (L_el > maxElLen) {
-                    const nSub = Math.ceil(L_el / maxElLen);
-                    for (let k = 1; k < nSub; k++) {
-                        refinedNodes.push(x1 + k * L_el / nSub);
-                    }
-                }
-                refinedNodes.push(x2);
-            }
-            uniqueNodes = refinedNodes;
-
-            const numNodes = uniqueNodes.length;
-            const numDOFs = numNodes * 2; // v, theta per node
-
-            // 2. Global Stiffness Matrix & Load Vector
-            const K = Matrix.zeros(numDOFs, numDOFs);
-            const F = Array(numDOFs).fill(0);
-
-            // Material Properties (Arbitrary constant EI)
-            const E = 10.5e6; // psi
-            const I = 1; // in^4
-            const EI = E * I;
-
-            // 3. Assembly
-            for (let i = 0; i < numNodes - 1; i++) {
-                const x1 = uniqueNodes[i];
-                const x2 = uniqueNodes[i + 1];
-                const le = x2 - x1;
-
-                // Element Stiffness Matrix (Hermite Beam)
-                const k11 = 12 * EI / le ** 3, k12 = 6 * EI / le ** 2;
-                const k22 = 4 * EI / le, k23 = 2 * EI / le;
-
-                // Indices in Global Matrix
-                // Node i: 2*i, 2*i+1
-                // Node i+1: 2*(i+1), 2*(i+1)+1
-                const idx = [2 * i, 2 * i + 1, 2 * (i + 1), 2 * (i + 1) + 1];
-
-                const ke = [
-                    [k11, k12, -k11, k12],
-                    [k12, k22, -k12, k23],
-                    [-k11, -k12, k11, -k12],
-                    [k12, k23, -k12, k22]
-                ];
-
-                for (let r = 0; r < 4; r++) {
-                    for (let c = 0; c < 4; c++) {
-                        K.add(idx[r], idx[c], ke[r][c]);
-                    }
-                }
-
-                // Distributed Loads (Fixed End Actions)
-                loadList.forEach(l => {
-                    if (l.type === 'distributed') {
-                        // Check overlap
-                        const start = Math.max(x1, l.location);
-                        const end = Math.min(x2, l.endLocation);
-
-                        if (end > start + 1e-6) {
-                            const w = l.magnitude;
-                            const q = -w;
-
-                            // For UDL over entire element (simplified for now, assuming split nodes handle partials)
-                            // Since we added nodes at start/end of loads, any UDL covers the FULL element or NONE of it.
-                            if (Math.abs(start - x1) < 1e-6 && Math.abs(end - x2) < 1e-6) {
-                                const f1 = q * le / 2;
-                                const m1 = q * le ** 2 / 12;
-                                const f2 = q * le / 2;
-                                const m2 = -q * le ** 2 / 12;
-
-                                F[idx[0]] += f1;
-                                F[idx[1]] += m1;
-                                F[idx[2]] += f2;
-                                F[idx[3]] += m2;
-                            }
-                        }
-                    }
-                });
-            }
-
-            // Point Loads
-            loadList.forEach(l => {
-                if (l.type === 'point' || l.type === 'moment') {
-                    // Find node index
-                    const nIdx = uniqueNodes.findIndex(x => Math.abs(x - l.location) < 1e-6);
-                    if (nIdx !== -1) {
-                        if (l.type === 'point') F[2 * nIdx] -= l.magnitude; // Downward load input = negative force
-                        if (l.type === 'moment') F[2 * nIdx + 1] -= l.magnitude; // Assuming CW input, FEM CCW+ -> -Magnitude
-                    }
-                }
-            });
-
-            // 4. Boundary Conditions
-            const constrainedDOFs = new Set();
-
-            // Left Support (Node 0)
-            if (leftType === 'pinned') constrainedDOFs.add(0); // Fix v
-            if (leftType === 'fixed') { constrainedDOFs.add(0); constrainedDOFs.add(1); } // Fix v, theta
-
-            // Right Support (Last Node)
-            const lastNodeIdx = numNodes - 1;
-            if (rightType === 'pinned') constrainedDOFs.add(2 * lastNodeIdx);
-            if (rightType === 'fixed') { constrainedDOFs.add(2 * lastNodeIdx); constrainedDOFs.add(2 * lastNodeIdx + 1); }
-
-            // Point Constraints
-            if (constraintList) {
-                constraintList.forEach(c => {
-                    const nIdx = uniqueNodes.findIndex(x => Math.abs(x - c.location) < 1e-6);
-                    if (nIdx !== -1) {
-                        constrainedDOFs.add(2 * nIdx); // Fix v
-                        // Handle non-zero displacement?
-                        // For now, assume 0. To support non-zero, we need to modify F.
-                        // Penalty method or partition. Partition is cleaner but complex code.
-                        // Simple approach: Large stiffness penalty.
-                        if (c.displacement !== 0) {
-                            // Penalty Method
-                            const penalty = 1e14 * EI;
-                            K.add(2 * nIdx, 2 * nIdx, penalty);
-                            F[2 * nIdx] += penalty * (c.displacement); // Use inches for displacment input
-                            constrainedDOFs.delete(2 * nIdx); // Treat as free but with penalty
-                        }
-                    }
-                });
-            }
-
-            // 5. Solve
-            const d = solveLinearSystem(K, F, constrainedDOFs);
-
-            // 6. Post-Processing (Internal Forces)
-            const xVals = [];
-            const shearVals = [];
-            const momentVals = [];
-            const dispVals = [];
-
-            // Reactions
-            // R = K*d - F_equivalent
-            // Actually, we can just sum forces/moments at nodes, or use element forces.
-            // Let's calculate element forces and string them together.
-
-            let RA = 0, MA = 0, RB = 0, MB = 0;
-
-            for (let i = 0; i < numNodes - 1; i++) {
-                const x1 = uniqueNodes[i];
-                const x2 = uniqueNodes[i + 1];
-                const le = x2 - x1;
-
-                // Element displacements
-                const u = [d[2 * i], d[2 * i + 1], d[2 * (i + 1)], d[2 * (i + 1) + 1]];
-
-                // Subdivide element for plotting
-                const numSub = 20;
-                for (let j = 0; j <= numSub; j++) {
-                    // Allow duplicates at nodes for vertical steps in charts
-                    // if (i > 0 && j === 0) continue;
-
-                    const xi = j * le / numSub; // Local x
-                    const xGlobal = x1 + xi;
-
-                    // Shape functions derivatives for V and M
-                    // v(x) = N1*u1 + N2*u2 + N3*u3 + N4*u4
-                    // M = EI * v''
-                    // V = -EI * v''' (Bernoulli) or dM/dx
-
-                    // N1 = 1 - 3xi^2 + 2xi^3 (xi = x/L)
-                    const s = xi / le;
-
-                    // M(x) = EI/L^2 * [ (6s-4)*u1 + (6s-2)*u2*L + (-6s+2)*u3 + (6s-4)*u4*L ] ? 
-                    // Let's use standard cubic interpolation derivatives
-
-                    // d2N/dx2
-                    const d2N1 = (12 * s - 6) / le ** 2;
-                    const d2N2 = (6 * s - 4) / le;
-                    const d2N3 = (-12 * s + 6) / le ** 2;
-                    const d2N4 = (6 * s - 2) / le;
-
-                    const curvature = d2N1 * u[0] + d2N2 * u[1] + d2N3 * u[2] + d2N4 * u[3];
-                    let M = EI * curvature; // Standard FEM: M = EI v''. 
-                    // Sign convention: Positive curvature (smile) -> Compression top -> Positive Moment?
-                    // Tool convention: Sagging positive? 
-                    // Let's check results.
-
-                    // Displacement v(x)
-                    // N1 = 1 - 3s^2 + 2s^3
-                    // N2 = L(s - 2s^2 + s^3)
-                    // N3 = 3s^2 - 2s^3
-                    // N4 = L(-s^2 + s^3)
-                    const N1 = 1 - 3 * s ** 2 + 2 * s ** 3;
-                    const N2 = le * (s - 2 * s ** 2 + s ** 3);
-                    const N3 = 3 * s ** 2 - 2 * s ** 3;
-                    const N4 = le * (-(s ** 2) + s ** 3);
-
-                    const v = N1 * u[0] + N2 * u[1] + N3 * u[2] + N4 * u[3];
-
-                    // d3N/dx3
-                    const d3N1 = 12 / le ** 3;
-                    const d3N2 = 6 / le ** 2;
-                    const d3N3 = -12 / le ** 3;
-                    const d3N4 = 6 / le ** 2;
-
-                    const d3v = d3N1 * u[0] + d3N2 * u[1] + d3N3 * u[2] + d3N4 * u[3];
-                    let V = -EI * d3v; // V = -EI v'''
-
-                    // Add Fixed End Actions effects for internal points if UDL exists
-                    loadList.forEach(l => {
-                        if (l.type === 'distributed') {
-                            if (Math.abs(Math.max(x1, l.location) - x1) < 1e-6 && Math.abs(Math.min(x2, l.endLocation) - x2) < 1e-6) {
-                                const q = -l.magnitude;
-                                const x_local = xi;
-                                V += q * (le / 2 - x_local);
-
-                                // OLD LINE:
-                                // M += (q * x_local / 2) * (le - x_local);
-
-                                // NEW LINE: Add the Fixed-End Moment offset (q*L^2/12)
-                                M += (q * x_local / 2) * (le - x_local) + (q * le ** 2 / 12);
-                            }
-                        }
-                    });
-
-                    xVals.push(xGlobal);
-                    shearVals.push(V);
-                    momentVals.push(M);
-                    dispVals.push(v); // Use inches for displacement output
-                }
-            }
-
-            // Calculate Reactions (Global Equilibrium or Nodal Balance)
-            // Reaction = K_row * d - F_equivalent
-            // For Node 0:
-            const R0_idx = 0;
-            let R0_force = 0;
-            for (let c = 0; c < numDOFs; c++) R0_force += K.get(0, c) * d[c];
-            RA = R0_force - F[0]; // F[0] contains external loads added to node
-
-            const M0_idx = 1;
-            let M0_val = 0;
-            for (let c = 0; c < numDOFs; c++) M0_val += K.get(1, c) * d[c];
-            MA = M0_val - F[1];
-
-            const Rn_idx = 2 * (numNodes - 1);
-            let Rn_force = 0;
-            for (let c = 0; c < numDOFs; c++) Rn_force += K.get(Rn_idx, c) * d[c];
-            RB = Rn_force - F[Rn_idx];
-
-            const Mn_idx = Rn_idx + 1;
-            let Mn_val = 0;
-            for (let c = 0; c < numDOFs; c++) Mn_val += K.get(Mn_idx, c) * d[c];
-            MB = Mn_val - F[Mn_idx];
-
-            // Constraint Reactions
-            const constraintReactions = [];
-            if (constraintList) {
-                constraintList.forEach(c => {
-                    const nIdx = uniqueNodes.findIndex(x => Math.abs(x - c.location) < 1e-6);
-                    if (nIdx !== -1) {
-                        // Calculate Internal Force at this node by summing element forces
-                        // F_int = sum(k_e * u_e) for all connected elements
-                        let F_int = 0;
-
-                        // Check element to the left (connects nIdx-1 to nIdx)
-                        if (nIdx > 0) {
-                            const x1 = uniqueNodes[nIdx - 1];
-                            const x2 = uniqueNodes[nIdx];
-                            const le = x2 - x1;
-                            const u = [d[2 * (nIdx - 1)], d[2 * (nIdx - 1) + 1], d[2 * nIdx], d[2 * nIdx + 1]];
-
-                            // Row 2 of stiffness matrix (Vertical force at second node)
-                            const k21 = -12 * EI / le ** 3;
-                            const k22 = -6 * EI / le ** 2;
-                            const k23 = 12 * EI / le ** 3;
-                            const k24 = -6 * EI / le ** 2;
-
-                            F_int += k21 * u[0] + k22 * u[1] + k23 * u[2] + k24 * u[3];
-
-                            // Add Fixed End Action from Distributed Load on this element
-                            loadList.forEach(l => {
-                                if (l.type === 'distributed') {
-                                    const start = Math.max(x1, l.location);
-                                    const end = Math.min(x2, l.endLocation);
-                                    if (Math.abs(start - x1) < 1e-6 && Math.abs(end - x2) < 1e-6) {
-                                        const q = -l.magnitude;
-                                        // FEA at node 2 (vertical) is qL/2
-                                        F_int -= q * le / 2;
-                                    }
-                                }
-                            });
-                        }
-
-                        // Check element to the right (connects nIdx to nIdx+1)
-                        if (nIdx < numNodes - 1) {
-                            const x1 = uniqueNodes[nIdx];
-                            const x2 = uniqueNodes[nIdx + 1];
-                            const le = x2 - x1;
-                            const u = [d[2 * nIdx], d[2 * nIdx + 1], d[2 * (nIdx + 1)], d[2 * (nIdx + 1) + 1]];
-
-                            // Row 0 of stiffness matrix (Vertical force at first node)
-                            const k11 = 12 * EI / le ** 3;
-                            const k12 = 6 * EI / le ** 2;
-                            const k13 = -12 * EI / le ** 3;
-                            const k14 = 6 * EI / le ** 2;
-
-                            F_int += k11 * u[0] + k12 * u[1] + k13 * u[2] + k14 * u[3];
-
-                            // Add Fixed End Action
-                            loadList.forEach(l => {
-                                if (l.type === 'distributed') {
-                                    const start = Math.max(x1, l.location);
-                                    const end = Math.min(x2, l.endLocation);
-                                    if (Math.abs(start - x1) < 1e-6 && Math.abs(end - x2) < 1e-6) {
-                                        const q = -l.magnitude;
-                                        // FEA at node 1 (vertical) is qL/2
-                                        F_int -= q * le / 2;
-                                    }
-                                }
-                            });
-                        }
-
-                        // Calculate External Point Load at this node
-                        let F_ext = 0;
-                        loadList.forEach(l => {
-                            if (l.type === 'point' && Math.abs(l.location - c.location) < 1e-6) {
-                                F_ext -= l.magnitude; // Downward load is negative
-                            }
-                        });
-
-                        // Reaction R = F_int - F_ext
-                        const R_c = F_int - F_ext;
-
-                        constraintReactions.push({ location: c.location, magnitude: R_c });
-                    }
-                });
-            }
-
-            return { x: xVals, V: shearVals, M: momentVals, disp: dispVals, reactions: { RA, MA: -MA, RB, MB: -MB, constraints: constraintReactions } };
-        }
-
-        // --- Main Update Function ---
-        function updateAnalysis() {
-            const L = parseFloat(document.getElementById('beamLength').value);
-            const leftType = document.getElementById('leftSupport').value;
-            const rightType = document.getElementById('rightSupport').value;
-
-            const res = solveBeam(L, leftType, rightType, loads, constraints);
-
-            // --- CHANGED: Calculate Min/Max Values ---
-            const maxShear = Math.max(...res.V);
-            const minShear = Math.min(...res.V);
-            const maxMoment = Math.max(...res.M);
-            const minMoment = Math.min(...res.M);
-            // ------------------------------------------
-
-            // Update Text
-            const rEl = document.getElementById('reactionOutput');
-            let html = `
-            <div><strong>R_Left (Up):</strong> ${res.reactions.RA.toFixed(2)} lbf</div>
-            <div><strong>R_Right (Up):</strong> ${res.reactions.RB.toFixed(2)} lbf</div>
-            ${res.reactions.MA !== 0 ? `<div><strong>M_Left:</strong> ${res.reactions.MA.toFixed(2)} in.lbf</div>` : ''}
-            ${res.reactions.MB !== 0 ? `<div><strong>M_Right:</strong> ${res.reactions.MB.toFixed(2)} in.lbf</div>` : ''}
-            `;
-
-            if (res.reactions.constraints.length > 0) {
-                html += `<div style="grid-column: span 2; margin-top: 5px; border-top: 1px solid #ccc; padding-top: 5px;"><strong>Constraint Reactions:</strong></div>`;
-                res.reactions.constraints.forEach(c => {
-                    html += `<div>@ ${c.location}in: ${c.magnitude.toFixed(2)} lbf</div>`;
-                });
-            }
-
-            // --- CHANGED: Add Min/Max to HTML ---
-            html += `
-            <div class="critical-val-header">Critical Values</div>
-            <div><strong>Max Shear:</strong> ${maxShear.toFixed(2)} lbf</div>
-            <div><strong>Min Shear:</strong> ${minShear.toFixed(2)} lbf</div>
-            <div><strong>Max Moment:</strong> ${maxMoment.toFixed(2)} in.lbf</div>
-            <div><strong>Min Moment:</strong> ${minMoment.toFixed(2)} in.lbf</div>
-            `;
-            // ------------------------------------
-
-            rEl.innerHTML = html;
-
-            drawVisualizer(L, leftType, rightType, loads, constraints);
-            drawCharts(res.x, res.V, res.M, res.disp);
-        }
-
-        // --- Visualization (Canvas) ---
-        function drawVisualizer(L, left, right, loadList, constraintList) {
-            const canvas = document.getElementById('beamViz');
-            const ctx = canvas.getContext('2d');
-            const w = canvas.width = canvas.parentElement.offsetWidth;
-            const h = canvas.height = 150;
-
-            ctx.clearRect(0, 0, w, h);
-
-            const margin = 50;
-            const beamY = h / 2 + 20;
-            const beamLenPx = w - 2 * margin;
-            const scale = beamLenPx / L;
-
-            // Draw Beam
-            ctx.beginPath();
-            ctx.lineWidth = 6;
-            ctx.strokeStyle = '#cbd5e1';
-            ctx.moveTo(margin, beamY);
-            ctx.lineTo(margin + beamLenPx, beamY);
-            ctx.stroke();
-
-            // Helper: Draw Triangle (Pin)
-            function drawPin(x) {
-                ctx.beginPath();
-                ctx.fillStyle = '#64748b';
-                ctx.moveTo(x, beamY + 4);
-                ctx.lineTo(x - 10, beamY + 20);
-                ctx.lineTo(x + 10, beamY + 20);
-                ctx.fill();
-            }
-
-            // Helper: Draw Block (Fixed)
-            function drawFixed(x, isLeft) {
-                ctx.beginPath();
-                ctx.lineWidth = 4;
-                ctx.strokeStyle = '#64748b';
-                ctx.moveTo(x, beamY - 20);
-                ctx.lineTo(x, beamY + 20);
-                ctx.stroke();
-                // Hatches
-                for (let i = -20; i < 20; i += 5) {
-                    ctx.beginPath();
-                    ctx.lineWidth = 1;
-                    ctx.moveTo(x, beamY + i);
-                    ctx.lineTo(x + (isLeft ? -10 : 10), beamY + i + 5);
-                    ctx.stroke();
-                }
-            }
-
-            // Helper: Draw Roller (Constraint)
-            function drawRoller(x) {
-                ctx.beginPath();
-                ctx.fillStyle = '#2563eb';
-                ctx.arc(x, beamY + 10, 8, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.beginPath();
-                ctx.moveTo(x - 10, beamY + 20);
-                ctx.lineTo(x + 10, beamY + 20);
-                ctx.strokeStyle = '#2563eb';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-            }
-
-            // Draw Supports
-            if (left === 'pinned') drawPin(margin);
-            if (left === 'fixed') drawFixed(margin, true);
-            if (right === 'pinned') drawPin(margin + beamLenPx);
-            if (right === 'fixed') drawFixed(margin + beamLenPx, false);
-
-            // Draw Constraints
-            if (constraintList) {
-                constraintList.forEach(c => {
-                    drawRoller(margin + c.location * scale);
-                });
-            }
-
-            // Draw Loads
-            loadList.forEach(l => {
-                ctx.fillStyle = '#ef4444';
-                ctx.strokeStyle = '#ef4444';
-                let startX = margin + l.location * scale;
-
-                if (l.type === 'point') {
-                    // Arrow down
-                    ctx.beginPath();
-                    ctx.moveTo(startX, beamY - 50);
-                    ctx.lineTo(startX, beamY - 5);
-                    ctx.lineWidth = 2;
-                    ctx.stroke();
-                    // Arrowhead
-                    ctx.beginPath();
-                    ctx.moveTo(startX - 5, beamY - 15);
-                    ctx.lineTo(startX, beamY - 5);
-                    ctx.lineTo(startX + 5, beamY - 15);
-                    ctx.fill();
-                    // Text
-                    ctx.fillText(l.magnitude + "lbf", startX - 10, beamY - 55);
-                } else if (l.type === 'distributed') {
-                    let endX = margin + (l.endLocation || l.location) * scale;
-                    ctx.globalAlpha = 0.3;
-                    ctx.fillRect(startX, beamY - 30, endX - startX, 28);
-                    ctx.globalAlpha = 1.0;
-                    ctx.fillText(l.magnitude + "lbf/in", startX, beamY - 35);
-                }
-            });
-        }
-
-        // --- Charting ---
-        function drawCharts(xVals, shearData, momentData, dispData) {
-            // Destroy old charts if exist
-            if (charts.shear) charts.shear.destroy();
-            if (charts.moment) charts.moment.destroy();
-            if (charts.disp) charts.disp.destroy();
-
-            const commonOptions = {
-                responsive: true,
-                plugins: {
-                    legend: { display: false }
-                },
-                scales: {
-                    x: {
-                        type: 'linear',
-                        title: { display: true, text: 'Length (in)', color: '#64748b' },
-                        ticks: { maxTicksLimit: 10, color: '#64748b' },
-                        grid: { color: '#e2e8f0' }
-                    },
-                    y: {
-                        title: { display: true, text: 'Magnitude', color: '#64748b' },
-                        ticks: { color: '#64748b' },
-                        grid: { color: '#e2e8f0' }
-                    }
-                },
-                elements: { point: { radius: 0 } } // Hide points for smooth line
-            };
-
-            // Shear Chart
-            const ctxS = document.getElementById('shearChart').getContext('2d');
-            charts.shear = new Chart(ctxS, {
-                type: 'line',
-                data: {
-                    datasets: [{
-                        label: 'Shear Force (lbf)',
-                        data: xVals.map((x, i) => ({ x: x, y: shearData[i] })),
-                        borderColor: '#2563eb',
-                        backgroundColor: 'rgba(37, 99, 235, 0.1)',
-                        fill: true,
-                        borderWidth: 2
-                    }]
-                },
-                options: commonOptions
-            });
-
-            // Moment Chart
-            const ctxM = document.getElementById('momentChart').getContext('2d');
-            charts.moment = new Chart(ctxM, {
-                type: 'line',
-                data: {
-                    datasets: [{
-                        label: 'Bending Moment (in.lbf)',
-                        data: xVals.map((x, i) => ({ x: x, y: momentData[i] })),
-                        borderColor: '#059669',
-                        backgroundColor: 'rgba(5, 150, 105, 0.1)',
-                        fill: true,
-                        borderWidth: 2
-                    }]
-                },
-                options: commonOptions
-            });
-
-            // Displacement Chart
-            const ctxD = document.getElementById('dispChart').getContext('2d');
-            charts.disp = new Chart(ctxD, {
-                type: 'line',
-                data: {
-                    datasets: [{
-                        label: 'Displacement (in)',
-                        data: xVals.map((x, i) => ({ x: x, y: dispData[i] })),
-                        borderColor: '#d97706',
-                        backgroundColor: 'rgba(217, 119, 6, 0.1)',
-                        fill: true,
-                        borderWidth: 2
-                    }]
-                },
-                options: commonOptions
-            });
-        }
-    </script>
-
+    <div class="card">
+      <h2>Beam sections</h2>
+      <div class="body">
+        <div class="hint" style="margin:0 0 8px">Total length = Σ of sections. Each segment can have its own stiffness. <span class="units" id="secUnits">E [Pa], I [m⁴], h [m], A [m²], ν [–], G [Pa], κ [–]</span></div>
+        <table id="secTable">
+          <thead><tr>
+            <th style="width:22px">#</th><th>Length</th><th>E</th><th>I</th><th title="Section height — sets c = h/2 for bending stress">h</th><th>A</th><th>ν</th>
+            <th title="Shear modulus — blank = E/2(1+ν)">G</th><th title="Shear correction — blank = 5/6">κ</th>
+            <th style="width:24px"></th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+        <button class="ghost" id="addSec" style="margin-top:8px">+ Add section</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>End conditions</h2>
+      <div class="body">
+        <div class="row">
+          <div><label class="fld">Left end</label><select id="leftBC"></select></div>
+          <div><label class="fld">Right end</label><select id="rightBC"></select></div>
+        </div>
+        <div class="hint">free · pinned (roller/hinge) · sliding (guided) · fixed (clamp)</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Intermediate supports</h2>
+      <div class="body">
+        <table id="supTable">
+          <thead><tr><th style="width:26px">#</th><th>Location x</th><th>Type</th><th style="width:26px"></th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <button class="ghost" id="addSup" style="margin-top:8px">+ Add support</button>
+        <div class="hint">Supports may be placed anywhere along the beam (including the ends).</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Loads</h2>
+      <div class="body">
+        <table id="loadTable">
+          <thead><tr><th style="width:26px">#</th><th>Type</th><th>Loc / Start</th><th>End</th><th>Value 1</th><th>Value 2</th><th style="width:26px"></th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <button class="ghost" id="addLoad" style="margin-top:8px">+ Add load</button>
+        <div class="hint">Downward forces / loads are positive. Distributed loads taper linearly from Value&nbsp;1 to Value&nbsp;2.</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Solver</h2>
+      <div class="body">
+        <div class="row">
+          <div><label class="fld">Elements per break-segment</label><input id="mesh" type="number" value="24" min="1" max="500" step="1"></div>
+          <div><label class="fld">Deflection exaggeration</label><input id="exagg" type="number" value="30" min="0" step="1"></div>
+        </div>
+        <div class="hint" id="meshHint" style="margin-top:10px"></div>
+        <div class="hint">Everything updates live as you type — no solve step needed.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ RESULTS ============ -->
+  <div class="col">
+    <div class="card">
+      <h2>Model &amp; deflected shape</h2>
+      <div class="body" style="padding-bottom:6px">
+        <div class="plot-wrap"><canvas id="beamCanvas"></canvas></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Key results</h2>
+      <div class="body">
+        <div class="msg" id="status"></div>
+        <div class="hint" style="margin-top:8px"><span id="sTheory">–</span> · total length <span id="sLen">–</span></div>
+        <div class="statgrid" style="margin-top:12px">
+          <div class="statcard"><div class="k">Max deflection</div><div class="v"><span id="sW">–</span><span class="u" id="sWu">m</span></div><div class="at" id="sWx">at x = –</div></div>
+          <div class="statcard"><div class="k">Max bending moment</div><div class="v"><span id="sM">–</span><span class="u" id="sMu">N·m</span></div><div class="at" id="sMx">at x = –</div></div>
+          <div class="statcard"><div class="k">Max shear</div><div class="v"><span id="sV">–</span><span class="u" id="sVu">N</span></div><div class="at" id="sVx">at x = –</div></div>
+          <div class="statcard"><div class="k">Max bending stress</div><div class="v"><span id="sS">–</span><span class="u" id="sSu">Pa</span></div><div class="at" id="sSx">at x = –</div></div>
+          <div class="statcard"><div class="k">Max rotation</div><div class="v"><span id="sR">–</span><span class="u" id="sRu">rad</span></div><div class="at" id="sRx">at x = –</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Reactions</h2>
+      <div class="body">
+        <table id="reactTable">
+          <thead><tr><th id="reactXt">Location</th><th id="reactFt">Vertical force<br><span class="units">(+ up)</span></th><th id="reactMt">Moment<br><span class="units">(+ CCW)</span></th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="hint">Moments shown at clamped / guided supports. Blank = no reaction.</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Value at a point</h2>
+      <div class="body">
+        <div class="row">
+          <div><label class="fld" id="xqLabel">Distance along beam x [m]</label><input id="xquery" type="number" value="0.5" step="0.01" title="Location x [m] to evaluate w, rotation, V, M and bending stress at."></div>
+          <div class="hint" style="align-self:end;padding-bottom:6px">w and rotation come from the solved deflection; V, M and bending stress from the loading. Bending stress uses section c = h/2 (rectangular) at x.</div>
+        </div>
+        <div class="xres">
+          <div class="stat"><span class="k" id="qkWk">Deflection w [m]</span><span class="v" id="qxW">–</span></div>
+          <div class="stat"><span class="k" id="qkRk">Rotation φ [rad]</span><span class="v" id="qxR">–</span></div>
+          <div class="stat"><span class="k" id="qkVk">Shear V [N]</span><span class="v" id="qxV">–</span></div>
+          <div class="stat"><span class="k" id="qkMk">Moment M [N·m]</span><span class="v" id="qxM">–</span></div>
+          <div class="stat"><span class="k" id="qkSk">Bending stress σ [Pa]</span><span class="v" id="qxS">–</span></div>
+          <div class="stat"><span class="k" id="qkIk">Section I [m⁴]</span><span class="v" id="qxI">–</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Deflection &amp; rotation</h2>
+      <div class="plot-wrap"><canvas id="wCanvas"></canvas></div>
+      <div class="plot-wrap" style="margin-top:4px"><canvas id="phiCanvas"></canvas></div>
+    </div>
+
+    <div class="card">
+      <h2>Shear force &amp; bending moment</h2>
+      <div class="plot-wrap"><canvas id="vCanvas"></canvas></div>
+      <div class="plot-wrap" style="margin-top:4px"><canvas id="mCanvas"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  Finite-element beam solver · Euler–Bernoulli &amp; exact Timoshenko elements · banded Cholesky · runs offline in one file.
+</div>
+
+<div class="help-overlay" id="helpOverlay" hidden>
+  <div class="help-card">
+    <div class="help-head">
+      <h2>Help &amp; sign conventions</h2>
+      <button class="xbtn" id="helpClose" title="Close">✕</button>
+    </div>
+    <div class="help-body">
+      <h3 id="helpUnitsTitle">Units (SI)</h3>
+      <p id="helpUnits">All input in SI base units: length [m], force [N], moment [N·m], distributed load [N/m], modulus E &amp; G [Pa], area I [m⁴], area A [m²], Poisson ratio ν and shear factor κ dimensionless. Results are returned in the same units.</p>
+
+      <h3>Sign conventions</h3>
+      <ul>
+        <li>A <strong>downward</strong> point force or distributed load is <strong>positive</strong> (up is negative).</li>
+        <li>Deflection <code>w</code> is positive downward; slope <code>dw/dx</code> and rotation <code>φ</code> follow the standard beam sign.</li>
+        <li>Bending moment is reported so that a sagging (tension on the bottom fibre) beam is <strong>negative</strong> — the classic “smile” is below the axis. Reactions: vertical is + up, moment is + counter-clockwise.</li>
+        <li>Distributed loads taper linearly from <strong>Value&nbsp;1</strong> (at start) to <strong>Value&nbsp;2</strong> (at end).</li>
+      </ul>
+
+      <h3>Theories</h3>
+      <ul>
+        <li><strong>Euler–Bernoulli</strong>: classic bending theory, no shear deformation. Best for slender beams (length ≫ depth).</li>
+        <li><strong>Timoshenko</strong>: adds shear deformation via the shear area <code>Aₛ = κ·A</code> and shear modulus G. Use for short / deep beams where shear shortening is significant. Leave <code>G</code> blank to derive it as <code>E / 2(1+ν)</code>; leave <code>κ</code> blank for the 5/6 rectangular default.</li>
+      </ul>
+
+      <h3>Boundary conditions</h3>
+      <ul>
+        <li><strong>Free</strong> — no restraint (a cantilever tip).</li>
+        <li><strong>Pinned</strong> — hinge / roller: deflection restrained, rotation free.</li>
+        <li><strong>Sliding (guided)</strong> — rotation restrained, vertical deflection free.</li>
+        <li><strong>Fixed</strong> — clamp: both deflection and rotation restrained.</li>
+      </ul>
+
+      <h3>Tips</h3>
+      <ul>
+        <li>Increase <strong>Elements per break-segment</strong> for accuracy on distributed / tapered loads — a single element under a UDL is noticeably soft.</li>
+        <li>A model with no support and no fixed/guided end is a <strong>rigid-body mode</strong> and will be reported as unstable. Add ≥ one restraint.</li>
+        <li>Results update live as you type. <strong>Undo / Redo</strong> (or Ctrl+Z / Ctrl+Y) step through model edits; <strong>Export CSV</strong> saves the full result set; <strong>Print / PDF</strong> opens the browser print dialog.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* ============================================================
+   SOLVER (verified against analytical solutions)
+   ============================================================ */
+function bandedCholesky(K, b, half) {
+  const n = K.length;
+  const Lband = new Float64Array(n * (half + 1));
+  for (let i = 0; i < n; i++) {
+    for (let j = Math.max(0, i - half); j <= i; j++) {
+      let s = K[i][j];
+      const iBase = i * (half + 1);
+      for (let k = Math.max(0, i - half); k < j; k++) {
+        s -= Lband[iBase + (i - k)] * Lband[j * (half + 1) + (j - k)];
+      }
+      if (j === i) Lband[iBase] = Math.sqrt(Math.max(s, 1e-300));
+      else Lband[iBase + (i - j)] = s / Lband[j * (half + 1)];
+    }
+  }
+  const y = new Float64Array(n);
+  for (let i = 0; i < n; i++) {
+    let s = b[i];
+    const iBase = i * (half + 1);
+    for (let k = Math.max(0, i - half); k < i; k++) s -= Lband[iBase + (i - k)] * y[k];
+    y[i] = s / Lband[iBase];
+  }
+  const x = new Float64Array(n);
+  for (let i = n - 1; i >= 0; i--) {
+    let s = y[i];
+    for (let k = i + 1; k <= Math.min(n - 1, i + half); k++) s -= Lband[k * (half + 1) + (k - i)] * x[k];
+    x[i] = s / Lband[i * (half + 1)];
+  }
+  return x;
+}
+
+const G = {
+  1: { x: [0], w: [2] },
+  2: { x: [-0.577350269189626, 0.577350269189626], w: [1, 1] },
+  3: { x: [-0.774596669241483, 0, 0.774596669241483], w: [5/9, 8/9, 5/9] },
+  5: { x: [-0.906179845938664, -0.538469310105683, 0, 0.538469310105683, 0.906179845938664],
+      w: [0.236926885056189, 0.478628670499366, 0.568888888888889, 0.478628670499366, 0.236926885056189] },
+};
+
+function eulerKe(EI, L) {
+  const k = EI / Math.pow(L, 3);
+  return [
+    [12 * k, 6 * L * k, -12 * k, 6 * L * k],
+    [6 * L * k, 4 * L * L * k, -6 * L * k, 2 * L * L * k],
+    [-12 * k, -6 * L * k, 12 * k, -6 * L * k],
+    [6 * L * k, 2 * L * L * k, -6 * L * k, 4 * L * L * k],
+  ];
+}
+function eulerShapeW(x, x0, L) {
+  const s = (x - x0) / L, s2 = s * s, s3 = s2 * s;
+  return [1 - 3 * s2 + 2 * s3, L * s * (1 - s) * (1 - s), 3 * s2 - 2 * s3, L * s2 * (s - 1)];
+}
+function eulerSlopeShapes(x, x0, L) {
+  const s = (x - x0) / L;
+  return [(-6 * s + 6 * s * s) / L, (1 - s) * (1 - 3 * s), (6 * s - 6 * s * s) / L, 3 * s * s - 2 * s];
+}
+
+// Exact 2-node Timoshenko element. Closed-form stiffness (shear strain constant).
+function solve4(M, rhs) {
+  const A = M.map((r, i) => r.concat([rhs[i]]));
+  for (let i = 0; i < 4; i++) {
+    let p = i;
+    for (let k = i + 1; k < 4; k++) if (Math.abs(A[k][i]) > Math.abs(A[p][i])) p = k;
+    [A[i], A[p]] = [A[p], A[i]];
+    for (let k = i + 1; k < 4; k++) { const f = A[k][i] / A[i][i]; for (let j = i; j <= 4; j++) A[k][j] -= f * A[i][j]; }
+  }
+  const x = new Array(4).fill(0);
+  for (let i = 3; i >= 0; i--) { let s = A[i][4]; for (let k = i + 1; k < 4; k++) s -= A[i][k] * x[k]; x[i] = s / A[i][i]; }
+  return x;
+}
+function timoShapes(EI, GA, kappa, L) {
+  const kGA = kappa * GA;
+  const M = [
+    [L * L, L, 1, 0],
+    [L * L * L / 3 - 2 * EI * L / kGA, L * L / 2, L, 1],
+    [0, 0, 1, 0],
+    [0, 0, 0, 1],
+  ];
+  const out = [];
+  for (let i = 0; i < 4; i++) { const rhs = [0, 0, 0, 0]; rhs[3 - i] = 1; out.push(solve4(M, rhs)); }
+  return out;
+}
+function timoKe(EI, GA, kappa, L) {
+  const kGA = kappa * GA;
+  const shp = timoShapes(EI, GA, kappa, L);
+  const K = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]];
+  for (let i = 0; i < 4; i++) {
+    const ai = shp[i][0], bi = shp[i][1];
+    for (let j = i; j < 4; j++) {
+      const aj = shp[j][0], bj = shp[j][1];
+      const bend = EI * ((4 / 3) * ai * aj * L * L * L + (ai * bj + aj * bi) * L * L + bi * bj * L);
+      const shear = (4 * EI * EI * ai * aj * L) / kGA;
+      K[i][j] = K[j][i] = bend + shear;
+    }
+  }
+  return K;
+}
+function timoShapeWvals(x, x0, L, EI, GA, kappa) {
+  const kGA = kappa * GA;
+  const shp = timoShapes(EI, GA, kappa, L);
+  const xl = x - x0, out = [0, 0, 0, 0];
+  for (let i = 0; i < 4; i++) {
+    const c = shp[i];
+    out[i] = (c[0] / 3) * xl * xl * xl + (c[1] / 2) * xl * xl + (c[2] - 2 * EI * c[0] / kGA) * xl + c[3];
+  }
+  return out;
+}
+
+function buildModel(m) {
+  const sections = m.sections;
+  let L = 0;
+  const secStart = [0];
+  for (const s of sections) { L += s.len; secStart.push(L); }
+  const bp = new Set([0, L]);
+  for (let i = 1; i < secStart.length - 1; i++) bp.add(secStart[i]);
+  for (const ld of m.loads) {
+    if (ld.kind === 'force' || ld.kind === 'moment') bp.add(ld.x);
+    if (ld.kind === 'dist') { bp.add(ld.a); bp.add(ld.b); }
+  }
+  for (const sp of m.supports) bp.add(sp.x);
+  let breaks = Array.from(bp).filter((x) => x >= -1e-9 && x <= L + 1e-9).map((x) => Math.max(0, Math.min(L, x)));
+  breaks = breaks.sort((a, b) => a - b);
+  const db = [];
+  for (const x of breaks) if (db.length === 0 || x - db[db.length - 1] > 1e-9) db.push(x);
+  const nodes = [db[0]];
+  const elements = [];
+  const mps = m.meshPerSeg || 1;
+  for (let i = 0; i < db.length - 1; i++) {
+    const x0 = db[i], x1 = db[i + 1];
+    const dx = (x1 - x0) / mps;
+    for (let s = 0; s < mps; s++) {
+      const a = x0 + s * dx, b = x0 + (s + 1) * dx;
+      const cx = 0.5 * (a + b);
+      let sec = sections[0];
+      for (let k = 0; k < sections.length; k++) {
+        if (cx >= secStart[k] - 1e-9 && cx < secStart[k + 1] - 1e-9) { sec = sections[k]; break; }
+        if (k === sections.length - 1) sec = sections[k];
+      }
+      elements.push({ x0: a, x1: b, sec });
+      nodes.push(b);
+    }
+  }
+  return { L, nodes, elements, secStart, sections, loads: m.loads, supports: m.supports, leftBC: m.leftBC, rightBC: m.rightBC };
+}
+
+function secProps(el, theory) {
+  const s = el.sec;
+  const EI = s.E * s.I;
+  const Gval = s.G != null && s.G > 0 ? s.G : s.E / (2 * (1 + s.nu));
+  const GA = Gval * s.A;
+  const kappa = s.kappa != null && s.kappa > 0 ? s.kappa : 5 / 6;
+  return { EI, GA, kappa, G: Gval, c: cAt(s) };
+}
+// Distance from neutral axis to outer fibre for bending stress σ = M·c/I.
+// Uses the section height h (c = h/2); falls back to a rectangular estimate c = √(3·I/A).
+function cAt(s) {
+  if (s.h != null && s.h > 0) return s.h / 2;
+  if (s.I > 0 && s.A > 0) return Math.sqrt(3 * s.I / s.A);
+  return null;
+}
+// Section object that applies at position x.
+function sectionAt(x, sections) {
+  let start = 0;
+  for (let k = 0; k < sections.length; k++) {
+    const end = start + sections[k].len;
+    if (x < end - 1e-9 || k === sections.length - 1) return sections[k];
+    start = end;
+  }
+  return sections[sections.length - 1];
+}
+function bendingStress(M, s) {
+  const c = cAt(s);
+  if (c == null || !(s.I > 0)) return null;
+  return M * c / s.I;
+}
+function nearestNode(nodes, x) {
+  let best = 0, bestd = Infinity;
+  for (let i = 0; i < nodes.length; i++) {
+    const d = Math.abs(nodes[i] - x);
+    if (d < bestd) { bestd = d; best = i; }
+  }
+  return best;
+}
+
+function assemble(model, theory, meshPerSeg) {
+  const { nodes, elements, loads, supports, leftBC, rightBC } = model;
+  const ndof = 2 * nodes.length;
+  const half = 3;
+  const K = Array.from({ length: ndof }, () => new Array(ndof).fill(0));
+  const F = new Array(ndof).fill(0);
+  for (let e = 0; e < elements.length; e++) {
+    const el = elements[e];
+    const { EI, GA, kappa } = secProps(el, theory);
+    const Le = el.x1 - el.x0;
+    const Ke = theory === 'euler' ? eulerKe(EI, Le) : timoKe(EI, GA, kappa, Le);
+    const g = [2 * e, 2 * e + 1, 2 * (e + 1), 2 * (e + 1) + 1];
+    for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) K[g[i]][g[j]] += Ke[i][j];
+    for (const ld of loads) {
+      if (ld.kind !== 'dist') continue;
+      const c = Math.max(ld.a, el.x0), d = Math.min(ld.b, el.x1);
+      if (d - c < 1e-12) continue;
+      const N = 5, gx = G[N].x, gw = G[N].w;
+      const fe = [0, 0, 0, 0];
+      for (let gq = 0; gq < N; gq++) {
+        const t = gx[gq] * 0.5 + 0.5;
+        const x = c + t * (d - c);
+        const qval = ld.q_a + (ld.q_b - ld.q_a) * (x - ld.a) / (ld.b - ld.a || 1);
+        let Nw;
+        if (theory === 'euler') Nw = eulerShapeW(x, el.x0, Le);
+        else Nw = timoShapeWvals(x, el.x0, Le, EI, GA, kappa);
+        const w = gw[gq] * (d - c) * 0.5;
+        for (let i = 0; i < 4; i++) fe[i] += qval * Nw[i] * w;
+      }
+      for (let i = 0; i < 4; i++) F[g[i]] += fe[i];
+    }
+  }
+  for (const ld of loads) {
+    if (ld.kind === 'force') F[2 * nearestNode(nodes, ld.x)] += ld.P;
+    if (ld.kind === 'moment') F[2 * nearestNode(nodes, ld.x) + 1] += ld.M;
+  }
+  const constrained = [];
+  const Korig = K.map((row) => row.slice());
+  const Forig = F.slice();
+  function applyBC(node, type) {
+    let dofs = [];
+    if (type !== 'free') {
+      if (type === 'pinned') dofs = [2 * node];
+      else if (type === 'sliding') dofs = [2 * node + 1];
+      else dofs = [2 * node, 2 * node + 1];
+    }
+    for (const d of dofs) {
+      for (let j = 0; j < ndof; j++) { K[d][j] = 0; K[j][d] = 0; }
+      K[d][d] = 1; F[d] = 0; constrained.push(d);
+    }
+  }
+  applyBC(0, leftBC);
+  applyBC(nodes.length - 1, rightBC);
+  for (const sp of supports) applyBC(nearestNode(nodes, sp.x), sp.type);
+  const L = model.sections.reduce((s, sec) => s + sec.len, 0);
+  return { K, F, Korig, Forig, ndof, half, constrained, nodes, elements, theory, L, model };
+}
+
+function computeReactions(sys) {
+  const { Korig, Forig, d, constrained, ndof } = sys;
+  const reactions = {};
+  for (const cidx of constrained) {
+    let r = Forig[cidx];
+    for (let j = 0; j < ndof; j++) r -= Korig[cidx][j] * d[j];
+    reactions[cidx] = r;
+  }
+  return reactions;
+}
+
+function fieldAt(x, sys) {
+  const { elements, theory } = sys;
+  let e = elements.length - 1;
+  for (let i = 0; i < elements.length; i++) {
+    if (x <= elements[i].x1 + 1e-12) { e = i; break; }
+  }
+  const el = elements[e];
+  const Le = el.x1 - el.x0;
+  const dof = [sys.d[2 * e], sys.d[2 * e + 1], sys.d[2 * e + 2], sys.d[2 * e + 3]];
+  const { EI, GA, kappa } = secProps(el, theory);
+  if (theory === 'euler') {
+    const Nw = eulerShapeW(x, el.x0, Le);
+    const Nd = eulerSlopeShapes(x, el.x0, Le);
+    let w = 0, sl = 0;
+    for (let i = 0; i < 4; i++) { w += Nw[i] * dof[i]; sl += Nd[i] * dof[i]; }
+    return { w, slope: sl, phi: sl };
+  }
+  const kGA = kappa * GA;
+  const shp = timoShapes(EI, GA, kappa, Le);
+  const xl = x - el.x0;
+  let w = 0, sl = 0, phi = 0;
+  for (let i = 0; i < 4; i++) {
+    const c = shp[i];
+    w += ((c[0] / 3) * xl * xl * xl + (c[1] / 2) * xl * xl + (c[2] - 2 * EI * c[0] / kGA) * xl + c[3]) * dof[i];
+    sl += (c[0] * xl * xl + c[1] * xl + (c[2] - 2 * EI * c[0] / kGA)) * dof[i];
+    phi += (c[0] * xl * xl + c[1] * xl + c[2]) * dof[i];
+  }
+  return { w, slope: sl, phi };
+}
+
+function reactionsByLocation(sys, reactions) {
+  const vert = [], mom = [];
+  for (const cidx of sys.constrained) {
+    const node = Math.floor(cidx / 2);
+    const x = sys.nodes[node];
+    if (cidx % 2 === 0) vert.push({ x, F: reactions[cidx] });
+    else mom.push({ x, M: -reactions[cidx] });
+  }
+  return { vert, mom };
+}
+// Internal-force context (reactions + loads grouped by kind) reused by computeVM and vmAt.
+function vmContext(model, sys, reactions) {
+  const dist = model.loads.filter((l) => l.kind === 'dist');
+  const pts = model.loads.filter((l) => l.kind === 'force');
+  const moms = model.loads.filter((l) => l.kind === 'moment');
+  const { vert, mom } = reactionsByLocation(sys, reactions);
+  return { vert, mom, dist, pts, moms };
+}
+function loadIntegral(c, d, l) {
+  if (d <= c) return 0;
+  const c2 = Math.max(c, l.a), d2 = Math.min(d, l.b);
+  if (d2 <= c2) return 0;
+  const F = (xi) => l.q_a * (xi - l.a) + (l.q_b - l.q_a) * Math.pow(xi - l.a, 2) / (2 * (l.b - l.a));
+  return F(d2) - F(c2);
+}
+function distMomentAboutX(x, l) {
+  const c = Math.max(0, l.a), d = Math.min(x, l.b);
+  if (d <= c) return 0;
+  const a = l.a, b = l.b, qA = l.q_a, qB = l.q_b, X = x - a;
+  const uc = c - a, ud = d - a, denom = b - a;
+  const F = (u) => qA * (X * u - u * u / 2) + (qB - qA) / denom * (X * u * u / 2 - u * u * u / 3);
+  return F(ud) - F(uc);
+}
+// Shear V and moment M at an arbitrary x (same sign convention as the plotted curves).
+function vmAt(x, model, sys, reactions) {
+  const { vert, mom, dist, pts, moms } = vmContext(model, sys, reactions);
+  let V = 0, M = 0;
+  for (const r of vert) if (r.x <= x + 1e-12) { V += r.F; M += r.F * (x - r.x); }
+   // A reaction moment acts like a concentrated moment: it contributes to M for x to its right.
+   // At the far-right support it is excluded (its own node) so the end moment isn't double-counted;
+   // at the far-left support it *is* the end value, so include it when x is the left end (x = 0).
+  for (const r of mom) if (r.x < x - 1e-12 || (x <= 1e-9 && r.x <= 1e-9)) M += r.M;
+  for (const l of dist) { V -= loadIntegral(0, x, l); M -= distMomentAboutX(x, l); }
+  for (const p of pts) if (p.x < x - 1e-12) { V -= p.P; M -= p.P * (x - p.x); }
+  for (const m of moms) if (m.x < x - 1e-12 || (x <= 1e-9 && m.x <= 1e-9)) M += m.M;
+  return { V, M };
+}
+function computeVM(model, sys, reactions) {
+  const L = model.sections.reduce((s, sec) => s + sec.len, 0);
+  const ctx = vmContext(model, sys, reactions);
+  const n = 600;
+  const xs = [], Vs = [], Ms = [];
+  for (let i = 0; i <= n; i++) {
+    const x = L * i / n;
+    const { V, M } = vmAt(x, model, sys, reactions);
+    xs.push(x); Vs.push(V); Ms.push(M);
+   }
+  return { xs, Vs, Ms };
+}
+
+// ============================================================
+//  UI
+// ============================================================
+let unitSystem = 'metric';   // 'metric' | 'imperial'; the model + solver are always in SI
+const BC_OPTIONS = ['free', 'pinned', 'sliding', 'fixed'];
+const BC_LABEL = { free: 'Free', pinned: 'Pinned / roller', sliding: 'Sliding / guided', fixed: 'Fixed / clamp' };
+const FIELD_TITLES = {
+  len: 'Segment length [{u}]. The total beam length is the sum of all segment lengths.',
+  E: "Young's modulus E [{u}]. Steel ≈ 2.1e11 Pa ≈ 30e6 psi. Must be positive.",
+  I: 'Second moment of area I [{u}] — bending stiffness of the section. Must be positive.',
+  h: 'Section height h [{u}]. Sets c = h/2 for bending stress σ = M·c/I. Blank → rectangular estimate c = √(3·I/A).',
+  A: 'Cross-sectional area A [{u}]. Used for shear deformation in Timoshenko theory.',
+  nu: 'Poisson ratio ν [–], typically 0–0.49. Default 0.3. Used to derive G when G is blank.',
+  G: 'Shear modulus G [{u}]. Blank → E / 2(1+ν).',
+  kappa: 'Shear correction factor κ [–]. Blank → 5/6 (rectangular). Times A gives the shear area Aₛ.',
+  x: 'Location along the beam x [{u}], measured from the left end.',
+  P: 'Point force [{u}]. Positive = downward.',
+  M: 'Point moment [{u}]. Positive = counter-clockwise.',
+  a: 'Distributed-load start x [{u}].',
+  b: 'Distributed-load end x [{u}] — must be greater than the start.',
+  qa: 'Load intensity at the start [{u}].',
+  qb: 'Load intensity at the end [{u}].',
+  type: 'Support type: free · pinned (hinge/roller) · sliding (guided) · fixed (clamp).'
+};
+
+// ---------- unit conversion (state is SI; convert only at the display boundary) ----------
+const IN = 39.3700787;                 // m -> in
+const LB = 0.224808943;                // N -> lbf (force)
+const IN2 = IN * IN;                     // m^2 -> in^2
+const IN4 = IN2 * IN2;                   // m^4 -> in^4
+const LBIN = LB * IN;                   // N·m -> lbf·in
+const PSI = LB / IN2;                   // Pa -> psi
+const LBIN_PER_IN = LB / IN;            // N/m -> lbf/in
+// metric -> imperial multipliers, keyed by field name / output quantity (dimensionless fields omitted -> 1)
+const UNIT_F = {
+  len: IN, x: IN, a: IN, b: IN, h: IN, xquery: IN, w: IN,
+  E: PSI, G: PSI, sigma: PSI,
+  I: IN4,
+  A: IN2,
+  P: LB, V: LB, F: LB,
+  M: LBIN,
+  qa: LBIN_PER_IN, qb: LBIN_PER_IN, dist: LBIN_PER_IN,
+};
+function conv(v, key) {    // SI -> display
+  if (v == null || !Number.isFinite(v)) return v;
+  const f = UNIT_F[key];
+  return (unitSystem === 'imperial' && f) ? v * f : v;
+}
+function toSI(v, key) {    // display -> SI
+  if (v == null || !Number.isFinite(v)) return v;
+  const f = UNIT_F[key];
+  return (unitSystem === 'imperial' && f) ? v / f : v;
+}
+const ULABEL = {
+  metric:   { w: 'm', M: 'N·m', V: 'N', F: 'N', P: 'N', sigma: 'Pa', I: 'm⁴', x: 'm', E: 'Pa', G: 'Pa', dist: 'N/m', area: 'm²', rot: 'rad' },
+  imperial: { w: 'in', M: 'lbf·in', V: 'lbf', F: 'lbf', P: 'lbf', sigma: 'psi', I: 'in⁴', x: 'in', E: 'psi', G: 'psi', dist: 'lbf/in', area: 'in²', rot: 'rad' },
+};
+function ulabel(q) { return (ULABEL[unitSystem] || ULABEL.metric)[q]; }
+// map a data-f field name to the physical quantity that sets its display unit
+const FIELD_UNIT = { len: 'x', x: 'x', a: 'x', b: 'x', h: 'x', xquery: 'x', E: 'E', G: 'G', I: 'I', A: 'area', P: 'P', M: 'M', qa: 'dist', qb: 'dist' };
+function fieldTitle(f) {
+  const t = FIELD_TITLES[f] || '';
+  return t.replace(/\{u\}/g, ulabel(FIELD_UNIT[f] || 'x'));
+}
+// Format a value for an input field: enough precision to round-trip, no float artefacts.
+function fmtIn(v) {
+  if (v == null || !Number.isFinite(v)) return '';
+  return String(Number(v.toPrecision(10)));
+}
+
+function readNumber(input) {
+  if (input == null) return NaN;
+  const v = parseFloat(input.value);
+  return Number.isFinite(v) ? v : NaN;
+}
+
+// Build the model object from the DOM.
+function readModel() {
+  const sections = [];
+  const secRows = document.querySelectorAll('#secTable tbody tr');
+  for (const tr of secRows) {
+    const len = toSI(readNumber(tr.querySelector('[data-f=len]')), 'len');
+    const E = toSI(readNumber(tr.querySelector('[data-f=E]')), 'E');
+    const I = toSI(readNumber(tr.querySelector('[data-f=I]')), 'I');
+    const h = tr.querySelector('[data-f=h]').value.trim() === '' ? null : toSI(readNumber(tr.querySelector('[data-f=h]')), 'h');
+    const A = toSI(readNumber(tr.querySelector('[data-f=A]')), 'A');
+    const nu = readNumber(tr.querySelector('[data-f=nu]'));
+    const Gv = tr.querySelector('[data-f=G]').value.trim() === '' ? null : toSI(readNumber(tr.querySelector('[data-f=G]')), 'G');
+    const kv = tr.querySelector('[data-f=kappa]').value.trim() === '' ? null : readNumber(tr.querySelector('[data-f=kappa]'));
+    sections.push({ len, E, I, h, A, nu: Number.isFinite(nu) ? nu : 0.3, G: Gv, kappa: kv });
+   }
+  const supports = [];
+  document.querySelectorAll('#supTable tbody tr').forEach((tr) => {
+    supports.push({ x: toSI(readNumber(tr.querySelector('[data-f=x]')), 'x'), type: tr.querySelector('[data-f=type]').value });
+   });
+  const loads = [];
+  document.querySelectorAll('#loadTable tbody tr').forEach((tr) => {
+    const kind = tr.querySelector('[data-f=kind]').value;
+    if (kind === 'force') loads.push({ kind, x: toSI(readNumber(tr.querySelector('[data-f=x]')), 'x'), P: toSI(readNumber(tr.querySelector('[data-f=P]')), 'P') });
+    else if (kind === 'moment') loads.push({ kind, x: toSI(readNumber(tr.querySelector('[data-f=x]')), 'x'), M: toSI(readNumber(tr.querySelector('[data-f=M]')), 'M') });
+    else if (kind === 'dist') loads.push({ kind, a: toSI(readNumber(tr.querySelector('[data-f=a]')), 'a'), b: toSI(readNumber(tr.querySelector('[data-f=b]')), 'b'), q_a: toSI(readNumber(tr.querySelector('[data-f=qa]')), 'qa'), q_b: toSI(readNumber(tr.querySelector('[data-f=qb]')), 'qb') });
+   });
+  const theory = document.querySelector('#theorySeg button.on').dataset.theory;
+  const mesh = Math.max(1, Math.round(readNumber(document.getElementById('mesh')) || 24));
+  return { sections, leftBC: document.getElementById('leftBC').value, rightBC: document.getElementById('rightBC').value,
+    supports, loads, theory, meshPerSeg: mesh };
+}
+
+// ---------- renderers ----------
+function renderSections() {
+  const tb = document.querySelector('#secTable tbody');
+  tb.innerHTML = '';
+  state.sections.forEach((s, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      `<td style="text-align:center;color:var(--text-dim)">${i + 1}</td>` +
+      field('len', s.len) + field('E', s.E) + field('I', s.I) + field('h', s.h) + field('A', s.A) +
+      field('nu', s.nu) + field('G', s.G) + field('kappa', s.kappa) +
+      `<td style="text-align:center">${state.sections.length > 1 ? '<button class="xbtn" title="Remove">×</button>' : ''}</td>`;
+    const xbtn = tr.querySelector('.xbtn');
+    if (xbtn) xbtn.onclick = () => { state.sections.splice(i, 1); renderSections(); autoSolve(); commitIfChanged(); };
+    tb.appendChild(tr);
+  });
+}
+function field(f, val) {
+  const v = (val == null) ? '' : fmtIn(conv(val, f));
+  return `<td><input data-f="${f}" type="text" value="${v}" title="${fieldTitle(f)}"></td>`;
+}
+function renderSupports() {
+  const tb = document.querySelector('#supTable tbody');
+  tb.innerHTML = '';
+  state.supports.forEach((s, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      `<td style="text-align:center;color:var(--text-dim)">${i + 1}</td>` +
+      `<td><input data-f="x" type="text" value="${fmtIn(conv(s.x, 'x'))}" title="${fieldTitle('x')}"></td>` +
+      `<td><select data-f="type" title="${FIELD_TITLES.type}">${BC_OPTIONS.map((o) => `<option ${o === s.type ? 'selected' : ''} value="${o}">${BC_LABEL[o]}</option>`).join('')}</select></td>` +
+      `<td style="text-align:center"><button class="xbtn" title="Remove">×</button></td>`;
+    tr.querySelector('.xbtn').onclick = () => { state.supports.splice(i, 1); renderSupports(); autoSolve(); commitIfChanged(); };
+    tb.appendChild(tr);
+  });
+}
+function renderLoads() {
+  const tb = document.querySelector('#loadTable tbody');
+  tb.innerHTML = '';
+  state.loads.forEach((l, i) => {
+    const tr = document.createElement('tr');
+    const kindOpts = ['force', 'moment', 'dist'].map((o) => `<option ${o === l.kind ? 'selected' : ''} value="${o}">${o === 'force' ? 'Point force' : o === 'moment' ? 'Point moment' : 'Distributed load'}</option>`).join('');
+    let cols;
+    if (l.kind === 'force') cols = field('x', l.x) + `<td><input data-f="P" type="text" value="${fmtIn(conv(l.P, 'P'))}" title="${fieldTitle('P')}"></td>` + '<td></td>';
+    else if (l.kind === 'moment') cols = field('x', l.x) + `<td><input data-f="M" type="text" value="${fmtIn(conv(l.M, 'M'))}" title="${fieldTitle('M')}"></td>` + '<td></td>';
+    else cols = field('a', l.a) + field('b', l.b) + field('qa', l.q_a) + field('qb', l.q_b);
+    tr.innerHTML =
+      `<td style="text-align:center;color:var(--text-dim)">${i + 1}</td>` +
+      `<td><select data-f="kind">${kindOpts}</select></td>` + cols +
+      `<td style="text-align:center"><button class="xbtn" title="Remove">×</button></td>`;
+    tr.querySelector('[data-f=kind]').onchange = (e) => {
+      const k = e.target.value;
+      const cur = state.loads[i];
+      const L = state.sections.reduce((s, x) => s + (Number(x.len) || 0), 0) || 1;
+      const ax = Number(cur.a) || 0, bx = Number(cur.b) || 0;
+      const cx = Number(cur.x);
+      const x0 = Number.isFinite(cx) ? cx : (ax + bx) / 2;
+      if (k === 'force')       { cur.kind = 'force';  cur.x = x0; cur.P = 0; }
+      else if (k === 'moment') { cur.kind = 'moment'; cur.x = x0; cur.M = 0; }
+      else                     { cur.kind = 'dist';   cur.a = 0; cur.b = L; cur.q_a = 0; cur.q_b = 0; }
+      renderLoads(); autoSolve(); commitIfChanged();
+      };
+    tr.querySelector('.xbtn').onclick = () => { state.loads.splice(i, 1); renderLoads(); autoSolve(); commitIfChanged(); };
+    tb.appendChild(tr);
+  });
+}
+
+// ---------- plotting ----------
+function niceStep(range, target) {
+  const raw = range / target;
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const norm = raw / mag;
+  let step;
+  if (norm < 1.5) step = 1; else if (norm < 3) step = 2; else if (norm < 7) step = 5; else step = 10;
+  return step * mag;
+}
+function fmtNum(v) {
+  if (v == null || !Number.isFinite(v)) return String(v);
+  if (v === 0) return '0';
+  const a = Math.abs(v);
+  let s = (a >= 1e5 || a < 1e-3) ? v.toExponential(2) : v.toPrecision(4);
+  // Trim trailing zeros: after the decimal point, or before an exponent marker.
+  return s.replace(/(\.\d*?)0+($|e)/, '$1$2').replace(/\.$/, '').replace(/\.e/, 'e');
+}
+function setupCanvas(canvas, cssH) {
+  const dpr = window.devicePixelRatio || 1;
+  const cssW = canvas.clientWidth || 700;
+  canvas.width = Math.round(cssW * dpr);
+  canvas.height = Math.round(cssH * dpr);
+  canvas.style.height = cssH + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, W: cssW, H: cssH };
+}
+function drawPlot(canvas, xs, ys, opts) {
+  const { ctx, W, H } = setupCanvas(canvas, opts.h || 190);
+  const ml = 62, mr = 14, mt = 26, mb = 30;
+  const pw = W - ml - mr, ph = H - mt - mb;
+  ctx.clearRect(0, 0, W, H);
+  // title
+  ctx.fillStyle = '#222c46'; ctx.font = '600 12px system-ui'; ctx.textAlign = 'left';
+  ctx.fillText(opts.title, ml, 16);
+  // ranges
+  let ymin = Math.min(...ys), ymax = Math.max(...ys);
+  if (ymin === ymax) { ymin -= 1; ymax += 1; }
+  const pad = (ymax - ymin) * 0.08; ymin -= pad; ymax += pad;
+  const xmin = xs[0], xmax = xs[xs.length - 1];
+  const X = (x) => ml + (x - xmin) / (xmax - xmin || 1) * pw;
+  const Y = (y) => mt + (ymax - y) / (ymax - ymin || 1) * ph;
+  // grid + y ticks
+  ctx.font = '10.5px "Consolas",monospace'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  const ystep = niceStep(ymax - ymin, 5);
+  for (let y = Math.ceil(ymin / ystep) * ystep; y <= ymax + 1e-9; y += ystep) {
+    ctx.strokeStyle = '#e6e9f0'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(ml, Y(y)); ctx.lineTo(W - mr, Y(y)); ctx.stroke();
+    ctx.fillStyle = '#69748e'; ctx.fillText(fmtNum(y), ml - 6, Y(y));
+    }
+  // x ticks
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  const xstep = niceStep(xmax - xmin, 6);
+  for (let x = Math.ceil(xmin / xstep) * xstep; x <= xmax + 1e-9; x += xstep) {
+    ctx.strokeStyle = '#eef1f6'; ctx.beginPath(); ctx.moveTo(X(x), mt); ctx.lineTo(X(x), mt + ph); ctx.stroke();
+    ctx.fillStyle = '#69748e'; ctx.fillText(fmtNum(x), X(x), mt + ph + 5);
+    }
+   // zero line
+  ctx.strokeStyle = '#b8c0d4'; ctx.lineWidth = 1; ctx.setLineDash([4, 3]);
+  ctx.beginPath(); ctx.moveTo(ml, Y(0)); ctx.lineTo(W - mr, Y(0)); ctx.stroke(); ctx.setLineDash([]);
+   // axes frame
+  ctx.strokeStyle = '#c4cddd'; ctx.lineWidth = 1;
+  ctx.strokeRect(ml, mt, pw, ph);
+  // fill + curve
+  if (opts.fill) {
+    ctx.beginPath();
+    ctx.moveTo(X(xs[0]), Y(0));
+    for (let i = 0; i < xs.length; i++) ctx.lineTo(X(xs[i]), Y(ys[i]));
+    ctx.lineTo(X(xs[xs.length - 1]), Y(0));
+    ctx.closePath();
+    ctx.fillStyle = opts.fill; ctx.globalAlpha = 0.18; ctx.fill(); ctx.globalAlpha = 1;
+  }
+  ctx.beginPath();
+  for (let i = 0; i < xs.length; i++) { const px = X(xs[i]), py = Y(ys[i]); i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
+  ctx.strokeStyle = opts.color || '#2f6fed'; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.stroke();
+  // markers
+ if (opts.markers) {
+   for (const m of opts.markers) {
+     const py = Y(m.y), px = X(m.x);
+     ctx.fillStyle = m.color || '#fff';
+     ctx.beginPath(); ctx.arc(px, py, 3.2, 0, 7); ctx.fill();
+     ctx.fillStyle = '#222c46'; ctx.font = '10px "Consolas",monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+     ctx.fillText(fmtNum(m.y), px, py - 5);
+     }
+     }
+  // y label
+  ctx.save(); ctx.translate(14, mt + ph / 2); ctx.rotate(-Math.PI / 2);
+  ctx.fillStyle = '#69748e'; ctx.font = '11px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(opts.yLabel || '', 0, 0); ctx.restore();
+}
+
+function drawBeam(model, sys, reactions, result) {
+  const canvas = document.getElementById('beamCanvas');
+  const { ctx, W, H } = setupCanvas(canvas, 210);
+  const ml = 36, mr = 36, mt = 30, mb = 42;
+  const pw = W - ml - mr, ph = H - mt - mb;
+  ctx.clearRect(0, 0, W, H);
+  const L = sys.L || 1e-9;
+  const X = (x) => ml + (x / L) * pw;
+  const yc = mt + ph * 0.44;
+  const bh = 15; // beam body height
+  const exagg = Math.max(0, readNumber(document.getElementById('exagg')) || 30);
+  // deflected-shape amplitude
+  const wmax = Math.max(...result.ws.map(Math.abs), 1e-30);
+  const amp = exagg * wmax * (ph * 0.3) / L;
+  const Yd = (w) => yc + Math.max(-ph * 0.3, Math.min(ph * 0.3, w * amp));
+   // section boundaries
+  const secStart = [0];
+  for (const s of model.sections) secStart.push(secStart[secStart.length - 1] + s.len);
+   // supports (ends + intermediate)
+  const supportsAll = [
+     { x: 0, type: model.leftBC },
+     { x: L, type: model.rightBC },
+     ...model.supports,
+   ];
+   // --- deflected shape (orange dotted) ---
+  if (result.ws.length > 1) {
+    ctx.beginPath();
+    for (let i = 0; i < result.xs.length; i++) { const px = X(result.xs[i]), py = Yd(result.ws[i]); i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
+    ctx.strokeStyle = '#e0872b'; ctx.lineWidth = 2; ctx.setLineDash([2, 3]); ctx.stroke(); ctx.setLineDash([]);
+    }
+   // --- supports (drawn behind the beam so a fixed block meets it at its centre -- a T-join) ---
+  for (const s of supportsAll) drawSupport(ctx, X(s.x), yc + bh / 2, s.type, yc);
+    // --- beam body (light blue) ---
+  ctx.fillStyle = '#d6e4f7'; ctx.strokeStyle = '#2f6fed'; ctx.lineWidth = 1.4;
+  ctx.fillRect(X(0), yc - bh / 2, pw, bh);
+  ctx.strokeRect(X(0), yc - bh / 2, pw, bh);
+   // section break dashes + S# labels
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for (let i = 0; i < model.sections.length; i++) {
+    const x0 = secStart[i], x1 = secStart[i + 1];
+    if (i > 0) {
+      ctx.strokeStyle = '#7c8aa8'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+      ctx.beginPath(); ctx.moveTo(X(x0), yc - bh / 2); ctx.lineTo(X(x0), yc + bh / 2); ctx.stroke(); ctx.setLineDash([]);
+     }
+    ctx.fillStyle = '#2f6fed'; ctx.font = '700 11px "Segoe UI", system-ui';
+    ctx.fillText('S' + (i + 1), (X(x0) + X(x1)) / 2, yc);
+    }
+   // --- distributed loads (orange arrows, labeled with intensity + unit) ---
+ const qvmax = Math.max(1, ...model.loads.filter((l) => l.kind === 'dist').map((l) => Math.max(Math.abs(l.q_a || 0), Math.abs(l.q_b || 0))));
+ for (const ld of model.loads) {
+   if (ld.kind !== 'dist') continue;
+   const nArr = 26;
+   ctx.strokeStyle = '#e0872b'; ctx.lineWidth = 1.1;
+   let topY = Infinity, xa = ld.a, xb = ld.b;
+   for (let k = 0; k <= nArr; k++) {
+     const x = ld.a + (ld.b - ld.a) * k / nArr;
+     if (x < -1e-9 || x > L + 1e-9) continue;
+     xa = Math.max(xa, x); xb = Math.min(xb, x);
+     const qv = ld.q_a + (ld.q_b - ld.q_a) * (x - ld.a) / (ld.b - ld.a || 1);
+     const ah = Math.min(30, 8 + Math.abs(qv) / qvmax * 24);
+     const dir = qv >= 0 ? 1 : -1;
+     const ytop = dir > 0 ? yc - bh / 2 - ah : yc - bh / 2;
+     ctx.beginPath(); ctx.moveTo(X(x), ytop); ctx.lineTo(X(x), ytop + dir * ah); ctx.stroke();
+     topY = Math.min(topY, dir > 0 ? ytop : ytop + dir * ah);
+      }
+    // intensity label: peak value for a uniform load, a → b for a linear taper, with unit
+   const qa = conv(ld.q_a || 0, 'dist'), qb = conv(ld.q_b || 0, 'dist');
+   const qText = Math.abs(qa - qb) < 1e-9 ? fmtNum(qa) : fmtNum(qa) + ' → ' + fmtNum(qb);
+   ctx.fillStyle = '#e0872b'; ctx.font = '700 10.5px "Segoe UI", system-ui';
+   ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+   ctx.fillText('q = ' + qText + ' ' + ulabel('dist'), (X(xa) + X(xb)) / 2, topY - 5);
+    }
+   // --- point forces (red, labeled like "P = 100 N") ---
+  const Pmax = Math.max(1, ...model.loads.filter((l) => l.kind === 'force').map((l) => Math.abs(l.P || 0)));
+  for (const ld of model.loads) {
+    if (ld.kind !== 'force') continue;
+    const ah = Math.min(42, 18 + Math.abs(ld.P) / Pmax * 26);
+    const ytop = yc - bh / 2 - 6 - ah;
+    ctx.fillStyle = '#e23b3b'; ctx.font = '700 11px "Segoe UI", system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.fillText('P = ' + fmtNum(conv(ld.P, 'P')) + ' ' + ulabel('P'), X(ld.x), ytop - 5);
+    drawArrow(ctx, X(ld.x), ytop, X(ld.x), ytop + ah, '#e23b3b');
+    }
+   // --- point moments (purple curved arrow; + M = CCW, − M = CW) ---
+for (const ld of model.loads) {
+  if (ld.kind !== 'moment') continue;
+  const cx = X(ld.x), cy = yc - bh / 2 - 12, r = 12;
+  const ccw = ld.M >= 0;
+  const start = -Math.PI / 2, sweep = Math.PI * 1.4;
+  const end = ccw ? start - sweep : start + sweep;
+  ctx.strokeStyle = '#7c5cf0'; ctx.lineWidth = 1.8; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.arc(cx, cy, r, start, end, ccw); ctx.stroke();
+   // filled arrowhead at the leading edge, tangent to the arc, pointing in the sense of rotation
+  const ex = cx + r * Math.cos(end), ey = cy + r * Math.sin(end);
+  const tang = end + (ccw ? -1 : 1) * Math.PI / 2;
+  const hs = 7;
+  ctx.beginPath(); ctx.moveTo(ex, ey);
+  ctx.lineTo(ex - hs * Math.cos(tang - 0.45), ey - hs * Math.sin(tang - 0.45));
+  ctx.lineTo(ex - hs * Math.cos(tang + 0.45), ey - hs * Math.sin(tang + 0.45));
+  ctx.closePath(); ctx.fillStyle = '#7c5cf0'; ctx.fill();
+   // value + unit, centered above the arc
+  ctx.fillStyle = '#7c5cf0'; ctx.font = '700 11px "Segoe UI", system-ui';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+  ctx.fillText('M = ' + fmtNum(conv(ld.M, 'M')) + ' ' + ulabel('M'), cx, cy - r - 5);
+    }
+   // --- dimension line ---
+  const ydim = H - 24;
+  ctx.lineCap = 'butt';
+  ctx.strokeStyle = '#7c8aa8'; ctx.fillStyle = '#7c8aa8'; ctx.lineWidth = 1;
+  dimLine(ctx, X(0), X(L), ydim);
+  ctx.fillStyle = '#33415a'; ctx.font = '600 11px "Segoe UI", system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText('L = ' + fmtNum(conv(L, 'x')) + ' ' + ulabel('x'), X(L / 2), ydim + 4);
+  ctx.fillStyle = '#69748e'; ctx.font = '10px "Consolas",monospace'; ctx.textBaseline = 'bottom';
+  ctx.textAlign = 'left'; ctx.fillText('x=0', X(0) - 2, ydim + 22);
+  ctx.textAlign = 'right'; ctx.fillText('x=' + fmtNum(conv(L, 'x')), X(L) + 2, ydim + 22);
+}
+function dimLine(ctx, x1, x2, y) {
+  const s = 5;
+  ctx.beginPath(); ctx.moveTo(x1, y); ctx.lineTo(x2, y); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x1, y); ctx.lineTo(x1 + s, y - s * 0.5); ctx.lineTo(x1 + s, y + s * 0.5); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(x2, y); ctx.lineTo(x2 - s, y - s * 0.5); ctx.lineTo(x2 - s, y + s * 0.5); ctx.closePath(); ctx.fill();
+}
+function drawArrow(ctx, x1, y1, x2, y2, color, label) {
+  const a = Math.atan2(y2 - y1, x2 - x1);
+  ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  const s = 9;
+  ctx.beginPath(); ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - s * Math.cos(a - 0.5), y2 - s * Math.sin(a - 0.5));
+  ctx.lineTo(x2 - s * Math.cos(a + 0.5), y2 - s * Math.sin(a + 0.5));
+  ctx.closePath(); ctx.fill();
+  if (label) { ctx.font = '10px "Consolas",monospace'; ctx.textAlign = 'center'; ctx.fillText(label, (x1 + x2) / 2 + (x1 === x2 ? 12 : 0), (y1 + y2) / 2); }
+}
+function drawSupport(ctx, x, y, type, yc) {
+  // y is the beam body's bottom edge; supports draw downward from it. For a fixed
+  // support the block is centred on the beam centreline (yc) so the beam meets the
+  // icon at its centre -- a T-join.
+  ctx.lineWidth = 1.4;
+  if (type === 'fixed') {
+    const w = 9, h = 30, x0 = x - w / 2, y0 = (yc != null ? yc : y) - h / 2;
+    ctx.strokeStyle = '#5b6a8c';
+    ctx.fillStyle = 'rgba(120,138,168,0.10)'; ctx.fillRect(x0, y0, w, h);
+    ctx.strokeRect(x0, y0, w, h);
+    ctx.save(); ctx.beginPath(); ctx.rect(x0, y0, w, h); ctx.clip();
+    ctx.strokeStyle = '#8a94a8'; ctx.lineWidth = 1;
+    for (let i = -h; i < w; i += 5) { ctx.beginPath(); ctx.moveTo(x0 + i, y0 + h); ctx.lineTo(x0 + i + h, y0); ctx.stroke(); }
+    ctx.restore();
+    } else if (type === 'pinned') {
+    ctx.strokeStyle = '#5b6a8c'; ctx.fillStyle = 'rgba(120,138,168,0.10)';
+    ctx.beginPath(); ctx.moveTo(x, y + 1); ctx.lineTo(x - 9, y + 15); ctx.lineTo(x + 9, y + 15); ctx.closePath(); ctx.fill(); ctx.stroke();
+    } else if (type === 'sliding') {
+    ctx.strokeStyle = '#5b6a8c';
+    ctx.beginPath(); ctx.moveTo(x, y + 1); ctx.lineTo(x - 9, y + 15); ctx.lineTo(x + 9, y + 15); ctx.closePath(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(x - 4, y + 18, 2.2, 0, 7); ctx.arc(x + 4, y + 18, 2.2, 0, 7); ctx.stroke();
+    }
+  // free: no drawing
+}
+
+// ---------- input validation ----------
+function clearInputErrors() {
+  document.querySelectorAll('input.err, select.err').forEach((el) => el.classList.remove('err'));
+}
+function markInputErrors(problems) {
+  clearInputErrors();
+  const secRows = document.querySelectorAll('#secTable tbody tr');
+  const supRows = document.querySelectorAll('#supTable tbody tr');
+  const loadRows = document.querySelectorAll('#loadTable tbody tr');
+  const flag = (rows, i, f) => {
+    if (i == null || !rows[i]) return;
+    const inp = rows[i].querySelector('[data-f=' + f + ']');
+    if (inp) inp.classList.add('err');
+   };
+  for (const p of problems) {
+    if (p.sec != null) flag(secRows, p.sec, p.f);
+    if (p.sup != null) flag(supRows, p.sup, p.f);
+    if (p.load != null) flag(loadRows, p.load, p.f);
+   }
+}
+function validateModel(model) {
+  const problems = [];
+  const L = model.sections.reduce((s, x) => s + (Number.isFinite(x.len) ? x.len : 0), 0);
+  if (model.sections.length === 0) problems.push({ msg: 'Add at least one beam section.' });
+  model.sections.forEach((s, i) => {
+    if (!(Number.isFinite(s.len) && s.len > 0)) problems.push({ sec: i, f: 'len', msg: 'Section ' + (i + 1) + ': length must be a positive number.' });
+    if (!(Number.isFinite(s.E) && s.E > 0)) problems.push({ sec: i, f: 'E', msg: 'Section ' + (i + 1) + ': E must be positive.' });
+    if (!(Number.isFinite(s.I) && s.I > 0)) problems.push({ sec: i, f: 'I', msg: 'Section ' + (i + 1) + ': I must be positive.' });
+    if (Number.isFinite(s.A) && !(s.A > 0)) problems.push({ sec: i, f: 'A', msg: 'Section ' + (i + 1) + ': area A must be positive.' });
+    if (Number.isFinite(s.nu) && (s.nu < 0 || s.nu > 0.499)) problems.push({ sec: i, f: 'nu', msg: 'Section ' + (i + 1) + ': Poisson ratio ν should be between 0 and 0.49.' });
+    if (s.G != null && !(Number.isFinite(s.G) && s.G > 0)) problems.push({ sec: i, f: 'G', msg: 'Section ' + (i + 1) + ': shear modulus G must be positive.' });
+    if (s.kappa != null && !(Number.isFinite(s.kappa) && s.kappa > 0)) problems.push({ sec: i, f: 'kappa', msg: 'Section ' + (i + 1) + ': shear factor κ must be positive.' });
+     });
+  model.supports.forEach((s, i) => {
+    if (!Number.isFinite(s.x)) problems.push({ sup: i, f: 'x', msg: 'Support ' + (i + 1) + ': location x must be numeric.' });
+    else if (s.x < -1e-9 || s.x > L + 1e-9) problems.push({ sup: i, f: 'x', msg: 'Support ' + (i + 1) + ': x must lie within the beam [0, ' + fmtNum(L) + ' m].' });
+     });
+  model.loads.forEach((l, i) => {
+    if (l.kind === 'force') {
+      if (!Number.isFinite(l.x) || l.x < -1e-9 || l.x > L + 1e-9) problems.push({ load: i, f: 'x', msg: 'Load ' + (i + 1) + ': force location x must lie within [0, ' + fmtNum(L) + ' m].' });
+      if (!Number.isFinite(l.P)) problems.push({ load: i, f: 'P', msg: 'Load ' + (i + 1) + ': force value must be numeric.' });
+     } else if (l.kind === 'moment') {
+      if (!Number.isFinite(l.x) || l.x < -1e-9 || l.x > L + 1e-9) problems.push({ load: i, f: 'x', msg: 'Load ' + (i + 1) + ': moment location x must lie within [0, ' + fmtNum(L) + ' m].' });
+      if (!Number.isFinite(l.M)) problems.push({ load: i, f: 'M', msg: 'Load ' + (i + 1) + ': moment value must be numeric.' });
+     } else {
+      if (!Number.isFinite(l.a) || !Number.isFinite(l.b)) problems.push({ load: i, f: 'a', msg: 'Load ' + (i + 1) + ': distributed load needs numeric start and end.' });
+      else if (l.b <= l.a) problems.push({ load: i, f: 'b', msg: 'Load ' + (i + 1) + ': end must be greater than the start.' });
+      else if (l.a < -1e-9 || l.b > L + 1e-9) problems.push({ load: i, f: 'a', msg: 'Load ' + (i + 1) + ': must lie within the beam [0, ' + fmtNum(L) + ' m].' });
+      if (!Number.isFinite(l.q_a) || !Number.isFinite(l.q_b)) problems.push({ load: i, f: 'qa', msg: 'Load ' + (i + 1) + ': load intensities must be numeric.' });
+     }
+     });
+  return { problems, L };
+}
+
+// ---------- solve + render ----------
+function autoSolve() {
+  const model = readModel();
+  // validate inputs
+  clearInputErrors();
+  const { problems } = validateModel(model);
+  if (problems.length) {
+    markInputErrors(problems);
+    setStatus('error', problems[0].msg + (problems.length > 1 ? '  (+' + (problems.length - 1) + ' more)' : ''));
+    return;
+   }
+  let sys, reactions, result;
+  try {
+    const built = buildModel(model);
+    sys = assemble(built, model.theory, model.meshPerSeg);
+    const d = bandedCholesky(sys.K, sys.F, sys.half);
+    sys.d = d;
+    if (d.some((v) => !Number.isFinite(v))) throw new Error('unstable');
+    reactions = computeReactions(sys);
+    const vm = computeVM(model, sys, reactions);
+    const N = 500;
+    const xs = [], ws = [], sl = [], phi = [];
+    for (let i = 0; i <= N; i++) {
+      const x = sys.L * i / N;
+      const f = fieldAt(x, sys);
+      xs.push(x); ws.push(f.w); sl.push(f.slope); phi.push(f.phi);
+    }
+    result = { xs, ws, sl, phi, vm, sys, reactions };
+    lastExport = { model, sys, reactions, result };
+   } catch (err) {
+    if (err.message === 'unstable') {
+      setStatus('error', 'The model is unstable (a rigid-body mode). Add at least two supports, or a fixed/guided end.');
+      return;
+    }
+    throw err;
+  }
+  renderResults(model, sys, reactions, result);
+}
+
+function renderResults(model, sys, reactions, result) {
+  const theoryLabel = sys.theory === 'euler' ? 'Euler–Bernoulli' : 'Timoshenko';
+  setStatus('ok', `Solved · ${theoryLabel} · ${sys.elements.length} elements · ${sys.nodes.length} nodes`);
+  document.getElementById('sTheory').textContent = theoryLabel;
+  const xu = ulabel('x');
+  document.getElementById('sLen').textContent = fmtNum(conv(sys.L, 'x')) + ' ' + xu;
+   // key values
+  const rot = sys.theory === 'euler' ? result.sl : result.phi;
+  let iW = 0, iM = 0, iV = 0, iR = 0;
+  for (let i = 1; i < result.ws.length; i++) if (Math.abs(result.ws[i]) > Math.abs(result.ws[iW])) iW = i;
+  for (let i = 1; i < result.vm.Ms.length; i++) {
+    if (Math.abs(result.vm.Ms[i]) > Math.abs(result.vm.Ms[iM])) iM = i;
+    if (Math.abs(result.vm.Vs[i]) > Math.abs(result.vm.Vs[iV])) iV = i;
+     }
+  for (let i = 1; i < rot.length; i++) if (Math.abs(rot[i]) > Math.abs(rot[iR])) iR = i;
+  const atX = (i) => 'at x = ' + fmtNum(conv(result.xs[i], 'x')) + ' ' + xu;
+  document.getElementById('sW').textContent = fmtNum(conv(result.ws[iW], 'w'));
+  document.getElementById('sWx').textContent = atX(iW);
+  document.getElementById('sM').textContent = fmtNum(conv(result.vm.Ms[iM], 'M'));
+  document.getElementById('sMx').textContent = atX(iM);
+  document.getElementById('sV').textContent = fmtNum(conv(result.vm.Vs[iV], 'V'));
+  document.getElementById('sVx').textContent = atX(iV);
+   // max bending stress (σ = M·c/I) at the location of max |M|
+  const secM = sectionAt(result.xs[iM], model.sections);
+  const sigmaMax = bendingStress(result.vm.Ms[iM], secM);
+  document.getElementById('sS').textContent = sigmaMax == null ? '–' : fmtNum(conv(sigmaMax, 'sigma'));
+  document.getElementById('sSx').textContent = sigmaMax == null ? 'needs h or A' : atX(iM);
+  document.getElementById('sR').textContent = fmtNum(rot[iR]);   // rotation is in rad in both systems
+  document.getElementById('sRx').textContent = atX(iR);
+   // reactions table
+  const tb = document.querySelector('#reactTable tbody');
+  tb.innerHTML = '';
+  const groups = new Map();
+  for (const r of Object.keys(reactions)) {
+    const cidx = Number(r);
+    const x = sys.nodes[Math.floor(cidx / 2)];
+    const key = x.toFixed(9);
+    if (!groups.has(key)) groups.set(key, { x, F: 0, M: 0 });
+    if (cidx % 2 === 0) groups.get(key).F += reactions[cidx];
+    else groups.get(key).M += reactions[cidx];
+    }
+  const rows = Array.from(groups.values()).sort((a, b) => a.x - b.x);
+  if (rows.length === 0) tb.innerHTML = '<tr><td colspan="3" style="color:var(--text-dim)">No reactions (unstable / free body).</td></tr>';
+  for (const g of rows) {
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+        `<td>${fmtNum(conv(g.x, 'x'))} ${xu}</td>` +
+        `<td style="text-align:right;font-family:monospace">${Math.abs(g.F) > 1e-12 ? fmtNum(conv(g.F, 'F')) : '–'}</td>` +
+        `<td style="text-align:right;font-family:monospace">${Math.abs(g.M) > 1e-12 ? fmtNum(conv(g.M, 'M')) : '–'}</td>`;
+    tb.appendChild(tr);
+     }
+   // plots (convert both axes to the active display units)
+  const px = result.xs.map((x) => conv(x, 'x'));
+  const vx = result.vm.xs.map((x) => conv(x, 'x'));
+  drawPlot(document.getElementById('wCanvas'), px, result.ws.map((v) => conv(v, 'w')),
+      { title: 'Deflection  w(x)    (+ down)', yLabel: 'w [' + ulabel('w') + ']', color: '#2f6fed', h: 180,
+      markers: [{ x: conv(result.xs[iW], 'x'), y: conv(result.ws[iW], 'w'), color: '#2f6fed' }] });
+  drawPlot(document.getElementById('phiCanvas'), px, rot,
+      { title: sys.theory === 'euler' ? 'Slope  dw/dx' : 'Section rotation  φ(x)', yLabel: sys.theory === 'euler' ? 'dw/dx [rad]' : 'φ [rad]', color: '#12a37a', h: 180 });
+  drawPlot(document.getElementById('vCanvas'), vx, result.vm.Vs.map((v) => conv(v, 'V')),
+      { title: 'Shear force  V(x)', yLabel: 'V [' + ulabel('V') + ']', color: '#e0872b', fill: '#e0872b', h: 180 });
+  drawPlot(document.getElementById('mCanvas'), vx, result.vm.Ms.map((v) => conv(v, 'M')),
+      { title: 'Bending moment  M(x)', yLabel: 'M [' + ulabel('M') + ']', color: '#7c5cf0', fill: '#7c5cf0', h: 180 });
+  drawBeam(model, sys, reactions, result);
+  document.getElementById('meshHint').textContent =
+     `${sys.elements.length} elements · ${sys.nodes.length} nodes`;
+  renderXQuery(model, sys, reactions, result);
+}
+
+// Evaluate w, rotation, V, M and bending stress at an arbitrary point x (live input).
+function renderXQuery(model, sys, reactions, result) {
+  const xqEl = document.getElementById('xquery');
+  const raw = parseFloat(xqEl.value);
+  const L = sys.L;
+  if (Number.isFinite(L)) { xqEl.min = 0; xqEl.max = conv(L, 'x'); }
+  if (!Number.isFinite(raw)) {
+    for (const id of ['qxW', 'qxR', 'qxV', 'qxM', 'qxS', 'qxI']) document.getElementById(id).textContent = '–';
+    return;
+      }
+  const x = Math.max(0, Math.min(L, toSI(raw, 'xquery')));
+  const f = fieldAt(x, sys);
+  const { V, M } = vmAt(x, model, sys, reactions);
+  const sec = sectionAt(x, model.sections);
+  const rot = sys.theory === 'euler' ? f.slope : f.phi;
+  document.getElementById('qxW').textContent = fmtNum(conv(f.w, 'w'));
+  document.getElementById('qxR').textContent = fmtNum(rot);
+  document.getElementById('qxV').textContent = fmtNum(conv(V, 'V'));
+  document.getElementById('qxM').textContent = fmtNum(conv(M, 'M'));
+  const s = bendingStress(M, sec);
+  document.getElementById('qxS').textContent = s == null ? '–' : fmtNum(conv(s, 'sigma'));
+  document.getElementById('qxI').textContent = fmtNum(conv(sec.I, 'I'));
+}
+
+function setStatus(kind, msg) {
+  const el = document.getElementById('status');
+  el.className = 'msg ' + (kind === 'error' ? 'err' : kind === 'warn' ? 'warn' : '');
+  el.innerHTML = (kind === 'ok' ? '<span class="pill ok">OK</span> ' : kind === 'error' ? '<span class="pill bad">Error</span> ' : '') + msg;
+}
+
+// ---------- export / print ----------
+function csvNum(v) {
+  if (!Number.isFinite(v)) return '';
+  const a = Math.abs(v);
+  if (a !== 0 && (a >= 1e6 || a < 1e-4)) return v.toExponential(8);
+  return String(Number(v.toFixed(10)));
+}
+function download(text, filename, type) {
+  const blob = new Blob([text], { type: type || 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+ }
+function exportCSV() {
+  if (!lastExport) { setStatus('warn', 'Solve the beam first, then export the results.'); return; }
+  const { result, sys, reactions, model } = lastExport;
+  const imp = unitSystem === 'imperial';
+  const u = {
+    x: imp ? 'in' : 'm', force: imp ? 'lbf' : 'N', moment: imp ? 'lbf_in' : 'Nm',
+    stress: imp ? 'psi' : 'Pa', area: imp ? 'in2' : 'm2', I: imp ? 'in4' : 'm4',
+   };
+  const cv = (v, k) => csvNum(conv(v, k));
+  const lines = [];
+  lines.push('# Beam Calculator — results export');
+  lines.push('# generated,' + new Date().toISOString());
+  lines.push('# units,' + unitSystem + (imp ? ' (imperial)' : ' (SI)'));
+  lines.push('# theory,' + sys.theory);
+  lines.push('# elements,' + sys.elements.length);
+  lines.push('# nodes,' + sys.nodes.length);
+  lines.push('# total_length_' + u.x + ',' + cv(sys.L, 'x'));
+  lines.push('');
+  lines.push('# Model — sections (index,length_' + u.x + ',E_' + u.stress + ',I_' + u.I + ',A_' + u.area + ',nu,G_' + u.stress + ',kappa)');
+  model.sections.forEach((s, i) => {
+    lines.push([i, cv(s.len, 'x'), cv(s.E, 'E'), cv(s.I, 'I'), cv(s.A, 'A'), csvNum(s.nu), s.G != null ? cv(s.G, 'G') : '', s.kappa != null ? csvNum(s.kappa) : ''].join(','));
+     });
+  lines.push('');
+  lines.push('# Left end,' + model.leftBC + ',Right end,' + model.rightBC);
+  lines.push('');
+  lines.push('# Results — x_' + u.x + ',deflection_w_' + u.x + ',slope_dw_dx_rad,rotation_phi_rad,shear_V_' + u.force + ',moment_M_' + u.moment);
+  const N = result.xs.length;
+  for (let i = 0; i < N; i++) {
+    lines.push([cv(result.xs[i], 'x'), cv(result.ws[i], 'w'), csvNum(result.sl[i]), csvNum(result.phi[i]), cv(result.vm.Vs[i], 'V'), cv(result.vm.Ms[i], 'M')].join(','));
+     }
+  lines.push('');
+  lines.push('# Reactions — x_' + u.x + ',vertical_force_' + u.force + '_up,moment_' + u.moment + '_ccw');
+  const groups = new Map();
+  for (const r of Object.keys(reactions)) {
+    const cidx = Number(r);
+    const x = sys.nodes[Math.floor(cidx / 2)];
+    const key = x.toFixed(9);
+    if (!groups.has(key)) groups.set(key, { x, F: 0, M: 0 });
+    if (cidx % 2 === 0) groups.get(key).F += reactions[cidx];
+    else groups.get(key).M += reactions[cidx];
+     }
+  for (const g of Array.from(groups.values()).sort((a, b) => a.x - b.x)) {
+    lines.push([cv(g.x, 'x'), cv(g.F, 'F'), cv(g.M, 'M')].join(','));
+     }
+  download(lines.join('\n'), 'beam_results.csv', 'text/csv;charset=utf-8');
+  setStatus('ok', 'Exported ' + N + ' result rows to beam_results.csv');
+ }
+function printResults() {
+  if (!lastExport) { setStatus('warn', 'Solve the beam first, then print / save as PDF.'); return; }
+  window.print();
+ }
+
+// ---------- undo / redo ----------
+function snapshotJSON() { return JSON.stringify(state); }
+function updateHistoryButtons() {
+  document.getElementById('undoBtn').disabled = undoStack.length === 0;
+  document.getElementById('redoBtn').disabled = redoStack.length === 0;
+ }
+function commitIfChanged() {
+  const cur = snapshotJSON();
+  if (lastSnap === null) { lastSnap = cur; updateHistoryButtons(); return; }
+  if (cur !== lastSnap) {
+    undoStack.push(lastSnap);
+    if (undoStack.length > 100) undoStack.shift();
+    redoStack = [];
+    lastSnap = cur;
+    updateHistoryButtons();
+    }
+}
+function restoreJSON(json) {
+  state = JSON.parse(json);
+  setTheory(state.theory);
+  renderAll();
+}
+function undo() {
+  if (!undoStack.length) return;
+  redoStack.push(lastSnap);
+  lastSnap = undoStack.pop();
+  updateHistoryButtons();
+  restoreJSON(lastSnap);
+ }
+function redo() {
+  if (!redoStack.length) return;
+  undoStack.push(lastSnap);
+  lastSnap = redoStack.pop();
+  updateHistoryButtons();
+  restoreJSON(lastSnap);
+ }
+
+// ---------- state + presets ----------
+let state = { sections: [], supports: [], loads: [], theory: 'euler' };
+let lastExport = null;
+let undoStack = [], redoStack = [], lastSnap = null;
+
+function setTheory(t) {
+  state.theory = t;
+  document.querySelectorAll('#theorySeg button').forEach((b) => b.classList.toggle('on', b.dataset.theory === t));
+}
+function applyPreset(name) {
+  const E = 200e9, nu = 0.3, I0 = 8e-5;
+  const H = (I, A) => Math.round(Math.sqrt(12 * I / A) * 1e3) / 1e3;
+  if (name === 'udl') {
+    state = { sections: [{ len: 4, E, I: I0, h: H(I0, 0.01), A: 0.01, nu }], supports: [], loads: [{ kind: 'dist', a: 0, b: 4, q_a: 1000, q_b: 1000 }], theory: 'euler', leftBC: 'pinned', rightBC: 'pinned' };
+   } else if (name === 'cant') {
+    state = { sections: [{ len: 3, E, I: I0, h: H(I0, 0.01), A: 0.01, nu }], supports: [], loads: [{ kind: 'force', x: 3, P: 5000 }], theory: 'euler', leftBC: 'fixed', rightBC: 'free' };
+   } else if (name === 'ff') {
+    state = { sections: [{ len: 6, E, I: I0, h: H(I0, 0.01), A: 0.01, nu }], supports: [], loads: [{ kind: 'dist', a: 0, b: 6, q_a: 8000, q_b: 8000 }], theory: 'euler', leftBC: 'fixed', rightBC: 'fixed' };
+   } else if (name === 'point') {
+    state = { sections: [{ len: 5, E, I: I0, h: H(I0, 0.01), A: 0.01, nu }], supports: [], loads: [{ kind: 'force', x: 2.5, P: 10000 }], theory: 'euler', leftBC: 'pinned', rightBC: 'pinned' };
+   } else if (name === 'overhang') {
+    state = { sections: [{ len: 3, E, I: I0, h: H(I0, 0.01), A: 0.01, nu }], supports: [{ x: 3, type: 'pinned' }], loads: [{ kind: 'force', x: 3, P: 8000 }], theory: 'euler', leftBC: 'pinned', rightBC: 'free' };
+   } else if (name === 'trim') {
+    state = { sections: [{ len: 1, E, I: 8e-5, h: H(8e-5, 0.05), A: 0.05, nu, kappa: 5 / 6 }], supports: [], loads: [{ kind: 'force', x: 1, P: 10000 }], theory: 'timo', leftBC: 'fixed', rightBC: 'free' };
+   } else if (name === 'varsec') {
+    state = { sections: [{ len: 3, E, I: I0, h: H(I0, 0.01), A: 0.01, nu }, { len: 3, E, I: 2.4e-4, h: H(2.4e-4, 0.01), A: 0.01, nu }], supports: [], loads: [{ kind: 'dist', a: 0, b: 6, q_a: 6000, q_b: 6000 }], theory: 'euler', leftBC: 'pinned', rightBC: 'pinned' };
+   } else {
+    state = { sections: [{ len: 1, E, I: I0, h: H(I0, 0.01), A: 0.01, nu }], supports: [], loads: [], theory: 'euler', leftBC: 'pinned', rightBC: 'pinned' };
+    }
+  setTheory(state.theory);
+  const xq = document.getElementById('xquery');
+  if (xq) xq.value = fmtIn(conv(state.sections.reduce((s, x) => s + x.len, 0) / 2, 'x'));
+  renderAll();
+  commitIfChanged();
+}
+// ---------- unit system ----------
+function updateUnitLabels() {
+  const set = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+  const setH = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
+  const xu = ulabel('x'), fu = ulabel('F'), mu = ulabel('M'), su = ulabel('sigma'), dist = ulabel('dist');
+   // key-result unit badges
+  set('sWu', ulabel('w')); set('sMu', mu); set('sVu', fu); set('sSu', su); set('sRu', 'rad');
+   // reactions table headers (right-aligned values sit under these)
+  setH('reactXt', 'Location <span class="units">[' + xu + ']</span>');
+  setH('reactFt', 'Vertical force <span class="units">[' + fu + ', + up]</span>');
+  setH('reactMt', 'Moment <span class="units">[' + mu + ', + CCW]</span>');
+   // value-at-a-point
+  set('xqLabel', 'Distance along beam x [' + xu + ']');
+  set('qkWk', 'Deflection w [' + ulabel('w') + ']');
+  set('qkRk', 'Rotation φ [rad]');
+  set('qkVk', 'Shear V [' + fu + ']');
+  set('qkMk', 'Moment M [' + mu + ']');
+  set('qkSk', 'Bending stress σ [' + su + ']');
+  set('qkIk', 'Section I [' + ulabel('I') + ']');
+   // section-table unit hint + x-query tooltip + help
+  setH('secUnits', 'E [' + ulabel('E') + '], I [' + ulabel('I') + '], h [' + xu + '], A [' + ulabel('area') + '], ν [–], G [' + ulabel('G') + '], κ [–]');
+  const xq = document.getElementById('xquery');
+  if (xq) xq.title = 'Location x [' + xu + '] to evaluate w, rotation, V, M and bending stress at.';
+  const imp = unitSystem === 'imperial';
+  set('helpUnitsTitle', 'Units (' + (imp ? 'imperial' : 'SI') + ')');
+  setH('helpUnits', 'All input in ' + (imp ? 'US customary' : 'SI base') + ' units: length [' + xu + '], force [' + fu + '], moment [' + mu + '], distributed load [' + dist + '], modulus E & G [' + su + '], area I [' + ulabel('I') + '], area A [' + ulabel('area') + '], Poisson ratio ν and shear factor κ dimensionless. Results are returned in the same units.');
+}
+function setUnits(u) {
+  if (u === unitSystem) return;
+  syncFromDOM();                 // capture any unsaved display-unit edits into state (SI)
+  const prev = unitSystem;
+  unitSystem = u;
+  document.querySelectorAll('#unitSeg button').forEach((b) => b.classList.toggle('on', b.dataset.unit === u));
+  updateUnitLabels();
+    // re-express the x-query distance; its displayed value was in the previous units
+  const xq = document.getElementById('xquery');
+  const xsi = (prev === 'imperial') ? (parseFloat(xq.value) / IN) : parseFloat(xq.value);
+  if (Number.isFinite(xsi)) { xq.value = fmtIn((u === 'imperial') ? (xsi * IN) : xsi); xq.step = (u === 'imperial') ? '0.1' : '0.01'; }
+  renderAll();
+}
+// ---------- wire up ----------
+function populateBCSelects() {
+  for (const id of ['leftBC', 'rightBC']) {
+    const sel = document.getElementById(id);
+    sel.innerHTML = BC_OPTIONS.map((o) => `<option value="${o}">${BC_LABEL[o]}</option>`).join('');
+    sel.value = state[id] || 'pinned';
+    sel.onchange = () => { state[id] = sel.value; autoSolve(); };
+   }
+}
+function renderAll() {
+  populateBCSelects();
+  renderSections(); renderSupports(); renderLoads();
+  autoSolve();
+}
+function wireInputs() {
+  // live re-solve on any input change
+  document.querySelector('.wrap').addEventListener('input', (e) => {
+    if (e.target.dataset && e.target.dataset.f === 'kind') return; // load-type change is handled by the select's own onchange
+    if (e.target.closest && e.target.closest('input, select')) {
+      syncFromDOM();
+      clearTimeout(window._st); window._st = setTimeout(() => { autoSolve(); commitIfChanged(); }, 120);
+    }
+  });
+}
+function syncFromDOM() {
+   // read current section/support/load rows into state (converted to SI) so add/remove keeps data
+  state.sections = [];
+  document.querySelectorAll('#secTable tbody tr').forEach((tr) => {
+    const g = (f) => tr.querySelector('[data-f=' + f + ']');
+    const Gv = g('G').value.trim() === '' ? null : toSI(readNumber(g('G')), 'G');
+    const kv = g('kappa').value.trim() === '' ? null : readNumber(g('kappa'));
+    const hv = g('h').value.trim() === '' ? null : toSI(readNumber(g('h')), 'h');
+    state.sections.push({ len: toSI(readNumber(g('len')), 'len'), E: toSI(readNumber(g('E')), 'E'), I: toSI(readNumber(g('I')), 'I'), h: hv, A: toSI(readNumber(g('A')), 'A'),
+      nu: readNumber(g('nu')), G: Gv, kappa: kv });
+   });
+  state.supports = [];
+  document.querySelectorAll('#supTable tbody tr').forEach((tr) => {
+    state.supports.push({ x: toSI(readNumber(tr.querySelector('[data-f=x]')), 'x'), type: tr.querySelector('[data-f=type]').value });
+   });
+  state.loads = [];
+  document.querySelectorAll('#loadTable tbody tr').forEach((tr) => {
+    const kind = tr.querySelector('[data-f=kind]').value;
+    if (kind === 'force') state.loads.push({ kind, x: toSI(readNumber(tr.querySelector('[data-f=x]')), 'x'), P: toSI(readNumber(tr.querySelector('[data-f=P]')), 'P') });
+    else if (kind === 'moment') state.loads.push({ kind, x: toSI(readNumber(tr.querySelector('[data-f=x]')), 'x'), M: toSI(readNumber(tr.querySelector('[data-f=M]')), 'M') });
+    else state.loads.push({ kind, a: toSI(readNumber(tr.querySelector('[data-f=a]')), 'a'), b: toSI(readNumber(tr.querySelector('[data-f=b]')), 'b'), q_a: toSI(readNumber(tr.querySelector('[data-f=qa]')), 'qa'), q_b: toSI(readNumber(tr.querySelector('[data-f=qb]')), 'qb') });
+   });
+}
+
+document.getElementById('addSec').onclick = () => {
+  const last = state.sections[state.sections.length - 1] || { len: 1, E: 200e9, I: 8e-5, A: 0.01, nu: 0.3, G: null, kappa: null };
+  state.sections.push({ len: last.len, E: last.E, I: last.I, A: last.A, nu: last.nu, G: last.G, kappa: last.kappa });
+  renderSections(); autoSolve(); commitIfChanged();
+};
+document.getElementById('addSup').onclick = () => {
+  const L = state.sections.reduce((s, x) => s + x.len, 0);
+  state.supports.push({ x: L / 2, type: 'pinned' });
+  renderSupports(); autoSolve(); commitIfChanged();
+};
+document.getElementById('addLoad').onclick = () => {
+  state.loads.push({ kind: 'force', x: 0.5, P: 1000 });
+  renderLoads(); autoSolve(); commitIfChanged();
+};
+document.getElementById('loadPreset').onclick = () => applyPreset(document.getElementById('preset').value);
+document.querySelectorAll('#theorySeg button').forEach((b) => b.onclick = () => { setTheory(b.dataset.theory); autoSolve(); commitIfChanged(); });
+document.querySelectorAll('#unitSeg button').forEach((b) => b.onclick = () => setUnits(b.dataset.unit));
+
+// history + export + help buttons
+document.getElementById('undoBtn').onclick = undo;
+document.getElementById('redoBtn').onclick = redo;
+document.getElementById('exportCsvBtn').onclick = exportCSV;
+document.getElementById('printBtn').onclick = printResults;
+document.getElementById('helpBtn').onclick = () => { document.getElementById('helpOverlay').hidden = false; };
+document.getElementById('helpClose').onclick = () => { document.getElementById('helpOverlay').hidden = true; };
+document.getElementById('helpOverlay').addEventListener('click', (e) => { if (e.target.id === 'helpOverlay') e.currentTarget.hidden = true; });
+window.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && !e.altKey) {
+    const k = e.key.toLowerCase();
+    if (k === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+    else if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); redo(); }
+     }
+  if (e.key === 'Escape') { const ov = document.getElementById('helpOverlay'); if (!ov.hidden) ov.hidden = true; }
+});
+
+window.addEventListener('resize', () => { if (state.sections.length) autoSolve(); });
+
+// init
+applyPreset('udl');
+updateUnitLabels();
+wireInputs();
+</script>
 </body>
-
 </html>
