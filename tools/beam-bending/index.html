@@ -1224,13 +1224,14 @@ function autoSolve() {
     sys.d = d;
     if (d.some((v) => !Number.isFinite(v))) throw new Error('unstable');
     reactions = computeReactions(sys);
+    // Sample the deflection fields on the SAME x-grid as the internal forces (computeVM),
+    // so every "max … at x" reported later reads its location off the correct grid.
     const vm = computeVM(model, sys, reactions);
-    const N = 500;
-    const xs = [], ws = [], sl = [], phi = [];
-    for (let i = 0; i <= N; i++) {
-      const x = sys.L * i / N;
-      const f = fieldAt(x, sys);
-      xs.push(x); ws.push(f.w); sl.push(f.slope); phi.push(f.phi);
+    const xs = vm.xs;
+    const ws = [], sl = [], phi = [];
+    for (let i = 0; i < xs.length; i++) {
+      const f = fieldAt(xs[i], sys);
+      ws.push(f.w); sl.push(f.slope); phi.push(f.phi);
     }
     result = { xs, ws, sl, phi, vm, sys, reactions };
     lastExport = { model, sys, reactions, result };
@@ -1259,6 +1260,8 @@ function renderResults(model, sys, reactions, result) {
     if (Math.abs(result.vm.Vs[i]) > Math.abs(result.vm.Vs[iV])) iV = i;
      }
   for (let i = 1; i < rot.length; i++) if (Math.abs(rot[i]) > Math.abs(rot[iR])) iR = i;
+   // All fields (w, rotation, V, M, stress) are sampled on the same x-grid, so a max's
+   // location is always read back off result.xs — the grid the index actually belongs to.
   const atX = (i) => 'at x = ' + fmtNum(conv(result.xs[i], 'x')) + ' ' + xu;
   document.getElementById('sW').textContent = fmtNum(conv(result.ws[iW], 'w'));
   document.getElementById('sWx').textContent = atX(iW);
@@ -1266,12 +1269,12 @@ function renderResults(model, sys, reactions, result) {
   document.getElementById('sMx').textContent = atX(iM);
   document.getElementById('sV').textContent = fmtNum(conv(result.vm.Vs[iV], 'V'));
   document.getElementById('sVx').textContent = atX(iV);
-   // max bending stress (σ = M·c/I) at the location of max |M|
+     // max bending stress (σ = M·c/I) at the location of max |M|
   const secM = sectionAt(result.xs[iM], model.sections);
   const sigmaMax = bendingStress(result.vm.Ms[iM], secM);
   document.getElementById('sS').textContent = sigmaMax == null ? '–' : fmtNum(conv(sigmaMax, 'sigma'));
   document.getElementById('sSx').textContent = sigmaMax == null ? 'needs h or A' : atX(iM);
-  document.getElementById('sR').textContent = fmtNum(rot[iR]);   // rotation is in rad in both systems
+  document.getElementById('sR').textContent = fmtNum(rot[iR]);     // rotation is in rad in both systems
   document.getElementById('sRx').textContent = atX(iR);
    // reactions table
   const tb = document.querySelector('#reactTable tbody');
