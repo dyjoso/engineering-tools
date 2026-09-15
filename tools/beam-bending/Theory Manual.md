@@ -193,9 +193,8 @@ interpolation — so they are exact across the beam and independent of mesh dens
 `M` is therefore **sagging-positive** (tension on the *lower* fibre); `V` follows the
 standard beam sign. The curves are sampled at 600 points.
 
-> **Documentation discrepancy.** The in-app Help text states that "sagging is *negative*."
-> The code as written produces **sagging-positive** `M`. Treat the code (sagging-positive)
-> as authoritative and flag the Help text for correction.
+> **Note.** The in-app Help text previously stated that "sagging is *negative*"; it has
+> been corrected to match the code, which produces **sagging-positive** `M`.
 
 ### 4.4 Bending stress — `bendingStress`
 

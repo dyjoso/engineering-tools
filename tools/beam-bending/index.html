@@ -139,14 +139,28 @@
   .help-body ul { margin: 4px 0; padding-left: 18px; }
   .help-body li { margin: 3px 0; }
   .help-body strong { color: var(--text); font-weight: 650; }
-   @media print {
-    header, .footer, .help-overlay { display: none !important; }
-    body { background: #fff; color: #000; }
-    .wrap { display: block; padding: 0; gap: 0; }
-    .col:first-child { display: none !important; }
-    .card { break-inside: avoid; box-shadow: none; border: 1px solid #bbb; margin-bottom: 10px; }
-    .card > h2 { border-color: #ccc; }
-   }
+   /* ---------- print report: utilitarian, one A4 page ---------- */
+    @page { size: A4; margin: 11mm; }
+    #printReport { display: none; }
+    @media print {
+     header, .footer, .help-overlay, .wrap { display: none !important; }
+     body { background: #fff; color: #000; }
+      #printReport { display: block; }
+      .pr { font-family: "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif; color: #000; font-size: 8.5pt; line-height: 1.3; }
+      .pr h1 { font-size: 13pt; margin: 0 0 1px; font-weight: 700; }
+      .pr .pr-sub { font-size: 8pt; color: #222; margin: 0 0 7px; padding-bottom: 5px; border-bottom: 1pt solid #000; }
+      .pr h2 { font-size: 8.4pt; text-transform: uppercase; letter-spacing: .5px; margin: 9px 0 3px; padding-bottom: 1px; border-bottom: .5pt solid #999; break-after: avoid; }
+      .pr .pr-line { margin: 0 0 4px; }
+      .pr .pr-none { font-style: italic; color: #555; padding: 1px 0; }
+      .pr .pr-note { font-size: 7.4pt; color: #555; margin: 1px 0 0; }
+      .pr .pr-foot { margin-top: 8px; padding-top: 4px; border-top: .5pt solid #999; font-size: 7.4pt; color: #444; }
+      .pr table { width: 100%; border-collapse: collapse; margin: 0 0 3px; }
+      .pr th, .pr td { padding: 1.5px 5px; border: .5pt solid #cfcfcf; font-size: 8pt; color: #000; vertical-align: top; }
+      .pr th { background: #f0f0f0; font-weight: 600; text-transform: none; border-color: #999; }
+      .pr .l { text-align: left; }
+      .pr .n { text-align: right; font-variant-numeric: tabular-nums; }
+      .pr h2, .pr table { break-inside: avoid; }
+    }
 </style>
 </head>
 <body>
@@ -166,6 +180,10 @@
     </div>
     <button class="ghost" id="undoBtn" title="Undo (Ctrl+Z)" disabled>↶ Undo</button>
     <button class="ghost" id="redoBtn" title="Redo (Ctrl+Y / Ctrl+Shift+Z)" disabled>↷ Redo</button>
+    <span class="divider"></span>
+    <button class="ghost" id="saveBtn" title="Save the model (sections, supports, loads, settings) as a JSON file">Save model</button>
+    <button class="ghost" id="loadBtn" title="Load a previously saved model JSON file">Load model</button>
+    <input type="file" id="loadFile" accept=".json,application/json" hidden>
     <span class="divider"></span>
     <button class="ghost" id="exportCsvBtn" title="Export results, internal forces & reactions as CSV">Export CSV</button>
     <button class="ghost" id="printBtn" title="Print / save as PDF">Print / PDF</button>
@@ -335,6 +353,8 @@
   Finite-element beam solver · Euler–Bernoulli &amp; exact Timoshenko elements · banded Cholesky · runs offline in one file.
 </div>
 
+<div id="printReport"></div>
+
 <div class="help-overlay" id="helpOverlay" hidden>
   <div class="help-card">
     <div class="help-head">
@@ -349,7 +369,7 @@
       <ul>
         <li>A <strong>downward</strong> point force or distributed load is <strong>positive</strong> (up is negative).</li>
         <li>Deflection <code>w</code> is positive downward; slope <code>dw/dx</code> and rotation <code>φ</code> follow the standard beam sign.</li>
-        <li>Bending moment is reported so that a sagging (tension on the bottom fibre) beam is <strong>negative</strong> — the classic “smile” is below the axis. Reactions: vertical is + up, moment is + counter-clockwise.</li>
+        <li>Bending moment is <strong>sagging-positive</strong> (tension on the bottom fibre is positive; hogging over a cantilever root or fixed end is negative). Reactions: vertical is + up, moment is + counter-clockwise.</li>
         <li>Distributed loads taper linearly from <strong>Value&nbsp;1</strong> (at start) to <strong>Value&nbsp;2</strong> (at end).</li>
       </ul>
 
@@ -372,6 +392,7 @@
         <li>Increase <strong>Elements per break-segment</strong> for accuracy on distributed / tapered loads — a single element under a UDL is noticeably soft.</li>
         <li>A model with no support and no fixed/guided end is a <strong>rigid-body mode</strong> and will be reported as unstable. Add ≥ one restraint.</li>
         <li>Results update live as you type. <strong>Undo / Redo</strong> (or Ctrl+Z / Ctrl+Y) step through model edits; <strong>Export CSV</strong> saves the full result set; <strong>Print / PDF</strong> opens the browser print dialog.</li>
+        <li><strong>Save</strong> writes the whole model (sections, supports, loads, end conditions, theory, unit system, mesh) to a <code>.json</code> file; <strong>Load</strong> restores it. Values are stored in SI regardless of the display units.</li>
       </ul>
     </div>
   </div>
@@ -1234,6 +1255,7 @@ function markInputErrors(problems) {
 function validateModel(model) {
   const problems = [];
   const L = model.sections.reduce((s, x) => s + (Number.isFinite(x.len) ? x.len : 0), 0);
+  const Ltxt = fmtNum(conv(L, 'x')) + ' ' + ulabel('x');   // beam extent in the display units
   if (model.sections.length === 0) problems.push({ msg: 'Add at least one beam section.' });
   model.sections.forEach((s, i) => {
     if (!(Number.isFinite(s.len) && s.len > 0)) problems.push({ sec: i, f: 'len', msg: 'Section ' + (i + 1) + ': length must be a positive number.' });
@@ -1246,23 +1268,39 @@ function validateModel(model) {
      });
   model.supports.forEach((s, i) => {
     if (!Number.isFinite(s.x)) problems.push({ sup: i, f: 'x', msg: 'Support ' + (i + 1) + ': location x must be numeric.' });
-    else if (s.x < -1e-9 || s.x > L + 1e-9) problems.push({ sup: i, f: 'x', msg: 'Support ' + (i + 1) + ': x must lie within the beam [0, ' + fmtNum(L) + ' m].' });
+    else if (s.x < -1e-9 || s.x > L + 1e-9) problems.push({ sup: i, f: 'x', msg: 'Support ' + (i + 1) + ': x must lie within the beam [0, ' + Ltxt + '].' });
      });
   model.loads.forEach((l, i) => {
     if (l.kind === 'force') {
-      if (!Number.isFinite(l.x) || l.x < -1e-9 || l.x > L + 1e-9) problems.push({ load: i, f: 'x', msg: 'Load ' + (i + 1) + ': force location x must lie within [0, ' + fmtNum(L) + ' m].' });
+      if (!Number.isFinite(l.x) || l.x < -1e-9 || l.x > L + 1e-9) problems.push({ load: i, f: 'x', msg: 'Load ' + (i + 1) + ': force location x must lie within [0, ' + Ltxt + '].' });
       if (!Number.isFinite(l.P)) problems.push({ load: i, f: 'P', msg: 'Load ' + (i + 1) + ': force value must be numeric.' });
      } else if (l.kind === 'moment') {
-      if (!Number.isFinite(l.x) || l.x < -1e-9 || l.x > L + 1e-9) problems.push({ load: i, f: 'x', msg: 'Load ' + (i + 1) + ': moment location x must lie within [0, ' + fmtNum(L) + ' m].' });
+      if (!Number.isFinite(l.x) || l.x < -1e-9 || l.x > L + 1e-9) problems.push({ load: i, f: 'x', msg: 'Load ' + (i + 1) + ': moment location x must lie within [0, ' + Ltxt + '].' });
       if (!Number.isFinite(l.M)) problems.push({ load: i, f: 'M', msg: 'Load ' + (i + 1) + ': moment value must be numeric.' });
      } else {
       if (!Number.isFinite(l.a) || !Number.isFinite(l.b)) problems.push({ load: i, f: 'a', msg: 'Load ' + (i + 1) + ': distributed load needs numeric start and end.' });
       else if (l.b <= l.a) problems.push({ load: i, f: 'b', msg: 'Load ' + (i + 1) + ': end must be greater than the start.' });
-      else if (l.a < -1e-9 || l.b > L + 1e-9) problems.push({ load: i, f: 'a', msg: 'Load ' + (i + 1) + ': must lie within the beam [0, ' + fmtNum(L) + ' m].' });
+      else if (l.a < -1e-9 || l.b > L + 1e-9) problems.push({ load: i, f: 'a', msg: 'Load ' + (i + 1) + ': must lie within the beam [0, ' + Ltxt + '].' });
       if (!Number.isFinite(l.q_a) || !Number.isFinite(l.q_b)) problems.push({ load: i, f: 'qa', msg: 'Load ' + (i + 1) + ': load intensities must be numeric.' });
      }
      });
   return { problems, L };
+}
+// Rigid-body check. A straight beam has two rigid modes (translation + rotation); it is
+// restrained only with vertical restraints at >= 2 distinct x, or >= 1 vertical plus >= 1
+// rotational restraint. Springs count only when they carry a positive stiffness. A purely
+// numerical test is not reliable here: a singular K can still yield finite (garbage) values.
+function isRestrained(model, L) {
+  const vx = new Set();
+  let nRot = 0;
+  const add = (x, type, k) => {
+    if (type === 'pinned' || type === 'fixed' || (type === 'v_spring' && k > 0)) vx.add(Math.max(0, Math.min(L, x)).toFixed(9));
+    if (type === 'sliding' || type === 'fixed' || (type === 'r_spring' && k > 0)) nRot++;
+   };
+  add(0, model.leftBC);
+  add(L, model.rightBC);
+  for (const s of model.supports) add(s.x, s.type, s.k);
+  return vx.size >= 2 || (vx.size >= 1 && nRot >= 1);
 }
 
 // ---------- solve + render ----------
@@ -1270,10 +1308,16 @@ function autoSolve() {
   const model = readModel();
   // validate inputs
   clearInputErrors();
-  const { problems } = validateModel(model);
+  const { problems, L } = validateModel(model);
   if (problems.length) {
     markInputErrors(problems);
+    lastExport = null;   // on-screen results are stale; don't let export / print emit them
     setStatus('error', problems[0].msg + (problems.length > 1 ? '  (+' + (problems.length - 1) + ' more)' : ''));
+    return;
+   }
+  if (!isRestrained(model, L)) {
+    lastExport = null;
+    setStatus('error', 'The model is unstable (a rigid-body mode). Add vertical restraints at two different locations, or one vertical plus one rotational restraint (e.g. a fixed end).');
     return;
    }
   let sys, reactions, result;
@@ -1302,6 +1346,7 @@ function autoSolve() {
     lastExport = { model, sys, reactions, result };
    } catch (err) {
     if (err.message === 'unstable') {
+      lastExport = null;
       setStatus('error', 'The model is unstable (a rigid-body mode). Add at least two supports, or a fixed/guided end.');
       return;
     }
@@ -1451,9 +1496,9 @@ function exportCSV() {
   lines.push('# nodes,' + sys.nodes.length);
   lines.push('# total_length_' + u.x + ',' + cv(sys.L, 'x'));
   lines.push('');
-  lines.push('# Model — sections (index,length_' + u.x + ',E_' + u.stress + ',I_' + u.I + ',A_' + u.area + ',nu,G_' + u.stress + ',kappa)');
+  lines.push('# Model — sections (index,length_' + u.x + ',E_' + u.stress + ',I_' + u.I + ',h_' + u.x + ',A_' + u.area + ',nu,G_' + u.stress + ',kappa)');
   model.sections.forEach((s, i) => {
-    lines.push([i, cv(s.len, 'x'), cv(s.E, 'E'), cv(s.I, 'I'), cv(s.A, 'A'), csvNum(s.nu), s.G != null ? cv(s.G, 'G') : '', s.kappa != null ? csvNum(s.kappa) : ''].join(','));
+    lines.push([i, cv(s.len, 'x'), cv(s.E, 'E'), cv(s.I, 'I'), s.h != null ? cv(s.h, 'h') : '', cv(s.A, 'A'), csvNum(s.nu), s.G != null ? cv(s.G, 'G') : '', s.kappa != null ? csvNum(s.kappa) : ''].join(','));
      });
   lines.push('');
   lines.push('# Left end,' + model.leftBC + ',Right end,' + model.rightBC);
@@ -1489,8 +1534,264 @@ function exportCSV() {
  }
 function printResults() {
   if (!lastExport) { setStatus('warn', 'Solve the beam first, then print / save as PDF.'); return; }
+  buildPrintReport();
   window.print();
- }
+}
+
+// ---------- save / load model (JSON) ----------
+// The file stores the model in SI (the same shape as `state`) plus the display settings,
+// so a file saved in imperial reloads identically whichever unit system is active.
+const MODEL_FILE_APP = 'beam-calculator';
+const MODEL_FILE_VERSION = 1;
+function saveModel() {
+  syncFromDOM();   // capture any in-progress edits
+  const xq = document.getElementById('xquery');
+  const data = {
+    app: MODEL_FILE_APP,
+    version: MODEL_FILE_VERSION,
+    saved: new Date().toISOString(),
+    unitSystem,
+    meshPerSeg: Math.max(1, Math.round(readNumber(document.getElementById('mesh')) || 24)),
+    xquery: toSI(readNumber(xq), 'xquery'),
+    model: {
+      sections: state.sections, supports: state.supports, loads: state.loads,
+      theory: state.theory, leftBC: state.leftBC, rightBC: state.rightBC,
+     },
+   };
+  download(JSON.stringify(data, null, 2), 'beam_model.json', 'application/json;charset=utf-8');
+  setStatus('ok', 'Saved model to beam_model.json');
+}
+function loadModelFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    let data;
+    try { data = JSON.parse(String(reader.result)); } catch (e) { data = null; }
+    const m = data && typeof data === 'object' ? (data.model || data) : null;   // accept a bare `state` object too
+    if (!m || !Array.isArray(m.sections) || !Array.isArray(m.supports) || !Array.isArray(m.loads)) {
+      setStatus('error', 'Could not load "' + file.name + '": not a valid Beam Calculator model file.');
+      return;
+     }
+    const xq = document.getElementById('xquery');
+    // keep the x-query position (in SI) so it can be re-expressed if the unit system changes
+    const xqSI = Number.isFinite(data.xquery) ? data.xquery : toSI(readNumber(xq), 'xquery');
+    if (data.unitSystem === 'metric' || data.unitSystem === 'imperial') {
+      unitSystem = data.unitSystem;
+      document.querySelectorAll('#unitSeg button').forEach((b) => b.classList.toggle('on', b.dataset.unit === unitSystem));
+      updateUnitLabels();
+     }
+    if (Number.isFinite(xqSI)) { xq.value = fmtIn(conv(xqSI, 'xquery')); xq.step = unitSystem === 'imperial' ? '0.1' : '0.01'; }
+    if (Number.isFinite(data.meshPerSeg)) document.getElementById('mesh').value = Math.max(1, Math.round(data.meshPerSeg));
+    state = {
+      sections: m.sections, supports: m.supports, loads: m.loads,
+      theory: m.theory === 'timo' ? 'timo' : 'euler',
+      leftBC: BC_OPTIONS.includes(m.leftBC) ? m.leftBC : 'pinned',
+      rightBC: BC_OPTIONS.includes(m.rightBC) ? m.rightBC : 'pinned',
+     };
+    setTheory(state.theory);
+    renderAll();
+    commitIfChanged();   // loading is an undoable model edit
+    if (lastExport) setStatus('ok', 'Loaded "' + file.name + '" · ' + lastExport.sys.elements.length + ' elements · ' + lastExport.sys.nodes.length + ' nodes');
+   };
+  reader.onerror = () => setStatus('error', 'Could not read "' + file.name + '".');
+  reader.readAsText(file);
+}
+// Condensed, tabulated engineering report (A4, utilitarian) — a distinct layout from the
+// on-screen cards, built fresh each print so it reflects the current model.
+function buildPrintReport() {
+  const el = document.getElementById('printReport');
+  if (!el) return;
+  const { model, sys, reactions, result } = lastExport;
+  const L = sys.L;
+  const xu = ulabel('x'), wu = ulabel('w'), fu = ulabel('F'), mu = ulabel('M'),
+        su = ulabel('sigma'), iu = ulabel('I'), au = ulabel('area'), eu = ulabel('E'),
+        du = ulabel('dist'), rotu = ulabel('rot');
+  const cv = (v, k) => fmtNum(conv(v, k));
+  const theoryLabel = sys.theory === 'euler' ? 'Euler–Bernoulli' : 'Timoshenko';
+  const rotName = sys.theory === 'euler' ? 'dw/dx' : 'φ';
+  // leftCols: 0-based column indices rendered left-aligned; the rest are right-aligned numbers.
+  const tbl = (headers, rows, leftCols) => {
+    const lc = leftCols || [0];
+    const cls = (i) => lc.includes(i) ? 'l' : 'n';
+    let h = '<table><thead><tr>';
+    headers.forEach((x, i) => { h += '<th class="' + cls(i) + '">' + x + '</th>'; });
+    h += '</tr></thead><tbody>';
+    for (const r of rows) {
+      h += '<tr>';
+      r.forEach((c, i) => { h += '<td class="' + cls(i) + '">' + (c == null || c === '' ? '' : c) + '</td>'; });
+      h += '</tr>';
+     }
+    return h + '</tbody></table>';
+   };
+
+  let html = '<div class="pr">';
+
+  // Title block
+  html += '<h1>Beam analysis</h1>';
+  html += '<div class="pr-sub">Theory <b>' + theoryLabel + '</b> &nbsp;·&nbsp; '
+        + 'total length L = ' + cv(L, 'x') + ' ' + xu + ' &nbsp;·&nbsp; '
+        + sys.elements.length + ' elements / ' + sys.nodes.length + ' nodes &nbsp;·&nbsp; '
+        + model.meshPerSeg + ' elements / segment &nbsp;·&nbsp; '
+        + new Date().toLocaleString() + '</div>';
+
+  // 1 · Section properties
+  html += '<h2>1 · Section properties</h2>';
+  {
+    const timo = sys.theory === 'timo';
+    const headers = ['#', 'x₀–x₁ [' + xu + ']', 'L [' + xu + ']', 'E [' + eu + ']', 'I [' + iu + ']', 'h [' + xu + ']', 'A [' + au + ']', 'ν'];
+    const rows = [];
+    let start = 0;
+    model.sections.forEach((s, i) => {
+      const end = start + s.len;
+      const row = [i + 1, cv(start, 'x') + '–' + cv(end, 'x'), cv(s.len, 'x'), cv(s.E, 'E'), cv(s.I, 'I'),
+        s.h != null ? cv(s.h, 'x') : '—', s.A != null ? cv(s.A, 'A') : '—', fmtNum(s.nu)];
+      if (timo) row.push(s.G != null ? cv(s.G, 'G') : '—', s.kappa != null ? fmtNum(s.kappa) : '—');
+      rows.push(row);
+      start = end;
+     });
+    if (timo) headers.push('G [' + eu + ']', 'κ (–)');
+    html += tbl(headers, rows, [0, 1]);
+    html += '<div class="pr-note">Total length L = ' + cv(L, 'x') + ' ' + xu
+          + (timo ? ' · blank G = E/2(1+ν), blank κ = 5/6' : '') + '.</div>';
+   }
+
+  // 2 · End conditions
+  html += '<h2>2 · End conditions</h2>';
+  html += '<div class="pr-line">Left end <b>' + BC_LABEL[model.leftBC] + '</b> &nbsp;&nbsp;·&nbsp;&nbsp; Right end <b>' + BC_LABEL[model.rightBC] + '</b></div>';
+
+  // 3 · Intermediate supports
+  html += '<h2>3 · Intermediate supports</h2>';
+  if (!model.supports.length) {
+    html += '<div class="pr-none">None</div>';
+   } else {
+    const rows = model.supports.map((s, i) => {
+      const isSpr = s.type === 'v_spring' || s.type === 'r_spring';
+      const kUnit = s.type === 'v_spring' ? 'kv' : 'kr';
+      const stiff = isSpr ? ((s.k != null && Number.isFinite(s.k)) ? fmtNum(conv(s.k, kUnit)) + ' ' + ulabel(kUnit) : 'free') : '—';
+      return [i + 1, cv(s.x, 'x'), SUPPORT_LABEL[s.type], stiff];
+     });
+    html += tbl(['#', 'x [' + xu + ']', 'Type', 'Stiffness'], rows, [0, 2]);
+   }
+
+  // 4 · Loads
+  html += '<h2>4 · Loads</h2>';
+  if (!model.loads.length) {
+    html += '<div class="pr-none">None</div>';
+   } else {
+    const rows = model.loads.map((l, i) => {
+      if (l.kind === 'force') return [i + 1, 'Point force', cv(l.x, 'x'), '—', cv(l.P, 'P'), '—'];
+      if (l.kind === 'moment') return [i + 1, 'Point moment', cv(l.x, 'x'), '—', cv(l.M, 'M'), '—'];
+      return [i + 1, 'Distributed', cv(l.a, 'x'), cv(l.b, 'x'), cv(l.q_a, 'qa'), cv(l.q_b, 'qb')];
+     });
+    html += tbl(['#', 'Kind', 'x / start [' + xu + ']', 'end [' + xu + ']', 'Value 1', 'Value 2'], rows, [0, 1]);
+    html += '<div class="pr-note">Point force P in ' + fu + ' · moment M in ' + mu
+          + ' · distributed q in ' + du + ' (linear from Value 1 to Value 2).</div>';
+   }
+
+  // 5 · Reactions (same grouping + sign convention as the on-screen table, incl. springs)
+  html += '<h2>5 · Reactions</h2>';
+  {
+    const groups = new Map();
+    for (const r of Object.keys(reactions)) {
+      const cidx = Number(r);
+      const x = sys.nodes[Math.floor(cidx / 2)];
+      const key = x.toFixed(9);
+      if (!groups.has(key)) groups.set(key, { x, F: 0, M: 0 });
+      if (cidx % 2 === 0) groups.get(key).F += reactions[cidx];
+      else groups.get(key).M += reactions[cidx];
+      }
+    for (const sp of sys.springReactions || []) {
+      const key = sp.x.toFixed(9);
+      if (!groups.has(key)) groups.set(key, { x: sp.x, F: 0, M: 0 });
+      groups.get(key).F += sp.Fup;
+      groups.get(key).M += sp.Mraw;
+      }
+    const rows = Array.from(groups.values()).sort((a, b) => a.x - b.x).map(g => [
+      cv(g.x, 'x'),
+      Math.abs(g.F) > 1e-12 ? cv(g.F, 'F') : '—',
+      Math.abs(g.M) > 1e-12 ? cv(g.M, 'M') : '—',
+     ]);
+    if (!rows.length) html += '<div class="pr-none">None (free body)</div>';
+    else html += tbl(['x [' + xu + ']', 'V (' + fu + ', + up)', 'M (' + mu + ', + CCW)'], rows, [0]);
+   }
+
+  // 6 · Key results (locations read off the result grid, matching the on-screen cards)
+  html += '<h2>6 · Key results</h2>';
+  {
+    const rot = sys.theory === 'euler' ? result.sl : result.phi;
+    let iW = 0, iM = 0, iV = 0, iR = 0;
+    for (let i = 1; i < result.ws.length; i++) if (Math.abs(result.ws[i]) > Math.abs(result.ws[iW])) iW = i;
+    for (let i = 1; i < result.vm.Ms.length; i++) {
+      if (Math.abs(result.vm.Ms[i]) > Math.abs(result.vm.Ms[iM])) iM = i;
+      if (Math.abs(result.vm.Vs[i]) > Math.abs(result.vm.Vs[iV])) iV = i;
+      }
+    for (let i = 1; i < rot.length; i++) if (Math.abs(rot[i]) > Math.abs(rot[iR])) iR = i;
+    const secM = sectionAt(result.xs[iM], model.sections);
+    const sigmaMax = bendingStress(result.vm.Ms[iM], secM);
+    const rows = [
+      ['Max deflection  w', cv(result.ws[iW], 'w') + ' ' + wu, cv(result.xs[iW], 'x')],
+      ['Max bending moment  M', cv(result.vm.Ms[iM], 'M') + ' ' + mu, cv(result.xs[iM], 'x')],
+      ['Max shear  V', cv(result.vm.Vs[iV], 'V') + ' ' + fu, cv(result.xs[iV], 'x')],
+      ['Max bending stress  σ', sigmaMax != null ? cv(sigmaMax, 'sigma') + ' ' + su : '—', cv(result.xs[iM], 'x')],
+      ['Max rotation  ' + rotName, fmtNum(rot[iR]) + ' ' + rotu, cv(result.xs[iR], 'x')],
+     ];
+    html += tbl(['Quantity', 'Value', 'at x [' + xu + ']'], rows, [0]);
+   }
+
+  // 7 · Field values — tabulated distribution (replaces the on-screen plots)
+  html += '<h2>7 · Field values</h2>';
+  {
+    const N = 13;
+    const headers = ['x [' + xu + ']', 'w [' + wu + ']', rotName + ' [rad]', 'V [' + fu + ']', 'M [' + mu + ']', 'σ [' + su + ']'];
+    const rows = [];
+    for (let i = 0; i < N; i++) {
+      const x = L * i / (N - 1);
+      const f = fieldAt(x, sys);
+      const { V, M } = vmAt(x, model, sys, reactions);
+      const sig = bendingStress(M, sectionAt(x, model.sections));
+      rows.push([
+        cv(x, 'x'),
+        cv(f.w, 'w'),
+        fmtNum(sys.theory === 'euler' ? f.slope : f.phi),
+        cv(V, 'V'),
+        cv(M, 'M'),
+        sig != null ? cv(sig, 'sigma') : '—',
+       ]);
+     }
+    html += tbl(headers, rows, [0]);
+   }
+
+  // 8 · Value at the queried point x
+  {
+    const xqEl = document.getElementById('xquery');
+    const raw = xqEl ? parseFloat(xqEl.value) : NaN;
+    if (Number.isFinite(raw)) {
+      const x = Math.max(0, Math.min(L, toSI(raw, 'xquery')));
+      const f = fieldAt(x, sys);
+      const { V, M } = vmAt(x, model, sys, reactions);
+      const sec = sectionAt(x, model.sections);
+      const sig = bendingStress(M, sec);
+      html += '<h2>8 · Value at x = ' + cv(x, 'x') + ' ' + xu + '</h2>';
+      html += tbl(['Quantity', 'Value'], [
+        ['Deflection  w', cv(f.w, 'w') + ' ' + wu],
+        ['Rotation  ' + rotName, fmtNum(sys.theory === 'euler' ? f.slope : f.phi) + ' ' + rotu],
+        ['Shear  V', cv(V, 'V') + ' ' + fu],
+        ['Moment  M', cv(M, 'M') + ' ' + mu],
+        ['Bending stress  σ', sig != null ? cv(sig, 'sigma') + ' ' + su : '—'],
+        ['Section  I', cv(sec.I, 'I') + ' ' + iu],
+       ], [0]);
+     }
+   }
+
+  // Footnote
+  html += '<div class="pr-foot">'
+        + 'Sign conventions: downward load +; deflection w + down; bending moment sagging +; '
+        + 'reaction V + up, M + counter-clockwise. &nbsp; Generated by Beam Calculator '
+        + '(finite-element, banded Cholesky) · ' + new Date().toLocaleString() + '</div>';
+
+  html += '</div>';
+  el.innerHTML = html;
+}
 
 // ---------- undo / redo ----------
 function snapshotJSON() { return JSON.stringify(state); }
@@ -1662,8 +1963,8 @@ function syncFromDOM() {
 }
 
 document.getElementById('addSec').onclick = () => {
-  const last = state.sections[state.sections.length - 1] || { len: 1, E: 200e9, I: 8e-5, A: 0.01, nu: 0.3, G: null, kappa: null };
-  state.sections.push({ len: last.len, E: last.E, I: last.I, A: last.A, nu: last.nu, G: last.G, kappa: last.kappa });
+  const last = state.sections[state.sections.length - 1] || { len: 1, E: 200e9, I: 8e-5, h: null, A: 0.01, nu: 0.3, G: null, kappa: null };
+  state.sections.push({ len: last.len, E: last.E, I: last.I, h: last.h, A: last.A, nu: last.nu, G: last.G, kappa: last.kappa });
   renderSections(); autoSolve(); commitIfChanged();
 };
 document.getElementById('addSup').onclick = () => {
@@ -1672,7 +1973,8 @@ document.getElementById('addSup').onclick = () => {
   renderSupports(); autoSolve(); commitIfChanged();
 };
 document.getElementById('addLoad').onclick = () => {
-  state.loads.push({ kind: 'force', x: 0.5, P: 1000 });
+  const L = state.sections.reduce((s, x) => s + (Number(x.len) || 0), 0);
+  state.loads.push({ kind: 'force', x: L / 2, P: 1000 });
   renderLoads(); autoSolve(); commitIfChanged();
 };
 document.getElementById('loadPreset').onclick = () => applyPreset(document.getElementById('preset').value);
@@ -1682,6 +1984,12 @@ document.querySelectorAll('#unitSeg button').forEach((b) => b.onclick = () => se
 // history + export + help buttons
 document.getElementById('undoBtn').onclick = undo;
 document.getElementById('redoBtn').onclick = redo;
+document.getElementById('saveBtn').onclick = saveModel;
+document.getElementById('loadBtn').onclick = () => document.getElementById('loadFile').click();
+document.getElementById('loadFile').onchange = (e) => {
+  loadModelFile(e.target.files && e.target.files[0]);
+  e.target.value = '';   // allow re-loading the same file name
+};
 document.getElementById('exportCsvBtn').onclick = exportCSV;
 document.getElementById('printBtn').onclick = printResults;
 document.getElementById('helpBtn').onclick = () => { document.getElementById('helpOverlay').hidden = false; };

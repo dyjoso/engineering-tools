@@ -63,7 +63,7 @@ less standard it is flagged **[verify]**.
 | Reaction vert.  | labelled `+ up`      |
 | Reaction moment | `+ CCW`             |
 | Internal V      | standard beam sign   |
-| Internal M      | **sagging** (tension on lower fibre) — the code's output is sagging-**positive** (note the in-app Help text says the opposite; the code is authoritative) |
+| Internal M      | **sagging** (tension on lower fibre) — the code's output is sagging-**positive**; the in-app Help text now states the same |
 | Deflection w    | **downward**         |
 | Rotation φ/slope| **counter-clockwise**|
 
