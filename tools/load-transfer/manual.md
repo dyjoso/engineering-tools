@@ -461,7 +461,7 @@ The **Model Summary** button (top right of the visualisation) lists every elemen
 
 Section **4. Severity Factors** in the sidebar sets the defaults for every hole; **Calculate Severity Factors** (after solving) opens a table of every hole a fastener passes through. Click a row to give that hole its own settings (marked `*`); **Use defaults** removes them. The highest SF is highlighted. Restrained nodes have no SF.
 
-**Method.** The SF is non-dimensional: it does not change with the load level. The framework is Boeing D6-29942 (JOSEF II, eqs. 2.2.6 and 2.3.4.1, with the $e_2$ load-transfer factor of Appendix E), with calibrated $\theta$ curves and Peterson stress concentration factors:
+**Method.** The SF is non-dimensional: it does not change with the load level. The framework is Boeing D6-29942 (JOSEF II, eqs. 2.2.6 and 2.3.4.1, with the $e_2$ load-transfer factor of Appendix E), with JOSEF II's bearing factor, calibrated $\theta$ curves and Peterson's gross-section factors:
 
 $$SF = \alpha\beta\gamma\left\{e_2\left[GSF\cdot K_{TG}\,B\,\frac{P_{bypass}}{P_{total}} + \theta\,K_{TB}\,\frac{R}{P}\,\frac{W}{n\,d}\right] + BT\cdot K_{T,bend}\right\}$$
 
@@ -471,8 +471,8 @@ $$SF = \alpha\beta\gamma\left\{e_2\left[GSF\cdot K_{TG}\,B\,\frac{P_{bypass}}{P_
 | $P_{total}$, $P_{bypass}$ | total load at the hole (the larger adjacent layer load) and the load that carries on past it, $P_{total}-\Delta P$ |
 | $R/P$ | $\Delta P/P_{total}$ |
 | $\theta$ | single shear $1+0.0833x+0.4272x^2+0.8501x^3$ for $x=t/d\le0.4754$ (the D6-29942 curve), then $0.7521+1.0148x+0.0039x^2+0.0697x^3$; double shear $1-0.0006x+0.1069x^2+0.0671x^3$. The JOSEF II program tables (2.02 at $t/d$ 0.9) over-predict the reference results by about 7% at $t/d$ 0.74. Auto shear: outer (head/tail) layers single, inner layers double |
-| $e_2$ | D6-29942 Fig. E.3.2 nomogram, digitised from a clean redraw: $e_2 = 1 + 0.823\,E(\theta, d/W)\,s(c)$, with $E$ = $e_2-1$ read at $c=1$, $c$ = bearing / bypass load, $s(c)=2.035c/(c+1.035)$. Chart range $d/W$ 0.125–0.395 (held outside), $\theta$ 1.0–1.8 (extended above). the chart is applied at 0.823, calibrated against the reference results |
-| $K_{TB}$ | Peterson Chart 4.67, closely fitting pin, $K_{tnb}$ on $P/(d t)$; $d/W$ clamped to 0.15–0.75 |
+| $e_2$ | D6-29942 Fig. E.3.2 nomogram, digitised from a clean redraw: $e_2 = 1 + G(\theta)\,H(\theta, d/W)\,R/P$, the nomogram's own geometry: with $c$ = bearing / bypass $= R/(P-R)$, its c-lines satisfy $(e_2-1)/H = R/P$. $H = 2E$, where $E$ is $e_2-1$ read at $c=1$. Chart range $d/W$ 0.125–0.395 (held outside), $\theta$ 1.0–1.8 (extended above). $G(\theta) = 1.078\,[1 - 0.198(\theta-1)]$ scales the chart; calibrated against the reference results, whose $e_2$ rises less steeply with $\theta$ than the chart |
+| $K_{TB}$ | JOSEF II program fit (D6-29942), $K_{TB} = \exp(2.08x^2 + 0.75x)$, $x = d/W$, on $P/(d t)$. (Peterson's Chart 4.67 $K_{tnb}$ is up to ~8% higher in the usual $d/W$ range; with the calibrated $e_2$ it fits the reference results less consistently.) |
 | $K_{TG}$ | Peterson, infinite row of holes in tension, $3[1.002-1.016x+0.253x^2]/(1-x)$, $x=d/W$ |
 | $K_{T,bend}$ | Peterson Chart 4.84, row of holes, cylindrical bending about the x-axis, $[1.849-1.741x+0.875x^2+0.081x^3]/(1-x)$ |
 | $B$ | biaxial correction $1-0.3\lambda$ on the bypass term (calibrated at $\lambda$ = 0.5) |
@@ -491,7 +491,7 @@ where $\sigma_{gross,max}$ is the largest gross stress $|F|/(W t)$ in any layer 
 
 **SF_norm on the drawing.** **Show SF_norm** (top of the visualisation) switches the drawing from element loads to the $SF_{norm}$ value at each hole, placed up and to the left of its node; the highest is shown larger in amber, and hovering a value shows its rank, SF and R/P. The reference stress is given at the top left. The labels follow the sidebar defaults and any per-hole settings as you change them. **Show Loads** switches back.
 
-**Calibration (October 2026).** Against 25 independent reference severity factor results on the S1 wing splice (three holes; every hole type and fastener type, double shear, cold work, CSK 0.5 and 1.0, BT, biaxial, E/D 1.0 and 1.5, and a hole at t/d 0.74) the tool is within 1.6% (mean 0.9%). Every factor except $e_2$ matches exactly; the small remaining error comes from reading $e_2$ off the nomogram.
+**Calibration (October 2026).** Against 36 independent reference severity factor results (the S1 wing splice, a frame/doubler splice, and a single-fastener width sweep at $d/W$ 0.13–0.40) (three holes; every hole type and fastener type, double shear, cold work, CSK 0.5 and 1.0, BT, biaxial, E/D 1.0 and 1.5, and a hole at t/d 0.74) the tool is within about 1.7% (mean about 0.7%). A published example (Alteon 72-08-00, rivet, CSK, $d/W$ 0.20) gives $e_2$ = 1.33 against its own spreadsheet's 1.32. Every factor except $e_2$ matches exactly; the small remaining error comes from reading $e_2$ off the nomogram.
 
 ---
 

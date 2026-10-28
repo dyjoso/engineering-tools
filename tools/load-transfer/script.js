@@ -2486,7 +2486,7 @@ function displayResults() {
 // Non-dimensional severity factor (SF), independent of load level:
 //   SF = alpha*beta*gamma * { e2 * [ GSF*K_TG*B*(P_bypass/P_total) + theta*K_TB*(R/P)*W/(n d) ] + BT*K_Tbend }
 // with R/P = dP/P_total, P_total = bypass + transfer, B = biaxial correction.
-// Framework and e2 nomogram: Boeing D6-29942 (JOSEF II). K_TG, K_TB, K_Tbend: Peterson.
+// Framework, K_TB and e2 nomogram: Boeing D6-29942 (JOSEF II). K_TG, K_Tbend: Peterson.
 // Factor values calibrated October 2026 against independent reference analyses of the S1 wing splice (<2%).
 
 const SF_FASTENER_TYPES = {          // beta (lock bolts = D6-29942 Table E.3.2)
@@ -2523,11 +2523,14 @@ const sfThetaDouble = x => 1 - 0.0006 * x + 0.1069 * x * x + 0.0671 * x ** 3;
 // Countersink depth factor vs Tcsk/T (D6-29942 Figure E.3.1; 0.5 -> 1.10, 1.0 -> 2.0)
 const SF_CSK_CURVE = [[0, 1.0], [0.2, 1.0], [0.4, 1.03], [0.5, 1.10], [0.6, 1.20], [0.7, 1.33], [0.8, 1.50], [0.9, 1.72], [1.0, 2.0]];
 // e2 load-transfer correction (D6-29942 Fig. E.3.2, digitised from a clean redraw of the nomogram):
-//   e2 = 1 + SF_E2_FACTOR * E(theta, d/W) * s(c)
-// E = e2 - 1 read at c = 1; c = bearing / bypass load; s(c) = 2.035c/(c + 1.035) (1 at c = 1, 2.035 at c = infinity).
-// The chart is applied at 0.823, calibrated against the reference results (the D6 scan's own worked example
-// implies the same factor).
-const SF_E2_FACTOR = 0.823;
+//   e2 = 1 + G(theta) * H(theta, d/W) * R/P,   H = 2E
+// The nomogram's c-lines are e2 - 1 = H * R/P with c = bearing / bypass = R/(P - R), i.e. R/P = c/(1 + c).
+// E = e2 - 1 read at c = 1 (R/P = 0.5), so H = 2E.
+// G(theta) = 1.078 * (1 - 0.198 (theta - 1)) scales the chart; calibrated against the reference results
+// (17 holes, d/W 0.125-0.40, theta 1.01-1.54), which rise less steeply with theta than the chart.
+const SF_E2_SCALE = 1.078;
+const SF_E2_THETA_SLOPE = 0.198;
+const sfE2Factor = theta => SF_E2_SCALE * (1 - SF_E2_THETA_SLOPE * (theta - 1));
 const SF_E2_DW = [0.125, 0.15, 0.175, 0.21, 0.25, 0.275, 0.35, 0.395];
 const SF_E2_THETA = [1.0, 1.2, 1.4, 1.8];
 const SF_E2_E = [
@@ -2565,8 +2568,7 @@ function sfE2(theta, dOverW, rp) {
     const n = SF_E2_THETA.length;
     const e = th <= SF_E2_THETA[n - 1] ? interpTable(SF_E2_THETA, rows, th)
         : rows[n - 1] + (rows[n - 1] - rows[n - 2]) * (th - SF_E2_THETA[n - 1]) / (SF_E2_THETA[n - 1] - SF_E2_THETA[n - 2]);
-    const s = rp >= 1 ? 2.035 : (c => 2.035 * c / (c + 1.035))(rp / (1 - rp));
-    return 1 + SF_E2_FACTOR * e * s;
+    return 1 + sfE2Factor(th) * 2 * e * Math.min(rp, 1);
 }
 
 // Gross-area open-hole factor for a row of holes at pitch W (Peterson, infinite row, uniaxial tension):
@@ -2576,10 +2578,11 @@ function sfKtg(dOverW) {
     return 3 * (1.002 - 1.016 * x + 0.253 * x * x) / (1 - x);
 }
 
-// Bearing factor for a closely fitting pin (Peterson Chart 4.67, K_tnb on sigma = P/(d t)), d/W 0.15..0.75
+// Bearing (load-transfer) factor on sigma = P/(d t): the JOSEF II program fit (Boeing D6-29942),
+// K_TB = exp(2.08 x^2 + 0.75 x), x = d/W
 function sfKtb(dOverW) {
-    const x = Math.min(Math.max(dOverW, 0.15), 0.75);
-    return 0.2880 + 8.820 * x - 23.196 * x * x + 29.167 * x ** 3;
+    const x = Math.min(Math.max(dOverW, 0), 0.75);
+    return Math.exp(2.08 * x * x + 0.75 * x);
 }
 
 // Gross-area bending factor, row of holes, cylindrical bending about the x-axis (Peterson Chart 4.84), x = d/W 0..0.7
