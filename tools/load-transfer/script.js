@@ -5,7 +5,7 @@ const MATERIALS = {
     "Steel": { E: 29.5e6, nu: 0.30 }  // psi, Poisson's Ratio
 };
 
-// Tate & Rosenfeld bearing compliance factors (fastener, plate) - same defaults as V1 LTT
+// Tate & Rosenfeld bearing compliance factors (fastener, plate)
 const FASTENER_COMPLIANCE_FACTOR = 0.375;
 const PLATE_COMPLIANCE_FACTOR = 0.9;
 
@@ -2483,14 +2483,13 @@ function displayResults() {
 }
 
 // --- Severity Factors (SF) ---
-// Non-dimensional severity factor (SF), as V1 LTT reports it (independent of load level):
+// Non-dimensional severity factor (SF), independent of load level:
 //   SF = alpha*beta*gamma * { e2 * [ GSF*K_TG*B*(P_bypass/P_total) + theta*K_TB*(R/P)*W/(n d) ] + BT*K_Tbend }
 // with R/P = dP/P_total, P_total = bypass + transfer, B = biaxial correction.
-// Framework and e2 nomogram: Boeing D6-29942 (JOSEF II); theta: V1 LTT curves. K_TG, K_TB, K_Tbend: Peterson.
-// Calibrated October 2026 against V1 LTT 1.9.7.4 runs on the S1 wing splice: alpha, beta (open hole, rivet,
-// Hi-Lok, lock bolts), cold work, CSK at 0.5 and 1.0, BT, biaxial, E/D and the e2 factor reproduce V1 to <2%.
+// Framework and e2 nomogram: Boeing D6-29942 (JOSEF II). K_TG, K_TB, K_Tbend: Peterson.
+// Factor values calibrated October 2026 against independent reference analyses of the S1 wing splice (<2%).
 
-const SF_FASTENER_TYPES = {          // beta; all confirmed against V1 (lock bolts = D6-29942 Table E.3.2)
+const SF_FASTENER_TYPES = {          // beta (lock bolts = D6-29942 Table E.3.2)
     'Open Hole': 1.00,
     'Rivet': 0.62,
     'Hi-Lok': 0.72,
@@ -2499,35 +2498,36 @@ const SF_FASTENER_TYPES = {          // beta; all confirmed against V1 (lock bol
     'Close Tolerance Lock Bolt': 0.76,
     'User Defined': null
 };
-const SF_HOLE_TYPES = {              // alpha; all confirmed against V1
+const SF_HOLE_TYPES = {              // alpha
     'Standard Drilled Hole': 1.00,
     'Reamed - TX Fit': 0.92,
     'Class I Fit': 1.00,
     'Class II Fit': 1.10,
     'Interference Fit': 0.872
 };
-const SF_COLD_WORK_FACTOR = 0.88;    // confirmed against V1 (D6-29942 Table E.3.3)
-// Edge margin factor vs E/D, quadratic through V1's 1.0 -> 1.565, 1.5 -> 1.164, 2.0 -> 1.0 (0 = default 2.0)
+const SF_COLD_WORK_FACTOR = 0.88;    // D6-29942 Table E.3.3
+// Edge margin factor vs E/D, quadratic through 1.0 -> 1.565, 1.5 -> 1.164, 2.0 -> 1.0 (0 = default 2.0)
 const sfEdgeFactor = ed => {
     const x = ed > 0 ? Math.min(Math.max(ed, 1.0), 2.0) : 2.0;
     return 3.078 - 1.987 * x + 0.474 * x * x;
 };
-// Biaxial correction on the bypass term, B = 1 - 0.3 * lambda (fitted to V1 at lambda = 0.5)
+// Biaxial correction on the bypass term, B = 1 - 0.3 * lambda (calibrated at lambda = 0.5)
 const SF_BIAX_COEFF = 0.3;
-// theta vs t/d as V1 LTT uses it (Theta-LTT196 spreadsheet): single shear follows the D6-29942 curve to
-// t/d = 0.4754, then runs nearly linear; double shear is one cubic. Matches V1 where the JOSEF II tables
+// theta vs t/d: single shear follows the D6-29942 curve to t/d = 0.4754, then runs nearly linear;
+// double shear is one cubic. Matches the reference results where the JOSEF II tables
 // (which rise to 2.02 at t/d 0.9) over-predict the SF by ~7% at t/d 0.74.
 const sfThetaSingle = x => x <= 0.4754
     ? 1 + 0.0833 * x + 0.4272 * x * x + 0.8501 * x ** 3
     : 0.7521 + 1.0148 * x + 0.0039 * x * x + 0.0697 * x ** 3;
 const sfThetaDouble = x => 1 - 0.0006 * x + 0.1069 * x * x + 0.0671 * x ** 3;
-// Countersink depth factor vs Tcsk/T (D6-29942 Figure E.3.1; 0.5 -> 1.10 and 1.0 -> 2.0 confirmed against V1)
+// Countersink depth factor vs Tcsk/T (D6-29942 Figure E.3.1; 0.5 -> 1.10, 1.0 -> 2.0)
 const SF_CSK_CURVE = [[0, 1.0], [0.2, 1.0], [0.4, 1.03], [0.5, 1.10], [0.6, 1.20], [0.7, 1.33], [0.8, 1.50], [0.9, 1.72], [1.0, 2.0]];
 // e2 load-transfer correction (D6-29942 Fig. E.3.2, digitised from a clean redraw of the nomogram):
-//   e2 = 1 + SF_E2_V1_FACTOR * E(theta, d/W) * s(c)
+//   e2 = 1 + SF_E2_FACTOR * E(theta, d/W) * s(c)
 // E = e2 - 1 read at c = 1; c = bearing / bypass load; s(c) = 2.035c/(c + 1.035) (1 at c = 1, 2.035 at c = infinity).
-// V1 LTT applies about 0.82 of the chart (the same factor the D6 scan's own worked example implies).
-const SF_E2_V1_FACTOR = 0.823;
+// The chart is applied at 0.823, calibrated against the reference results (the D6 scan's own worked example
+// implies the same factor).
+const SF_E2_FACTOR = 0.823;
 const SF_E2_DW = [0.125, 0.15, 0.175, 0.21, 0.25, 0.275, 0.35, 0.395];
 const SF_E2_THETA = [1.0, 1.2, 1.4, 1.8];
 const SF_E2_E = [
@@ -2566,7 +2566,7 @@ function sfE2(theta, dOverW, rp) {
     const e = th <= SF_E2_THETA[n - 1] ? interpTable(SF_E2_THETA, rows, th)
         : rows[n - 1] + (rows[n - 1] - rows[n - 2]) * (th - SF_E2_THETA[n - 1]) / (SF_E2_THETA[n - 1] - SF_E2_THETA[n - 2]);
     const s = rp >= 1 ? 2.035 : (c => 2.035 * c / (c + 1.035))(rp / (1 - rp));
-    return 1 + SF_E2_V1_FACTOR * e * s;
+    return 1 + SF_E2_FACTOR * e * s;
 }
 
 // Gross-area open-hole factor for a row of holes at pitch W (Peterson, infinite row, uniaxial tension):

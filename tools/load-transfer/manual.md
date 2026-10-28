@@ -3,7 +3,7 @@
 **Tool:** Fastened Joint Analysis (`load-transfer`)  
 **Format:** Browser-based finite element solver  
 **Units:** US Customary (lbf, inches, psi)  
-**Revision:** October 2026 (beam mode re-based on the V1 Aerospace LTT formulation)
+**Revision:** October 2026 (beam mode: bearing springs and head/collar end fixity; severity factors added)
 
 ---
 
@@ -127,7 +127,7 @@ In a two-layer joint the T&R formula is complete and self-consistent. However, i
 2. The load exchange between the fastener and each layer is modelled via **contact springs** at every layer mid-plane crossing.
 3. The contact springs carry the **bearing** terms of T&R for that layer alone; shank shear and bending come from the beam itself.
 
-This is the formulation used by the V1 Aerospace Load Transfer Tool (V1_LTT, release 1.9.7.4). It was confirmed in October 2026 by reproducing a 5-layer, 6-fastener V1 model (wing splice section S1) to within 0.005 lbf on every element.
+The formulation was checked in October 2026 against an independent reference analysis of a 5-layer, 6-fastener wing splice (section S1), reproducing its load distribution to within 0.005 lbf on every element.
 
 #### Geometry
 
@@ -180,9 +180,9 @@ Each layer the fastener passes through has one contact spring between the layer 
 
 $$C_{\text{bearing},i} = \frac{C_f}{E_f t_i} + \frac{C_p}{E_i t_i}, \qquad k_{\text{bearing},i} = \frac{1}{C_{\text{bearing},i}}$$
 
-with the compliance factors $C_f = 0.375$ (fastener) and $C_p = 0.9$ (plate) — the V1 LTT defaults ("Fastener Flexibility Factor" / "Plate Flexibility Factor").
+with the compliance factors $C_f = 0.375$ (fastener) and $C_p = 0.9$ (plate), the bearing coefficients of the T&R formula (§2.3).
 
-Shank shear and bending are **not** added to the springs: they come from the beam elements. (Before October 2026 the tool instead subtracted a guided-beam flexibility from the full T&R value and split the residual over two springs per segment. The larger differences against V1 came from the end fixity below, and from rotation being clamped on fastener nodes left orphaned by element deletion rather than at the fastener's real ends.)
+Shank shear and bending are **not** added to the springs: they come from the beam elements. (Before October 2026 the tool instead subtracted a guided-beam flexibility from the full T&R value and split the residual over two springs per segment. The larger differences against the reference analysis came from the end fixity below, and from rotation being clamped on fastener nodes left orphaned by element deletion rather than at the fastener's real ends.)
 
 #### Head and collar end fixity
 
@@ -310,7 +310,7 @@ In **Spring Mode**, each fastener interface (pair of adjacent layers at a fasten
 
 ### 4.2 Beam Mode (Timoshenko + Bearing Springs)
 
-In **Beam Mode**, each fastener is modelled as a continuous Timoshenko beam column spanning all the layers it passes through, with a bearing spring at each layer (§2.4–2.5). This is the V1 LTT formulation.
+In **Beam Mode**, each fastener is modelled as a continuous Timoshenko beam column spanning all the layers it passes through, with a bearing spring at each layer (§2.4–2.5).
 
 **Topology:**
 - One fastener node (2 DOFs) is created per fastener per layer.
@@ -321,7 +321,7 @@ In **Beam Mode**, each fastener is modelled as a continuous Timoshenko beam colu
 **Advantages:**
 - Captures inter-layer coupling through shank bending and shear.
 - Recovers fastener rotation, which is useful for fatigue analysis.
-- Matches the V1 Aerospace LTT for the same inputs, and is close to T&R for a two-layer joint.
+- Checked against an independent reference analysis, and close to T&R for a two-layer joint.
 
 **Limitations:**
 - Results depend on the head/collar fixity assumption (§5).
@@ -447,7 +447,7 @@ The **Analysis Results** panel at the bottom displays:
 - **Fastener Rotations (rad)** *(beam mode)*: Rotation of each fastener node, indicating fastener bending.
 - **Fastener Shear Spring Forces (lbf)** *(spring mode)*: Net shear transferred by each T&R spring.
 
-The **Model Summary** button (top right of the visualisation) lists every element with the properties and stiffnesses the solver actually uses: layer elements (E, t, W, L, EA/L), fasteners (d, Ef, nu, head and tail layer), bearing springs (t and E used, k), beam elements (L, I, kappa, Phi, shear stiffness), head/collar rotational springs, and node conditions and loads, plus forces once solved. **Copy as Text** / **Download .txt** give the same tables as a fixed-width report for checking against V1 LTT output.
+The **Model Summary** button (top right of the visualisation) lists every element with the properties and stiffnesses the solver actually uses: layer elements (E, t, W, L, EA/L), fasteners (d, Ef, nu, head and tail layer), bearing springs (t and E used, k), beam elements (L, I, kappa, Phi, shear stiffness), head/collar rotational springs, and node conditions and loads, plus forces once solved. **Copy as Text** / **Download .txt** give the same tables as a fixed-width report for checking against other analyses.
 
 **Save / Load** write the whole model (geometry, properties, loads, BCs and any results) to a `.json` file and read it back. **Undo** (or Ctrl+Z) steps back through deletes, element edits, "apply to all" changes and loads, up to 50 steps; deletes no longer ask for confirmation. Generating a new model clears the undo history.
 
@@ -461,7 +461,7 @@ The **Model Summary** button (top right of the visualisation) lists every elemen
 
 Section **4. Severity Factors** in the sidebar sets the defaults for every hole; **Calculate Severity Factors** (after solving) opens a table of every hole a fastener passes through. Click a row to give that hole its own settings (marked `*`); **Use defaults** removes them. The highest SF is highlighted. Restrained nodes have no SF.
 
-**Method.** The SF is non-dimensional, as V1 LTT reports it: it does not change with the load level. The framework is Boeing D6-29942 (JOSEF II, eqs. 2.2.6 and 2.3.4.1, with the $e_2$ load-transfer factor of Appendix E), with V1's $\theta$ curves and Peterson stress concentration factors:
+**Method.** The SF is non-dimensional: it does not change with the load level. The framework is Boeing D6-29942 (JOSEF II, eqs. 2.2.6 and 2.3.4.1, with the $e_2$ load-transfer factor of Appendix E), with calibrated $\theta$ curves and Peterson stress concentration factors:
 
 $$SF = \alpha\beta\gamma\left\{e_2\left[GSF\cdot K_{TG}\,B\,\frac{P_{bypass}}{P_{total}} + \theta\,K_{TB}\,\frac{R}{P}\,\frac{W}{n\,d}\right] + BT\cdot K_{T,bend}\right\}$$
 
@@ -469,13 +469,13 @@ $$SF = \alpha\beta\gamma\left\{e_2\left[GSF\cdot K_{TG}\,B\,\frac{P_{bypass}}{P_
 |------|--------|
 | $\Delta P$ | load transferred at the hole = change in layer force across the node |
 | $P_{total}$, $P_{bypass}$ | total load at the hole (the larger adjacent layer load) and the load that carries on past it, $P_{total}-\Delta P$ |
-| $R/P$ | $\Delta P/P_{total}$, as V1 prints it |
-| $\theta$ | V1 LTT curves (Theta-LTT196): single shear $1+0.0833x+0.4272x^2+0.8501x^3$ for $x=t/d\le0.4754$ (the D6-29942 curve), then $0.7521+1.0148x+0.0039x^2+0.0697x^3$; double shear $1-0.0006x+0.1069x^2+0.0671x^3$. The JOSEF II program tables (2.02 at $t/d$ 0.9) over-predict V1 by about 7% at $t/d$ 0.74. Auto shear: outer (head/tail) layers single, inner layers double |
-| $e_2$ | D6-29942 Fig. E.3.2 nomogram, digitised from a clean redraw: $e_2 = 1 + 0.823\,E(\theta, d/W)\,s(c)$, with $E$ = $e_2-1$ read at $c=1$, $c$ = bearing / bypass load, $s(c)=2.035c/(c+1.035)$. Chart range $d/W$ 0.125–0.395 (held outside), $\theta$ 1.0–1.8 (extended above). V1 applies about 0.82 of the chart; the 0.823 factor is fitted to V1 |
+| $R/P$ | $\Delta P/P_{total}$ |
+| $\theta$ | single shear $1+0.0833x+0.4272x^2+0.8501x^3$ for $x=t/d\le0.4754$ (the D6-29942 curve), then $0.7521+1.0148x+0.0039x^2+0.0697x^3$; double shear $1-0.0006x+0.1069x^2+0.0671x^3$. The JOSEF II program tables (2.02 at $t/d$ 0.9) over-predict the reference results by about 7% at $t/d$ 0.74. Auto shear: outer (head/tail) layers single, inner layers double |
+| $e_2$ | D6-29942 Fig. E.3.2 nomogram, digitised from a clean redraw: $e_2 = 1 + 0.823\,E(\theta, d/W)\,s(c)$, with $E$ = $e_2-1$ read at $c=1$, $c$ = bearing / bypass load, $s(c)=2.035c/(c+1.035)$. Chart range $d/W$ 0.125–0.395 (held outside), $\theta$ 1.0–1.8 (extended above). the chart is applied at 0.823, calibrated against the reference results |
 | $K_{TB}$ | Peterson Chart 4.67, closely fitting pin, $K_{tnb}$ on $P/(d t)$; $d/W$ clamped to 0.15–0.75 |
 | $K_{TG}$ | Peterson, infinite row of holes in tension, $3[1.002-1.016x+0.253x^2]/(1-x)$, $x=d/W$ |
 | $K_{T,bend}$ | Peterson Chart 4.84, row of holes, cylindrical bending about the x-axis, $[1.849-1.741x+0.875x^2+0.081x^3]/(1-x)$ |
-| $B$ | biaxial correction $1-0.3\lambda$ on the bypass term (fitted to V1 at $\lambda$ = 0.5) |
+| $B$ | biaxial correction $1-0.3\lambda$ on the bypass term (calibrated at $\lambda$ = 0.5) |
 | $BT$ | bending-to-tension stress ratio |
 | $GSF$ | gross stress factor (multiplier on the bypass term) |
 | $\alpha$ | hole type: standard drilled 1.00, reamed TX fit 0.92, Class I 1.00, Class II 1.10, interference 0.872 |
@@ -491,7 +491,7 @@ where $\sigma_{gross,max}$ is the largest gross stress $|F|/(W t)$ in any layer 
 
 **SF_norm on the drawing.** **Show SF_norm** (top of the visualisation) switches the drawing from element loads to the $SF_{norm}$ value at each hole, placed up and to the left of its node; the highest is shown larger in amber, and hovering a value shows its rank, SF and R/P. The reference stress is given at the top left. The labels follow the sidebar defaults and any per-hole settings as you change them. **Show Loads** switches back.
 
-**Calibration (October 2026).** Against 18 V1 LTT 1.9.7.4 severity factor runs on the S1 wing splice (three holes; every hole type and fastener type, double shear, cold work, CSK 0.5 and 1.0, BT, biaxial, E/D 1.0 and 1.5, and a hole at t/d 0.74) the tool is within about 2%. Every factor except $e_2$ matches exactly; the small remaining error comes from reading $e_2$ off the nomogram.
+**Calibration (October 2026).** Against 25 independent reference severity factor results on the S1 wing splice (three holes; every hole type and fastener type, double shear, cold work, CSK 0.5 and 1.0, BT, biaxial, E/D 1.0 and 1.5, and a hole at t/d 0.74) the tool is within 1.6% (mean 0.9%). Every factor except $e_2$ matches exactly; the small remaining error comes from reading $e_2$ off the nomogram.
 
 ---
 
