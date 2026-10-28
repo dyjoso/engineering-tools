@@ -343,7 +343,7 @@ const CLICK_TARGET_WIDTH = 15;
 function showMessage(text, isError = true) {
     messageText.textContent = text;
     const msgBox = document.getElementById('message-box');
-    msgBox.className = `absolute top-4 right-4 max-w-sm z-50 transition-all duration-300 transform translate-y-0 opacity-100 ${isError ? 'error' : 'success'}`;
+    msgBox.className = `fixed bottom-4 right-4 max-w-sm z-50 transition-all duration-300 transform translate-y-0 opacity-100 ${isError ? 'error' : 'success'}`;
     msgBox.style.display = 'block';
 
     // Auto-hide after 5 seconds
@@ -936,6 +936,29 @@ function drawSfNormLabels() {
     visualizationSVG.appendChild(ref);
 }
 
+/** Pinned support at a restrained node: triangle with its apex on the node, ground line and hatching to the left. */
+function drawPinnedSupport(node) {
+    const ns = 'http://www.w3.org/2000/svg';
+    const h = 9, w = 13;   // half-height and depth of the triangle
+    const gx = node.x - w;
+    const g = document.createElementNS(ns, 'g');
+    g.setAttribute('class', 'pinned-support');
+    const tri = document.createElementNS(ns, 'polygon');
+    tri.setAttribute('points', `${node.x},${node.y} ${gx},${node.y - h} ${gx},${node.y + h}`);
+    g.appendChild(tri);
+    const ground = document.createElementNS(ns, 'line');
+    ground.setAttribute('x1', gx - 3); ground.setAttribute('y1', node.y - h - 3);
+    ground.setAttribute('x2', gx - 3); ground.setAttribute('y2', node.y + h + 3);
+    g.appendChild(ground);
+    for (let y = node.y - h; y <= node.y + h + 3; y += 5) {
+        const hatch = document.createElementNS(ns, 'line');
+        hatch.setAttribute('x1', gx - 3); hatch.setAttribute('y1', y);
+        hatch.setAttribute('x2', gx - 8); hatch.setAttribute('y2', y - 5);
+        g.appendChild(hatch);
+    }
+    visualizationSVG.appendChild(g);
+}
+
 function updateVisualization(showForces = false) {
     if (vizShowSf) showForces = false;
     const defs = visualizationSVG.querySelector('defs');
@@ -968,7 +991,9 @@ function updateVisualization(showForces = false) {
     const maxX = Math.max(...model.nodes.map(n => n.x), 0);
     const vbWidth = maxX + SVG_PADDING;
     const vbHeight = (model.numLayers > 1 ? (model.numLayers - 1) * LAYER_SPACING : LAYER_SPACING) + 2 * SVG_PADDING;
-    visualizationSVG.setAttribute('viewBox', `0 0 ${vbWidth} ${vbHeight}`);
+    // Extra room on the left for layer names beside pinned supports
+    const vbLeft = model.nodes.some(n => n.isFixed) ? 20 : 0;
+    visualizationSVG.setAttribute('viewBox', `${-vbLeft} 0 ${vbWidth + vbLeft} ${vbHeight}`);
 
     // Ensure SVG fits in container
     visualizationSVG.style.height = '100%';
@@ -1032,11 +1057,12 @@ function updateVisualization(showForces = false) {
         }
     });
 
-    // Update fastener node positions to match their corresponding layer nodes
+    // Fastener nodes are drawn on their layer nodes, so the beam runs straight through the hole
+    // (the bearing springs between them are not drawn)
     model.fastenerNodes.forEach(fNode => {
         const layerNode = getNode(fNode.correspondingLayerNodeId);
         if (layerNode) {
-            fNode.x = layerNode.x + 8; // Slight offset for visibility
+            fNode.x = layerNode.x;
             fNode.y = layerNode.y;
         }
     });
@@ -1077,31 +1103,6 @@ function updateVisualization(showForces = false) {
             forceLabel.textContent = `${el.force.toFixed(1)} lbf`;
             visualizationSVG.appendChild(forceLabel);
         }
-    });
-
-    // Draw contact springs (layer node to fastener node connections)
-    model.contactSpringElements.forEach(el => {
-        const layerNode = getNode(el.layerNodeId);
-        const fNode = getFastenerNode(el.fastenerNodeId);
-        if (!layerNode || !fNode) { console.warn(`Nodes not found for Contact Spring ${el.id}`); return; }
-
-        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-        line.setAttribute('x1', layerNode.x); line.setAttribute('y1', layerNode.y);
-        line.setAttribute('x2', fNode.x); line.setAttribute('y2', fNode.y);
-        line.setAttribute('class', 'contact-spring');
-        line.setAttribute('stroke', '#f59e0b');  // Amber/orange
-        line.setAttribute('stroke-width', '2');
-        line.setAttribute('stroke-dasharray', '3,2');
-        visualizationSVG.appendChild(line);
-
-        const clickTargetLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-        clickTargetLine.setAttribute('x1', layerNode.x); clickTargetLine.setAttribute('y1', layerNode.y);
-        clickTargetLine.setAttribute('x2', fNode.x); clickTargetLine.setAttribute('y2', fNode.y);
-        clickTargetLine.setAttribute('class', 'click-target');
-        clickTargetLine.dataset.elementType = 'contactSpringElement';
-        clickTargetLine.dataset.elementId = el.id;
-        clickTargetLine.addEventListener('click', handleElementSelect);
-        visualizationSVG.appendChild(clickTargetLine);
     });
 
     // Draw direct fastener elements (shear springs) if in spring mode
@@ -1149,7 +1150,15 @@ function updateVisualization(showForces = false) {
 
     const actualRightmostNodeX = Math.max(...model.nodes.map(n => n.x));
 
+    // Loose nodes (no plate element, no fastener spring) are not drawn
+    const attachedNodeIds = new Set();
+    model.layerElements.forEach(el => { attachedNodeIds.add(el.node1Id); attachedNodeIds.add(el.node2Id); });
+    if (model.fastenerModelingMode === 'spring') {
+        model.fastenerElements.forEach(el => { attachedNodeIds.add(el.node1Id); attachedNodeIds.add(el.node2Id); });
+    }
+
     model.nodes.forEach(node => {
+        if (!attachedNodeIds.has(node.id)) return;
         const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
         circle.setAttribute('cx', node.x); circle.setAttribute('cy', node.y);
         circle.setAttribute('class', 'node');
@@ -1161,9 +1170,7 @@ function updateVisualization(showForces = false) {
         circle.removeAttribute('stroke');
         circle.removeAttribute('stroke-width');
 
-        if (node.isFixed) {
-            circle.setAttribute('style', 'fill: red;');
-        }
+        if (node.isFixed) drawPinnedSupport(node);
         if (node.F !== 0 && node.prescribedU === null) {
             circle.setAttribute('stroke', 'red');
             circle.setAttribute('stroke-width', '2');
@@ -1207,18 +1214,6 @@ function updateVisualization(showForces = false) {
         visualizationSVG.appendChild(circle);
     });
 
-    // Draw fastener nodes (purple circles, slightly offset)
-    model.fastenerNodes.forEach(fNode => {
-        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-        circle.setAttribute('cx', fNode.x);
-        circle.setAttribute('cy', fNode.y);
-        circle.setAttribute('class', 'fastener-node');
-        circle.setAttribute('fill', '#9333ea');  // Purple
-        circle.setAttribute('r', '4');
-        circle.dataset.fastenerNodeId = fNode.id;
-        visualizationSVG.appendChild(circle);
-    });
-
     model.layers.forEach(layer => {
         const nodesInLayer = model.nodes.filter(n => n.layer === layer.id);
         if (nodesInLayer.length > 0) {
@@ -1229,7 +1224,8 @@ function updateVisualization(showForces = false) {
                 }
             }
             const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            label.setAttribute('x', SVG_PADDING - 10);
+            const supported = nodesInLayer.some(n => n.isFixed && n.nodeColIndex === leftmostNodeInLayer.nodeColIndex);
+            label.setAttribute('x', SVG_PADDING - (supported ? 28 : 10));
             label.setAttribute('y', leftmostNodeInLayer.y);
             label.setAttribute('class', 'layer-name-label');
             label.textContent = layer.name;

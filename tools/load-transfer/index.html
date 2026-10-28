@@ -188,6 +188,18 @@
             font-size: 12px;
         }
 
+        .pinned-support polygon {
+            fill: #fee2e2;
+            stroke: #b91c1c;
+            stroke-width: 1.5;
+            stroke-linejoin: round;
+        }
+
+        .pinned-support line {
+            stroke: #b91c1c;
+            stroke-width: 1.25;
+        }
+
         .layer-name-label {
             font-size: 10px;
             fill: #6b7280;
@@ -561,7 +573,7 @@
 
             <!-- Message Box (Floating) -->
             <div id="message-box"
-                class="absolute top-4 right-4 max-w-sm z-50 hidden transition-all duration-300 transform translate-y-0 opacity-100">
+                class="fixed bottom-4 right-4 max-w-sm z-50 hidden transition-all duration-300 transform translate-y-0 opacity-100">
                 <div class="bg-white border-l-4 p-4 rounded shadow-lg flex items-start">
                     <div class="flex-1 mr-2">
                         <p id="message-text" class="text-sm font-medium"></p>
