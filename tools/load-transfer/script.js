@@ -5,6 +5,10 @@ const MATERIALS = {
     "Steel": { E: 29.5e6, nu: 0.30 }  // psi, Poisson's Ratio
 };
 
+// Tate & Rosenfeld bearing compliance factors (fastener, plate) - same defaults as V1 LTT
+const FASTENER_COMPLIANCE_FACTOR = 0.375;
+const PLATE_COMPLIANCE_FACTOR = 0.9;
+
 // --- Global Variables ---
 let model = {
     nodes: [],                    // Layer nodes: { id, x, y, u, F, isFixed, prescribedU, layer, nodeColIndex, fastenerIndex }
@@ -467,18 +471,7 @@ function calculateFastenerElementStiffness(fastenerElement) {
     }
 
     // Tate & Rosenfeld Flexibility Calculation
-    const safeTerm = (val) => (isFinite(val) && val >= 0 ? val : 0);
-    const term1 = safeTerm(0.375 / (Ef * t1));
-    const term2 = safeTerm(0.375 / (Ef * t2));
-    const term3 = safeTerm(0.9 / (E1 * t1));
-    const term4 = safeTerm(0.9 / (E2 * t2));
-    const term5_coeff_denom = 9 * Ef * Math.PI * d ** 2;
-    const term5_coeff = term5_coeff_denom !== 0 ? 32 / term5_coeff_denom : 0;
-    const term5 = safeTerm(term5_coeff * (1 + nu_f) * (t1 + t2));
-    const term6_coeff_denom = 5 * Ef * Math.PI * d ** 4;
-    const term6_coeff = term6_coeff_denom !== 0 ? 8 / term6_coeff_denom : 0;
-    const term6 = safeTerm(term6_coeff * (t1 ** 3 + 5 * t1 ** 2 * t2 + 5 * t1 * t2 ** 2 + t2 ** 3));
-    const flexibility = term1 + term2 + term3 + term4 + term5 + term6;
+    const flexibility = calculateTateRosenfeldFlexibility(t1, t2, E1, E2, d, Ef, nu_f);
 
     if (flexibility <= 1e-12 || !isFinite(flexibility)) {
         console.warn(`Invalid or near-zero flexibility calculated (${flexibility}) for Fastener Element ${fastenerElement.id}. Stiffness set to very large.`);
@@ -512,10 +505,10 @@ function getFastenerNode(id) {
  */
 function calculateTateRosenfeldFlexibility(t1, t2, E1, E2, d, Ef, nu_f) {
     const safeTerm = (val) => (isFinite(val) && val >= 0 ? val : 0);
-    const term1 = safeTerm(0.375 / (Ef * t1));      // Fastener bearing in layer 1
-    const term2 = safeTerm(0.375 / (Ef * t2));      // Fastener bearing in layer 2
-    const term3 = safeTerm(0.9 / (E1 * t1));      // Plate bearing in layer 1
-    const term4 = safeTerm(0.9 / (E2 * t2));      // Plate bearing in layer 2
+    const term1 = safeTerm(FASTENER_COMPLIANCE_FACTOR / (Ef * t1));  // Fastener bearing in layer 1
+    const term2 = safeTerm(FASTENER_COMPLIANCE_FACTOR / (Ef * t2));  // Fastener bearing in layer 2
+    const term3 = safeTerm(PLATE_COMPLIANCE_FACTOR / (E1 * t1));     // Plate bearing in layer 1
+    const term4 = safeTerm(PLATE_COMPLIANCE_FACTOR / (E2 * t2));     // Plate bearing in layer 2
     const term5_coeff_denom = 9 * Ef * Math.PI * d ** 2;
     const term5_coeff = term5_coeff_denom !== 0 ? 32 / term5_coeff_denom : 0;
     const term5 = safeTerm(term5_coeff * (1 + nu_f) * (t1 + t2));  // Shear deformation
@@ -527,26 +520,59 @@ function calculateTateRosenfeldFlexibility(t1, t2, E1, E2, d, Ef, nu_f) {
 }
 
 /**
- * Calculate the beam flexibility for a segment of length L
- * Uses guided boundary conditions (theta=0 at ends) for the flexibility extraction
- * @param {number} L - Beam segment length
- * @param {number} d - Fastener diameter
- * @param {number} Ef - Fastener modulus
+ * Shear correction factor for a solid circular section (Cowper, 1966)
  * @param {number} nu_f - Fastener Poisson's ratio
- * @returns {number} Beam flexibility C_beam
+ * @returns {number} kappa (0.886 for nu = 0.31)
  */
-function calculateBeamFlexibility(L, d, Ef, nu_f) {
-    const I = Math.PI * Math.pow(d, 4) / 64;    // Moment of inertia
-    const A = Math.PI * Math.pow(d, 2) / 4;     // Cross-sectional area
-    const kappa = 0.9;                           // Shear correction factor for circular section
-    const As = kappa * A;                        // Shear area
-    const Gf = Ef / (2 * (1 + nu_f));           // Shear modulus
+function circularShearCoefficient(nu_f) {
+    return 6 * (1 + nu_f) / (7 + 6 * nu_f);
+}
 
-    // Flexibility = bending + shear (for guided boundary conditions)
-    const C_bending = Math.pow(L, 3) / (12 * Ef * I);
-    const C_shear = L / (Gf * As);
+/**
+ * Layer thickness and modulus seen by a fastener at a layer node:
+ * the average of the layer elements either side of the node (one element at a layer end).
+ * @param {number} layerNodeId
+ * @returns {{t: number, E: number}|null}
+ */
+function layerPropsAtNode(layerNodeId) {
+    const els = model.layerElements.filter(el => el.node1Id === layerNodeId || el.node2Id === layerNodeId);
+    if (els.length === 0) return null;
+    const t = els.reduce((s, el) => s + el.t, 0) / els.length;
+    const E = els.reduce((s, el) => s + (MATERIALS[el.materialName] ? MATERIALS[el.materialName].E : 0), 0) / els.length;
+    return { t, E };
+}
 
-    return C_bending + C_shear;
+/**
+ * Bearing (contact) spring between a layer node and its fastener node.
+ * Flexibility = Cf/(Ef t) + Cp/(E t), i.e. the fastener and plate bearing terms of Tate & Rosenfeld
+ * for this layer alone; shank shear and bending come from the beam elements.
+ * @param {Object} contactSpring
+ * @returns {number} stiffness (lbf/in), 0 if the spring has no valid layer
+ */
+function calculateBearingStiffness(contactSpring) {
+    const fastener = getFastener(contactSpring.fastenerId);
+    const props = layerPropsAtNode(contactSpring.layerNodeId);
+    if (!fastener || !props || props.t <= 0 || props.E <= 0) return 0;
+    const Ef = MATERIALS[fastener.materialName].E;
+    const C = FASTENER_COMPLIANCE_FACTOR / (Ef * props.t) + PLATE_COMPLIANCE_FACTOR / (props.E * props.t);
+    contactSpring.t = props.t;
+    return 1 / C;
+}
+
+/**
+ * Head / collar end fixity of a fastener column.
+ * The shank continues half a layer thickness past the outermost layer mid-plane to the head (or collar)
+ * face, where its rotation is clamped. That stub carries no shear, so it acts as a rotational spring
+ * k = Ef I / (t/2) on the end fastener node.
+ * @returns {number} rotational stiffness (lbf·in/rad)
+ */
+function calculateEndRotationalStiffness(fastenerNode) {
+    const fastener = getFastener(fastenerNode.fastenerId);
+    const props = layerPropsAtNode(fastenerNode.correspondingLayerNodeId);
+    if (!fastener || !props || props.t <= 0) return 0;
+    const Ef = MATERIALS[fastener.materialName].E;
+    const I = Math.PI * Math.pow(fastener.diameter, 4) / 64;
+    return Ef * I / (props.t / 2);
 }
 
 /**
@@ -575,17 +601,17 @@ function calculateBeamElementStiffnessMatrix(beamElement) {
         return null;
     }
 
-    // Find layer element at each layer to get thickness
-    const layerEl1 = model.layerElements.find(el => el.node1Id === layerNode1.id || el.node2Id === layerNode1.id);
-    const layerEl2 = model.layerElements.find(el => el.node1Id === layerNode2.id || el.node2Id === layerNode2.id);
+    // Layer thickness at each end (average of the layer elements either side of the node)
+    const props1 = layerPropsAtNode(layerNode1.id);
+    const props2 = layerPropsAtNode(layerNode2.id);
 
-    if (!layerEl1 || !layerEl2) {
+    if (!props1 || !props2) {
         console.warn(`Could not find layer elements for beam element ${beamElement.id}`);
         return null;
     }
 
-    const t1 = layerEl1.t;
-    const t2 = layerEl2.t;
+    const t1 = props1.t;
+    const t2 = props2.t;
     const d = fastener.diameter;
 
     const fastenerMaterialProps = MATERIALS[fastener.materialName];
@@ -603,7 +629,7 @@ function calculateBeamElementStiffnessMatrix(beamElement) {
     // Beam properties
     const I = Math.PI * Math.pow(d, 4) / 64;
     const A = Math.PI * Math.pow(d, 2) / 4;
-    const kappa = 0.9;
+    const kappa = circularShearCoefficient(nu_f);
     const Gf = Ef / (2 * (1 + nu_f));
 
     // Shear deformation parameter
@@ -623,6 +649,7 @@ function calculateBeamElementStiffnessMatrix(beamElement) {
     // Store properties on the element for later use
     beamElement.length = L;
     beamElement.stiffnessMatrix = k;
+    beamElement.props = { d, Ef, nu_f, I, A, kappa, Gf, Phi, t1, t2 };
 
     console.log(`DEBUG: Beam Element ${beamElement.id} L=${L.toFixed(4)} in, k[0,0]=${k[0][0].toExponential(3)}`);
 
@@ -630,54 +657,17 @@ function calculateBeamElementStiffnessMatrix(beamElement) {
 }
 
 /**
- * Calculate the contact spring softening required to match T&R for a specific segment.
- * Returns the k to be added to the diagonal for L and F nodes at BOTH ends of the segment.
+ * Head and tail fastener nodes of a column: the outermost nodes joined by a beam element.
+ * (Fastener nodes left without a beam after a deletion are ignored.)
  */
-function calculateSegmentResidualStiffness(beamElement) {
-    if (!beamElement) return 0;
-
-    const fNode1 = getFastenerNode(beamElement.node1Id);
-    const fNode2 = getFastenerNode(beamElement.node2Id);
-    const fastener = getFastener(beamElement.fastenerId);
-
-    if (!fNode1 || !fNode2 || !fastener || fastener.diameter <= 0) return 0;
-
-    const lNode1 = getNode(fNode1.correspondingLayerNodeId);
-    const lNode2 = getNode(fNode2.correspondingLayerNodeId);
-    if (!lNode1 || !lNode2) return 0;
-
-    // Get material properties
-    const layerEl1 = model.layerElements.find(el => el.node1Id === lNode1.id || el.node2Id === lNode1.id);
-    const layerEl2 = model.layerElements.find(el => el.node1Id === lNode2.id || el.node2Id === lNode2.id);
-    if (!layerEl1 || !layerEl2) return 0;
-
-    const E1 = MATERIALS[layerEl1.materialName].E;
-    const E2 = MATERIALS[layerEl2.materialName].E;
-    const t1 = layerEl1.t;
-    const t2 = layerEl2.t;
-    const d = fastener.diameter;
-
-    const fastenerMat = MATERIALS[fastener.materialName];
-    const Ef = fastenerMat.E;
-    const nu_f = fastenerMat.nu;
-
-    // 1. Calculate Total Empirical Flexibility (T&R)
-    const C_TR = calculateTateRosenfeldFlexibility(t1, t2, E1, E2, d, Ef, nu_f);
-
-    // 2. Calculate Guided Beam Flexibility (L is distance between mid-planes)
-    const L = (t1 + t2) / 2;
-    const C_beam = calculateBeamFlexibility(L, d, Ef, nu_f);
-
-    // 3. Determine Residual Spring Stiffness
-    const C_resid = C_TR - C_beam;
-
-    if (C_resid <= 0) {
-        // Beam is too flexible, use rigid penalty
-        return 1e12;
-    }
-
-    // Spec: k = 2 / C_resid (assumes equal distribution between the two springs)
-    return 2 / C_resid;
+function getFastenerColumnEnds(fastenerId) {
+    const ids = new Set();
+    model.beamElements.forEach(be => {
+        if (be.fastenerId === fastenerId) { ids.add(be.node1Id); ids.add(be.node2Id); }
+    });
+    const nodes = model.fastenerNodes.filter(fn => ids.has(fn.id)).sort((a, b) => a.layerId - b.layerId);
+    if (nodes.length === 0) return null;
+    return { head: nodes[0], tail: nodes[nodes.length - 1] };
 }
 
 // --- Model Generation ---
@@ -705,6 +695,9 @@ function generateInitialModel() {
         model.beamElements = [];
         model.contactSpringElements = [];
         model.rotationalSpringElements = [];
+        model.columnLengths = [];
+        undoStack.length = 0;
+        updateUndoButton();
 
         const globalLayerMatName = globalLayerMaterialSelect.value;
         const globalW_in = parseFloat(globalLayerWInput.value);
@@ -874,6 +867,23 @@ function generateInitialModel() {
     }
 }
 
+/**
+ * Pitch of each column gap (node column j to j+1). Kept on the model so a gap keeps its
+ * length when every element in it has been deleted.
+ */
+function getColumnLengths() {
+    const numGaps = model.numFasteners + 1;
+    if (!Array.isArray(model.columnLengths)) model.columnLengths = [];
+    for (let j = 0; j < numGaps; j++) {
+        if (!(model.columnLengths[j] > 0)) {
+            const element = model.layerElements.find(el => getNode(el.node1Id)?.nodeColIndex === j && el.length > 0);
+            model.columnLengths[j] = element ? element.length : model.defaultSegmentLength;
+        }
+    }
+    model.columnLengths.length = numGaps;
+    return model.columnLengths;
+}
+
 // --- Visualization ---
 function updateVisualization(showForces = false) {
     const defs = visualizationSVG.querySelector('defs');
@@ -890,50 +900,18 @@ function updateVisualization(showForces = false) {
 
     if (!model.nodes.length) return;
 
-    const numNodeCols = model.numFasteners + 2;
-    let maxModelLength = 0;
-    const layerLengths = [];
-
-    for (let i = 0; i < model.numLayers; i++) {
-        let currentLayerLength = 0;
-        for (let j = 0; j < numNodeCols - 1; j++) {
-            const element = model.layerElements.find(el => el.layerId === i && getNode(el.node1Id)?.nodeColIndex === j);
-            if (element && element.length > 0) {
-                currentLayerLength += element.length;
-            } else {
-                currentLayerLength += model.defaultSegmentLength;
-            }
-        }
-        layerLengths[i] = currentLayerLength;
-        if (currentLayerLength > maxModelLength) {
-            maxModelLength = currentLayerLength;
-        }
-    }
-
-    if (maxModelLength <= 0) maxModelLength = model.defaultSegmentLength * (numNodeCols - 1);
+    // Node x comes from the column pitches, shared by all layers, so a layer with deleted
+    // elements still lines up with the others
+    const colLengths = getColumnLengths();
+    const maxModelLength = colLengths.reduce((s, L) => s + L, 0) || model.defaultSegmentLength * colLengths.length;
 
     const targetSvgWidth = 800;
     const availableDrawingWidth = targetSvgWidth - 2 * SVG_PADDING;
     const scaleFactor = availableDrawingWidth / maxModelLength;
 
-    for (let i = 0; i < model.numLayers; i++) {
-        let currentX = SVG_PADDING;
-        const firstNodeIndex = model.nodes.findIndex(n => n.layer === i && n.nodeColIndex === 0);
-        if (firstNodeIndex !== -1) {
-            model.nodes[firstNodeIndex].x = currentX;
-
-            for (let j = 0; j < numNodeCols - 1; j++) {
-                const element = model.layerElements.find(el => el.layerId === i && getNode(el.node1Id)?.nodeColIndex === j);
-                const segmentLength = (element && element.length > 0) ? element.length : model.defaultSegmentLength;
-                currentX += segmentLength * scaleFactor;
-
-                const nextNodeIndex = model.nodes.findIndex(n => n.layer === i && n.nodeColIndex === j + 1);
-                if (nextNodeIndex !== -1) {
-                    model.nodes[nextNodeIndex].x = currentX;
-                }
-            }
-        }
-    }
+    const colX = [SVG_PADDING];
+    colLengths.forEach((L, j) => colX.push(colX[j] + L * scaleFactor));
+    model.nodes.forEach(n => { n.x = colX[n.nodeColIndex]; });
 
     const maxX = Math.max(...model.nodes.map(n => n.x), 0);
     const vbWidth = maxX + SVG_PADDING;
@@ -1362,6 +1340,7 @@ function populateEditor() {
 
 function updateElementProperties() {
     if (!selectedElement) { showMessage("No element selected to update."); return; }
+    const before = JSON.stringify(model);
     try {
         let propsChanged = false;
 
@@ -1417,6 +1396,8 @@ function updateElementProperties() {
                     }
                 });
 
+                getColumnLengths()[colIdx] = newLength_in;
+
                 if (lengthChangedInThisColumn) {
                     propsChanged = true;
                     console.log(`Updated length for column ${colIdx} to ${newLength_in}.`);
@@ -1469,6 +1450,7 @@ function updateElementProperties() {
         }
 
         if (propsChanged) {
+            pushUndo(`edit ${selectedElement.type} ${selectedElement.id}`, before);
             showMessage("Element properties updated.", false);
             resultsSummaryDiv.innerHTML = '<p class="text-orange-600">Model properties updated. Please re-solve.</p>';
             updateVisualization(false);
@@ -1563,11 +1545,89 @@ function cleanupOrphanedNodes() {
     return iteration > 1; // Return true if we did more than one pass or found changes
 }
 
+// --- Undo ---
+// Snapshots of the model taken before each edit; deletes no longer ask for confirmation.
+const undoStack = [];
+const MAX_UNDO = 50;
+
+function pushUndo(label, state = JSON.stringify(model)) {
+    undoStack.push({ label, state });
+    if (undoStack.length > MAX_UNDO) undoStack.shift();
+    updateUndoButton();
+}
+
+function undo() {
+    const entry = undoStack.pop();
+    if (!entry) return;
+    Object.assign(model, JSON.parse(entry.state));
+    deselectElement();
+    updateVisualization();
+    updateDisplays();
+    updateLayerSelectors();
+    updateUndoButton();
+    resultsSummaryDiv.innerHTML = `<p class="text-orange-600">Undid: ${entry.label}. Please re-solve.</p>`;
+    showMessage(`Undid: ${entry.label}`, false);
+}
+
+function updateUndoButton() {
+    const btn = document.getElementById('undo-btn');
+    if (!btn) return;
+    const last = undoStack[undoStack.length - 1];
+    btn.disabled = !last;
+    btn.title = last ? `Undo ${last.label} (Ctrl+Z)` : 'Nothing to undo';
+}
+
+// --- Save / Load ---
+const MODEL_FILE_FORMAT = 'load-transfer-model';
+
+function saveModel() {
+    const file = { format: MODEL_FILE_FORMAT, version: 1, saved: new Date().toISOString(), model };
+    const blob = new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `load-transfer-model-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    showMessage('Model saved.', false);
+}
+
+function loadModelFile(fileObj) {
+    const reader = new FileReader();
+    reader.onload = () => {
+        try {
+            const file = JSON.parse(reader.result);
+            const loaded = file && file.format === MODEL_FILE_FORMAT ? file.model : null;
+            if (!loaded || !Array.isArray(loaded.nodes) || !Array.isArray(loaded.layerElements) || !Array.isArray(loaded.layers)) {
+                throw new Error('not a model saved from this tool');
+            }
+            pushUndo('load model');
+            Object.assign(model, loaded);
+
+            numLayersInput.value = model.numLayers;
+            numFastenersInput.value = model.numFasteners;
+            layerLengthInput.value = model.defaultSegmentLength;
+            const modeRadio = document.querySelector(`input[name="fastenerModelingMode"][value="${model.fastenerModelingMode}"]`);
+            if (modeRadio) modeRadio.checked = true;
+
+            deselectElement();
+            updateVisualization();
+            updateDisplays();
+            updateLayerSelectors();
+            resultsSummaryDiv.innerHTML = `<p class="text-orange-600">Loaded ${fileObj.name}. Solve to see results.</p>`;
+            showMessage(`Loaded ${fileObj.name}.`, false);
+        } catch (error) {
+            showMessage(`Could not load ${fileObj.name}: ${error.message}`);
+            console.error('Load error:', error);
+        }
+    };
+    reader.readAsText(fileObj);
+}
+
 /**
  * Delete all elements associated with a fastener ID
  */
 function deleteFastenerColumn(fastenerId) {
-    if (!window.confirm(`Delete entire fastener column ${fastenerId}?`)) return;
+    pushUndo(`delete fastener ${fastenerId}`);
 
     console.log(`DEBUG: Deleting all elements for Fastener ${fastenerId}`);
 
@@ -1592,11 +1652,7 @@ function handleDeleteElement() {
     const type = selectedElement.type;
     const id = selectedElement.id;
 
-    const confirmed = window.confirm(`Are you sure you want to delete ${type} ${id}?\n\nThis action cannot be undone and may remove associated nodes if they become unconnected.`);
-    if (!confirmed) {
-        console.log("DEBUG: Deletion cancelled by user.");
-        return;
-    }
+    pushUndo(`delete ${type} ${id}`);
 
     console.log(`DEBUG: Proceeding with deletion logic for ${type} ${id}`);
     try {
@@ -1650,6 +1706,7 @@ function handleDeleteElement() {
 }
 
 function applyGlobalLayerProperties() {
+    const before = JSON.stringify(model);
     try {
         const globalMaterialName = globalLayerMaterialSelect.value;
         const globalW_in = parseFloat(globalLayerWInput.value);
@@ -1669,6 +1726,7 @@ function applyGlobalLayerProperties() {
         });
 
         if (layerPropsChanged) {
+            pushUndo('apply layer properties to all', before);
             showMessage("Global layer properties applied.", false);
             if (selectedElement && selectedElement.type === 'layerElement') {
                 populateEditor();
@@ -1685,6 +1743,7 @@ function applyGlobalLayerProperties() {
 }
 
 function applyGlobalFastenerProperties() {
+    const before = JSON.stringify(model);
     try {
         const globalFastenerMatName = globalFastenerMaterialSelect.value;
         const globalDiameter_in = parseFloat(globalFastenerDiameterInput.value);
@@ -1710,6 +1769,7 @@ function applyGlobalFastenerProperties() {
         });
 
         if (propsChanged) {
+            pushUndo('apply fastener properties to all', before);
             showMessage("Global fastener properties applied.", false);
             if (selectedElement && selectedElement.type === 'fastenerElement') {
                 populateEditor();
@@ -2067,7 +2127,7 @@ function solve() {
 
             // 3b/c. Fastener Modeling
             if (model.fastenerModelingMode === 'beam') {
-                // BEAM MODEL: Timoshenko Beams + Residual Contact Springs
+                // BEAM MODEL: Timoshenko beams (shank shear + bending) + bearing contact springs
                 model.beamElements.forEach(el => {
                     const dof1 = fastenerNodeDofMap.get(el.node1Id);
                     const dof2 = fastenerNodeDofMap.get(el.node2Id);
@@ -2084,31 +2144,39 @@ function solve() {
                             }
                         }
                     }
-
-                    // B. Segment-Based Residual Contact Stiffness
-                    const k_resid = calculateSegmentResidualStiffness(el);
-
-                    // Add to diagonals for nodes at both ends of this segment
-                    const fNodes = [el.node1Id, el.node2Id];
-                    fNodes.forEach(fId => {
-                        const fNode = getFastenerNode(fId);
-                        const lNodeId = fNode.correspondingLayerNodeId;
-                        const fDof = fastenerNodeDofMap.get(fId);
-                        const lDof = layerNodeDofMap.get(lNodeId);
-
-                        if (fDof && lDof) {
-                            const i = lDof.u_dof;
-                            const j = fDof.u_dof;
-                            addToK(i, i, k_resid);
-                            addToK(j, j, k_resid);
-                            addToK(i, j, -k_resid);
-                            addToK(j, i, -k_resid);
-
-                            const cs = model.contactSpringElements.find(s => s.fastenerNodeId === fId);
-                            if (cs) cs.stiffness += k_resid;
-                        }
-                    });
                 });
+
+                // B. Bearing contact springs - one per layer the fastener passes through
+                const beamNodeIds = new Set();
+                model.beamElements.forEach(el => { beamNodeIds.add(el.node1Id); beamNodeIds.add(el.node2Id); });
+                model.contactSpringElements.forEach(cs => {
+                    if (!beamNodeIds.has(cs.fastenerNodeId)) return; // fastener does not pass through this layer
+                    const fDof = fastenerNodeDofMap.get(cs.fastenerNodeId);
+                    const lDof = layerNodeDofMap.get(cs.layerNodeId);
+                    if (!fDof || !lDof) return;
+                    const k = calculateBearingStiffness(cs);
+                    cs.stiffness = k;
+                    const i = lDof.u_dof;
+                    const j = fDof.u_dof;
+                    addToK(i, i, k);
+                    addToK(j, j, k);
+                    addToK(i, j, -k);
+                    addToK(j, i, -k);
+                });
+
+                // C. Head / collar end fixity (rotational springs at the column's end nodes)
+                model.endRotationalSprings = [];
+                for (let j = 0; j < model.numFasteners; j++) {
+                    const ends = getFastenerColumnEnds(j);
+                    if (!ends) continue;
+                    [['head', ends.head], ['tail', ends.tail]].forEach(([end, fNode]) => {
+                        const k = calculateEndRotationalStiffness(fNode);
+                        const dof = fastenerNodeDofMap.get(fNode.id);
+                        if (!dof || k <= 0) return;
+                        addToK(dof.theta_dof, dof.theta_dof, k);
+                        model.endRotationalSprings.push({ fastenerId: j, end, fastenerNodeId: fNode.id, layerId: fNode.layerId, stiffness: k });
+                    });
+                }
             } else {
                 // SPRING MODEL: Direct Tate & Rosenfeld Shear Springs
                 model.fastenerElements.forEach(el => {
@@ -2179,23 +2247,11 @@ function solve() {
                 }
             });
 
-            // 5b. Head/Tail Rotational Constraints (Fasteners)
-            // Fix theta=0 at top and bottom fastener nodes for each fastener column
-            for (let j = 0; j < model.numFasteners; j++) {
-                const fNodesColumn = model.fastenerNodes.filter(fn => fn.fastenerId === j).sort((a, b) => a.layerId - b.layerId);
-                if (fNodesColumn.length > 0) {
-                    const headNode = fNodesColumn[0];
-                    const tailNode = fNodesColumn[fNodesColumn.length - 1];
-
-                    [headNode, tailNode].forEach((node, idx) => {
-                        const dof = fastenerNodeDofMap.get(node.id);
-                        if (dof) {
-                            const thetaIdx = dof.theta_dof;
-                            addToK(thetaIdx, thetaIdx, penaltyStiffness);
-                            console.log(`DEBUG: Fixed rotation for Fastener ${j} ${idx === 0 ? 'head' : 'tail'} at Layer ${node.layerId} (Node ${node.id})`);
-                        }
-                    });
-                }
+            // 5b. Unconnected DOFs (e.g. fastener nodes in a layer the fastener no longer passes
+            // through, or layer nodes with no elements) carry no stiffness - pin them so K stays non-singular
+            for (let i = 0; i < N_solve; i++) {
+                const diagVal = math.subset(K_global, math.index(i, i));
+                if (!diagVal) addToK(i, i, penaltyStiffness);
             }
 
             if (constrainedCount === 0) {
@@ -2370,8 +2426,215 @@ function displayResults() {
     resultsSummaryDiv.innerHTML = html;
 }
 
+// --- Model Summary ---
+
+/**
+ * Every element of the model with the properties and stiffnesses the solver uses
+ * (and forces, once solved). Returns { html, text }; the text form is a fixed-width report.
+ */
+function buildModelSummary() {
+    const sections = [];
+    const num = (v, dp) => (v === null || v === undefined || !isFinite(v)) ? '-' : Number(v).toFixed(dp);
+    const sci = v => (v === null || v === undefined || !isFinite(v)) ? '-' : Number(v).toExponential(4);
+    const layerName = id => { const l = getLayer(id); return l ? l.name : `L${id}`; };
+    const solved = model.layerElements.some(el => el.force !== 0);
+    const isBeam = model.fastenerModelingMode === 'beam';
+
+    sections.push({
+        title: 'Solution Parameters',
+        headers: ['Parameter', 'Value'],
+        rows: [
+            ['Fastener modelling', isBeam ? 'Timoshenko beam + bearing springs' : 'Tate & Rosenfeld shear springs'],
+            ['Fastener compliance factor Cf', FASTENER_COMPLIANCE_FACTOR],
+            ['Plate compliance factor Cp', PLATE_COMPLIANCE_FACTOR],
+            ...(isBeam ? [
+                ['Bearing spring', 'k = 1 / (Cf/(Ef t) + Cp/(E t))'],
+                ['Beam length', '(t1 + t2)/2 between layer mid-planes'],
+                ['Shear coefficient', 'kappa = 6(1+nu)/(7+6nu)'],
+                ['End fixity', 'shank to head/collar face, rotation clamped there: k_rot = Ef I/(t/2)'],
+                ['Layer t, E at a node', 'average of the layer elements either side'],
+            ] : []),
+            ['Solved', solved ? 'yes' : 'no'],
+        ]
+    });
+
+    sections.push({
+        title: 'Materials',
+        headers: ['Material', 'E (psi)', 'nu'],
+        rows: Object.entries(MATERIALS).map(([name, p]) => [name, num(p.E, 0), num(p.nu, 3)])
+    });
+
+    sections.push({
+        title: 'Layer Elements',
+        headers: ['El', 'Layer', 'Node1', 'Node2', 'Material', 'E (psi)', 't (in)', 'W (in)', 'L (in)', 'k=EA/L (lbf/in)', 'Force (lbf)', 'Stress (psi)'],
+        rows: model.layerElements.map(el => {
+            const E = MATERIALS[el.materialName] ? MATERIALS[el.materialName].E : NaN;
+            const k = calculateLayerElementStiffness(el);
+            return [el.id, layerName(el.layerId), el.node1Id, el.node2Id, el.materialName, num(E, 0), num(el.t, 4), num(el.W, 4),
+                num(el.length, 4), sci(k), solved ? num(el.force, 3) : '-', solved ? num(el.force / (el.W * el.t), 1) : '-'];
+        })
+    });
+
+    sections.push({
+        title: 'Fasteners',
+        headers: ['Fastener', 'Diameter (in)', 'Material', 'Ef (psi)', 'nu', 'Head layer', 'Tail layer'],
+        rows: model.fasteners.map(f => {
+            const m = MATERIALS[f.materialName] || {};
+            const ends = isBeam ? getFastenerColumnEnds(f.id) : null;
+            const springs = model.fastenerElements.filter(el => el.fastenerId === f.id);
+            const layersOf = springs.flatMap(el => [getNode(el.node1Id), getNode(el.node2Id)]).filter(Boolean).map(n => n.layer);
+            const head = ends ? ends.head.layerId : (layersOf.length ? Math.min(...layersOf) : null);
+            const tail = ends ? ends.tail.layerId : (layersOf.length ? Math.max(...layersOf) : null);
+            return [f.id, num(f.diameter, 4), f.materialName, num(m.E, 0), num(m.nu, 3),
+                head === null ? '-' : layerName(head), tail === null ? '-' : layerName(tail)];
+        })
+    });
+
+    if (isBeam) {
+        const beamNodeIds = new Set();
+        model.beamElements.forEach(el => { beamNodeIds.add(el.node1Id); beamNodeIds.add(el.node2Id); });
+
+        sections.push({
+            title: 'Bearing (Contact) Springs',
+            headers: ['CS', 'Fastener', 'Layer', 'Layer node', 'Fastener node', 't used (in)', 'E used (psi)', 'k (lbf/in)', 'Force (lbf)'],
+            rows: model.contactSpringElements.map(cs => {
+                const active = beamNodeIds.has(cs.fastenerNodeId);
+                const props = layerPropsAtNode(cs.layerNodeId);
+                const k = active ? calculateBearingStiffness(cs) : 0;
+                return [cs.id, cs.fastenerId, layerName(cs.layerId), cs.layerNodeId, cs.fastenerNodeId,
+                    props ? num(props.t, 4) : '-', props ? num(props.E, 0) : '-',
+                    active ? sci(k) : 'inactive', solved && active ? num(cs.force, 3) : '-'];
+            })
+        });
+
+        sections.push({
+            title: 'Fastener Beam Elements (Timoshenko)',
+            headers: ['Beam', 'Fastener', 'From layer', 'To layer', 't1 (in)', 't2 (in)', 'L (in)', 'd (in)', 'I (in^4)', 'kappa', 'Phi', '12EI/(L^3(1+Phi)) (lbf/in)', 'Shear (lbf)'],
+            rows: model.beamElements.map(el => {
+                const r = calculateBeamElementStiffnessMatrix(el);
+                const n1 = getFastenerNode(el.node1Id), n2 = getFastenerNode(el.node2Id);
+                const p = el.props || {};
+                return [el.id, el.fastenerId, n1 ? layerName(n1.layerId) : '-', n2 ? layerName(n2.layerId) : '-',
+                    num(p.t1, 4), num(p.t2, 4), num(el.length, 4), num(p.d, 4), sci(p.I), num(p.kappa, 4), num(p.Phi, 4),
+                    r ? sci(r.matrix[0][0]) : '-', solved ? num(el.force, 3) : '-'];
+            })
+        });
+
+        sections.push({
+            title: 'End Fixity (Head / Collar Rotational Springs)',
+            headers: ['Fastener', 'End', 'Layer', 'Fastener node', 't (in)', 'k_rot (lbf.in/rad)', 'Rotation (rad)'],
+            rows: model.fasteners.flatMap(f => {
+                const ends = getFastenerColumnEnds(f.id);
+                if (!ends) return [];
+                return [['head', ends.head], ['tail', ends.tail]].map(([end, fn]) => {
+                    const props = layerPropsAtNode(fn.correspondingLayerNodeId);
+                    return [f.id, end, layerName(fn.layerId), fn.id, props ? num(props.t, 4) : '-',
+                        sci(calculateEndRotationalStiffness(fn)), solved ? sci(fn.theta) : '-'];
+                });
+            })
+        });
+    } else {
+        sections.push({
+            title: 'Fastener Shear Springs (Tate & Rosenfeld)',
+            headers: ['Spring', 'Fastener', 'Node1', 'Node2', 'Layer1', 'Layer2', 'k (lbf/in)', 'Force (lbf)'],
+            rows: model.fastenerElements.map(el => {
+                const n1 = getNode(el.node1Id), n2 = getNode(el.node2Id);
+                return [el.id, el.fastenerId, el.node1Id, el.node2Id, n1 ? layerName(n1.layer) : '-', n2 ? layerName(n2.layer) : '-',
+                    sci(calculateFastenerElementStiffness(el)), solved ? num(el.force, 3) : '-'];
+            })
+        });
+    }
+
+    sections.push({
+        title: 'Layer Nodes, Boundary Conditions and Loads',
+        headers: ['Node', 'Layer', 'Column', 'Condition', 'Applied', 'Displacement (in)'],
+        rows: model.nodes.map(n => {
+            let cond = '-', applied = '-';
+            if (n.isFixed) cond = 'Fixed';
+            else if (n.prescribedU !== null) { cond = 'Prescribed u'; applied = `${n.prescribedU} in`; }
+            else if (n.F !== 0) { cond = 'Force'; applied = `${n.F} lbf`; }
+            return [n.id, layerName(n.layer), n.nodeColIndex, cond, applied, solved ? sci(n.u) : '-'];
+        })
+    });
+
+    // HTML
+    const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    let html = '';
+    sections.forEach(sec => {
+        html += `<h3 class="font-bold text-gray-700 mt-4 mb-1">${esc(sec.title)}</h3>`;
+        html += '<table class="w-full border-collapse font-mono"><thead><tr>';
+        sec.headers.forEach(h => { html += `<th class="border border-gray-200 bg-gray-50 px-2 py-1 text-left">${esc(h)}</th>`; });
+        html += '</tr></thead><tbody>';
+        sec.rows.forEach(r => {
+            html += '<tr>' + r.map(c => `<td class="border border-gray-200 px-2 py-0.5">${esc(c)}</td>`).join('') + '</tr>';
+        });
+        html += '</tbody></table>';
+    });
+
+    // Fixed-width text
+    let text = `LOAD TRANSFER MODEL SUMMARY  (${new Date().toISOString().slice(0, 19).replace('T', ' ')})\n`;
+    sections.forEach(sec => {
+        const cells = [sec.headers, ...sec.rows].map(r => r.map(c => String(c)));
+        const widths = sec.headers.map((_, i) => Math.max(...cells.map(r => (r[i] || '').length)));
+        text += `\n${sec.title.toUpperCase()}\n`;
+        cells.forEach((r, ri) => {
+            text += r.map((c, i) => c.padEnd(widths[i])).join('  ').trimEnd() + '\n';
+            if (ri === 0) text += widths.map(w => '-'.repeat(w)).join('  ') + '\n';
+        });
+    });
+
+    return { html, text };
+}
+
+function openModelSummary() {
+    const overlay = document.getElementById('model-summary-overlay');
+    const content = document.getElementById('model-summary-content');
+    try {
+        const summary = buildModelSummary();
+        content.innerHTML = summary.html;
+        overlay.dataset.text = summary.text;
+    } catch (error) {
+        console.error('Model summary error:', error);
+        content.innerHTML = `<p class="text-red-600">Could not build the model summary: ${error.message}</p>`;
+        overlay.dataset.text = '';
+    }
+    overlay.classList.remove('hidden');
+}
+
 // --- Event Listeners ---
 document.addEventListener('DOMContentLoaded', () => {
+    const summaryOverlay = document.getElementById('model-summary-overlay');
+    document.getElementById('model-summary-btn').addEventListener('click', openModelSummary);
+    document.getElementById('undo-btn').addEventListener('click', undo);
+    const loadInput = document.getElementById('load-model-input');
+    document.getElementById('save-model-btn').addEventListener('click', saveModel);
+    document.getElementById('load-model-btn').addEventListener('click', () => loadInput.click());
+    loadInput.addEventListener('change', () => {
+        if (loadInput.files[0]) loadModelFile(loadInput.files[0]);
+        loadInput.value = '';
+    });
+    document.addEventListener('keydown', e => {
+        if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z' &&
+            !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) {
+            e.preventDefault();
+            undo();
+        }
+    });
+    document.getElementById('model-summary-close-btn').addEventListener('click', () => summaryOverlay.classList.add('hidden'));
+    document.getElementById('model-summary-copy-btn').addEventListener('click', () => {
+        navigator.clipboard.writeText(summaryOverlay.dataset.text || '')
+            .then(() => showMessage('Model summary copied to clipboard.', false))
+            .catch(() => showMessage('Copy failed - use Download .txt instead.'));
+    });
+    document.getElementById('model-summary-download-btn').addEventListener('click', () => {
+        const blob = new Blob([summaryOverlay.dataset.text || ''], { type: 'text/plain' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'load-transfer-model-summary.txt';
+        a.click();
+        URL.revokeObjectURL(a.href);
+    });
+
     if (generateBtn) generateBtn.addEventListener('click', generateInitialModel);
     if (solveBtn) solveBtn.addEventListener('click', solve);
     if (updateElementBtn) updateElementBtn.addEventListener('click', updateElementProperties);
