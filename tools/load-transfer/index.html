@@ -172,6 +172,22 @@
             font-weight: 600;
         }
 
+        .sf-viz-label {
+            font-size: 10px;
+            font-weight: 700;
+            fill: #be123c;
+            text-anchor: end;
+            dominant-baseline: central;
+            paint-order: stroke;
+            stroke: #ffffff;
+            stroke-width: 3px;
+        }
+
+        .sf-viz-label.sf-viz-max {
+            fill: #b45309;
+            font-size: 12px;
+        }
+
         .layer-name-label {
             font-size: 10px;
             fill: #6b7280;
@@ -468,6 +484,70 @@
                     </div>
                 </div>
 
+                <!-- Step 4: Severity Factors -->
+                <div class="input-group">
+                    <hr class="border-gray-200 mb-2">
+                    <div class="flex justify-between items-center mb-1">
+                        <h3 class="text-xs uppercase tracking-widest text-gray-500 font-extrabold">4. Severity Factors</h3>
+                        <button onclick="toggleSection('sf-content', this)"
+                            class="text-gray-400 hover:text-gray-600 transition-colors">
+                            <span class="toggle-icon transform">▼</span>
+                        </button>
+                    </div>
+
+                    <div id="sf-content" class="space-y-2 hidden">
+                        <div class="bg-rose-50 p-1.5 rounded-md border border-rose-200 space-y-1">
+                            <h4 class="text-xs font-semibold text-rose-700 uppercase">Defaults for every hole</h4>
+                            <label class="text-xs text-gray-500 block">Fastener type (&beta;)</label>
+                            <select id="sf-fastener-type" class="input-field text-sm"></select>
+                            <div id="sf-user-beta-row" class="hidden">
+                                <label class="text-xs text-gray-500 block">User &beta;</label>
+                                <input type="number" id="sf-user-beta" step="0.01" class="input-field text-sm">
+                            </div>
+                            <label class="text-xs text-gray-500 block">Hole type (&alpha;)</label>
+                            <select id="sf-hole-type" class="input-field text-sm"></select>
+                            <div class="grid grid-cols-2 gap-1">
+                                <div>
+                                    <label class="text-xs text-gray-500 block">Shear loading</label>
+                                    <select id="sf-shear" class="input-field text-sm">
+                                        <option value="auto">Auto</option>
+                                        <option value="single">Single</option>
+                                        <option value="double">Double</option>
+                                    </select>
+                                </div>
+                                <label class="text-xs text-gray-600 flex items-center gap-1 mt-4">
+                                    <input type="checkbox" id="sf-cold-worked"> Cold worked
+                                </label>
+                                <div>
+                                    <label class="text-xs text-gray-500 block">CSK depth Tcsk/T</label>
+                                    <input type="number" id="sf-csk" step="0.05" min="0" max="1" class="input-field text-sm">
+                                </div>
+                                <div>
+                                    <label class="text-xs text-gray-500 block">Edge margin E/D</label>
+                                    <input type="number" id="sf-edge" step="0.1" min="0" class="input-field text-sm">
+                                </div>
+                                <div>
+                                    <label class="text-xs text-gray-500 block">BT ratio (bend/tens)</label>
+                                    <input type="number" id="sf-bt" step="0.05" class="input-field text-sm">
+                                </div>
+                                <div>
+                                    <label class="text-xs text-gray-500 block">Biaxial ratio</label>
+                                    <input type="number" id="sf-biax" step="0.05" class="input-field text-sm">
+                                </div>
+                                <div>
+                                    <label class="text-xs text-gray-500 block">Gross stress factor</label>
+                                    <input type="number" id="sf-gsf" step="0.05" class="input-field text-sm">
+                                </div>
+                                <div>
+                                    <label class="text-xs text-gray-500 block">Fasteners / strip</label>
+                                    <input type="number" id="sf-n" step="1" min="1" class="input-field text-sm">
+                                </div>
+                            </div>
+                        </div>
+                        <button id="sf-calc-btn" class="btn-secondary w-full text-xs">Calculate Severity Factors</button>
+                    </div>
+                </div>
+
                 <div class="mt-2">
                     <button id="solve-btn"
                         class="btn-primary w-full py-2.5 text-base font-bold shadow-lg transform hover:-translate-y-0.5 transition-all">Solve
@@ -500,6 +580,7 @@
                             <button id="save-model-btn" class="btn-secondary text-xs px-3" title="Save the model to a .json file">Save</button>
                             <button id="load-model-btn" class="btn-secondary text-xs px-3" title="Load a model saved from this tool">Load</button>
                             <input type="file" id="load-model-input" accept=".json,application/json" class="hidden">
+                            <button id="viz-sf-toggle" class="btn-secondary text-xs px-3" title="Switch the drawing between element loads and SF_norm at each hole">Show SF_norm</button>
                             <button id="undo-btn" class="btn-secondary text-xs px-3 disabled:opacity-40 disabled:cursor-not-allowed" disabled title="Nothing to undo">&#8630; Undo</button>
                             <button id="model-summary-btn" class="btn-secondary text-xs px-3">Model Summary</button>
                         </div>
@@ -544,6 +625,21 @@
                 </div>
             </div>
             <div id="model-summary-content" class="flex-1 overflow-auto p-4 custom-scrollbar text-xs"></div>
+        </div>
+    </div>
+
+    <!-- Severity Factors (full-screen overlay) -->
+    <div id="sf-overlay" class="hidden fixed inset-0 z-50 bg-gray-900 bg-opacity-50 flex items-center justify-center p-6">
+        <div class="bg-white rounded-lg shadow-xl w-full h-full max-w-7xl flex flex-col">
+            <div class="p-4 border-b border-gray-200 flex justify-between items-center">
+                <h2 class="font-semibold text-gray-800">Severity Factors (SF)</h2>
+                <div class="flex gap-2">
+                    <button id="sf-copy-btn" class="btn-secondary text-xs px-3">Copy as Text</button>
+                    <button id="sf-close-btn" class="btn-primary text-xs px-3">Close</button>
+                </div>
+            </div>
+            <div id="sf-hole-editor" class="hidden border-b border-gray-200 bg-rose-50 p-3 text-xs"></div>
+            <div id="sf-content-table" class="flex-1 overflow-auto p-4 custom-scrollbar text-xs"></div>
         </div>
     </div>
 

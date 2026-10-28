@@ -696,6 +696,7 @@ function generateInitialModel() {
         model.contactSpringElements = [];
         model.rotationalSpringElements = [];
         model.columnLengths = [];
+        model.sfOverrides = {};   // keyed by layer node id, which a new model reuses
         undoStack.length = 0;
         updateUndoButton();
 
@@ -885,7 +886,58 @@ function getColumnLengths() {
 }
 
 // --- Visualization ---
+// Main view shows either element loads (after a solve) or the SF_norm value at each hole
+let vizShowSf = false;
+
+function setVizShowSf(on) {
+    vizShowSf = on;
+    if (on) readSfSettingsFromSidebar();
+    const btn = document.getElementById('viz-sf-toggle');
+    btn.textContent = on ? 'Show Loads' : 'Show SF_norm';
+    btn.classList.toggle('btn-primary', on);
+    btn.classList.toggle('btn-secondary', !on);
+    updateVisualization(!on && model.layerElements.some(el => el.force !== 0));
+}
+
+/** SF_norm label at each hole (layer node), up and to the left of the node, clear of the fastener line. */
+function drawSfNormLabels() {
+    let result;
+    try {
+        result = computeSeverityFactors();
+    } catch (error) {
+        const msg = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        msg.setAttribute('x', SVG_PADDING);
+        msg.setAttribute('y', SVG_PADDING / 3);
+        msg.setAttribute('class', 'sf-viz-label');
+        msg.style.textAnchor = 'start';
+        msg.textContent = 'SF_norm: solve the model first';
+        visualizationSVG.appendChild(msg);
+        return;
+    }
+    result.rows.forEach(r => {
+        const node = getNode(r.layerNodeId);
+        if (!node) return;
+        const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        label.setAttribute('x', node.x - 4);
+        label.setAttribute('y', node.y - 10);
+        label.setAttribute('class', 'sf-viz-label' + (r.sfNormRank === 1 ? ' sf-viz-max' : ''));
+        label.textContent = r.sfNorm.toFixed(2);
+        const tip = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+        tip.textContent = `SF_norm ${r.sfNorm.toFixed(3)} (rank ${r.sfNormRank}), SF ${r.ssf.toFixed(3)}, R/P ${r.rp.toFixed(3)}`;
+        label.appendChild(tip);
+        visualizationSVG.appendChild(label);
+    });
+    const ref = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    ref.setAttribute('x', SVG_PADDING);
+    ref.setAttribute('y', SVG_PADDING / 3);
+    ref.setAttribute('class', 'sf-viz-label');
+    ref.style.textAnchor = 'start';
+    ref.textContent = `SF_norm (reference: max gross stress ${result.maxGross.toFixed(0)} psi)`;
+    visualizationSVG.appendChild(ref);
+}
+
 function updateVisualization(showForces = false) {
+    if (vizShowSf) showForces = false;
     const defs = visualizationSVG.querySelector('defs');
     visualizationSVG.innerHTML = '';
     if (defs) {
@@ -1184,6 +1236,8 @@ function updateVisualization(showForces = false) {
             visualizationSVG.appendChild(label);
         }
     });
+
+    if (vizShowSf) drawSfNormLabels();
 }
 
 // --- Element Selection & Editing ---
@@ -1560,6 +1614,7 @@ function undo() {
     const entry = undoStack.pop();
     if (!entry) return;
     Object.assign(model, JSON.parse(entry.state));
+    populateSfSidebar();
     deselectElement();
     updateVisualization();
     updateDisplays();
@@ -1601,13 +1656,14 @@ function loadModelFile(fileObj) {
                 throw new Error('not a model saved from this tool');
             }
             pushUndo('load model');
-            Object.assign(model, loaded);
+            Object.assign(model, { sfSettings: undefined, sfOverrides: {} }, loaded);
 
             numLayersInput.value = model.numLayers;
             numFastenersInput.value = model.numFasteners;
             layerLengthInput.value = model.defaultSegmentLength;
             const modeRadio = document.querySelector(`input[name="fastenerModelingMode"][value="${model.fastenerModelingMode}"]`);
             if (modeRadio) modeRadio.checked = true;
+            populateSfSidebar();
 
             deselectElement();
             updateVisualization();
@@ -2426,6 +2482,362 @@ function displayResults() {
     resultsSummaryDiv.innerHTML = html;
 }
 
+// --- Severity Factors (SF) ---
+// Non-dimensional severity factor (SF), as V1 LTT reports it (independent of load level):
+//   SF = alpha*beta*gamma * { e2 * [ GSF*K_TG*B*(P_bypass/P_total) + theta*K_TB*(R/P)*W/(n d) ] + BT*K_Tbend }
+// with R/P = dP/P_total, P_total = bypass + transfer, B = biaxial correction.
+// Framework and e2 nomogram: Boeing D6-29942 (JOSEF II); theta: V1 LTT curves. K_TG, K_TB, K_Tbend: Peterson.
+// Calibrated October 2026 against V1 LTT 1.9.7.4 runs on the S1 wing splice: alpha, beta (open hole, rivet,
+// Hi-Lok, lock bolts), cold work, CSK at 0.5 and 1.0, BT, biaxial, E/D and the e2 factor reproduce V1 to <2%.
+
+const SF_FASTENER_TYPES = {          // beta; all confirmed against V1 (lock bolts = D6-29942 Table E.3.2)
+    'Open Hole': 1.00,
+    'Rivet': 0.62,
+    'Hi-Lok': 0.72,
+    'CSK Lock Bolt': 0.83,
+    'Protruding Head Lock Bolt': 0.79,
+    'Close Tolerance Lock Bolt': 0.76,
+    'User Defined': null
+};
+const SF_HOLE_TYPES = {              // alpha; all confirmed against V1
+    'Standard Drilled Hole': 1.00,
+    'Reamed - TX Fit': 0.92,
+    'Class I Fit': 1.00,
+    'Class II Fit': 1.10,
+    'Interference Fit': 0.872
+};
+const SF_COLD_WORK_FACTOR = 0.88;    // confirmed against V1 (D6-29942 Table E.3.3)
+// Edge margin factor vs E/D, quadratic through V1's 1.0 -> 1.565, 1.5 -> 1.164, 2.0 -> 1.0 (0 = default 2.0)
+const sfEdgeFactor = ed => {
+    const x = ed > 0 ? Math.min(Math.max(ed, 1.0), 2.0) : 2.0;
+    return 3.078 - 1.987 * x + 0.474 * x * x;
+};
+// Biaxial correction on the bypass term, B = 1 - 0.3 * lambda (fitted to V1 at lambda = 0.5)
+const SF_BIAX_COEFF = 0.3;
+// theta vs t/d as V1 LTT uses it (Theta-LTT196 spreadsheet): single shear follows the D6-29942 curve to
+// t/d = 0.4754, then runs nearly linear; double shear is one cubic. Matches V1 where the JOSEF II tables
+// (which rise to 2.02 at t/d 0.9) over-predict the SF by ~7% at t/d 0.74.
+const sfThetaSingle = x => x <= 0.4754
+    ? 1 + 0.0833 * x + 0.4272 * x * x + 0.8501 * x ** 3
+    : 0.7521 + 1.0148 * x + 0.0039 * x * x + 0.0697 * x ** 3;
+const sfThetaDouble = x => 1 - 0.0006 * x + 0.1069 * x * x + 0.0671 * x ** 3;
+// Countersink depth factor vs Tcsk/T (D6-29942 Figure E.3.1; 0.5 -> 1.10 and 1.0 -> 2.0 confirmed against V1)
+const SF_CSK_CURVE = [[0, 1.0], [0.2, 1.0], [0.4, 1.03], [0.5, 1.10], [0.6, 1.20], [0.7, 1.33], [0.8, 1.50], [0.9, 1.72], [1.0, 2.0]];
+// e2 load-transfer correction (D6-29942 Fig. E.3.2, digitised from a clean redraw of the nomogram):
+//   e2 = 1 + SF_E2_V1_FACTOR * E(theta, d/W) * s(c)
+// E = e2 - 1 read at c = 1; c = bearing / bypass load; s(c) = 2.035c/(c + 1.035) (1 at c = 1, 2.035 at c = infinity).
+// V1 LTT applies about 0.82 of the chart (the same factor the D6 scan's own worked example implies).
+const SF_E2_V1_FACTOR = 0.823;
+const SF_E2_DW = [0.125, 0.15, 0.175, 0.21, 0.25, 0.275, 0.35, 0.395];
+const SF_E2_THETA = [1.0, 1.2, 1.4, 1.8];
+const SF_E2_E = [
+    [1.0489, 0.7876, 0.5926, 0.4122, 0.2944, 0.2540, 0.1435, 0.0810],
+    [1.3360, 1.0342, 0.8060, 0.5889, 0.4490, 0.3975, 0.2650, 0.1840],
+    [1.6415, 1.2955, 1.0453, 0.8097, 0.6330, 0.5852, 0.4269, 0.3312],
+    [2.2120, 1.7814, 1.4280, 1.1225, 0.9054, 0.8281, 0.6514, 0.5447]
+];
+
+const SF_DEFAULTS = {
+    fastenerType: 'Hi-Lok', userBeta: 1.0, holeType: 'Reamed - TX Fit', coldWorked: false, shear: 'auto',
+    cskRatio: 0, edgeMargin: 0, btRatio: 0, biaxRatio: 0, grossStressFactor: 1.0
+};
+const SF_GLOBAL_DEFAULTS = { ...SF_DEFAULTS, nFasteners: 1 };
+
+function interpTable(xs, ys, x) {
+    if (x <= xs[0]) return ys[0];
+    for (let i = 1; i < xs.length; i++) {
+        if (x <= xs[i]) return ys[i - 1] + (ys[i] - ys[i - 1]) * (x - xs[i - 1]) / (xs[i] - xs[i - 1]);
+    }
+    return ys[ys.length - 1];
+}
+
+function sfTheta(tOverD, shear) {
+    const x = Math.max(tOverD, 0);
+    return shear === 'double' ? sfThetaDouble(x) : sfThetaSingle(x);
+}
+
+function sfE2(theta, dOverW, rp) {
+    if (!(rp > 0)) return 1;
+    // d/W held to the chart (0.125-0.395); theta below 1.0 held, above 1.8 extended along the 1.4-1.8 trend
+    const x = Math.min(Math.max(dOverW, SF_E2_DW[0]), SF_E2_DW[SF_E2_DW.length - 1]);
+    const th = Math.max(theta, SF_E2_THETA[0]);
+    const rows = SF_E2_E.map(row => interpTable(SF_E2_DW, row, x));
+    const n = SF_E2_THETA.length;
+    const e = th <= SF_E2_THETA[n - 1] ? interpTable(SF_E2_THETA, rows, th)
+        : rows[n - 1] + (rows[n - 1] - rows[n - 2]) * (th - SF_E2_THETA[n - 1]) / (SF_E2_THETA[n - 1] - SF_E2_THETA[n - 2]);
+    const s = rp >= 1 ? 2.035 : (c => 2.035 * c / (c + 1.035))(rp / (1 - rp));
+    return 1 + SF_E2_V1_FACTOR * e * s;
+}
+
+// Gross-area open-hole factor for a row of holes at pitch W (Peterson, infinite row, uniaxial tension):
+// K_t,net = 3[1.002 - 1.016 x + 0.253 x^2], x = d/W (0..0.7); K_TG = K_t,net / (1 - x)
+function sfKtg(dOverW) {
+    const x = Math.min(Math.max(dOverW, 0), 0.7);
+    return 3 * (1.002 - 1.016 * x + 0.253 * x * x) / (1 - x);
+}
+
+// Bearing factor for a closely fitting pin (Peterson Chart 4.67, K_tnb on sigma = P/(d t)), d/W 0.15..0.75
+function sfKtb(dOverW) {
+    const x = Math.min(Math.max(dOverW, 0.15), 0.75);
+    return 0.2880 + 8.820 * x - 23.196 * x * x + 29.167 * x ** 3;
+}
+
+// Gross-area bending factor, row of holes, cylindrical bending about the x-axis (Peterson Chart 4.84), x = d/W 0..0.7
+function sfKtBend(dOverW) {
+    const x = Math.min(Math.max(dOverW, 0), 0.7);
+    return (1.849 - 1.741 * x + 0.875 * x * x + 0.081 * x ** 3) / (1 - x);
+}
+
+function getSfSettings() {
+    model.sfSettings = { ...SF_GLOBAL_DEFAULTS, ...(model.sfSettings || {}) };
+    if (!model.sfOverrides) model.sfOverrides = {};
+    return model.sfSettings;
+}
+
+function sfSettingsForHole(layerNodeId) {
+    const g = getSfSettings();
+    const s = { ...SF_DEFAULTS };
+    Object.keys(SF_DEFAULTS).forEach(k => { s[k] = g[k]; });
+    return { ...s, ...(model.sfOverrides[layerNodeId] || {}) };
+}
+
+function sfAlphaBetaGamma(s) {
+    const beta = s.fastenerType === 'User Defined' ? s.userBeta : SF_FASTENER_TYPES[s.fastenerType];
+    const alpha = SF_HOLE_TYPES[s.holeType];
+    const csk = interpTable(SF_CSK_CURVE.map(p => p[0]), SF_CSK_CURVE.map(p => p[1]), s.cskRatio || 0);
+    const cold = s.coldWorked ? SF_COLD_WORK_FACTOR : 1;
+    const edge = sfEdgeFactor(s.edgeMargin);
+    return { alpha, beta, csk, cold, edge, total: alpha * beta * csk * cold * edge };
+}
+
+/** Holes = layer nodes a fastener passes through, with the fastener id and auto shear mode. */
+function sfHoles() {
+    const holes = [];
+    if (model.fastenerModelingMode === 'beam') {
+        const beamNodeIds = new Set();
+        model.beamElements.forEach(el => { beamNodeIds.add(el.node1Id); beamNodeIds.add(el.node2Id); });
+        model.contactSpringElements.forEach(cs => {
+            if (!beamNodeIds.has(cs.fastenerNodeId)) return;
+            const ends = getFastenerColumnEnds(cs.fastenerId);
+            const isEnd = ends && (ends.head.id === cs.fastenerNodeId || ends.tail.id === cs.fastenerNodeId);
+            holes.push({ layerNodeId: cs.layerNodeId, fastenerId: cs.fastenerId, autoShear: isEnd ? 'single' : 'double' });
+        });
+    } else {
+        const seen = new Map();
+        model.fastenerElements.forEach(el => {
+            [el.node1Id, el.node2Id].forEach(nid => {
+                const h = seen.get(nid) || { layerNodeId: nid, fastenerId: el.fastenerId, count: 0 };
+                h.count++;
+                seen.set(nid, h);
+            });
+        });
+        seen.forEach(h => holes.push({ layerNodeId: h.layerNodeId, fastenerId: h.fastenerId, autoShear: h.count > 1 ? 'double' : 'single' }));
+    }
+    return holes;
+}
+
+function computeSeverityFactors() {
+    const g = getSfSettings();
+    if (!model.layerElements.some(el => el.force !== 0)) throw new Error('No solved loads - solve the model first.');
+    const rows = [];
+    sfHoles().forEach(h => {
+        const node = getNode(h.layerNodeId);
+        const fastener = getFastener(h.fastenerId);
+        if (!node || !fastener || node.isFixed) return;   // SF does not exist at restrained nodes
+        const props = layerPropsAtNode(node.id);
+        if (!props) return;
+        const left = model.layerElements.find(el => el.node2Id === node.id);
+        const right = model.layerElements.find(el => el.node1Id === node.id);
+        const fL = left ? left.force : 0, fR = right ? right.force : 0;
+        const adj = [left, right].filter(Boolean);
+        const W = adj.reduce((s, el) => s + el.W, 0) / adj.length;
+        const t = props.t, d = fastener.diameter;
+        const dP = Math.abs(fR - fL);
+        // total load at the hole = bypass + transfer (the larger adjacent load); bypass = what carries on past it
+        const pTotal = Math.max(Math.abs(fL), Math.abs(fR));
+        if (!(pTotal > 0)) return;
+        const pBypass = Math.max(pTotal - dP, 0);
+        const rp = dP / pTotal;
+        const s = sfSettingsForHole(node.id);
+        const shear = s.shear === 'auto' ? h.autoShear : s.shear;
+        const theta = sfTheta(t / d, shear);
+        const dW = d / W;
+        const biax = 1 - SF_BIAX_COEFF * (s.biaxRatio || 0);
+        const ktg = sfKtg(dW);
+        const ktb = sfKtb(dW);
+        const ktBend = sfKtBend(dW);
+        const e2 = sfE2(theta, dW, rp);
+        const ab = sfAlphaBetaGamma(s);
+        const n = g.nFasteners > 0 ? g.nFasteners : 1;
+        const kBypass = (s.grossStressFactor ?? 1) * ktg * biax * (pBypass / pTotal);
+        const kTransfer = theta * ktb * rp * W / (n * d);
+        const kBending = (s.btRatio || 0) * ktBend;
+        const k = e2 * (kBypass + kTransfer) + kBending;
+        const ssf = ab.total * k;
+        // gross stress at the hole, the stress the non-dimensional K is referenced to
+        const sGross = pTotal / (W * t);
+        rows.push({
+            layerNodeId: node.id, layerId: node.layer, fastenerId: h.fastenerId, shear, overridden: !!model.sfOverrides[node.id],
+            t, d, W, pBypass, pTotal, dP, rp, theta, ktg, ktb, ktBend, e2, k,
+            ab, kBypass, kTransfer, kBending, ssf, sGross, settings: s
+        });
+    });
+    // SF_norm = SF x gross stress / max gross stress in any element, so the peak stress anywhere in the
+    // configuration is SF_norm x (max gross stress)
+    const maxGross = Math.max(...model.layerElements.map(el => Math.abs(el.force) / (el.W * el.t)), 0);
+    rows.forEach(r => { r.sfNorm = maxGross > 0 ? r.ssf * r.sGross / maxGross : 0; });
+    const maxSsf = Math.max(...rows.map(r => r.ssf), 0);
+    const rank = key => rows.slice().sort((a, b) => b[key] - a[key]).forEach((r, i) => { r[key + 'Rank'] = i + 1; });
+    rank('ssf');
+    rank('sfNorm');
+    return { rows, maxSsf, maxGross };
+}
+
+function readSfSettingsFromSidebar() {
+    const g = getSfSettings();
+    const num = (id, fallback) => { const v = parseFloat(document.getElementById(id).value); return isFinite(v) ? v : fallback; };
+    g.fastenerType = document.getElementById('sf-fastener-type').value;
+    g.userBeta = num('sf-user-beta', 1);
+    g.holeType = document.getElementById('sf-hole-type').value;
+    g.shear = document.getElementById('sf-shear').value;
+    g.coldWorked = document.getElementById('sf-cold-worked').checked;
+    g.cskRatio = num('sf-csk', 0);
+    g.edgeMargin = num('sf-edge', 2);
+    g.btRatio = num('sf-bt', 0);
+    g.biaxRatio = num('sf-biax', 0);
+    g.grossStressFactor = num('sf-gsf', 1);
+    g.nFasteners = Math.max(1, Math.round(num('sf-n', 1)));
+}
+
+function populateSfSidebar() {
+    const g = getSfSettings();
+    const fill = (id, options) => {
+        const sel = document.getElementById(id);
+        if (sel && !sel.options.length) Object.keys(options).forEach(k => sel.add(new Option(k, k)));
+    };
+    fill('sf-fastener-type', SF_FASTENER_TYPES);
+    fill('sf-hole-type', SF_HOLE_TYPES);
+    document.getElementById('sf-fastener-type').value = g.fastenerType;
+    document.getElementById('sf-user-beta').value = g.userBeta;
+    document.getElementById('sf-user-beta-row').classList.toggle('hidden', g.fastenerType !== 'User Defined');
+    document.getElementById('sf-hole-type').value = g.holeType;
+    document.getElementById('sf-shear').value = g.shear;
+    document.getElementById('sf-cold-worked').checked = g.coldWorked;
+    document.getElementById('sf-csk').value = g.cskRatio;
+    document.getElementById('sf-edge').value = g.edgeMargin;
+    document.getElementById('sf-bt').value = g.btRatio;
+    document.getElementById('sf-biax').value = g.biaxRatio;
+    document.getElementById('sf-gsf').value = g.grossStressFactor;
+    document.getElementById('sf-n').value = g.nFasteners;
+}
+
+let sfSelectedNodeId = null;
+let sfLastText = '';
+
+function renderSeverityFactors() {
+    const content = document.getElementById('sf-content-table');
+    let result;
+    try {
+        result = computeSeverityFactors();
+    } catch (error) {
+        content.innerHTML = `<p class="text-red-600">${error.message}</p>`;
+        sfLastText = '';
+        return;
+    }
+    const layerName = id => { const l = getLayer(id); return l ? l.name : `L${id}`; };
+    const f = (v, dp) => isFinite(v) ? v.toFixed(dp) : '-';
+    const headers = ['Node', 'Layer', 'Fastener', 'Shear', 't', 'd', 'W', 'Bypass (lbf)', 'Total (lbf)', 'dP (lbf)', 'R/P', 'theta', 'K_TG', 'K_TB',
+        'e2', 'K', 'ab*g', 'SF', 'SF rank', 'Gross (psi)', 'SF_norm', 'SF_norm rank'];
+    const rowsData = result.rows.map(r => [r.layerNodeId, layerName(r.layerId), r.fastenerId, r.shear + (r.overridden ? ' *' : ''),
+        f(r.t, 4), f(r.d, 4), f(r.W, 3), f(r.pBypass, 2), f(r.pTotal, 2), f(r.dP, 2), f(r.rp, 3), f(r.theta, 3), f(r.ktg, 3), f(r.ktb, 3),
+        f(r.e2, 3), f(r.k, 3), f(r.ab.total, 3), f(r.ssf, 3), r.ssfRank, f(r.sGross, 0), f(r.sfNorm, 3), r.sfNormRank]);
+
+    const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    let html = `<p class="mb-2 text-gray-600">SF = &alpha;&beta;&gamma; &middot; {e<sub>2</sub>[K<sub>TG</sub>&middot;bypass/total + &theta;K<sub>TB</sub>(R/P)(W/d)] + BT&middot;K<sub>T,bend</sub>}, relative to the gross stress at the hole (total load / W t); independent of load level.
+        R/P = dP / (bypass + dP). <b>SF_norm</b> = SF &times; gross stress / max gross stress in any element (<b>${f(result.maxGross, 0)} psi</b>):
+        the peak stress at any hole is SF_norm &times; ${f(result.maxGross, 0)} psi, so SF_norm ranks every hole against one reference.
+        Click a row to change that hole's settings; <b>*</b> = hole has its own settings.
+        <span class="bg-rose-100 font-bold px-1">Highest SF</span> <span class="bg-amber-100 font-bold px-1">Highest SF_norm</span></p>`;
+    html += '<table class="w-full border-collapse font-mono"><thead><tr>';
+    headers.forEach(h => { html += `<th class="border border-gray-200 bg-gray-50 px-2 py-1 text-left">${esc(h)}</th>`; });
+    html += '</tr></thead><tbody>';
+    result.rows.forEach((r, i) => {
+        const sel = r.layerNodeId === sfSelectedNodeId;
+        const cls = sel ? 'bg-indigo-100' : r.sfNormRank === 1 ? 'bg-amber-100 font-bold'
+            : r.ssfRank === 1 ? 'bg-rose-100 font-bold' : 'hover:bg-gray-50';
+        html += `<tr class="cursor-pointer ${cls}" data-node="${r.layerNodeId}">` +
+            rowsData[i].map(c => `<td class="border border-gray-200 px-2 py-0.5">${esc(c)}</td>`).join('') + '</tr>';
+    });
+    html += '</tbody></table>';
+    content.innerHTML = html;
+    if (vizShowSf) updateVisualization();
+    content.querySelectorAll('tr[data-node]').forEach(tr => tr.addEventListener('click', () => {
+        sfSelectedNodeId = parseInt(tr.dataset.node, 10);
+        renderSfHoleEditor();
+        renderSeverityFactors();
+    }));
+
+    // Fixed-width text
+    const cells = [headers, ...rowsData].map(r => r.map(String));
+    const widths = headers.map((_, i) => Math.max(...cells.map(r => r[i].length)));
+    sfLastText = `SEVERITY FACTORS  (SF_norm reference = max gross stress ${f(result.maxGross, 0)} psi)\n\n` +
+        cells.map((r, ri) => r.map((c, i) => c.padEnd(widths[i])).join('  ').trimEnd() +
+            (ri === 0 ? '\n' + widths.map(w => '-'.repeat(w)).join('  ') : '')).join('\n') + '\n';
+}
+
+function renderSfHoleEditor() {
+    const box = document.getElementById('sf-hole-editor');
+    if (sfSelectedNodeId === null || !getNode(sfSelectedNodeId)) { box.classList.add('hidden'); return; }
+    const s = sfSettingsForHole(sfSelectedNodeId);
+    const node = getNode(sfSelectedNodeId);
+    const opts = (obj, cur) => Object.keys(obj).map(k => `<option ${k === cur ? 'selected' : ''}>${k}</option>`).join('');
+    const field = (label, html) => `<label class="flex flex-col gap-0.5"><span class="text-gray-500">${label}</span>${html}</label>`;
+    const numIn = (id, v, step) => `<input type="number" id="${id}" value="${v}" step="${step}" class="input-field text-xs w-24">`;
+    box.innerHTML = `<div class="flex flex-wrap items-end gap-3">
+        <div class="font-semibold text-rose-700">Hole at node ${node.id} (${getLayer(node.layer)?.name || ''})</div>
+        ${field('Fastener type', `<select id="sfh-fastener" class="input-field text-xs">${opts(SF_FASTENER_TYPES, s.fastenerType)}</select>`)}
+        ${field('User &beta;', numIn('sfh-user-beta', s.userBeta, 0.01))}
+        ${field('Hole type', `<select id="sfh-hole" class="input-field text-xs">${opts(SF_HOLE_TYPES, s.holeType)}</select>`)}
+        ${field('Shear', `<select id="sfh-shear" class="input-field text-xs">${['auto', 'single', 'double'].map(v => `<option ${v === s.shear ? 'selected' : ''}>${v}</option>`).join('')}</select>`)}
+        ${field('Cold worked', `<input type="checkbox" id="sfh-cold" ${s.coldWorked ? 'checked' : ''}>`)}
+        ${field('CSK Tcsk/T', numIn('sfh-csk', s.cskRatio, 0.05))}
+        ${field('E/D', numIn('sfh-edge', s.edgeMargin, 0.1))}
+        ${field('BT ratio', numIn('sfh-bt', s.btRatio, 0.05))}
+        ${field('Biaxial', numIn('sfh-biax', s.biaxRatio, 0.05))}
+        ${field('Gross stress factor', numIn('sfh-gsf', s.grossStressFactor, 0.05))}
+        <button id="sfh-apply" class="btn-primary text-xs px-3">Apply to this hole</button>
+        <button id="sfh-reset" class="btn-secondary text-xs px-3">Use defaults</button>
+        <button id="sfh-close" class="btn-secondary text-xs px-3">Close</button>
+    </div>`;
+    box.classList.remove('hidden');
+    const val = id => document.getElementById(id);
+    val('sfh-apply').addEventListener('click', () => {
+        pushUndo(`severity factor settings at node ${sfSelectedNodeId}`);
+        const num = (id, fb) => { const v = parseFloat(val(id).value); return isFinite(v) ? v : fb; };
+        model.sfOverrides[sfSelectedNodeId] = {
+            fastenerType: val('sfh-fastener').value, userBeta: num('sfh-user-beta', 1), holeType: val('sfh-hole').value,
+            shear: val('sfh-shear').value, coldWorked: val('sfh-cold').checked, cskRatio: num('sfh-csk', 0),
+            edgeMargin: num('sfh-edge', 2), btRatio: num('sfh-bt', 0), biaxRatio: num('sfh-biax', 0), grossStressFactor: num('sfh-gsf', 1)
+        };
+        renderSeverityFactors();
+    });
+    val('sfh-reset').addEventListener('click', () => {
+        if (model.sfOverrides[sfSelectedNodeId]) pushUndo(`reset severity factor settings at node ${sfSelectedNodeId}`);
+        delete model.sfOverrides[sfSelectedNodeId];
+        renderSfHoleEditor();
+        renderSeverityFactors();
+    });
+    val('sfh-close').addEventListener('click', () => { sfSelectedNodeId = null; box.classList.add('hidden'); renderSeverityFactors(); });
+}
+
+function openSeverityFactors() {
+    readSfSettingsFromSidebar();
+    sfSelectedNodeId = null;
+    renderSfHoleEditor();
+    renderSeverityFactors();
+    document.getElementById('sf-overlay').classList.remove('hidden');
+}
+
 // --- Model Summary ---
 
 /**
@@ -2606,6 +3018,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const summaryOverlay = document.getElementById('model-summary-overlay');
     document.getElementById('model-summary-btn').addEventListener('click', openModelSummary);
     document.getElementById('undo-btn').addEventListener('click', undo);
+    populateSfSidebar();
+    document.getElementById('sf-calc-btn').addEventListener('click', openSeverityFactors);
+    document.getElementById('viz-sf-toggle').addEventListener('click', () => setVizShowSf(!vizShowSf));
+    // sidebar SF defaults feed the SF_norm labels straight away
+    document.getElementById('sf-content').addEventListener('change', () => {
+        readSfSettingsFromSidebar();
+        if (vizShowSf) updateVisualization();
+    });
+    document.getElementById('sf-close-btn').addEventListener('click', () => document.getElementById('sf-overlay').classList.add('hidden'));
+    document.getElementById('sf-copy-btn').addEventListener('click', () => {
+        navigator.clipboard.writeText(sfLastText)
+            .then(() => showMessage('Severity factors copied to clipboard.', false))
+            .catch(() => showMessage('Copy failed.'));
+    });
+    document.getElementById('sf-fastener-type').addEventListener('change', e =>
+        document.getElementById('sf-user-beta-row').classList.toggle('hidden', e.target.value !== 'User Defined'));
     const loadInput = document.getElementById('load-model-input');
     document.getElementById('save-model-btn').addEventListener('click', saveModel);
     document.getElementById('load-model-btn').addEventListener('click', () => loadInput.click());
