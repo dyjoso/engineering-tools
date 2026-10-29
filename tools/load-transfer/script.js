@@ -3088,10 +3088,14 @@ document.addEventListener('DOMContentLoaded', () => {
         loadInput.value = '';
     });
     document.addEventListener('keydown', e => {
-        if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z' &&
-            !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) {
+        if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
+        if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z') {
             e.preventDefault();
             undo();
+        } else if (e.key === 'Delete' && selectedElement) {
+            // Delete key removes the selected element, same as the editor's Delete button (undoable)
+            e.preventDefault();
+            handleDeleteElement();
         }
     });
     document.getElementById('model-summary-close-btn').addEventListener('click', () => summaryOverlay.classList.add('hidden'));

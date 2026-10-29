@@ -451,7 +451,7 @@ The **Analysis Results** panel at the bottom displays:
 
 The **Model Summary** button (top right of the visualisation) lists every element with the properties and stiffnesses the solver actually uses: layer elements (E, t, W, L, EA/L), fasteners (d, Ef, nu, head and tail layer), bearing springs (t and E used, k), beam elements (L, I, kappa, Phi, shear stiffness), head/collar rotational springs, and node conditions and loads, plus forces once solved. **Copy as Text** / **Download .txt** give the same tables as a fixed-width report for checking against other analyses.
 
-**Save / Load** write the whole model (geometry, properties, loads, BCs and any results) to a `.json` file and read it back. **Undo** (or Ctrl+Z) steps back through deletes, element edits, "apply to all" changes and loads, up to 50 steps; deletes no longer ask for confirmation. Generating a new model clears the undo history.
+**Save / Load** write the whole model (geometry, properties, loads, BCs and any results) to a `.json` file and read it back. **Undo** (or Ctrl+Z) steps back through deletes, element edits, "apply to all" changes and loads, up to 50 steps; deletes no longer ask for confirmation. The **Delete** key deletes the selected element, like the editor's Delete button (not while typing in a field). Generating a new model clears the undo history.
 
 **Interpreting fastener loads:** The load transferred by fastener $j$ between layers $i$ and $i+1$ is reported as the contact spring force (beam mode) or the shear spring force (spring mode). In beam mode, **the total fastener load** at a given interface is most directly read from the contact spring. The beam element shear gives the internal shear in the shank, which integrates contributions from all interfaces above.
 
