@@ -410,6 +410,14 @@ function calculateLayerElementStiffness(layerElement) {
     return (E * A) / L;
 }
 
+/**
+ * Stiffness multiplier of a fastener column (K-mult): every stiffness in the column is multiplied by it,
+ * e.g. 2 where a row has two fasteners per strip width. Defaults to 1.
+ */
+function fastenerKMult(fastener) {
+    return fastener && fastener.kMult > 0 ? fastener.kMult : 1;
+}
+
 function calculateFastenerElementStiffness(fastenerElement) {
     if (!fastenerElement) return 0;
 
@@ -478,7 +486,7 @@ function calculateFastenerElementStiffness(fastenerElement) {
         return 1e12;
     }
 
-    const stiffness = 1 / flexibility;
+    const stiffness = fastenerKMult(fastener) / flexibility;
     console.log(`DEBUG: Fastener Element ${fastenerElement.id} (Fastener ${fastenerElement.fastenerId}) calculated stiffness: ${stiffness.toExponential(3)} lbf/in`);
     return stiffness;
 }
@@ -556,7 +564,7 @@ function calculateBearingStiffness(contactSpring) {
     const Ef = MATERIALS[fastener.materialName].E;
     const C = FASTENER_COMPLIANCE_FACTOR / (Ef * props.t) + PLATE_COMPLIANCE_FACTOR / (props.E * props.t);
     contactSpring.t = props.t;
-    return 1 / C;
+    return fastenerKMult(fastener) / C;
 }
 
 /**
@@ -572,7 +580,7 @@ function calculateEndRotationalStiffness(fastenerNode) {
     if (!fastener || !props || props.t <= 0) return 0;
     const Ef = MATERIALS[fastener.materialName].E;
     const I = Math.PI * Math.pow(fastener.diameter, 4) / 64;
-    return Ef * I / (props.t / 2);
+    return fastenerKMult(fastener) * Ef * I / (props.t / 2);
 }
 
 /**
@@ -635,8 +643,8 @@ function calculateBeamElementStiffnessMatrix(beamElement) {
     // Shear deformation parameter
     const Phi = (12 * Ef * I) / (kappa * A * Gf * L * L);
 
-    // Timoshenko beam stiffness matrix coefficients
-    const coeff = Ef * I / (Math.pow(L, 3) * (1 + Phi));
+    // Timoshenko beam stiffness matrix coefficients (scaled by the column's K-mult)
+    const coeff = fastenerKMult(fastener) * Ef * I / (Math.pow(L, 3) * (1 + Phi));
 
     // 4x4 stiffness matrix: [u_i, theta_i, u_j, theta_j]
     const k = [
@@ -692,6 +700,7 @@ function generateInitialModel() {
         model.layers = [];
         model.fasteners = [];
         model.layerElements = [];
+        model.fastenerElements = [];
         model.beamElements = [];
         model.contactSpringElements = [];
         model.rotationalSpringElements = [];
@@ -727,7 +736,7 @@ function generateInitialModel() {
             });
         }
         for (let i = 0; i < model.numFasteners; i++) {
-            model.fasteners.push({ id: i, diameter: globalDiameter_in, materialName: globalFastenerMatName });
+            model.fasteners.push({ id: i, diameter: globalDiameter_in, materialName: globalFastenerMatName, kMult: 1 });
         }
 
         const numNodeCols = model.numFasteners + 2;
@@ -863,7 +872,7 @@ function generateInitialModel() {
         console.error("Model Generation Error:", error);
         resultsSummaryDiv.innerHTML = `<p class="text-red-600">Model generation failed: ${error.message}</p>`;
         model.nodes = []; model.fastenerNodes = []; model.layers = []; model.fasteners = [];
-        model.layerElements = []; model.beamElements = []; model.contactSpringElements = []; model.rotationalSpringElements = [];
+        model.layerElements = []; model.fastenerElements = []; model.beamElements = []; model.contactSpringElements = []; model.rotationalSpringElements = [];
         updateVisualization(); updateLayerSelectors(); updateDisplays();
     }
 }
@@ -1326,6 +1335,10 @@ function populateEditor() {
                     <label class='block text-xs font-medium text-gray-700 mb-1'>Diameter (in)</label>
                     <input type='number' id='edit-fastener-diameter' value='${fastener.diameter}' min='0.01' step='0.01' class='input-field text-sm py-1'>
                     </div>
+                    <div class='mt-2'>
+                    <label class='block text-xs font-medium text-gray-700 mb-1' title='Multiplies every stiffness of this fastener, e.g. 2 for two fasteners per strip width'>Stiffness multiplier K-mult</label>
+                    <input type='number' id='edit-fastener-kmult' value='${fastenerKMult(fastener)}' min='0.01' step='0.1' class='input-field text-sm py-1'>
+                    </div>
                     <div class='mt-2 p-2 bg-yellow-100 rounded text-xs text-yellow-800'>
                     <p>k = ${(element.stiffness / 1000).toFixed(2)} kip/in</p>
                     <button onclick='deleteFastenerColumn(${element.fastenerId})' class='btn-danger w-full text-[10px] mt-2 py-0.5'>Delete Entire Fastener</button>
@@ -1353,6 +1366,10 @@ function populateEditor() {
                     <div class='mt-2'>
                     <label class='block text-xs font-medium text-gray-700 mb-1'>Diameter (in)</label>
                     <input type='number' id='edit-fastener-diameter' value='${fastener.diameter}' min='0.01' step='0.01' class='input-field text-sm py-1'>
+                    </div>
+                    <div class='mt-2'>
+                    <label class='block text-xs font-medium text-gray-700 mb-1' title='Multiplies every stiffness of this fastener, e.g. 2 for two fasteners per strip width'>Stiffness multiplier K-mult</label>
+                    <input type='number' id='edit-fastener-kmult' value='${fastenerKMult(fastener)}' min='0.01' step='0.1' class='input-field text-sm py-1'>
                     </div>
                     <div class='mt-2 p-2 bg-yellow-100 rounded text-xs text-yellow-800'>
                     <p>V = ${element.force.toFixed(2)} lbf</p>
@@ -1461,13 +1478,15 @@ function updateElementProperties() {
 
                 const newMaterialName = document.getElementById('edit-fastener-material').value;
                 const newD_in = parseFloat(document.getElementById('edit-fastener-diameter').value);
-                if (isNaN(newD_in) || newD_in <= 0 || !MATERIALS[newMaterialName]) {
+                const newKMult = parseFloat(document.getElementById('edit-fastener-kmult').value);
+                if (isNaN(newD_in) || newD_in <= 0 || !MATERIALS[newMaterialName] || !(newKMult > 0)) {
                     throw new Error("Invalid input value for properties.");
                 }
 
-                if (fastener.diameter !== newD_in || fastener.materialName !== newMaterialName) {
+                if (fastener.diameter !== newD_in || fastener.materialName !== newMaterialName || fastenerKMult(fastener) !== newKMult) {
                     fastener.diameter = newD_in;
                     fastener.materialName = newMaterialName;
+                    fastener.kMult = newKMult;
                     propsChanged = true;
                     console.log(`Updated Fastener Column ${fastener.id} props.`);
                 }
@@ -1479,13 +1498,15 @@ function updateElementProperties() {
 
                 const newMaterialName = document.getElementById('edit-fastener-material').value;
                 const newD_in = parseFloat(document.getElementById('edit-fastener-diameter').value);
-                if (isNaN(newD_in) || newD_in <= 0 || !MATERIALS[newMaterialName]) {
+                const newKMult = parseFloat(document.getElementById('edit-fastener-kmult').value);
+                if (isNaN(newD_in) || newD_in <= 0 || !MATERIALS[newMaterialName] || !(newKMult > 0)) {
                     throw new Error("Invalid input value for properties.");
                 }
 
-                if (fastener.diameter !== newD_in || fastener.materialName !== newMaterialName) {
+                if (fastener.diameter !== newD_in || fastener.materialName !== newMaterialName || fastenerKMult(fastener) !== newKMult) {
                     fastener.diameter = newD_in;
                     fastener.materialName = newMaterialName;
+                    fastener.kMult = newKMult;
                     propsChanged = true;
                     console.log(`Updated Fastener Column ${fastener.id} props.`);
                 }
@@ -2557,10 +2578,17 @@ function sfTheta(tOverD, shear) {
 
 function sfE2(theta, dOverW, rp) {
     if (!(rp > 0)) return 1;
-    // d/W held to the chart (0.125-0.395); theta below 1.0 held, above 1.8 extended along the 1.4-1.8 trend
-    const x = Math.min(Math.max(dOverW, SF_E2_DW[0]), SF_E2_DW[SF_E2_DW.length - 1]);
+    // d/W outside the chart (0.125-0.395) extended as a power law through the two end points (to 0.05-0.6);
+    // theta below 1.0 held, above 1.8 extended along the 1.4-1.8 trend
+    const X = SF_E2_DW, last = X.length - 1;
+    const x = Math.min(Math.max(dOverW, 0.05), 0.6);
     const th = Math.max(theta, SF_E2_THETA[0]);
-    const rows = SF_E2_E.map(row => interpTable(SF_E2_DW, row, x));
+    const rows = SF_E2_E.map(row => {
+        if (x >= X[0] && x <= X[last]) return interpTable(X, row, x);
+        const [i, j] = x < X[0] ? [0, 1] : [last, last - 1];
+        const p = Math.log(row[j] / row[i]) / Math.log(X[j] / X[i]);
+        return row[i] * Math.pow(x / X[i], p);
+    });
     const n = SF_E2_THETA.length;
     const e = th <= SF_E2_THETA[n - 1] ? interpTable(SF_E2_THETA, rows, th)
         : rows[n - 1] + (rows[n - 1] - rows[n - 2]) * (th - SF_E2_THETA[n - 1]) / (SF_E2_THETA[n - 1] - SF_E2_THETA[n - 2]);
@@ -2609,7 +2637,18 @@ function sfAlphaBetaGamma(s) {
     return { alpha, beta, csk, cold, edge, total: alpha * beta * csk * cold * edge };
 }
 
-/** Holes = layer nodes a fastener passes through, with the fastener id and auto shear mode. */
+/**
+ * Auto shear ratio at a hole from the fastener shear either side of the plate: smaller / larger.
+ * 0 = all the fastener load on one side (single shear), 1 = equal load both sides (double shear).
+ */
+function sfShearRatio(sideForces) {
+    if (sideForces.length < 2) return 0;
+    const [a, b] = sideForces.map(Math.abs);
+    const big = Math.max(a, b);
+    return big > 0 ? Math.min(a, b) / big : 0;
+}
+
+/** Holes = layer nodes a fastener passes through, with the fastener id and auto shear ratio. */
 function sfHoles() {
     const holes = [];
     if (model.fastenerModelingMode === 'beam') {
@@ -2617,20 +2656,19 @@ function sfHoles() {
         model.beamElements.forEach(el => { beamNodeIds.add(el.node1Id); beamNodeIds.add(el.node2Id); });
         model.contactSpringElements.forEach(cs => {
             if (!beamNodeIds.has(cs.fastenerNodeId)) return;
-            const ends = getFastenerColumnEnds(cs.fastenerId);
-            const isEnd = ends && (ends.head.id === cs.fastenerNodeId || ends.tail.id === cs.fastenerNodeId);
-            holes.push({ layerNodeId: cs.layerNodeId, fastenerId: cs.fastenerId, autoShear: isEnd ? 'single' : 'double' });
+            const sides = model.beamElements.filter(el => el.node1Id === cs.fastenerNodeId || el.node2Id === cs.fastenerNodeId).map(el => el.force);
+            holes.push({ layerNodeId: cs.layerNodeId, fastenerId: cs.fastenerId, shearRatio: sfShearRatio(sides) });
         });
     } else {
         const seen = new Map();
         model.fastenerElements.forEach(el => {
             [el.node1Id, el.node2Id].forEach(nid => {
-                const h = seen.get(nid) || { layerNodeId: nid, fastenerId: el.fastenerId, count: 0 };
-                h.count++;
+                const h = seen.get(nid) || { layerNodeId: nid, fastenerId: el.fastenerId, sides: [] };
+                h.sides.push(el.force);
                 seen.set(nid, h);
             });
         });
-        seen.forEach(h => holes.push({ layerNodeId: h.layerNodeId, fastenerId: h.fastenerId, autoShear: h.count > 1 ? 'double' : 'single' }));
+        seen.forEach(h => holes.push({ layerNodeId: h.layerNodeId, fastenerId: h.fastenerId, shearRatio: sfShearRatio(h.sides) }));
     }
     return holes;
 }
@@ -2649,7 +2687,11 @@ function computeSeverityFactors() {
         const right = model.layerElements.find(el => el.node1Id === node.id);
         const fL = left ? left.force : 0, fR = right ? right.force : 0;
         const adj = [left, right].filter(Boolean);
-        const W = adj.reduce((s, el) => s + el.W, 0) / adj.length;
+        // K-mult k > 1 stands for k side-by-side strips: each fastener sits in a strip of width W/k and
+        // carries 1/k of the loads. Gross stress and R/P are unchanged; d/W and the bearing term use W/k.
+        const kMult = fastenerKMult(fastener);
+        const stripW = adj.reduce((s, el) => s + el.W, 0) / adj.length;
+        const W = stripW / kMult;
         const t = props.t, d = fastener.diameter;
         const dP = Math.abs(fR - fL);
         // total load at the hole = bypass + transfer (the larger adjacent load); bypass = what carries on past it
@@ -2658,8 +2700,12 @@ function computeSeverityFactors() {
         const pBypass = Math.max(pTotal - dP, 0);
         const rp = dP / pTotal;
         const s = sfSettingsForHole(node.id);
-        const shear = s.shear === 'auto' ? h.autoShear : s.shear;
-        const theta = sfTheta(t / d, shear);
+        // auto: theta interpolated between single (ratio 0) and double (ratio 1) shear by the fastener load ratio
+        const auto = s.shear === 'auto';
+        const shear = auto ? `auto ${h.shearRatio.toFixed(2)}` : s.shear;
+        const theta = auto
+            ? sfTheta(t / d, 'single') + h.shearRatio * (sfTheta(t / d, 'double') - sfTheta(t / d, 'single'))
+            : sfTheta(t / d, shear);
         const dW = d / W;
         const biax = 1 - SF_BIAX_COEFF * (s.biaxRatio || 0);
         const ktg = sfKtg(dW);
@@ -2674,7 +2720,7 @@ function computeSeverityFactors() {
         const k = e2 * (kBypass + kTransfer) + kBending;
         const ssf = ab.total * k;
         // gross stress at the hole, the stress the non-dimensional K is referenced to
-        const sGross = pTotal / (W * t);
+        const sGross = pTotal / (stripW * t);
         rows.push({
             layerNodeId: node.id, layerId: node.layer, fastenerId: h.fastenerId, shear, overridden: !!model.sfOverrides[node.id],
             t, d, W, pBypass, pTotal, dP, rp, theta, ktg, ktb, ktBend, e2, k,
@@ -2753,7 +2799,8 @@ function renderSeverityFactors() {
 
     const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
     let html = `<p class="mb-2 text-gray-600">SF = &alpha;&beta;&gamma; &middot; {e<sub>2</sub>[K<sub>TG</sub>&middot;bypass/total + &theta;K<sub>TB</sub>(R/P)(W/d)] + BT&middot;K<sub>T,bend</sub>}, relative to the gross stress at the hole (total load / W t); independent of load level.
-        R/P = dP / (bypass + dP). <b>SF_norm</b> = SF &times; gross stress / max gross stress in any element (<b>${f(result.maxGross, 0)} psi</b>):
+        R/P = dP / (bypass + dP). Shear <b>auto r</b>: &theta; interpolated between single (r = 0) and double (r = 1) shear, r = smaller / larger fastener load either side of the plate.
+        <b>SF_norm</b> = SF &times; gross stress / max gross stress in any element (<b>${f(result.maxGross, 0)} psi</b>):
         the peak stress at any hole is SF_norm &times; ${f(result.maxGross, 0)} psi, so SF_norm ranks every hole against one reference.
         Click a row to change that hole's settings; <b>*</b> = hole has its own settings.
         <span class="bg-rose-100 font-bold px-1">Highest SF</span> <span class="bg-amber-100 font-bold px-1">Highest SF_norm</span></p>`;
@@ -2888,7 +2935,7 @@ function buildModelSummary() {
 
     sections.push({
         title: 'Fasteners',
-        headers: ['Fastener', 'Diameter (in)', 'Material', 'Ef (psi)', 'nu', 'Head layer', 'Tail layer'],
+        headers: ['Fastener', 'Diameter (in)', 'Material', 'Ef (psi)', 'nu', 'K-mult', 'Head layer', 'Tail layer'],
         rows: model.fasteners.map(f => {
             const m = MATERIALS[f.materialName] || {};
             const ends = isBeam ? getFastenerColumnEnds(f.id) : null;
@@ -2896,7 +2943,7 @@ function buildModelSummary() {
             const layersOf = springs.flatMap(el => [getNode(el.node1Id), getNode(el.node2Id)]).filter(Boolean).map(n => n.layer);
             const head = ends ? ends.head.layerId : (layersOf.length ? Math.min(...layersOf) : null);
             const tail = ends ? ends.tail.layerId : (layersOf.length ? Math.max(...layersOf) : null);
-            return [f.id, num(f.diameter, 4), f.materialName, num(m.E, 0), num(m.nu, 3),
+            return [f.id, num(f.diameter, 4), f.materialName, num(m.E, 0), num(m.nu, 3), num(fastenerKMult(f), 3),
                 head === null ? '-' : layerName(head), tail === null ? '-' : layerName(tail)];
         })
     });

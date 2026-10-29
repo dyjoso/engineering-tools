@@ -236,6 +236,15 @@
             @apply border-green-500 text-green-700;
         }
 
+        .section-header {
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .section-header:hover h3 {
+            color: #374151;
+        }
+
         .toggle-icon {
             display: inline-block;
             transition: transform 0.2s;
@@ -267,10 +276,9 @@
 
                 <!-- Step 1: Setup -->
                 <div class="input-group">
-                    <div class="flex justify-between items-center mb-1">
+                    <div class="section-header flex justify-between items-center mb-1" onclick="toggleSection('setup-content', this)">
                         <h3 class="text-xs uppercase tracking-widest text-gray-500 font-extrabold">1. Model Setup</h3>
-                        <button onclick="toggleSection('setup-content', this)"
-                            class="text-gray-400 hover:text-gray-600 transition-colors">
+                        <button type="button" class="text-gray-400 hover:text-gray-600 transition-colors" aria-label="Toggle section">
                             <span class="toggle-icon transform rotate-180">▼</span>
                         </button>
                     </div>
@@ -300,10 +308,9 @@
                 <!-- Step 2: Customize -->
                 <div class="input-group">
                     <hr class="border-gray-200 mb-2">
-                    <div class="flex justify-between items-center mb-1">
+                    <div class="section-header flex justify-between items-center mb-1" onclick="toggleSection('properties-content', this)">
                         <h3 class="text-xs uppercase tracking-widest text-gray-500 font-extrabold">2. Properties</h3>
-                        <button onclick="toggleSection('properties-content', this)"
-                            class="text-gray-400 hover:text-gray-600 transition-colors">
+                        <button type="button" class="text-gray-400 hover:text-gray-600 transition-colors" aria-label="Toggle section">
                             <span class="toggle-icon transform">▼</span>
                         </button>
                     </div>
@@ -409,10 +416,9 @@
                 <!-- Step 3: BCs & Loads -->
                 <div class="input-group">
                     <hr class="border-gray-200 mb-2">
-                    <div class="flex justify-between items-center mb-1">
+                    <div class="section-header flex justify-between items-center mb-1" onclick="toggleSection('bcs-content', this)">
                         <h3 class="text-xs uppercase tracking-widest text-gray-500 font-extrabold">3. Loads & BCs</h3>
-                        <button onclick="toggleSection('bcs-content', this)"
-                            class="text-gray-400 hover:text-gray-600 transition-colors">
+                        <button type="button" class="text-gray-400 hover:text-gray-600 transition-colors" aria-label="Toggle section">
                             <span class="toggle-icon transform">▼</span>
                         </button>
                     </div>
@@ -499,10 +505,9 @@
                 <!-- Step 4: Severity Factors -->
                 <div class="input-group">
                     <hr class="border-gray-200 mb-2">
-                    <div class="flex justify-between items-center mb-1">
+                    <div class="section-header flex justify-between items-center mb-1" onclick="toggleSection('sf-content', this)">
                         <h3 class="text-xs uppercase tracking-widest text-gray-500 font-extrabold">4. Severity Factors</h3>
-                        <button onclick="toggleSection('sf-content', this)"
-                            class="text-gray-400 hover:text-gray-600 transition-colors">
+                        <button type="button" class="text-gray-400 hover:text-gray-600 transition-colors" aria-label="Toggle section">
                             <span class="toggle-icon transform">▼</span>
                         </button>
                     </div>
