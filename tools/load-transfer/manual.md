@@ -3,7 +3,7 @@
 **Tool:** Fastened Joint Analysis (`load-transfer`)  
 **Format:** Browser-based finite element solver  
 **Units:** US Customary (lbf, inches, psi)  
-**Revision:** October 2026 (beam mode: bearing springs and head/collar end fixity; severity factors added)
+**Revision:** November 2026 (fastener thickness cutoff; October 2026: beam mode bearing springs and head/collar end fixity, severity factors)
 
 ---
 
@@ -16,6 +16,7 @@
    - 2.3 [Fastener Stiffness — Tate & Rosenfeld](#23-fastener-stiffness--tate--rosenfeld)
    - 2.4 [Fastener Modelling — Beam Element Method](#24-fastener-modelling--beam-element-method)
    - 2.5 [Bearing Springs and End Fixity](#25-bearing-springs-and-end-fixity)
+   - 2.6 [Fastener Thickness Cutoff](#26-fastener-thickness-cutoff)
 3. [Finite Element Formulation](#3-finite-element-formulation)
    - 3.1 [Degrees of Freedom](#31-degrees-of-freedom)
    - 3.2 [Global Stiffness Assembly](#32-global-stiffness-assembly)
@@ -194,6 +195,25 @@ applied at the head and at the tail of every fastener column. The head and tail 
 
 For a two-layer joint this gives very nearly the T&R flexibility (e.g. 0.063 in sheets, 0.19 in Ti fasteners: beam mode 36.32 lbf vs spring mode 36.40 lbf at the end fasteners).
 
+### 2.6 Fastener Thickness Cutoff
+
+Holding the ratio $a = t_2/t_1$ fixed, the T&R flexibility of §2.3 has the form
+
+$$C(t_1) = A\,t_1^3 + B\,t_1 + \frac{C}{t_1}, \qquad A = \frac{3(1+5a+5a^2+a^3)}{40\,E_f I},\quad B = \frac{4(1+a)}{9\,A_f G_f},\quad C = \frac{0.375}{E_f}+\frac{0.9}{E_1}+\frac{1}{a}\left(\frac{0.375}{E_f}+\frac{0.9}{E_2}\right)$$
+
+Bending grows as $t^3$ while bearing falls as $1/t$, so $C$ has a minimum at
+
+$$t_{1,\min}^2 = \tfrac{1}{2}\left(-\tfrac{B}{A} + \sqrt{\left(\tfrac{B}{A}\right)^2 + \tfrac{4C}{A}}\right), \qquad t_{2,\min} = a\,t_{1,\min}$$
+
+Beyond that thickness the formula would make a thicker plate *more* flexible, which is not physical. Following Boeing D6-29942, plates thicker than the minimum are held at it, so the fastener stiffness never falls below its maximum value $1/C_{\min}$. The cutoff engages for slender fasteners in thick plates (roughly $t/d$ above 0.6–0.7 in aluminium, sooner with steel plates); stocky fasteners are unaffected.
+
+- **Spring mode:** each interface spring uses $t_1 s$ and $t_2 s$ with $s = \min(1,\ t_{1,\min}/t_1)$.
+- **Beam mode:** $s$ is evaluated for each pair of adjacent layers in the fastener column, and the column uses the average of those (each capped at 1). Every thickness the column sees (bearing springs, beam segment lengths and the head/collar stubs) is multiplied by it. The scale is listed per fastener in the Model Summary (*t cutoff scale*), and the *t used* columns show the reduced values.
+
+The plate thicknesses used for stresses and severity factors are not affected.
+
+Checked in November 2026 against independent reference analyses: two-layer aluminium joints with 0.19 and 0.281 Ti fasteners (end-fastener loads 19.266 / 21.977 lbf against 19.27 / 21.98), and a steel doubler on an aluminium skin with and without a steel tripler, and with all plates aluminium (0.007–0.023 lbf rms over all elements with the reference's steel modulus of 29.6e6; without the cutoff these were 0.5–1.6 lbf). The S1 splice of §2.4 is unaffected, as no column reaches its cutoff.
+
 ---
 
 ## 3. Finite Element Formulation
@@ -292,7 +312,7 @@ where $u_{L1}$ and $u_{L2}$ are the translations of adjacent layer nodes at the 
 
 ### 4.1 Spring Mode (Tate & Rosenfeld)
 
-In **Spring Mode**, each fastener interface (pair of adjacent layers at a fastener column) is replaced by a single shear spring with stiffness $k_{TR} = 1/C_{TR}$ per the Tate & Rosenfeld formula.
+In **Spring Mode**, each fastener interface (pair of adjacent layers at a fastener column) is replaced by a single shear spring with stiffness $k_{TR} = 1/C_{TR}$ per the Tate & Rosenfeld formula, with the thickness cutoff of §2.6.
 
 **Topology:**
 - No fastener nodes are created; the spring connects directly between two layer nodes.
@@ -317,6 +337,7 @@ In **Beam Mode**, each fastener is modelled as a continuous Timoshenko beam colu
 - Beam elements connect adjacent fastener nodes within the same fastener column.
 - A bearing spring connects each fastener node to its co-located layer node.
 - Rotational springs $E_f I/(t/2)$ at the head and tail fastener nodes represent the shank stub to the clamped head/collar face.
+- Layer thicknesses past the column's thickness cutoff are reduced (§2.6).
 
 **Advantages:**
 - Captures inter-layer coupling through shank bending and shear.

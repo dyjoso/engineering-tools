@@ -478,8 +478,9 @@ function calculateFastenerElementStiffness(fastenerElement) {
         return 0;
     }
 
-    // Tate & Rosenfeld Flexibility Calculation
-    const flexibility = calculateTateRosenfeldFlexibility(t1, t2, E1, E2, d, Ef, nu_f);
+    // Tate & Rosenfeld flexibility, with thicknesses held at the D6-29942 minimum-flexibility cutoff
+    const tScale = fastenerThicknessCutoff(t1, t2, E1, E2, d, Ef, nu_f);
+    const flexibility = calculateTateRosenfeldFlexibility(t1 * tScale, t2 * tScale, E1, E2, d, Ef, nu_f);
 
     if (flexibility <= 1e-12 || !isFinite(flexibility)) {
         console.warn(`Invalid or near-zero flexibility calculated (${flexibility}) for Fastener Element ${fastenerElement.id}. Stiffness set to very large.`);
@@ -551,6 +552,45 @@ function layerPropsAtNode(layerNodeId) {
 }
 
 /**
+ * Thickness cutoff of a fastener joining two layers (Boeing D6-29942 method).
+ * The Tate & Rosenfeld flexibility C(t) = A t^3 + B t + C/t (layer thicknesses held at their ratio) has a minimum:
+ * bending grows with t^3 while bearing falls as 1/t. Plates thicker than that minimum are not allowed to make
+ * the fastener more flexible, so their thicknesses are held at the minimum-flexibility values.
+ * @returns {number} scale (<= 1) to apply to t1 and t2
+ */
+function fastenerThicknessCutoff(t1, t2, E1, E2, d, Ef, nu_f) {
+    if (!(t1 > 0 && t2 > 0 && E1 > 0 && E2 > 0 && d > 0 && Ef > 0)) return 1;
+    const a = t2 / t1;
+    const Gf = Ef / (2 * (1 + nu_f));
+    const A = 3 * (1 + 5 * a + 5 * a * a + a ** 3) / (40 * Ef * Math.PI * d ** 4 / 64);
+    const B = 4 * (1 + a) / (9 * (Math.PI * d * d / 4) * Gf);
+    const C = FASTENER_COMPLIANCE_FACTOR / Ef + PLATE_COMPLIANCE_FACTOR / E1
+        + (FASTENER_COMPLIANCE_FACTOR / Ef + PLATE_COMPLIANCE_FACTOR / E2) / a;
+    const b = B / A, g = C / A;
+    const tMin = Math.sqrt(0.5 * (-b + Math.sqrt(b * b + 4 * g)));
+    return Math.min(1, tMin / t1);
+}
+
+/**
+ * Thickness scale for a beam-mode fastener column: the average of the cutoff scales of each pair of
+ * adjacent layers in the column (1 when no pair is past its cutoff). Every layer thickness the column
+ * sees (bearing springs, beam lengths, head/collar stubs) is multiplied by it.
+ */
+function fastenerColumnThicknessScale(fastenerId) {
+    const fastener = getFastener(fastenerId);
+    const mat = fastener && MATERIALS[fastener.materialName];
+    if (!mat || !(fastener.diameter > 0)) return 1;
+    const scales = [];
+    model.beamElements.filter(el => el.fastenerId === fastenerId).forEach(el => {
+        const n1 = getFastenerNode(el.node1Id), n2 = getFastenerNode(el.node2Id);
+        const p1 = n1 && layerPropsAtNode(n1.correspondingLayerNodeId);
+        const p2 = n2 && layerPropsAtNode(n2.correspondingLayerNodeId);
+        if (p1 && p2) scales.push(fastenerThicknessCutoff(p1.t, p2.t, p1.E, p2.E, fastener.diameter, mat.E, mat.nu));
+    });
+    return scales.length ? scales.reduce((s, x) => s + x, 0) / scales.length : 1;
+}
+
+/**
  * Bearing (contact) spring between a layer node and its fastener node.
  * Flexibility = Cf/(Ef t) + Cp/(E t), i.e. the fastener and plate bearing terms of Tate & Rosenfeld
  * for this layer alone; shank shear and bending come from the beam elements.
@@ -562,8 +602,9 @@ function calculateBearingStiffness(contactSpring) {
     const props = layerPropsAtNode(contactSpring.layerNodeId);
     if (!fastener || !props || props.t <= 0 || props.E <= 0) return 0;
     const Ef = MATERIALS[fastener.materialName].E;
-    const C = FASTENER_COMPLIANCE_FACTOR / (Ef * props.t) + PLATE_COMPLIANCE_FACTOR / (props.E * props.t);
-    contactSpring.t = props.t;
+    const t = props.t * fastenerColumnThicknessScale(fastener.id);
+    const C = FASTENER_COMPLIANCE_FACTOR / (Ef * t) + PLATE_COMPLIANCE_FACTOR / (props.E * t);
+    contactSpring.t = t;
     return fastenerKMult(fastener) / C;
 }
 
@@ -580,7 +621,8 @@ function calculateEndRotationalStiffness(fastenerNode) {
     if (!fastener || !props || props.t <= 0) return 0;
     const Ef = MATERIALS[fastener.materialName].E;
     const I = Math.PI * Math.pow(fastener.diameter, 4) / 64;
-    return fastenerKMult(fastener) * Ef * I / (props.t / 2);
+    const t = props.t * fastenerColumnThicknessScale(fastener.id);
+    return fastenerKMult(fastener) * Ef * I / (t / 2);
 }
 
 /**
@@ -618,8 +660,10 @@ function calculateBeamElementStiffnessMatrix(beamElement) {
         return null;
     }
 
-    const t1 = props1.t;
-    const t2 = props2.t;
+    // Layer thicknesses past the column's D6-29942 cutoff are held there
+    const tScale = fastenerColumnThicknessScale(fastener.id);
+    const t1 = props1.t * tScale;
+    const t2 = props2.t * tScale;
     const d = fastener.diameter;
 
     const fastenerMaterialProps = MATERIALS[fastener.materialName];
@@ -2935,7 +2979,7 @@ function buildModelSummary() {
 
     sections.push({
         title: 'Fasteners',
-        headers: ['Fastener', 'Diameter (in)', 'Material', 'Ef (psi)', 'nu', 'K-mult', 'Head layer', 'Tail layer'],
+        headers: ['Fastener', 'Diameter (in)', 'Material', 'Ef (psi)', 'nu', 'K-mult', 't cutoff scale', 'Head layer', 'Tail layer'],
         rows: model.fasteners.map(f => {
             const m = MATERIALS[f.materialName] || {};
             const ends = isBeam ? getFastenerColumnEnds(f.id) : null;
@@ -2944,6 +2988,7 @@ function buildModelSummary() {
             const head = ends ? ends.head.layerId : (layersOf.length ? Math.min(...layersOf) : null);
             const tail = ends ? ends.tail.layerId : (layersOf.length ? Math.max(...layersOf) : null);
             return [f.id, num(f.diameter, 4), f.materialName, num(m.E, 0), num(m.nu, 3), num(fastenerKMult(f), 3),
+                isBeam ? num(fastenerColumnThicknessScale(f.id), 4) : '-',
                 head === null ? '-' : layerName(head), tail === null ? '-' : layerName(tail)];
         })
     });
@@ -2960,7 +3005,7 @@ function buildModelSummary() {
                 const props = layerPropsAtNode(cs.layerNodeId);
                 const k = active ? calculateBearingStiffness(cs) : 0;
                 return [cs.id, cs.fastenerId, layerName(cs.layerId), cs.layerNodeId, cs.fastenerNodeId,
-                    props ? num(props.t, 4) : '-', props ? num(props.E, 0) : '-',
+                    props ? num(props.t * fastenerColumnThicknessScale(cs.fastenerId), 4) : '-', props ? num(props.E, 0) : '-',
                     active ? sci(k) : 'inactive', solved && active ? num(cs.force, 3) : '-'];
             })
         });
@@ -2986,7 +3031,7 @@ function buildModelSummary() {
                 if (!ends) return [];
                 return [['head', ends.head], ['tail', ends.tail]].map(([end, fn]) => {
                     const props = layerPropsAtNode(fn.correspondingLayerNodeId);
-                    return [f.id, end, layerName(fn.layerId), fn.id, props ? num(props.t, 4) : '-',
+                    return [f.id, end, layerName(fn.layerId), fn.id, props ? num(props.t * fastenerColumnThicknessScale(f.id), 4) : '-',
                         sci(calculateEndRotationalStiffness(fn)), solved ? sci(fn.theta) : '-'];
                 });
             })
