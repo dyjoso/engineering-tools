@@ -10,7 +10,7 @@ const html = readFileSync(join(here, '..', 'index.html'), 'utf8');
 const src = html.split('// ENGINE-BEGIN')[1].split('// ENGINE-END')[0];
 const ctx = {};
 vm.createContext(ctx);
-vm.runInContext(src + '\nthis.computeInclusion = computeInclusion; this.A3 = APPENDIX_A3; this.A4 = APPENDIX_A4; this.ext = exteriorStress; this.at = stressAt; this.profile = stressProfile; this.decay = decayDistance;', ctx);
+vm.runInContext(src + '\nthis.computeInclusion = computeInclusion; this.A3 = APPENDIX_A3; this.A4 = APPENDIX_A4; this.ext = exteriorStress; this.at = stressAt; this.profile = stressProfile; this.decay = decayDistance; this.edge = edgeStress; this.edgePeak = edgePeak;', ctx);
 const C = ctx.computeInclusion;
 
 let failed = 0, passed = 0;
@@ -150,6 +150,36 @@ ok(C({ ...base, sx0: NaN }).errors.some(e => e.field === 'sx0'), 'blank stress r
     near(rho50.sx - 15, 0.5 * (t.ends.sx - 15), 1e-6, 'decay distance hits 50%');
     ok(d50 > 2 && d50 < 3.5, `50% excess between 2 and 3.5 in (got ${d50.toFixed(3)})`);
     ok(ctx.decay({ ...base, tr: 0.04 }, C({ ...base, tr: 0.04 }), 0.5) === 0, 'no region: no decay distance');
+}
+
+// N. Highest round the edge (closed form at any edge point)
+{
+    const s1 = (q) => (q.sx + q.sy) / 2 + Math.hypot((q.sx - q.sy) / 2, q.txy);
+    let seed = 7;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    for (let i = 0; i < 40; i++) {
+        const p = { sx0: 30 * rnd() - 10, sy0: 30 * rnd() - 15, ts: 0.04, tr: [0, 0.02, 0.03, 0.06, 0.09, 0.16][i % 6],
+                    L: 1 + 5 * rnd(), W: 1 + 5 * rnd(), Es: 10.5, Ed: [10.5, 16][i % 2], nu: 0.33 };
+        const r = C(p), tag = `random ${i}`;
+        const e0 = ctx.edge(p, r, 0), e9 = ctx.edge(p, r, Math.PI / 2);
+        near(e0.sx, r.ends.sx, 1e-9, 'edge t=0 is the end σx ' + tag); near(e0.sy, r.ends.sy, 1e-9, 'edge t=0 is the end σy ' + tag);
+        near(e9.sx, r.sides.sx, 1e-9, 'edge t=90 is the side σx ' + tag); near(e9.sy, r.sides.sy, 1e-9, 'edge t=90 is the side σy ' + tag);
+        // agrees with the exterior field just outside the edge at an arbitrary point
+        const t = 0.1 + 1.3 * rnd(), e = ctx.edge(p, r, t), x = ctx.ext(p, r, e.x * (1 + 1e-7), e.y * (1 + 1e-7));
+        const tol = 2e-4 * Math.max(1, Math.abs(p.sx0), Math.abs(p.sy0));
+        near(x.sx, e.sx, tol, 'edge σx = exterior field ' + tag); near(x.sy, e.sy, tol, 'edge σy = exterior field ' + tag);
+        near(x.txy, e.txy, tol, 'edge τxy = exterior field ' + tag);
+        const pk = ctx.edgePeak(p, r);
+        ok(pk.s1 >= Math.max(r.ends.sx, r.ends.sy, r.sides.sx, r.sides.sy) - 1e-9, 'edge peak not below the ends and sides ' + tag);
+        let scan = -1e9;
+        for (let k = 0; k <= 2000; k++) scan = Math.max(scan, ctx.edge(p, r, k / 2000 * Math.PI / 2).s1);
+        near(pk.s1, scan, 1e-6 * Math.max(1, scan), 'edge peak is the maximum ' + tag);
+    }
+    // BRANE FE validation (SCT-030 Validation, cases 1-4): FE highest skin principal round the edge
+    for (const [tr, L, W, fe] of [[0.09, 5, 5, 18.64], [0.08, 5, 2.5, 20.43], [0.12, 2.5, 5, 17.44], [0.16, 5, 1.25, 31.44]]) {
+        const p = { sx0: 15, sy0: 0, ts: 0.04, tr, L, W, Es: 10.5, Ed: 10.5, nu: 0.33 };
+        near(ctx.edgePeak(p, C(p)).s1, fe, 0.003 * fe, `edge peak vs FE, tr ${tr} ${L}x${W}`);
+    }
 }
 
 console.log(`${passed} passed, ${failed} failed`);

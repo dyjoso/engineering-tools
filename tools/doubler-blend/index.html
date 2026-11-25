@@ -430,7 +430,11 @@
                                 region <em>ends</em> (on the &sigma;<sub>x0</sub> axis), <em>sides</em> (on the
                                 &sigma;<sub>y0</sub> axis) and <em>within</em> the region. At these points
                                 &sigma;<sub>x</sub> and &sigma;<sub>y</sub> are principal stresses by symmetry. The
-                                peak is the largest of them. Section 5 gives the skin stress at any distance from the
+                                peak is the largest of them. <em>Highest round the edge</em> is the largest principal
+                                anywhere on the edge (exact for the ellipse): for a doubler under mainly one-way load
+                                it lies between the end and the side, a few % above the end value. It is shown for
+                                information &mdash; the ellipse already over-predicts a rectangular doubler &mdash;
+                                and is marked &#9650; on the plan. Section 5 gives the skin stress at any distance from the
                                 edge &mdash; for a crack growing away from the doubler end, for example. Save / Open
                                 keep the inputs as a .json file.</p>
                         </div>
@@ -461,6 +465,9 @@
                         <span>Peak located at</span><span id="r-peak-loc" style="text-align:right"></span>
                         <span id="r-off-label" style="display:none">Highest in the skin just off the edge (Section 5)</span>
                         <span id="r-off" class="result-value" style="display:none"></span>
+                        <span>Highest round the edge, max principal</span>
+                        <span id="r-edge" class="result-value" style="color:#6a1b9a"></span>
+                        <span id="r-edge-at" class="hint" style="grid-column:1 / -1;text-align:right;margin-top:-4px"></span>
                     </div>
                 </div>
 
@@ -563,7 +570,13 @@
                     <table class="res" id="verif-a3"></table>
                     <p></p>
                     <table class="res" id="verif-a4"></table>
-                    <p class="hint" id="verif-summary" style="margin-bottom:0"></p>
+                    <p class="hint" id="verif-summary"></p>
+                    <p style="margin-bottom:0"><strong>Independent FE validation.</strong> Ten finite-element models
+                        (Quad8, quarter models, mesh- and domain-converged) covering doublers (Γ = 2&ndash;4), blends
+                        (Γ = 0.5&ndash;0.75) and holes, W/L = 0.25&ndash;2 and biaxial ratios &minus;0.5 to 0.5. They
+                        agree with this tool to within 0.3% at the ends, sides and region, along both stress-vs-distance
+                        lines, at the off-edge peak and at the highest point round the edge. Models and summary sheet:
+                        SCT-030 Validation.</p>
                 </div>
             </details>
         </div>
@@ -778,6 +791,48 @@
         ['Blend t_r = 0.020, 5.0 × 5.0, σy0 = 0', 0.020, 5, 5, 0, 'sides', 22.50, 21.74, -0.01, 0.28],
         ['', 0.020, 5, 5, 0, 'region', 22.49, 22.57, -0.02, -0.03],
     ];
+
+    // ── Skin stress round the edge ─────────────────────────────────────────────
+    // At any edge point the skin stress follows from the uniform region state, exactly as at the
+    // ends and sides: the running load across the edge is continuous (σnn and σns in the skin =
+    // Γ × the region stress) and the strain along the edge is continuous
+    // (σss = E·ε_ss,in + ν·σnn). t is the ellipse parameter: x = (L/2) cos t, y = (W/2) sin t.
+    /** Skin stress {sx, sy, txy, s1, x, y, ang} (ksi, in, deg) on the region edge at parameter t. */
+    function edgeStress(p, res, t) {
+        const a = p.L / 2, b = p.W / 2, x = a * Math.cos(t), y = b * Math.sin(t);
+        const nn = Math.hypot(b * Math.cos(t), a * Math.sin(t));
+        const nx = b * Math.cos(t) / nn, ny = a * Math.sin(t) / nn;     // outward normal
+        const tx = -ny, ty = nx;                                         // tangent
+        const G = res.Gamma;
+        const snn = G * (nx * nx * res.sinx + ny * ny * res.siny);
+        const sns = G * (nx * tx * res.sinx + ny * ty * res.siny);
+        const sss = tx * tx * res.Eeinx + ty * ty * res.Eeiny + p.nu * snn;
+        const sx = snn * nx * nx + sss * tx * tx + 2 * sns * nx * tx;
+        const sy = snn * ny * ny + sss * ty * ty + 2 * sns * ny * ty;
+        const txy = snn * nx * ny + sss * tx * ty + sns * (nx * ty + ny * tx);
+        const s1 = (sx + sy) / 2 + Math.hypot((sx - sy) / 2, txy);
+        return { sx, sy, txy, s1, x, y, t, ang: Math.atan2(y, x) * 180 / Math.PI };
+    }
+
+    /** Highest skin max principal anywhere round the edge (one quadrant; symmetric). The ends
+     *  and sides are the t = 0 and 90° points, so this is never below them. */
+    function edgePeak(p, res) {
+        const n = 360;
+        let k = 0, best = edgeStress(p, res, 0);
+        for (let i = 1; i <= n; i++) {
+            const e = edgeStress(p, res, i / n * Math.PI / 2);
+            if (e.s1 > best.s1) { best = e; k = i; }
+        }
+        if (k > 0 && k < n) {                                // refine (golden section)
+            let lo = (k - 1) / n * Math.PI / 2, hi = (k + 1) / n * Math.PI / 2;
+            for (let it = 0; it < 60; it++) {
+                const m1 = hi - (hi - lo) * 0.618, m2 = lo + (hi - lo) * 0.618;
+                if (edgeStress(p, res, m1).s1 < edgeStress(p, res, m2).s1) lo = m1; else hi = m2;
+            }
+            best = edgeStress(p, res, (lo + hi) / 2);
+        }
+        return best;
+    }
     // ENGINE-END
     </script>
 
@@ -865,6 +920,16 @@
         document.getElementById('r-peak-loc').textContent = res.peakAt === 'region'
             ? (res.type === 'Blend' ? 'Skin in blend region (thinned)' : 'Skin under doubler') : LOC[res.peakAt];
 
+        // highest round the edge: for information (the ellipse already over-predicts a rectangular doubler)
+        const ep = edgePeak(p, res);
+        res.edge = ep;
+        document.getElementById('r-edge').textContent = fmt(ep.s1) + ' ksi';
+        const where = ep.ang < 0.05 ? 'at the ends (same as above)' : ep.ang > 89.95 ? 'at the sides (same as above)'
+            : `${fmt(ep.ang, 1)}° from the L axis, at x = ±${fmt(ep.x, 2)}, y = ±${fmt(ep.y, 2)} in from the centre`;
+        document.getElementById('r-edge-at').innerHTML = `${where} · σ<sub>x</sub> ${fmt(ep.sx)}, σ<sub>y</sub> ${fmt(ep.sy)}, ` +
+            `τ<sub>xy</sub> ${fmt(Math.abs(ep.txy))} ksi` + (ep.s1 > res.peak + 0.005
+            ? ` · ${fmt(100 * (ep.s1 / res.peak - 1), 1)}% above the peak` : '');
+
         // equilibrium
         const eq = res.equilibrium;
         document.getElementById('e-in').textContent = fmt(eq.inRegion, 1);
@@ -932,6 +997,21 @@
         s += label(cx + a + 10, cy + 22, 'start', 'End', res.ends, res.peakAt === 'ends');
         s += label(cx + 12, cy - b - 24, 'start', 'Side', res.sides, res.peakAt === 'sides');
         if (res.region) s += label(cx, cy + 32, 'middle', 'In region (skin)', res.region, res.peakAt === 'region');
+        // highest round the edge, when it lies between the end and the side (all four symmetric points)
+        const ep = res.edge;
+        if (ep && ep.ang > 0.05 && ep.ang < 89.95) {
+            const sc = u / half, purple = '#6a1b9a';
+            for (const [sx_, sy_] of [[1, 1], [-1, 1], [1, -1], [-1, -1]]) {
+                const X = cx + sx_ * ep.x * sc, Y = cy - sy_ * ep.y * sc;
+                s += `<path d="M${X},${Y - 7} L${X + 6.5},${Y + 4.5} L${X - 6.5},${Y + 4.5} z" fill="${sx_ > 0 && sy_ > 0 ? purple : '#fff'}" stroke="${purple}" stroke-width="1.5"/>`;
+            }
+            // label in the free top-right corner of the skin, with a leader to the marker
+            const X = cx + ep.x * sc, Y = cy - ep.y * sc, lx = cx + pw - 8, ly = cy - ph + 20;
+            s += `<line x1="${X + 4}" y1="${Y - 5}" x2="${lx - 40}" y2="${ly + 19}" stroke="${purple}" stroke-width="1" stroke-dasharray="3 2"/>
+              <g font-size="11.5" fill="${purple}" font-weight="700" text-anchor="end">
+               <text x="${lx}" y="${ly}">Edge max ${fmt(ep.s1, 1)} ksi</text>
+               <text x="${lx}" y="${ly + 14}" font-weight="400">${fmt(ep.ang, 1)}° from the L axis</text></g>`;
+        }
         // axes
         s += `<g stroke="#888" stroke-width="1.2"><line x1="${Wd - 70}" y1="${Ht - 22}" x2="${Wd - 30}" y2="${Ht - 22}" marker-end="url(#ah)"/>
                <line x1="${Wd - 70}" y1="${Ht - 22}" x2="${Wd - 70}" y2="${Ht - 62}" marker-end="url(#ah)"/></g>
