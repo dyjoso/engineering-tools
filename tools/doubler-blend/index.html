@@ -421,7 +421,6 @@
                         <span><strong>Peak skin stress, max principal</strong></span>
                         <span id="r-peak" class="result-value big"></span>
                         <span>Peak located at</span><span id="r-peak-loc" style="text-align:right"></span>
-                        <span>Peak skin stress, von Mises</span><span id="r-peak-vm" class="result-value"></span>
                     </div>
                 </div>
 
@@ -678,7 +677,6 @@
         document.getElementById('r-peak').textContent = fmt(res.peak) + ' ksi';
         document.getElementById('r-peak-loc').textContent = res.peakAt === 'region'
             ? (res.type === 'Blend' ? 'Skin in blend region (thinned)' : 'Skin under doubler') : LOC[res.peakAt];
-        document.getElementById('r-peak-vm').textContent = fmt(res.peakVM) + ' ksi';
 
         // equilibrium
         const eq = res.equilibrium;
