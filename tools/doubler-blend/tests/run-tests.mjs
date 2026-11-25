@@ -10,7 +10,7 @@ const html = readFileSync(join(here, '..', 'index.html'), 'utf8');
 const src = html.split('// ENGINE-BEGIN')[1].split('// ENGINE-END')[0];
 const ctx = {};
 vm.createContext(ctx);
-vm.runInContext(src + '\nthis.computeInclusion = computeInclusion; this.A3 = APPENDIX_A3; this.A4 = APPENDIX_A4;', ctx);
+vm.runInContext(src + '\nthis.computeInclusion = computeInclusion; this.A3 = APPENDIX_A3; this.A4 = APPENDIX_A4; this.ext = exteriorStress; this.at = stressAt; this.profile = stressProfile; this.decay = decayDistance;', ctx);
 const C = ctx.computeInclusion;
 
 let failed = 0, passed = 0;
@@ -105,6 +105,52 @@ ok(C({ ...base, ts: 0 }).errors.some(e => e.field === 'ts'), 'ts = 0 rejected');
 ok(C({ ...base, W: -1 }).errors.some(e => e.field === 'W'), 'negative W rejected');
 ok(C({ ...base, nu: 0.5 }).errors.some(e => e.field === 'nu'), 'ν = 0.5 rejected');
 ok(C({ ...base, sx0: NaN }).errors.some(e => e.field === 'sx0'), 'blank stress rejected');
+
+
+// 7. Stress away from the edge (exterior field)
+{
+    const X = ctx.ext, AT = ctx.at;
+    // circle, doubler: closed form σx = σ0 + [½(ΓS−σ0) + 2(ΓD−σ0)]ρ² − 1.5(ΓD−σ0)ρ⁴ (stress-function solution)
+    const t = C(base), a = 2.5, G = t.Gamma, S = t.sinx + t.siny, D = t.sinx - t.siny;
+    for (const d of [0.001, 0.1, 0.25, 0.6, 1.25, 2.5, 5, 10]) {
+        const rho = a / (a + d);
+        near(AT(base, t, 'ahead', d).sx, 15 + (0.5 * (G * S - 15) + 2 * (G * D - 15)) * rho ** 2 - 1.5 * (G * D - 15) * rho ** 4,
+             1e-6, `circle closed form, ahead d=${d}`);
+    }
+    // the maximum ahead is just off the edge: ρ² = (½(ΓS−σ0)+2(ΓD−σ0)) / (3(ΓD−σ0))
+    const c2 = 0.5 * (G * S - 15) + 2 * (G * D - 15), c4 = 1.5 * (G * D - 15);
+    const pr = ctx.profile(base, t, 'ahead', 5);
+    near(pr.peak.sx, 15 + c2 * c2 / (4 * c4), 1e-6, 'off-edge peak value');
+    near(pr.peak.d, a / Math.sqrt(c2 / (2 * c4)) - a, 1e-4, 'off-edge peak distance');
+    ok(pr.peak.sx > t.ends.sx, 'the peak ahead is above the edge value');
+    // Kirsch (open circular hole): ahead σx = σ0(1 − 2.5ρ² + 1.5ρ⁴), beside σx = σ0(1 + ρ²/2 + 1.5ρ⁴)
+    const hole = { ...base, tr: 0 }, th = C(hole);
+    for (const d of [0.01, 0.3, 1, 2.5, 7]) {
+        const rho = a / (a + d);
+        near(AT(hole, th, 'ahead', d).sx, 15 * (1 - 2.5 * rho ** 2 + 1.5 * rho ** 4), 1e-6, `Kirsch ahead d=${d}`);
+        near(AT(hole, th, 'beside', d).sx, 15 * (1 + rho ** 2 / 2 + 1.5 * rho ** 4), 1e-6, `Kirsch beside d=${d}`);
+    }
+    // ellipses: the outside field tends to the edge values from the interior solution; far field = remote
+    const cases = [{ ...base, sy0: 7.5, W: 2.5 }, { ...base, tr: 0.03, W: 2.5, sy0: 7.5 }, { ...base, tr: 0.02, L: 2, W: 6 },
+                   { ...base, tr: 0, W: 1.5 }, { ...base, L: 8, W: 2, sy0: -6 }, { ...base, tr: 0.2, Ed: 16, L: 1.5, W: 4 }];
+    for (const p of cases) {
+        const r = C(p), tag = `tr=${p.tr} L=${p.L} W=${p.W} σy0=${p.sy0}`;
+        const e = X(p, r, p.L / 2 * (1 + 1e-9), 0), s = X(p, r, 0, p.W / 2 * (1 + 1e-9));
+        for (const c of ['sx', 'sy']) {
+            near(e[c], r.ends[c], 1e-4 * Math.max(1, Math.abs(r.ends[c])), `edge limit ends.${c} ${tag}`);
+            near(s[c], r.sides[c], 1e-4 * Math.max(1, Math.abs(r.sides[c])), `edge limit sides.${c} ${tag}`);
+        }
+        const far = X(p, r, 1e4 * p.L, 0), far2 = X(p, r, 0, 1e4 * p.W);
+        near(far.sx, p.sx0, 1e-5, 'far field σx ' + tag); near(far.sy, p.sy0, 1e-5, 'far field σy ' + tag);
+        near(far2.sx, p.sx0, 1e-5, 'far field (side) σx ' + tag);
+        near(X(p, r, p.L / 2 + 0.3, 0).txy, 0, 1e-8, 'no shear on the axis ' + tag);
+    }
+    // decay distance: circle doubler, half the edge excess left at about one half-length
+    const d50 = ctx.decay(base, t, 0.5), rho50 = (() => { const s2 = AT(base, t, 'ahead', d50); return s2; })();
+    near(rho50.sx - 15, 0.5 * (t.ends.sx - 15), 1e-6, 'decay distance hits 50%');
+    ok(d50 > 2 && d50 < 3.5, `50% excess between 2 and 3.5 in (got ${d50.toFixed(3)})`);
+    ok(ctx.decay({ ...base, tr: 0.04 }, C({ ...base, tr: 0.04 }), 0.5) === 0, 'no region: no decay distance');
+}
 
 console.log(`${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

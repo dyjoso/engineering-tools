@@ -308,6 +308,42 @@
             white-space: nowrap;
         }
 
+        .prof-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px 18px;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .prof-controls label { font-weight: bold; }
+
+        .prof-controls input[type="number"] { width: 80px; }
+
+        .prof-grid {
+            display: grid;
+            grid-template-columns: 1fr 330px;
+            gap: 14px;
+            align-items: start;
+        }
+
+        #profile-chart svg {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        #profile-readout {
+            font-family: monospace;
+            font-size: 0.9em;
+            min-height: 1.3em;
+            color: #333;
+        }
+
+        @media (max-width: 920px) {
+            .prof-grid { grid-template-columns: 1fr; }
+        }
+
         #plan svg {
             width: 100%;
             height: auto;
@@ -394,7 +430,9 @@
                                 region <em>ends</em> (on the &sigma;<sub>x0</sub> axis), <em>sides</em> (on the
                                 &sigma;<sub>y0</sub> axis) and <em>within</em> the region. At these points
                                 &sigma;<sub>x</sub> and &sigma;<sub>y</sub> are principal stresses by symmetry. The
-                                peak is the largest of them. Save / Open keep the inputs as a .json file.</p>
+                                peak is the largest of them. Section 5 gives the skin stress at any distance from the
+                                edge &mdash; for a crack growing away from the doubler end, for example. Save / Open
+                                keep the inputs as a .json file.</p>
                         </div>
                     </details>
                 </div>
@@ -421,6 +459,8 @@
                         <span><strong>Peak skin stress, max principal</strong></span>
                         <span id="r-peak" class="result-value big"></span>
                         <span>Peak located at</span><span id="r-peak-loc" style="text-align:right"></span>
+                        <span id="r-off-label" style="display:none">Highest in the skin just off the edge (Section 5)</span>
+                        <span id="r-off" class="result-value" style="display:none"></span>
                     </div>
                 </div>
 
@@ -434,6 +474,30 @@
                         <span id="e-end" class="result-value"></span>
                         <span>Difference (should be 0)</span><span id="e-diff" class="result-value"></span>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══════════════ stress away from the region ═══════════════ -->
+        <div class="card" id="profile-card">
+            <h2>5. Stress vs distance from the region edge</h2>
+            <div class="prof-controls">
+                <span><label for="in-dmax">Plot to distance</label>
+                    <input type="number" id="in-dmax" step="0.5" min="0" placeholder="auto"> in</span>
+                <span><label for="in-dprobe">Stress at distance d =</label>
+                    <input type="number" id="in-dprobe" value="0.5" step="0.05" min="0"> in</span>
+                <span class="hint">Distance is measured from the region edge: <em>ahead</em> along the
+                    &sigma;<sub>x0</sub> axis (in front of / behind the region), <em>beside</em> along the
+                    &sigma;<sub>y0</sub> axis.</span>
+            </div>
+            <div class="prof-grid">
+                <div>
+                    <div id="profile-chart"></div>
+                    <div id="profile-readout" class="hint">Move the pointer over the plot to read values.</div>
+                </div>
+                <div>
+                    <table class="res" id="probe-table"></table>
+                    <p class="hint" id="decay-text" style="margin:8px 0 0"></p>
                 </div>
             </div>
         </div>
@@ -473,6 +537,19 @@
                         (&sigma;<sub>x,side</sub> = 3&sigma;<sub>x0</sub>, &sigma;<sub>y,end</sub> =
                         &minus;&sigma;<sub>x0</sub>). References: Eshelby, Proc. Roy. Soc. A 241 (1957); Mura,
                         Micromechanics of Defects in Solids (1987); Hardiman, QJMAM 7 (1954).</p>
+                    <p style="margin-bottom:0"><strong>Away from the edge (Section 5).</strong> The eigenstrain
+                        &epsilon;* = S<sup>&minus;1</sup>(&epsilon;<sup>in</sup> &minus; &epsilon;<sup>0</sup>) is
+                        equivalent to a line load &sigma;*&middot;n round the ellipse (&sigma;* =
+                        C&epsilon;*), so the skin stress outside is the remote stress plus a boundary integral of
+                        the 2D Kelvin solution (plane strain with &nu;&prime; = &nu;/(1+&nu;), i.e. plane stress with
+                        &nu;), evaluated numerically with Gauss panels graded towards the edge. It is exact for the
+                        same idealisation: it tends to the edge values above, to the remote stress far away, and
+                        for a circle reproduces the closed form &sigma;<sub>x</sub> = &sigma;<sub>x0</sub> +
+                        [&frac12;(&Gamma;S &minus; &sigma;<sub>x0</sub>) + 2(&Gamma;D &minus;
+                        &sigma;<sub>x0</sub>)]&rho;&sup2; &minus; 1.5(&Gamma;D &minus; &sigma;<sub>x0</sub>)&rho;&#8308;
+                        (&rho; = a/r, S and D the sum and difference of &sigma;<sup>in</sup><sub>xx</sub>,
+                        &sigma;<sup>in</sup><sub>yy</sub>) and Kirsch for a hole. Far away the disturbance decays as
+                        (a/r)&sup2;.</p>
                 </div>
             </details>
         </div>
@@ -492,7 +569,7 @@
         </div>
 
         <div class="card">
-            <h2>5. Notes and limitations</h2>
+            <h2>6. Notes and limitations</h2>
             <ol class="doc" style="margin:0;padding-left:28px">
                 <li>Exact for an elliptical region with semi-axes L/2 and W/2 in an infinite, uniformly loaded skin
                     (Eshelby 1957; identical to Baker/Rose Eqs. 8.1a&ndash;8.3). A far-field membrane solution: treat
@@ -573,6 +650,116 @@
             K: sx0 !== 0 ? { front: ends.sx / sx0, side: sides.sx / sx0, under: sinx / sx0 } : null,
             equilibrium: { inRegion: Gamma * ts * sinx * 1000, ends: ts * ends.sx * 1000 },
         };
+    }
+
+    // ── Skin stress OUTSIDE the region (away from the edge) ─────────────────────
+    // The equivalent inclusion's eigenstrain ε* (S ε* = ε_in − ε0) is the same as a
+    // line load σ*·n round the ellipse (σ* = C ε*), so the disturbance outside is a
+    // boundary integral of the Kelvin solution — 2D, plane strain with ν' = ν/(1+ν),
+    // which is plane stress with ν. Exact for the idealisation: it reproduces the
+    // circular closed form, Kirsch, the edge values above and the remote stress.
+    const GX = [], GW = [];                        // 20-point Gauss-Legendre on [−1, 1]
+    (function () {
+        const n = 20;
+        for (let i = 1; i <= n; i++) {
+            let z = Math.cos(Math.PI * (i - 0.25) / (n + 0.5)), pp = 1;
+            for (let it = 0; it < 100; it++) {
+                let p1 = 1, p2 = 0;
+                for (let j = 1; j <= n; j++) { const p3 = p2; p2 = p1; p1 = ((2 * j - 1) * z * p2 - (j - 1) * p3) / j; }
+                pp = n * (z * p1 - p2) / (z * z - 1);
+                const z1 = z; z = z1 - p1 / pp;
+                if (Math.abs(z - z1) < 1e-15) break;
+            }
+            GX.push(z); GW.push(2 / ((1 - z * z) * pp * pp));
+        }
+    })();
+
+    /** Skin stress {sx, sy, txy} (ksi) at a point (x, y) outside the region (in, region centre at 0). */
+    function exteriorStress(p, res, x, y) {
+        const nu = p.nu, E = p.Es * 1000, mu = E / (2 * (1 + nu)), nup = nu / (1 + nu);
+        const a = p.L / 2, b = p.W / 2;
+        const { S1111, S1122, S2211, S2222 } = res.S;
+        const dx = res.Eeinx - res.Ee0x, dy = res.Eeiny - res.Ee0y;          // E·(ε_in − ε0)
+        const det = S1111 * S2222 - S1122 * S2211;
+        const esx = (S2222 * dx - S1122 * dy) / det, esy = (-S2211 * dx + S1111 * dy) / det;   // E·ε*
+        const ssx = (esx + nu * esy) / (1 - nu * nu), ssy = (esy + nu * esx) / (1 - nu * nu);  // σ*
+        const k = 1 / (8 * Math.PI * mu * (1 - nup)), c1 = 3 - 4 * nup;
+        // nearest boundary point t0: Gauss panels graded geometrically towards it resolve the
+        // near-singular kernel right down to the edge
+        let t0 = Math.atan2(y * a, x * b);
+        for (let it = 0; it < 40; it++) {
+            const c = Math.cos(t0), s = Math.sin(t0), fx = x - a * c, fy = y - b * s;
+            const g1 = fx * a * s - fy * b * c, g2 = (a * s) ** 2 + (b * c) ** 2 + fx * a * c + fy * b * s;
+            if (Math.abs(g2) < 1e-30) break;
+            const step = g1 / g2;
+            t0 -= step;
+            if (Math.abs(step) < 1e-14) break;
+        }
+        const dist = Math.max(Math.hypot(x - a * Math.cos(t0), y - b * Math.sin(t0)), 1e-12);
+        const speed = Math.hypot(a * Math.sin(t0), b * Math.cos(t0));
+        const edges = [0];
+        for (let w = Math.min(Math.PI, dist / speed); w < Math.PI; w *= 2) edges.push(w);
+        edges.push(Math.PI);
+        let u11 = 0, u12 = 0, u21 = 0, u22 = 0;
+        for (const sgn of [1, -1]) for (let e = 0; e < edges.length - 1; e++) {
+            const mid = (edges[e] + edges[e + 1]) / 2, half = (edges[e + 1] - edges[e]) / 2;
+            for (let q = 0; q < GX.length; q++) {
+                const t = t0 + sgn * (mid + half * GX[q]), w = half * GW[q];
+                const ct = Math.cos(t), st = Math.sin(t);
+                const r1 = x - a * ct, r2 = y - b * st, r2s = r1 * r1 + r2 * r2, r4 = r2s * r2s;
+                const f1 = ssx * b * ct * w, f2 = ssy * a * st * w;          // σ*·n ds
+                // u_i,k = Σ_j G_ij,k f_j  (G: 2D Kelvin solution, expanded)
+                const A = -c1 / r2s, B = 2 / r4;
+                u11 += k * ((A * r1 + 2 * r1 / r2s - B * r1 * r1 * r1) * f1 + (r2 / r2s - B * r1 * r2 * r1) * f2);
+                u12 += k * ((A * r2 - B * r1 * r1 * r2) * f1 + (r1 / r2s - B * r1 * r2 * r2) * f2);
+                u21 += k * ((r2 / r2s - B * r2 * r1 * r1) * f1 + (A * r1 - B * r2 * r2 * r1) * f2);
+                u22 += k * ((r1 / r2s - B * r2 * r1 * r2) * f1 + (A * r2 + 2 * r2 / r2s - B * r2 * r2 * r2) * f2);
+            }
+        }
+        const exx = u11, eyy = u22, gxy = u12 + u21;
+        return { sx: p.sx0 + E / (1 - nu * nu) * (exx + nu * eyy),
+                 sy: p.sy0 + E / (1 - nu * nu) * (eyy + nu * exx), txy: mu * gxy };
+    }
+
+    /** Skin stress along a line from the region edge: 'ahead' (on the σx0 axis, in front of /
+     *  behind the region) or 'beside' (on the σy0 axis). d: distance from the edge (in). */
+    function stressAt(p, res, line, d) {
+        if (d <= 0) return { sx: (line === 'ahead' ? res.ends : res.sides).sx,
+                             sy: (line === 'ahead' ? res.ends : res.sides).sy, d: 0 };   // exact edge value
+        const s = line === 'ahead' ? exteriorStress(p, res, p.L / 2 + d, 0) : exteriorStress(p, res, 0, p.W / 2 + d);
+        return { sx: s.sx, sy: s.sy, d };
+    }
+
+    /** Points from the edge to dmax (finer near the edge) and the highest principal along the line. */
+    function stressProfile(p, res, line, dmax, n = 80) {
+        const pts = [];
+        for (let i = 0; i <= n; i++) pts.push(stressAt(p, res, line, dmax * (i / n) ** 1.6));
+        const top = (s) => Math.max(s.sx, s.sy);
+        let k = 0;
+        for (let i = 1; i < pts.length; i++) if (top(pts[i]) > top(pts[k])) k = i;
+        let peak = pts[k];
+        if (k > 0 && k < pts.length - 1) {              // refine an off-edge maximum (golden section)
+            let lo = pts[k - 1].d, hi = pts[k + 1].d;
+            const f = (d) => top(stressAt(p, res, line, d));
+            for (let it = 0; it < 50; it++) {
+                const m1 = hi - (hi - lo) * 0.618, m2 = lo + (hi - lo) * 0.618;
+                if (f(m1) < f(m2)) lo = m1; else hi = m2;
+            }
+            peak = stressAt(p, res, line, (lo + hi) / 2);
+        }
+        return { pts, peak };
+    }
+
+    /** Distance from the edge (in) at which |σx − σx0| ahead of the region has fallen to *frac*
+     *  of its value at the edge (0 when there is no disturbance). */
+    function decayDistance(p, res, frac) {
+        const ex = res.ends.sx - p.sx0;
+        if (Math.abs(ex) < 1e-9 * Math.max(1, Math.abs(p.sx0))) return 0;
+        const f = (d) => Math.abs(stressAt(p, res, 'ahead', d).sx - p.sx0) - frac * Math.abs(ex);
+        let lo = 0, hi = Math.max(p.L, p.W) / 20;
+        for (let g = 0; f(hi) > 0; g++) { lo = hi; hi *= 2; if (g > 40) return Infinity; }
+        for (let it = 0; it < 60; it++) { const m = (lo + hi) / 2; if (f(m) > 0) lo = m; else hi = m; }
+        return (lo + hi) / 2;
     }
 
     // Appendix A cases (Tables A.3, A.4): inputs and the appendix's own values
@@ -687,6 +874,7 @@
             ? '<span class="ok">0.0 ✓</span>' : `<span class="warn">${fmt(diff, 3)}</span>`;
 
         drawPlan(p, res);
+        drawProfile(p, res);
     }
 
     // ── plan view (to scale) ─────────────────────────────────────────────────
@@ -752,6 +940,119 @@
         document.getElementById('plan').innerHTML = s;
     }
 
+    // ── stress vs distance ────────────────────────────────────────────────────
+    function niceTicks(lo, hi, n) {
+        const span = hi - lo || 1, raw = span / n, mag = 10 ** Math.floor(Math.log10(raw));
+        const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(st => span / st <= n) || 10 * mag;
+        const out = [];
+        for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9 * step; v += step) out.push(+v.toFixed(10));
+        return out;
+    }
+
+    let _prof = null;                                   // last profile (for the hover readout)
+    function drawProfile(p, res) {
+        const box = document.getElementById('profile-chart');
+        const dmaxIn = parseFloat(document.getElementById('in-dmax').value);
+        const dmax = dmaxIn > 0 ? dmaxIn : Math.max(p.L, p.W);
+        const ahead = stressProfile(p, res, 'ahead', dmax), beside = stressProfile(p, res, 'beside', dmax);
+        _prof = { p, res, dmax };
+
+        const W = 720, H = 360, m = { l: 56, r: 14, t: 14, b: 44 };
+        const all = [...ahead.pts, ...beside.pts].flatMap(q => [q.sx, q.sy]).concat([p.sx0, p.sy0]);
+        let ylo = Math.min(...all), yhi = Math.max(...all);
+        const pad = 0.06 * (yhi - ylo || 1);
+        ylo -= pad; yhi += pad;
+        const yt = niceTicks(ylo, yhi, 7), xt = niceTicks(0, dmax, 8);
+        ylo = Math.min(ylo, yt[0]); yhi = Math.max(yhi, yt[yt.length - 1]);
+        const X = (d) => m.l + d / dmax * (W - m.l - m.r), Y = (v) => H - m.b - (v - ylo) / (yhi - ylo) * (H - m.t - m.b);
+        const path = (pts, k) => pts.map((q, i) => `${i ? 'L' : 'M'}${X(q.d).toFixed(1)},${Y(q[k]).toFixed(1)}`).join(' ');
+        const RED = '#c4410f', BLUE = '#1f56a8';
+        let s = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Arial, sans-serif" font-size="12">`;
+        for (const v of yt) s += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="#eee"/>
+            <text x="${m.l - 6}" y="${Y(v) + 4}" text-anchor="end" fill="#666">${+v.toFixed(2)}</text>`;
+        for (const v of xt) s += `<line x1="${X(v)}" x2="${X(v)}" y1="${m.t}" y2="${H - m.b}" stroke="#f2f2f2"/>
+            <text x="${X(v)}" y="${H - m.b + 16}" text-anchor="middle" fill="#666">${+v.toFixed(2)}</text>`;
+        s += `<rect x="${m.l}" y="${m.t}" width="${W - m.l - m.r}" height="${H - m.t - m.b}" fill="none" stroke="#bbb"/>
+            <text x="${(m.l + W - m.r) / 2}" y="${H - 8}" text-anchor="middle" fill="#444">Distance from region edge, d (in)</text>
+            <text x="14" y="${(m.t + H - m.b) / 2}" text-anchor="middle" fill="#444" transform="rotate(-90 14 ${(m.t + H - m.b) / 2})">Skin stress (ksi)</text>`;
+        if (ylo < 0 && yhi > 0) s += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(0)}" y2="${Y(0)}" stroke="#999"/>`;
+        s += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(p.sx0)}" y2="${Y(p.sx0)}" stroke="#777" stroke-dasharray="2 4"/>
+              <text x="${W - m.r - 4}" y="${Y(p.sx0) - 4}" text-anchor="end" fill="#777">σx0</text>`;
+        if (p.sy0 !== 0) s += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(p.sy0)}" y2="${Y(p.sy0)}" stroke="#aaa" stroke-dasharray="2 4"/>
+              <text x="${W - m.r - 4}" y="${Y(p.sy0) - 4}" text-anchor="end" fill="#999">σy0</text>`;
+        s += `<path d="${path(ahead.pts, 'sx')}" fill="none" stroke="${RED}" stroke-width="2.2"/>
+              <path d="${path(ahead.pts, 'sy')}" fill="none" stroke="${RED}" stroke-width="1.6" stroke-dasharray="6 4"/>
+              <path d="${path(beside.pts, 'sx')}" fill="none" stroke="${BLUE}" stroke-width="2.2"/>
+              <path d="${path(beside.pts, 'sy')}" fill="none" stroke="${BLUE}" stroke-width="1.6" stroke-dasharray="6 4"/>`;
+        // the highest point on each line
+        for (const [pk, col] of [[ahead.peak, RED], [beside.peak, BLUE]]) {
+            if (pk.d >= dmax * (1 - 1e-9) && pk.d > 0) continue;
+            const v = Math.max(pk.sx, pk.sy);
+            s += `<circle cx="${X(pk.d)}" cy="${Y(v)}" r="4" fill="#fff" stroke="${col}" stroke-width="2"/>`;
+        }
+        // legend (above the plot, so it never covers a curve)
+        const lg = [['Ahead σ<tspan font-size="9" dy="3">x</tspan>', RED, ''], ['Ahead σ<tspan font-size="9" dy="3">y</tspan>', RED, '6 4'],
+                    ['Beside σ<tspan font-size="9" dy="3">x</tspan>', BLUE, ''], ['Beside σ<tspan font-size="9" dy="3">y</tspan>', BLUE, '6 4'],
+                    ['highest on the line', '#555', 'dot']];
+        let leg = `<svg viewBox="0 0 ${W} 22" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Arial, sans-serif" font-size="12">`;
+        lg.forEach(([t, c, da], i) => {
+            const lx = m.l + i * 122, ly = 11;
+            leg += da === 'dot' ? `<circle cx="${lx + 13}" cy="${ly}" r="4" fill="#fff" stroke="${c}" stroke-width="2"/>`
+                : `<line x1="${lx}" x2="${lx + 26}" y1="${ly}" y2="${ly}" stroke="${c}" stroke-width="2" ${da ? `stroke-dasharray="${da}"` : ''}/>`;
+            leg += `<text x="${lx + 31}" y="${ly + 4}" fill="#333">${t}</text>`;
+        });
+        leg += '</svg>';
+        s += `<line id="prof-cursor" x1="0" x2="0" y1="${m.t}" y2="${H - m.b}" stroke="#555" stroke-dasharray="3 3" visibility="hidden"/>
+              <rect id="prof-hit" x="${m.l}" y="${m.t}" width="${W - m.l - m.r}" height="${H - m.t - m.b}" fill="transparent"/></svg>`;
+        box.innerHTML = leg + s;
+        document.getElementById('profile-readout').textContent = 'Move the pointer over the plot to read values.';
+        _prof.geom = { W, m };
+
+        // probe + highest along each line
+        const dp = Math.max(0, parseFloat(document.getElementById('in-dprobe').value) || 0);
+        const pa = stressAt(p, res, 'ahead', dp), pb = stressAt(p, res, 'beside', dp);
+        const row = (lbl, q, extra = '') => `<tr><td>${lbl}</td><td class="num">${fmt(q.sx)}</td><td class="num">${fmt(q.sy)}</td>${extra}</tr>`;
+        const pkRow = (lbl, q) => q.d >= dmax * (1 - 1e-9) && q.d > 0
+            ? `<tr><td>${lbl}</td><td colspan="2" class="hint" style="font-family:inherit">no local peak &mdash; rises
+               towards the remote stress</td></tr>`
+            : `<tr><td>${lbl}</td><td class="num">${fmt(q.sx)}</td><td class="num">${fmt(q.sy)}</td></tr>
+            <tr><td colspan="3" class="hint" style="font-family:inherit;text-align:left">&nbsp;&nbsp;at d = ${fmt(q.d, 3)} in${q.d === 0 ? ' (the edge)' : ''}</td></tr>`;
+        document.getElementById('probe-table').innerHTML =
+            `<thead><tr><th>At d = ${fmt(dp, 3)} in</th><th>σ<sub>x</sub> (ksi)</th><th>σ<sub>y</sub> (ksi)</th></tr></thead><tbody>`
+            + row('Ahead of region', pa) + row('Beside region', pb)
+            + `<tr><th style="text-align:left;padding-top:10px">Highest principal along the line</th><th></th><th></th></tr>`
+            + pkRow('Ahead', ahead.peak) + pkRow('Beside', beside.peak) + '</tbody>';
+
+        // decay of the disturbance ahead
+        const dec = [0.5, 0.25, 0.1].map(f => decayDistance(p, res, f));
+        document.getElementById('decay-text').innerHTML = res.type === 'None' ? 'No region: the skin stress is the remote stress everywhere.'
+            : `Ahead of the region, the change in σ<sub>x</sub> from the remote stress (${fmt(res.ends.sx - p.sx0)} ksi at the edge) falls to
+               50% at d = <strong>${fmt(dec[0])}</strong> in, 25% at ${fmt(dec[1])} in and 10% at ${fmt(dec[2])} in
+               (${fmt(dec[0] / (p.L / 2), 2)}, ${fmt(dec[1] / (p.L / 2), 2)} and ${fmt(dec[2] / (p.L / 2), 2)} &times; L/2).`;
+
+        // results card: flag a maximum just off the edge
+        const off = [ahead.peak, beside.peak].filter(q => q.d > 0 && q.d < dmax * (1 - 1e-9)).sort((u, v) => Math.max(v.sx, v.sy) - Math.max(u.sx, u.sy))[0];
+        const show = off && Math.max(off.sx, off.sy) > res.peak + 1e-6;
+        document.getElementById('r-off-label').style.display = show ? '' : 'none';
+        const offEl = document.getElementById('r-off');
+        offEl.style.display = show ? '' : 'none';
+        if (show) offEl.textContent = `${fmt(Math.max(off.sx, off.sy))} ksi, ${fmt(off.d, 2)} in ${off === ahead.peak ? 'ahead' : 'beside'}`;
+
+        const hit = document.getElementById('prof-hit'), cur = document.getElementById('prof-cursor');
+        const svg = box.querySelectorAll('svg')[1];
+        hit.addEventListener('mousemove', (ev) => {
+            const pt = svg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY;
+            const loc = pt.matrixTransform(svg.getScreenCTM().inverse());
+            const d = Math.max(0, Math.min(dmax, (loc.x - m.l) / (W - m.l - m.r) * dmax));
+            cur.setAttribute('x1', X(d)); cur.setAttribute('x2', X(d)); cur.setAttribute('visibility', 'visible');
+            const qa = stressAt(p, res, 'ahead', d), qb = stressAt(p, res, 'beside', d);
+            document.getElementById('profile-readout').textContent =
+                `d = ${d.toFixed(3)} in   ahead σx ${qa.sx.toFixed(2)}  σy ${qa.sy.toFixed(2)}   beside σx ${qb.sx.toFixed(2)}  σy ${qb.sy.toFixed(2)} ksi`;
+        });
+        hit.addEventListener('mouseleave', () => cur.setAttribute('visibility', 'hidden'));
+    }
+    for (const id of ['in-dmax', 'in-dprobe']) document.getElementById(id).addEventListener('input', update);
+
     // ── verification tables ───────────────────────────────────────────────────
     function buildVerification() {
         let worst = 0;
@@ -786,7 +1087,8 @@
 
     // ── save / open / reset / print ──────────────────────────────────────────
     document.getElementById('save-btn').addEventListener('click', () => {
-        const blob = new Blob([JSON.stringify({ tool: 'SCT-030', version: 1, inputs: readInputs() }, null, 2)],
+        const plot = { dmax: document.getElementById('in-dmax').value, dprobe: document.getElementById('in-dprobe').value };
+        const blob = new Blob([JSON.stringify({ tool: 'SCT-030', version: 2, inputs: readInputs(), plot }, null, 2)],
                               { type: 'application/json' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
@@ -802,6 +1104,10 @@
         rd.onload = () => {
             try {
                 const d = JSON.parse(rd.result);
+                if (d.plot) {
+                    document.getElementById('in-dmax').value = d.plot.dmax ?? '';
+                    document.getElementById('in-dprobe').value = d.plot.dprobe ?? 0.5;
+                }
                 setInputs(d.inputs || d);
             } catch (err) {
                 document.getElementById('msg').textContent = 'Could not read that file: ' + err.message;
