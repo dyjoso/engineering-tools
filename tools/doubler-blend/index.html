@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SCT-030 Crack Growth Stresses at a Skin Inclusion (Doubler or Blend)</title>
+    <style>
+        :root {
+            --primary-color: #0068c9;
+            --bg-color: #f0f0f0;
+            --card-bg-color: #ffffff;
+            --text-color: #333;
+            --border-color: #ccc;
+            --box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            --orange-btn: #fa9e61;
+            --green-btn: #B4CEA1;
+            --result-bg: #d5e2ca;
+            --input-bg: #fffbe6;
+            --peak-bg: #f9d9c4;
+            --danger: #c62828;
+        }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0.5rem;
+            display: flex;
+            justify-content: center;
+            font-size: 14px;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 1120px;
+            background-color: var(--card-bg-color);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: var(--box-shadow);
+            border: 1px solid var(--border-color);
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 1.4em;
+            margin: 0 0 4px;
+            color: var(--primary-color);
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            font-size: 0.9em;
+            margin: 0 0 14px;
+        }
+
+        h2 {
+            font-size: 1.0em;
+            margin: 0 0 8px;
+        }
+
+        .card {
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+
+        .main-layout-grid {
+            display: grid;
+            grid-template-columns: 440px 1fr;
+            gap: 20px;
+        }
+
+        /* inputs */
+        .in-grid {
+            display: grid;
+            grid-template-columns: 1fr 52px 92px 38px;
+            gap: 4px 6px;
+            align-items: center;
+        }
+
+        .in-grid .hdr {
+            font-weight: bold;
+            font-size: 0.85em;
+            color: #555;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 2px;
+        }
+
+        .in-grid .sym {
+            font-family: "Times New Roman", serif;
+            font-style: italic;
+            text-align: center;
+            font-size: 1.05em;
+        }
+
+        .in-grid .unit {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+
+        input[type="number"] {
+            width: 100%;
+            padding: 4px;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            box-sizing: border-box;
+            text-align: center;
+            background: var(--input-bg);
+            color: #0b3d91;
+            font-family: monospace;
+            font-size: 0.95em;
+        }
+
+        input.bad {
+            border-color: var(--danger);
+            background: #fdecea;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .button {
+            flex: 1;
+            padding: 7px;
+            border: 1px solid #999;
+            border-radius: 4px;
+            font-size: 0.9em;
+            cursor: pointer;
+            background-color: #e7e7e7;
+            transition: background-color 0.2s;
+        }
+
+        .button:hover {
+            background-color: #dcdcdc;
+        }
+
+        .button.orange {
+            background-color: var(--orange-btn);
+            border-color: #e08e51;
+            color: white;
+        }
+
+        .button.orange:hover {
+            background-color: #e08e51;
+        }
+
+        .button.green {
+            background-color: var(--green-btn);
+            border-color: #a0b991;
+        }
+
+        .button.green:hover {
+            background-color: #a0b991;
+        }
+
+        /* derived + results */
+        .kv {
+            display: grid;
+            grid-template-columns: 1fr 52px 110px 38px;
+            gap: 4px 6px;
+            align-items: center;
+        }
+
+        .kv .sym {
+            font-family: "Times New Roman", serif;
+            font-style: italic;
+            text-align: center;
+        }
+
+        .result-value {
+            background-color: var(--result-bg);
+            padding: 4px;
+            border-radius: 4px;
+            text-align: center;
+            font-family: monospace;
+        }
+
+        table.res {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.92em;
+        }
+
+        table.res th {
+            font-size: 0.85em;
+            color: #555;
+            border-bottom: 1px solid #ccc;
+            padding: 4px 6px;
+            text-align: center;
+        }
+
+        table.res th:first-child,
+        table.res td:first-child {
+            text-align: left;
+        }
+
+        table.res td {
+            padding: 3px 6px;
+            border-bottom: 1px solid #eee;
+            text-align: center;
+            font-family: monospace;
+        }
+
+        table.res td:first-child {
+            font-family: var(--font-family);
+        }
+
+        table.res td.num {
+            background: var(--result-bg);
+        }
+
+        table.res tr.peak td.num {
+            background: var(--peak-bg);
+            font-weight: bold;
+        }
+
+        table.res tr.ref td {
+            color: #777;
+        }
+
+        .peak-box {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 4px 10px;
+            align-items: center;
+            margin-top: 8px;
+        }
+
+        .peak-box .result-value.big {
+            font-size: 1.15em;
+            font-weight: bold;
+            background: var(--peak-bg);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.85em;
+            font-weight: bold;
+        }
+
+        .badge.doubler { background: #dcdcfb; color: #2b2b9a; }
+        .badge.blend { background: #fde2cc; color: #a24a07; }
+        .badge.hole { background: #eee; color: #444; border: 1px dashed #999; }
+        .badge.none { background: #eee; color: #666; }
+
+        .msg {
+            color: var(--danger);
+            font-weight: bold;
+            min-height: 1.1em;
+            margin-top: 4px;
+        }
+
+        .hint {
+            color: #666;
+            font-size: 0.85em;
+        }
+
+        .ok { color: #2e7d32; font-weight: bold; }
+        .warn { color: #b26a00; font-weight: bold; }
+
+        details > summary {
+            cursor: pointer;
+            color: var(--primary-color);
+            font-weight: bold;
+            font-size: 0.95em;
+        }
+
+        .doc {
+            font-size: 0.92em;
+            color: #444;
+            line-height: 1.5;
+            padding: 8px 12px;
+            background: #f9f9f9;
+            border-radius: 4px;
+            border: 1px solid #eee;
+            margin-top: 6px;
+        }
+
+        .eq {
+            font-family: "Times New Roman", serif;
+            font-size: 1.05em;
+            background: #fff;
+            border: 1px solid #e3e3e3;
+            border-radius: 4px;
+            padding: 6px 10px;
+            margin: 6px 0;
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+
+        #plan svg {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        @media (max-width: 920px) {
+            .main-layout-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media print {
+            body { background: white; padding: 0; }
+            .app-container { box-shadow: none; border: none; max-width: none; }
+            .button-group, .no-print { display: none !important; }
+            details { display: block; }
+            details > summary { display: none; }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app-container">
+        <h1>SCT-030 Crack Growth Stresses at a Skin Inclusion (Doubler or Blend)</h1>
+        <p class="subtitle">Elliptical stiffness inclusion in an infinite skin &mdash; closed-form (Eshelby) plane-stress
+            solution, biaxial remote stress. Imperial units.</p>
+
+        <div class="main-layout-grid">
+            <!-- ═══════════════ LEFT: inputs ═══════════════ -->
+            <div class="left-column">
+                <div class="card">
+                    <h2>1. Inputs</h2>
+                    <div class="button-group no-print">
+                        <button id="save-btn" class="button">Save</button>
+                        <input type="file" id="file-uploader" accept=".json" style="display:none;">
+                        <button id="open-btn" class="button">Open</button>
+                        <button id="reset-btn" class="button">Reset</button>
+                        <button id="print-btn" class="button">Print</button>
+                    </div>
+                    <div class="in-grid" id="inputs">
+                        <span class="hdr">Parameter</span><span class="hdr" style="text-align:center">Symbol</span>
+                        <span class="hdr" style="text-align:center">Value</span><span class="hdr">Units</span>
+                    </div>
+                    <div class="msg" id="msg"></div>
+                    <div class="hint">t<sub>r</sub> &gt; t<sub>s</sub> is a doubler, t<sub>r</sub> &lt; t<sub>s</sub> a
+                        blend, t<sub>r</sub> = 0 an open hole.</div>
+                </div>
+
+                <div class="card">
+                    <h2>2. Region</h2>
+                    <div class="kv">
+                        <span>Region type</span><span class="sym">type</span><span id="d-type"
+                            style="text-align:center"></span><span class="unit"></span>
+                        <span>Thickness change, t<sub>r</sub> &minus; t<sub>s</sub></span><span class="sym">&Delta;t</span>
+                        <span id="d-dt" class="result-value"></span><span class="hint">in</span>
+                        <span>Stiffness ratio, region / skin</span><span class="sym">&Gamma;</span>
+                        <span id="d-gamma" class="result-value"></span><span class="hint">&ndash;</span>
+                        <span>Aspect ratio, W / L</span><span class="sym">r</span>
+                        <span id="d-r" class="result-value"></span><span class="hint">&ndash;</span>
+                        <span>Remote running load along L</span><span class="sym">N<sub>0</sub></span>
+                        <span id="d-n0" class="result-value"></span><span class="hint">lb/in</span>
+                    </div>
+                </div>
+
+                <div class="card no-print">
+                    <details>
+                        <summary>User guide (click to expand)</summary>
+                        <div class="doc">
+                            <p style="margin-top:0"><strong>What it does.</strong> Gives the skin stress around an
+                                elliptical region whose thickness differs from the surrounding skin: a
+                                <strong>doubler</strong> (thicker, attracts load &mdash; the skin at its
+                                <em>ends</em> is critical), a <strong>blend-out</strong> (thinner, sheds load &mdash;
+                                the skin <em>beside</em> it and the thinned region itself are critical) or an
+                                <strong>open hole</strong> (t<sub>r</sub> = 0).</p>
+                            <p><strong>Inputs.</strong> L is the region length along &sigma;<sub>x0</sub>, W its width
+                                along &sigma;<sub>y0</sub>. For a doubler, t<sub>r</sub> is skin + doubler; for a
+                                blend, the remaining thickness. E<sub>d</sub> is used only for a doubler (a blend uses
+                                E<sub>s</sub>). Tension is positive.</p>
+                            <p><strong>Rectangular doubler.</strong> Enter its L &times; W: it is represented by the
+                                ellipse with semi-axes L/2, W/2. The centreline end stress is then over-predicted by
+                                about 3&ndash;11% (conservative). Corners carry a local peak not modelled here.</p>
+                            <p style="margin-bottom:0"><strong>Results.</strong> Stresses are in the skin at the
+                                region <em>ends</em> (on the &sigma;<sub>x0</sub> axis), <em>sides</em> (on the
+                                &sigma;<sub>y0</sub> axis) and <em>within</em> the region. At these points
+                                &sigma;<sub>x</sub> and &sigma;<sub>y</sub> are principal stresses by symmetry. The
+                                peak is the largest of them. Save / Open keep the inputs as a .json file.</p>
+                        </div>
+                    </details>
+                </div>
+            </div>
+
+            <!-- ═══════════════ RIGHT: plan view + results ═══════════════ -->
+            <div class="right-column">
+                <div class="card" id="plan"></div>
+
+                <div class="card">
+                    <h2>3. Results</h2>
+                    <table class="res">
+                        <thead>
+                            <tr>
+                                <th>Location</th>
+                                <th>&sigma;<sub>x</sub> (ksi)</th>
+                                <th>&sigma;<sub>y</sub> (ksi)</th>
+                                <th>&sigma;<sub>x</sub> / &sigma;<sub>x0</sub></th>
+                            </tr>
+                        </thead>
+                        <tbody id="res-body"></tbody>
+                    </table>
+                    <div class="peak-box">
+                        <span><strong>Peak skin stress, max principal</strong></span>
+                        <span id="r-peak" class="result-value big"></span>
+                        <span>Peak located at</span><span id="r-peak-loc" style="text-align:right"></span>
+                        <span>Peak skin stress, von Mises</span><span id="r-peak-vm" class="result-value"></span>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>4. Equilibrium check <span class="hint" style="font-weight:normal">(running load along L,
+                            lb/in)</span></h2>
+                    <div class="kv" style="grid-template-columns: 1fr 120px">
+                        <span>In region: &Gamma; &middot; t<sub>s</sub> &middot; &sigma;<sub>in,x</sub></span>
+                        <span id="e-in" class="result-value"></span>
+                        <span>Skin at ends: t<sub>s</sub> &middot; &sigma;<sub>x,end</sub></span>
+                        <span id="e-end" class="result-value"></span>
+                        <span>Difference (should be 0)</span><span id="e-diff" class="result-value"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══════════════ method / verification / notes ═══════════════ -->
+        <div class="card">
+            <details id="method">
+                <summary>Method (Appendix A summary)</summary>
+                <div class="doc" id="method-doc">
+                    <p style="margin-top:0">The region is an elliptical <strong>inhomogeneity</strong> in an infinite
+                        skin. With equal Poisson&rsquo;s ratios, a region of thickness t<sub>r</sub> behaves in-plane
+                        as skin of thickness t<sub>s</sub> with its modulus scaled by the membrane stiffness ratio</p>
+                    <div class="eq">&Gamma; = (E<sub>s</sub>t<sub>s</sub> + E<sub>d</sub>t<sub>d</sub>) /
+                        (E<sub>s</sub>t<sub>s</sub>) &nbsp;(doubler), &nbsp;&nbsp; &Gamma; = t<sub>r</sub> /
+                        t<sub>s</sub> &nbsp;(blend), &nbsp;&nbsp; &Gamma; = 0 &nbsp;(hole).</div>
+                    <p><strong>Equivalent inclusion</strong> (Eshelby 1957): the strain inside the ellipse is uniform,</p>
+                    <div class="eq">&epsilon;<sup>in</sup> = [ I + (&Gamma; &minus; 1) S ]<sup>&minus;1</sup>
+                        &epsilon;<sup>0</sup>, &nbsp;&nbsp; E&epsilon;<sup>0</sup> = { &sigma;<sub>x0</sub> &minus;
+                        &nu;&sigma;<sub>y0</sub> , &sigma;<sub>y0</sub> &minus; &nu;&sigma;<sub>x0</sub> }</div>
+                    <p>with the plane-stress Eshelby tensor for semi-axes a = L/2 (along x) and b = W/2 (with a = 1,
+                        b = r):</p>
+                    <div class="eq">S<sub>1111</sub> = r[(2+r)(1+&nu;) + (1+r)(1&minus;&nu;)] / 2(1+r)&sup2;,
+                        &nbsp; S<sub>1122</sub> = r[r(1+&nu;) &minus; (1+r)(1&minus;&nu;)] / 2(1+r)&sup2;</div>
+                    <div class="eq">S<sub>2211</sub> = [(1+&nu;) &minus; (1+r)(1&minus;&nu;)] / 2(1+r)&sup2;, &nbsp;
+                        S<sub>2222</sub> = [(1+2r)(1+&nu;) + (1+r)(1&minus;&nu;)] / 2(1+r)&sup2;</div>
+                    <p>The skin material in the region carries &sigma;<sup>in</sup> = E/(1&minus;&nu;&sup2;)[1 &nu;;
+                        &nu; 1] &epsilon;<sup>in</sup>; the running load there is &Gamma; t<sub>s</sub>
+                        &sigma;<sup>in</sup>. At the boundary, the normal running load and the tangential strain are
+                        continuous, giving the skin just outside:</p>
+                    <div class="eq">Ends: &sigma;<sub>x,end</sub> = &Gamma; &sigma;<sup>in</sup><sub>xx</sub>,
+                        &nbsp; &sigma;<sub>y,end</sub> = E&epsilon;<sup>in</sup><sub>yy</sub> + &nu;&Gamma;
+                        &sigma;<sup>in</sup><sub>xx</sub> &nbsp;&nbsp;&nbsp; Sides: &sigma;<sub>y,side</sub> =
+                        &Gamma; &sigma;<sup>in</sup><sub>yy</sub>, &nbsp; &sigma;<sub>x,side</sub> =
+                        E&epsilon;<sup>in</sup><sub>xx</sub> + &nu;&Gamma; &sigma;<sup>in</sup><sub>yy</sub></div>
+                    <p style="margin-bottom:0">The doubler stress is (E<sub>d</sub>/E<sub>s</sub>)
+                        &sigma;<sup>in</sup>. For a circular hole the solution returns Kirsch
+                        (&sigma;<sub>x,side</sub> = 3&sigma;<sub>x0</sub>, &sigma;<sub>y,end</sub> =
+                        &minus;&sigma;<sub>x0</sub>). References: Eshelby, Proc. Roy. Soc. A 241 (1957); Mura,
+                        Micromechanics of Defects in Solids (1987); Hardiman, QJMAM 7 (1954).</p>
+                </div>
+            </details>
+        </div>
+
+        <div class="card">
+            <details id="verification">
+                <summary>Verification against Appendix A (closed form and FE)</summary>
+                <div class="doc">
+                    <p style="margin-top:0">The tool recomputes each Appendix A case. &ldquo;Tool&rdquo; should equal
+                        the appendix closed form (CF); FE is the appendix plane-stress finite-element result.</p>
+                    <table class="res" id="verif-a3"></table>
+                    <p></p>
+                    <table class="res" id="verif-a4"></table>
+                    <p class="hint" id="verif-summary" style="margin-bottom:0"></p>
+                </div>
+            </details>
+        </div>
+
+        <div class="card">
+            <h2>5. Notes and limitations</h2>
+            <ol class="doc" style="margin:0;padding-left:28px">
+                <li>Exact for an elliptical region with semi-axes L/2 and W/2 in an infinite, uniformly loaded skin
+                    (Eshelby 1957; identical to Baker/Rose Eqs. 8.1a&ndash;8.3). A far-field membrane solution: treat
+                    it as the input to local checks, not a replacement for them.</li>
+                <li>Rectangular doubler: the end stress on the centreline is over-predicted by about 3&ndash;11%
+                    (conservative). Corners carry a local peak not modelled here &mdash; radius or taper them, or check
+                    them separately.</li>
+                <li>Finite panels: within about 3&ndash;5 region widths of an edge, frame, stringer or cut-out the
+                    true stress is higher (typically 1&ndash;3%). Model the actual panel there.</li>
+                <li>Assumes linear elastic membrane behaviour, a fully effective doubler, equal Poisson&rsquo;s ratios
+                    and remote normal stresses aligned with the region axes (no remote shear).</li>
+                <li>Not included: fastener shear lag and first-row bearing / bypass (check the first row with the
+                    attracted running load K<sub>front</sub>N<sub>0</sub>), secondary bending of one-sided doublers or
+                    blends, and the blend edge taper (full depth over the whole ellipse is conservative).</li>
+            </ol>
+        </div>
+    </div>
+
+    <!-- ═══════════════ the calculation (pure; tested headless) ═══════════════ -->
+    <script id="engine">
+    // ENGINE-BEGIN
+    /** Closed-form elliptical inclusion (Appendix A). p: {sx0, sy0, ts, tr, L, W, Es, Ed, nu}
+     *  stresses in ksi, lengths in in, moduli in Msi. Returns the region, the Eshelby
+     *  working terms and the skin / doubler stresses at the ends, sides and in the region. */
+    function computeInclusion(p) {
+        const errors = [];
+        const bad = (k, why) => errors.push({ field: k, msg: why });
+        if (!(p.ts > 0)) bad('ts', 'Skin thickness must be greater than 0.');
+        if (!(p.tr >= 0)) bad('tr', 'Region thickness cannot be negative.');
+        if (!(p.L > 0)) bad('L', 'Region length must be greater than 0.');
+        if (!(p.W > 0)) bad('W', 'Region width must be greater than 0.');
+        if (!(p.Es > 0)) bad('Es', 'Skin modulus must be greater than 0.');
+        if (!(p.Ed > 0)) bad('Ed', 'Doubler modulus must be greater than 0.');
+        if (!(p.nu > -1 && p.nu < 0.5)) bad('nu', "Poisson's ratio must be between −1 and 0.5.");
+        for (const k of ['sx0', 'sy0']) if (!Number.isFinite(p[k])) bad(k, 'Enter a number.');
+        if (errors.length) return { errors };
+
+        const { sx0, sy0, ts, tr, L, W, Es, Ed, nu } = p;
+        const dt = tr - ts;
+        const type = tr === 0 ? 'Hole' : dt > 0 ? 'Doubler' : dt < 0 ? 'Blend' : 'None';
+        const Gamma = (Es * ts + (dt >= 0 ? Ed : Es) * dt) / (Es * ts);
+        const r = W / L;
+        const d2 = 2 * (1 + r) ** 2;
+        const S1111 = r * ((2 + r) * (1 + nu) + (1 + r) * (1 - nu)) / d2;
+        const S1122 = r * (r * (1 + nu) - (1 + r) * (1 - nu)) / d2;
+        const S2211 = ((1 + nu) - (1 + r) * (1 - nu)) / d2;
+        const S2222 = ((1 + 2 * r) * (1 + nu) + (1 + r) * (1 - nu)) / d2;
+        const g = Gamma - 1;
+        const M11 = 1 + g * S1111, M12 = g * S1122, M21 = g * S2211, M22 = 1 + g * S2222;
+        const det = M11 * M22 - M12 * M21;
+        const Ee0x = sx0 - nu * sy0, Ee0y = sy0 - nu * sx0;
+        const Eeinx = (M22 * Ee0x - M12 * Ee0y) / det;
+        const Eeiny = (-M21 * Ee0x + M11 * Ee0y) / det;
+        const sinx = (Eeinx + nu * Eeiny) / (1 - nu * nu);
+        const siny = (Eeiny + nu * Eeinx) / (1 - nu * nu);
+
+        const ends = { sx: Gamma * sinx, sy: Eeiny + nu * Gamma * sinx };
+        const sides = { sx: Eeinx + nu * Gamma * siny, sy: Gamma * siny };
+        const region = type === 'Hole' ? null : { sx: sinx, sy: siny };
+        const doubler = type === 'Doubler' ? { sx: Ed / Es * sinx, sy: Ed / Es * siny } : null;
+        const remote = { sx: sx0, sy: sy0 };
+        const vm = (s) => s ? Math.sqrt(s.sx * s.sx - s.sx * s.sy + s.sy * s.sy) : null;
+        for (const s of [ends, sides, region, doubler, remote]) if (s) s.vm = vm(s);
+
+        // peak skin stress: the largest principal over the ends, sides and in-region skin
+        const cand = [['ends', ends], ['sides', sides]].concat(region ? [['region', region]] : []);
+        let peak = -Infinity, peakAt = 'ends', peakVM = -Infinity;
+        for (const [k, s] of cand) {
+            const m = Math.max(s.sx, s.sy);
+            if (m > peak) { peak = m; peakAt = k; }
+            peakVM = Math.max(peakVM, s.vm);
+        }
+        return {
+            errors, type, dt, Gamma, r, N0: sx0 * ts * 1000,
+            S: { S1111, S1122, S2211, S2222 }, M: { M11, M12, M21, M22 }, det,
+            Ee0x, Ee0y, Eeinx, Eeiny, sinx, siny,
+            ends, sides, region, doubler, remote, peak, peakAt, peakVM,
+            K: sx0 !== 0 ? { front: ends.sx / sx0, side: sides.sx / sx0, under: sinx / sx0 } : null,
+            equilibrium: { inRegion: Gamma * ts * sinx * 1000, ends: ts * ends.sx * 1000 },
+        };
+    }
+
+    // Appendix A cases (Tables A.3, A.4): inputs and the appendix's own values
+    const APPENDIX_A3 = [   // uniaxial doublers, ts 0.040, σx0 15, E equal, ν 0.33; L/W, Γ, Kfront CF, FE ellipse, FE rect, Kunder CF, FE
+        [1.0, 2.25, 1.228, 1.219, 1.160, 0.546, 0.544], [1.0, 1.50, 1.125, 1.124, 1.093, 0.750, 0.749],
+        [1.0, 2.00, 1.200, 1.194, 1.143, 0.600, 0.598], [1.0, 3.00, 1.286, 1.270, 1.191, 0.429, 0.427],
+        [0.5, 2.00, 1.101, 1.093, 1.063, 0.551, 0.548], [1.5, 2.58, 1.368, 1.348, 1.234, 0.531, 0.529],
+        [2.0, 2.00, 1.349, 1.334, 1.215, 0.674, 0.672],
+    ];
+    const APPENDIX_A4 = [   // σx0 15, ts 0.040: [label, tr, L, W, σy0, location, σx CF, σx FE, σy CF, σy FE]
+        ['Doubler t_r = 0.090, 5.0 × 5.0, σy0 = 7.5', 0.090, 5, 5, 7.5, 'ends', 18.42, 18.19, 7.48, 7.27],
+        ['', 0.090, 5, 5, 7.5, 'sides', 9.88, 10.24, 9.22, 8.96],
+        ['Blend t_r = 0.030, 5.0 × 2.5, σy0 = 7.5', 0.030, 5, 2.5, 7.5, 'ends', 12.93, 13.07, 7.79, 7.91],
+        ['', 0.030, 5, 2.5, 7.5, 'sides', 16.48, 16.36, 6.91, 6.96],
+        ['', 0.030, 5, 2.5, 7.5, 'region', 17.24, 17.26, 9.21, 9.22],
+        ['Blend t_r = 0.020, 5.0 × 5.0, σy0 = 0', 0.020, 5, 5, 0, 'sides', 22.50, 21.74, -0.01, 0.28],
+        ['', 0.020, 5, 5, 0, 'region', 22.49, 22.57, -0.02, -0.03],
+    ];
+    // ENGINE-END
+    </script>
+
+    <!-- ═══════════════ the page ═══════════════ -->
+    <script>
+    const FIELDS = [
+        // key, label, symbol (HTML), unit, default, step
+        ['sx0', 'Remote stress along region length L (+ tension)', 'σ<sub>x0</sub>', 'ksi', 15, 0.5],
+        ['sy0', 'Remote stress along region width W (+ tension)', 'σ<sub>y0</sub>', 'ksi', 0, 0.5],
+        ['ts', 'Nominal skin thickness', 't<sub>s</sub>', 'in', 0.040, 0.001],
+        ['tr', 'Thickness in region (skin + doubler, or remaining after blend)', 't<sub>r</sub>', 'in', 0.090, 0.001],
+        ['L', 'Region length, parallel to σ<sub>x0</sub>', 'L', 'in', 5, 0.1],
+        ['W', 'Region width, parallel to σ<sub>y0</sub>', 'W', 'in', 5, 0.1],
+        ['Es', 'Skin modulus', 'E<sub>s</sub>', 'Msi', 10.5, 0.1],
+        ['Ed', 'Doubler modulus (doubler only; a blend uses E<sub>s</sub>)', 'E<sub>d</sub>', 'Msi', 10.5, 0.1],
+        ['nu', "Poisson's ratio", 'ν', '–', 0.33, 0.01],
+    ];
+    const LOC = { ends: 'Skin at ends of region (in front of / behind)', sides: 'Skin at sides of region',
+                  region: 'Skin in region' };
+    const fmt = (v, d = 2) => (v === null || v === undefined || !Number.isFinite(v)) ? '–' : v.toFixed(d);
+
+    function buildInputs() {
+        const box = document.getElementById('inputs');
+        for (const [k, label, sym, unit, def, step] of FIELDS) {
+            box.insertAdjacentHTML('beforeend',
+                `<label for="in-${k}">${label}</label><span class="sym">${sym}</span>` +
+                `<input type="number" id="in-${k}" value="${def}" step="${step}"><span class="unit">${unit}</span>`);
+        }
+        box.addEventListener('input', update);
+    }
+
+    function readInputs() {
+        const p = {};
+        for (const [k] of FIELDS) p[k] = parseFloat(document.getElementById('in-' + k).value);
+        return p;
+    }
+
+    function setInputs(p) {
+        for (const [k, , , , def] of FIELDS)
+            document.getElementById('in-' + k).value = (p && p[k] !== undefined) ? p[k] : def;
+        update();
+    }
+
+    function update() {
+        const p = readInputs();
+        const res = computeInclusion(p);
+        for (const [k] of FIELDS) document.getElementById('in-' + k).classList.remove('bad');
+        const msg = document.getElementById('msg');
+        if (res.errors.length) {
+            for (const e of res.errors) document.getElementById('in-' + e.field).classList.add('bad');
+            msg.textContent = res.errors.map(e => e.msg).join(' ');
+            return;
+        }
+        msg.textContent = '';
+        try { localStorage.setItem('sct027-inputs', JSON.stringify(p)); } catch (e) { /* private mode */ }
+
+        // region
+        const cls = res.type.toLowerCase();
+        document.getElementById('d-type').innerHTML = `<span class="badge ${cls}">${res.type}</span>`;
+        document.getElementById('d-dt').textContent = fmt(res.dt, 4);
+        document.getElementById('d-gamma').textContent = fmt(res.Gamma, 4);
+        document.getElementById('d-r').textContent = fmt(res.r, 3);
+        document.getElementById('d-n0').textContent = fmt(res.N0, 1);
+
+        // results table
+        const rows = [
+            ['ends', LOC.ends, res.ends],
+            ['sides', LOC.sides, res.sides],
+            ['region', res.type === 'Blend' ? 'Skin in blend region (thinned)' : res.type === 'Hole'
+                ? 'In region (open hole: no material)' : res.type === 'Doubler'
+                ? (p.Ed === p.Es ? 'Skin under doubler (also Doubler itself)' : 'Skin under doubler')
+                : 'Skin in region', res.region],
+            ['remote', 'Remote skin (reference)', res.remote],
+        ];
+        const ratio = (s) => (s && p.sx0 !== 0) ? fmt(s.sx / p.sx0, 3) : '–';
+        document.getElementById('res-body').innerHTML = rows.map(([k, label, s]) =>
+            `<tr class="${k === res.peakAt ? 'peak' : ''} ${k === 'remote' ? 'ref' : ''}">` +
+            `<td>${label}</td><td class="num">${s ? fmt(s.sx) : '–'}</td><td class="num">${s ? fmt(s.sy) : '–'}</td>` +
+            `<td class="num">${ratio(s)}</td></tr>`).join('')
+            // the doubler carries the skin stress × Ed/Es: only different when the moduli differ
+            + (res.doubler && p.Ed !== p.Es
+               ? `<tr><td colspan="4" class="hint">Doubler itself (E<sub>d</sub> &ne; E<sub>s</sub>): ` +
+                 `&sigma;<sub>x</sub> ${fmt(res.doubler.sx)}, &sigma;<sub>y</sub> ${fmt(res.doubler.sy)} ksi</td></tr>` : '');
+        document.getElementById('r-peak').textContent = fmt(res.peak) + ' ksi';
+        document.getElementById('r-peak-loc').textContent = res.peakAt === 'region'
+            ? (res.type === 'Blend' ? 'Skin in blend region (thinned)' : 'Skin under doubler') : LOC[res.peakAt];
+        document.getElementById('r-peak-vm').textContent = fmt(res.peakVM) + ' ksi';
+
+        // equilibrium
+        const eq = res.equilibrium;
+        document.getElementById('e-in').textContent = fmt(eq.inRegion, 1);
+        document.getElementById('e-end').textContent = fmt(eq.ends, 1);
+        const diff = eq.inRegion - eq.ends;
+        document.getElementById('e-diff').innerHTML = Math.abs(diff) < 1e-6 * Math.max(1, Math.abs(eq.ends))
+            ? '<span class="ok">0.0 ✓</span>' : `<span class="warn">${fmt(diff, 3)}</span>`;
+
+        drawPlan(p, res);
+    }
+
+    // ── plan view (to scale) ─────────────────────────────────────────────────
+    function drawPlan(p, res) {
+        const Wd = 620, Ht = 560, cx = 290, cy = 272, u = 118;      // u px = half of the larger region dimension
+        const half = Math.max(p.L, p.W) / 2;
+        const a = p.L / 2 / half * u, b = p.W / 2 / half * u;
+        const pw = 1.45 * u, ph = 1.45 * u;
+        const fill = { Doubler: '#d6d6fa', Blend: '#fde2cc', Hole: '#ffffff', None: '#f3f3f3' }[res.type];
+        const stroke = { Doubler: '#1f2fb5', Blend: '#c25a08', Hole: '#555', None: '#999' }[res.type];
+        const red = '#c4410f', grey = '#777';
+        let s = `<svg viewBox="0 0 ${Wd} ${Ht}" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Arial, sans-serif">
+          <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="#222"/></marker>
+            <marker id="dim" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+            <path d="M5,0 L5,10" stroke="${grey}" stroke-width="1.4"/></marker></defs>
+          <rect x="${cx - pw}" y="${cy - ph}" width="${2 * pw}" height="${2 * ph}" fill="#f3f3f3" stroke="#bbb"/>
+          <text x="${cx - pw + 8}" y="${cy - ph + 18}" font-size="12" fill="#666">Skin, t<tspan font-size="9" dy="3">s</tspan><tspan dy="-3"> = ${fmt(p.ts, 3)} in</tspan></text>
+          <ellipse cx="${cx}" cy="${cy}" rx="${a}" ry="${b}" fill="${fill}" stroke="${stroke}" stroke-width="1.8"
+            ${res.type === 'None' ? 'stroke-dasharray="5 4"' : ''}/>
+          <text x="${cx}" y="${cy - 6}" text-anchor="middle" font-size="12.5" fill="#333">${res.type === 'Hole' ? 'Open hole' : res.type === 'None' ? 'Region (t_r = t_s)' : res.type}</text>
+          <text x="${cx}" y="${cy + 11}" text-anchor="middle" font-size="11.5" fill="#555">t<tspan font-size="9" dy="3">r</tspan><tspan dy="-3"> = ${fmt(p.tr, 3)} in, Γ = ${fmt(res.Gamma, 3)}</tspan></text>`;
+        // dimensions
+        const dy = cy + Math.max(b, 30) + 22, dx = cx - Math.max(a, 30) - 22;
+        s += `<line x1="${cx - a}" y1="${dy}" x2="${cx + a}" y2="${dy}" stroke="${grey}" marker-start="url(#dim)" marker-end="url(#dim)"/>
+          <text x="${cx}" y="${dy + 15}" text-anchor="middle" font-size="12" fill="${grey}">L = ${fmt(p.L)} in</text>
+          <line x1="${dx}" y1="${cy - b}" x2="${dx}" y2="${cy + b}" stroke="${grey}" marker-start="url(#dim)" marker-end="url(#dim)"/>
+          <text x="${dx - 7}" y="${cy}" text-anchor="middle" font-size="12" fill="${grey}" transform="rotate(-90 ${dx - 7} ${cy})">W = ${fmt(p.W)} in</text>`;
+        // remote stress arrows (outward = tension)
+        const arrows = (val, horiz) => {
+            if (!val) return '';
+            let out = '';
+            for (const k of [-0.9, 0, 0.9]) {
+                for (const side of [-1, 1]) {
+                    const inner = 1.55 * u, outer = 2.1 * u;
+                    const [from, to] = val > 0 ? [inner, outer] : [outer, inner];
+                    if (horiz) out += `<line x1="${cx + side * from}" y1="${cy + k * u}" x2="${cx + side * to}" y2="${cy + k * u}" stroke="#222" stroke-width="1.6" marker-end="url(#ah)"/>`;
+                    else out += `<line x1="${cx + k * u}" y1="${cy + side * from}" x2="${cx + k * u}" y2="${cy + side * to}" stroke="#222" stroke-width="1.6" marker-end="url(#ah)"/>`;
+                }
+            }
+            return out;
+        };
+        s += arrows(p.sx0, true) + arrows(p.sy0, false);
+        if (p.sx0) s += `<text x="${cx + 1.6 * u}" y="${cy - 0.9 * u - 10}" font-size="12.5" fill="#222">σ<tspan font-size="9" dy="3">x0</tspan><tspan dy="-3"> = ${fmt(p.sx0, 1)} ksi</tspan></text>`;
+        if (p.sy0) s += `<text x="${cx + 0.9 * u + 8}" y="${cy - 1.85 * u}" font-size="12.5" fill="#222">σ<tspan font-size="9" dy="3">y0</tspan><tspan dy="-3"> = ${fmt(p.sy0, 1)} ksi</tspan></text>`;
+        // stress points
+        const label = (x, y, anchor, title, st, peak) =>
+            `<g font-size="11.5" fill="${peak ? red : '#333'}" font-weight="${peak ? 700 : 400}">
+               <text x="${x}" y="${y}" text-anchor="${anchor}">${title}</text>
+               <text x="${x}" y="${y + 14}" text-anchor="${anchor}">σx ${fmt(st.sx, 1)} · σy ${fmt(st.sy, 1)}</text></g>`;
+        const dot = (x, y, peak) => `<circle cx="${x}" cy="${y}" r="${peak ? 6 : 4.5}" fill="${red}" stroke="#fff" stroke-width="1.5"/>`
+            + (peak ? `<circle cx="${x}" cy="${y}" r="10" fill="none" stroke="${red}" stroke-width="1.5"/>` : '');
+        s += dot(cx + a, cy, res.peakAt === 'ends') + dot(cx - a, cy, false)
+           + dot(cx, cy - b, res.peakAt === 'sides') + dot(cx, cy + b, false);
+        s += label(cx + a + 10, cy + 22, 'start', 'End', res.ends, res.peakAt === 'ends');
+        s += label(cx + 12, cy - b - 24, 'start', 'Side', res.sides, res.peakAt === 'sides');
+        if (res.region) s += label(cx, cy + 32, 'middle', 'In region (skin)', res.region, res.peakAt === 'region');
+        // axes
+        s += `<g stroke="#888" stroke-width="1.2"><line x1="${Wd - 70}" y1="${Ht - 22}" x2="${Wd - 30}" y2="${Ht - 22}" marker-end="url(#ah)"/>
+               <line x1="${Wd - 70}" y1="${Ht - 22}" x2="${Wd - 70}" y2="${Ht - 62}" marker-end="url(#ah)"/></g>
+              <text x="${Wd - 24}" y="${Ht - 18}" font-size="12" fill="#666">x</text><text x="${Wd - 74}" y="${Ht - 68}" font-size="12" fill="#666">y</text>
+              <text x="12" y="${Ht - 12}" font-size="11" fill="#888">Plan view to scale · peak circled</text></svg>`;
+        document.getElementById('plan').innerHTML = s;
+    }
+
+    // ── verification tables ───────────────────────────────────────────────────
+    function buildVerification() {
+        let worst = 0;
+        const base = { sx0: 15, sy0: 0, ts: 0.040, Es: 10.5, Ed: 10.5, nu: 0.33 };
+        let h = `<thead><tr><th>Uniaxial doublers (Table A.3): L/W, Γ</th><th>K<sub>front</sub> tool</th><th>CF</th><th>FE ellipse</th>
+                 <th>FE rect.</th><th>K<sub>under</sub> tool</th><th>CF</th><th>FE ellipse</th></tr></thead><tbody>`;
+        for (const [LW, G, kf, kfe, kfr, ku, kue] of APPENDIX_A3) {
+            const r = computeInclusion({ ...base, tr: G * base.ts, L: LW, W: 1 });
+            worst = Math.max(worst, Math.abs(r.K.front - kf), Math.abs(r.K.under - ku));
+            h += `<tr><td>${LW.toFixed(1)}, ${G.toFixed(2)}</td><td class="num">${r.K.front.toFixed(3)}</td><td>${kf.toFixed(3)}</td>
+                  <td>${kfe.toFixed(3)}</td><td>${kfr.toFixed(3)}</td><td class="num">${r.K.under.toFixed(3)}</td>
+                  <td>${ku.toFixed(3)}</td><td>${kue.toFixed(3)}</td></tr>`;
+        }
+        document.getElementById('verif-a3').innerHTML = h + '</tbody>';
+        let worst4 = 0;
+        h = `<thead><tr><th>Biaxial and blend (Table A.4), ksi</th><th>Location</th><th>σ<sub>x</sub> tool</th><th>CF</th><th>FE</th>
+             <th>σ<sub>y</sub> tool</th><th>CF</th><th>FE</th></tr></thead><tbody>`;
+        for (const [label, tr, L, W, sy0, loc, sxcf, sxfe, sycf, syfe] of APPENDIX_A4) {
+            const r = computeInclusion({ ...base, sy0, tr, L, W });
+            const s = r[loc];
+            worst4 = Math.max(worst4, Math.abs(s.sx - sxcf), Math.abs(s.sy - sycf));
+            h += `<tr><td>${label}</td><td>${{ ends: 'Ends', sides: 'Sides', region: 'In region' }[loc]}</td>
+                  <td class="num">${s.sx.toFixed(2)}</td><td>${sxcf.toFixed(2)}</td><td>${sxfe.toFixed(2)}</td>
+                  <td class="num">${s.sy.toFixed(2)}</td><td>${sycf.toFixed(2)}</td><td>${syfe.toFixed(2)}</td></tr>`;
+        }
+        document.getElementById('verif-a4').innerHTML = h + '</tbody>';
+        const ok = worst <= 0.0015 && worst4 <= 0.015;
+        document.getElementById('verif-summary').innerHTML = (ok ? '<span class="ok">✓</span> ' : '<span class="warn">⚠</span> ')
+            + `Largest difference from the appendix closed form: ${worst.toFixed(4)} in K (Table A.3), `
+            + `${worst4.toFixed(3)} ksi (Table A.4) — rounding of the published values.`;
+    }
+
+    // ── save / open / reset / print ──────────────────────────────────────────
+    document.getElementById('save-btn').addEventListener('click', () => {
+        const blob = new Blob([JSON.stringify({ tool: 'SCT-030', version: 1, inputs: readInputs() }, null, 2)],
+                              { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'doubler-blend-skin-stress.json';
+        a.click();
+        URL.revokeObjectURL(a.href);
+    });
+    document.getElementById('open-btn').addEventListener('click', () => document.getElementById('file-uploader').click());
+    document.getElementById('file-uploader').addEventListener('change', (e) => {
+        const f = e.target.files[0];
+        if (!f) return;
+        const rd = new FileReader();
+        rd.onload = () => {
+            try {
+                const d = JSON.parse(rd.result);
+                setInputs(d.inputs || d);
+            } catch (err) {
+                document.getElementById('msg').textContent = 'Could not read that file: ' + err.message;
+            }
+        };
+        rd.readAsText(f);
+        e.target.value = '';
+    });
+    document.getElementById('reset-btn').addEventListener('click', () => setInputs(null));
+    document.getElementById('print-btn').addEventListener('click', () => {
+        document.querySelectorAll('details').forEach(d => d.open = true);
+        window.print();
+    });
+
+    buildInputs();
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem('sct027-inputs') || 'null'); } catch (e) { /* none */ }
+    setInputs(saved);
+    buildVerification();
+    </script>
+</body>
+
+</html>
